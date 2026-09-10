@@ -7,11 +7,9 @@ import {
   type UpgradeGateParams,
 } from '../upgradeGate';
 import { BoardStatus } from '../../providers/types';
-import type { RepoInfo } from '../../github/githubApi';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
 const CURRENT_HASH = 'deadbeef1234';
 const STORED_HASH = 'oldcafe5678';
 const BRANCH = `adw-upgrade-${CURRENT_HASH}`;
@@ -24,7 +22,6 @@ function makeParams(overrides: Partial<UpgradeGateParams> = {}): UpgradeGatePara
     worktreePath: '/tmp/workspace',
     defaultBranch: 'main',
     frameworkRepoRoot: '/tmp/framework',
-    repoInfo: REPO_INFO,
     targetRepoArgs: ['--target-repo', 'acme/myrepo'],
     ...overrides,
   };
@@ -149,7 +146,7 @@ describe('runUpgradeGate — winner path', () => {
 
   it('applies adw:upgrade label to the new issue', async () => {
     await runUpgradeGate(makeParams(), deps);
-    expect(deps.applyLabel).toHaveBeenCalledWith(UPG_NUMBER, 'adw:upgrade', REPO_INFO);
+    expect(deps.applyLabel).toHaveBeenCalledWith(UPG_NUMBER, 'adw:upgrade');
   });
 
   it('spawns the upgrade orchestrator', async () => {

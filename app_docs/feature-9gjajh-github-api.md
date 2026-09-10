@@ -1,59 +1,45 @@
-# GitHub API
+# Forge Helpers (formerly the GitHub API layer)
 
 ## Overview
 
-This module provides all GitHub API interactions used by ADW: a thin wrapper around `gh` CLI commands, GitHub App JWT authentication, issue and PR CRUD operations, workflow comment routing, and label lifecycle management. It is the sole interface between ADW's orchestrators and the GitHub platform.
+Through #820 this module documented `adws/github/`, a legacy free-function GitHub API layer (`gh` CLI wrapping, issue/PR CRUD, workflow comments, label lifecycle). **#821 deleted the bulk of that layer, and #823 deleted the rest — `adws/github/` no longer exists at all.** Every op it used to provide now routes through the forge provider ports (`IssueTracker`/`CodeHost`, `adws/providers/types.ts`) reached via a `LaunchBoundary` — see `app_docs/feature-9gjajh-providers.md` for the port definitions and the GitHub adapter that implements them.
+
+This module now documents:
+
+**`adws/forge/`** — a directory of ADW-application helpers built ON TOP of the forge provider ports: comment formatting, HITL Slack notification, issue-link detection, linked-PR detection, PR-review-comment detection, and adw:* label provisioning. Nothing here constructs a `GitContext` or a provider — every helper takes a port, a `LaunchBoundary`, or a `GitContext` the caller already holds. This is ADW-specific application code, not forge-neutral library code (contrast with `adws/providers/github/`, which *is* the forge adapter).
+
+`adws/github/`'s two former survivors are gone: `gitContextFactory.ts` (`gitContextFor`/`gitContextForSync`/`gitContextForRepo`, the boundary-free `GitContext` factories) was deleted in #823, replaced by the launch boundary constructing its one `GitContext` directly and `forgeProviders()` assembling providers over it; `readLocalRepoInfo` — the permanently-allowlisted bootstrap git-remote read it used to re-export — lives in `adws/providers/github/githubIdentity.ts`. `githubAppAuth.ts` (the `adws/github/` re-export shim) is gone too; the real implementation, including the `process.env.GITHUB_APP_*` reads, has lived in `adws/core/githubAppAuth.ts` since #820.
 
 ## Responsibilities
 
-- `getRepoInfo`: parses `owner/repo` from the local git remote URL (HTTPS or SSH).
-- `getRepoInfoFromUrl` / `getRepoInfoFromPayload`: parse `owner/repo` from a URL or `owner/repo` string.
-- `getAuthenticatedUser`: returns the currently authenticated GitHub username via `gh api user`; result is cached for the process lifetime.
-- `activateGitHubAppAuth`: generates a GitHub App installation token and sets `GH_TOKEN` + git identity env vars; returns false when the app is not configured.
-- `ensureAppAuthForRepo`: checks whether the active `GH_TOKEN` targets the given repo and refreshes it if not; used by the webhook handler where each request may target a different repo.
-- `refreshTokenIfNeeded`: refreshes the installation token when it is within 5 minutes of expiry; no-op when the app is not configured.
-- `getInstallationToken`: returns a valid installation token for a repo, fetching and caching a new one when the cached token is near expiry.
-- `fetchGitHubIssue`: fetches a full issue via `gh issue view --json`; maps the raw response to the `GitHubIssue` type.
-- `commentOnIssue` / `deleteIssueComment`: post and delete issue comments.
-- `fetchIssueCommentsRest`: fetches all issue comments via the REST API with numeric IDs.
-- `issueHasLabel` / `addIssueLabel`: check and apply labels to issues; `issueHasLabel` fails open (returns false on error).
-- `createIssue` / `updateIssueBody` / `closeIssue`: create, update, and close issues.
-- `findOpenUpgradeIssue`: returns the number of the first open `adw:upgrade`-labeled issue, or null.
-- `getIssueState` / `getIssueTitleSync`: read issue state and title synchronously.
-- `fetchPRDetails`: fetches PR metadata; extracts `issueNumber` from the PR body (`Implements #N`) or falls back to the branch name pattern.
-- `fetchPRReviewComments` / `fetchPRReviews`: fetch line-level and review-body comments for a PR.
-- `commentOnPR`: posts a comment on a PR.
-- `mergePR`: merges a PR with a merge-commit strategy.
-- `approvePR`: approves a PR; when a GitHub App is active, temporarily swaps `GH_TOKEN` to `GITHUB_PAT` so the approval comes from a personal account (GitHub forbids self-approval).
-- `fetchPRApprovalState`: checks approval using `reviewDecision`; falls back to per-reviewer-latest aggregation (`isApprovedFromReviewsList`) when `reviewDecision` is null or empty.
-- `fetchPRList`: fetches open PRs for cron polling.
-- `selectPreferredPR`: picks the most-recently-updated open PR for a branch, or the most-recently-updated PR overall when none are open.
-- `readAdwLabelNames` / `readAdwLabels`: pure functions that interpret a list of label names into an `AdwLabelReading` with `optOut`, `classification`, and `conflict` fields.
-- `ensureAdwLabelsExist`: idempotently creates all seven `adw:*` labels on a repo using `--force`.
-- `applyLabel`: adds a label to an issue; on "not found" errors, lazy-creates the label and retries once.
-- `workflowComments`: re-exports comment parsing (ADW signature detection, stage extraction, recovery-state detection) and comment-posting functions for both issues and PRs.
-- `moveIssueToStatus`: moves an issue to a named Projects V2 column; for Review transitions, `await`s `notifyReviewTransition` before returning so the Slack POST settles before the orchestrator process can exit.
-- `notifyReviewTransition` (`hitlBoardNotifier`): reads the linked PR URL and posts a `:eyes: HITL issue #N → In Review. Approve to merge: <url>` Slack message; no-throw at its boundary (`postSlack` swallows all HTTP/network errors).
+**`adws/forge/` — ADW-application helpers**
+
+- `issueLinkMarker.ts` — `issueLinkPattern(issueNumber)` / `bodyLinksIssue(body, issueNumber)`: the canonical `Closes`/`Implements #N` PR-body match (optional `owner/repo` qualifier, digit-boundary guard so `#1` never matches inside `#12`). The single source of truth consumed by `hitlBoardNotifier.findReviewPr`, `linkedPrDetector.hasLinkedMergedOrClosedPR`, and `perIssueScenarioSweep`.
+- `linkedPrDetector.ts` — `LinkedPRRef` (`number`, `body`, `state`, `mergedAt`); `hasLinkedMergedOrClosedPR(issueNumber, prs)` — true when a PR links the issue and is merged (`mergedAt != null`) or `CLOSED`; `fetchLinkedPRs(codeHost: Pick<CodeHost, 'listPullRequests'>)` — calls `codeHost.listPullRequests()` (every PR of the repo — open/closed/merged) and returns `[]` (logged) on any throw, so callers degrade gracefully.
+- `hitlBoardNotifier.ts` — `notifyReviewTransition(args, deps)` / `notifyBlockedTransition(args, deps)`: no-throw-at-boundary Slack notifications for HITL issues transitioning to Review or Blocked. Both take a **required** `NotifierDeps` (`readIssue`, `listOpenPRs`) — no more optional/defaulted internal readers. `buildNotifierDeps(ctx: GitContext, repoId: RepoIdentifier): NotifierDeps` builds the one production reader set over `createGhRepoApi(ctx)` — a bound view of a context the caller already holds, never a construction. It lives here and is consumed by `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (#823; formerly `adws/providers/repoContext.ts`'s `adwGitHubIssueTrackerDeps`).
+- `prCommentDetector.ts` — `buildUnaddressedCommentReads(boundary: Pick<LaunchBoundary, 'providers' | 'gitContext'>)` builds the four injected reads (`fetchPullRequest`, `fetchReviewComments`, `getAuthenticatedUser`, `lastAdwCommitTimestamp`) `adws/core/unaddressedComments.ts`'s `readUnaddressedComments` needs, bound to `boundary.providers.codeHost`/`boundary.gitContext`; `hasUnaddressedComments(prNumber, boundary)` is the boolean face. Shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`'s PR-review-comment poll.
+- `workflowCommentsBase.ts` — `isAdwRunningForIssue(issueNumber, tracker: Pick<IssueTracker, 'fetchIssue'>)`: reads the issue's comments via the tracker, finds the latest workflow-stage comment, and — for a non-terminal latest stage — verifies the orchestrator process is actually alive via `AgentStateManager.isAgentProcessRunning`.
+- `workflowCommentsIssue.ts` — `WorkflowContext`, `formatWorkflowComment(stage, ctx)`, `formatCostSection(ctx)`, `formatHumanGatedComment(adwId, attempts, max)`: the full per-stage issue comment formatter set (starting, classified, branch_created, plan_*, build_*, pr_*, completed, error, discarded, review_*, paused/resumed, phase_timeout, unverified, stack_incoherent, …). Verbatim relocation from `adws/github/`.
+- `workflowCommentsPR.ts` — `PRReviewWorkflowContext extends WorkflowContext`, `formatPRReviewWorkflowComment(stage, ctx)`: the PR-review-cycle comment formatter set (pr_review_starting/planning/planned/implementing/…/completed/error). Verbatim relocation.
+- `proofCommentFormatter.ts` — pure markdown composer (`formatReviewProofComment`, `formatProofTable`, `formatVerificationSection`, `formatNonBlockerSection`/`formatBlockerSection`, `formatScenarioOutputSection`) that turns structured `ScenarioProofResult`/`ReviewIssue` data into the rich review-proof comment body; no side effects, caller appends the ADW footer. Verbatim relocation.
+- `adwLabelProvisioning.ts` — `ensureAdwLabelsExist(repoInfo, tracker: Pick<IssueTracker, 'ensureLabel'>, logger?)`: idempotently ensures all six `adw:*` labels exist on the target repo; one label's failure does not abort provisioning of the rest. The one piece of label-*provisioning* policy kept from the deleted `labelManager.ts` — the pure label *vocabulary* it provisions from (`ADW_LABEL_DEFINITIONS`) lives in `adws/core/adwLabels.ts` (`app_docs/feature-9gjajh-classifier-and-routing.md`).
 
 ## Contracts & Invariants
 
-- `activateGitHubAppAuth` sets `process.env.GH_TOKEN` globally; all subsequent `gh` CLI invocations in the process use the app identity until `ensureAppAuthForRepo` switches it.
-- Installation tokens are cached per `owner/repo`; the REFRESH_BUFFER_MS (5 min) ensures tokens are renewed before GitHub rejects them.
-- `approvePR` restores the original `GH_TOKEN` in its `finally` block regardless of success or failure.
-- `fetchPRApprovalState` treats an empty string `reviewDecision` the same as null (GitHub CLI returns `""` on repos without branch protection).
-- `issueHasLabel` is fail-open — it returns `false` on any error so that auto-merge proceeds normally when the label check cannot complete.
-- `readAdwLabelNames` is pure: same inputs always produce the same `AdwLabelReading`.
-- `ADW_CLASSIFICATION_LABELS` maps the four classification label names to their slash-command counterparts; `ADW_NONE_LABEL` (`adw:none`) signals opt-out.
-
-## Configuration
-
-GitHub App authentication requires `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY_PATH` env vars. `GITHUB_PAT` is required alongside app configuration for `approvePR`. When these vars are absent, `isGitHubAppConfigured()` returns false and `activateGitHubAppAuth` is a no-op.
+- `bodyLinksIssue`/`issueLinkPattern` is the single source of truth for the `Closes`/`Implements #N` match across all three consumers named above — the keyword set, the optional `owner/repo` qualifier, and the digit-boundary guard can never drift between call sites again.
+- `fetchLinkedPRs` and `hasLinkedMergedOrClosedPR` are split: the former is the only one that touches the forge (via `CodeHost.listPullRequests()`, fail-soft to `[]`); the latter is pure and takes the already-fetched `LinkedPRRef[]`.
+- `notifyReviewTransition`/`notifyBlockedTransition` never throw — both wrap their body in try/catch and log a `warn` on failure; `postSlack` itself swallows HTTP/network errors, so a Slack outage never breaks the calling workflow.
+- `buildUnaddressedCommentReads`/`hasUnaddressedComments` do not themselves implement the comment-filtering policy — they only bind reads to a boundary; the actual bot/self/ADW-signed filtering logic lives in `adws/core/unaddressedComments.ts`'s `readUnaddressedComments` (`app_docs/feature-9gjajh-pr-and-merge-phases.md`).
+- `isAdwRunningForIssue` is fail-closed on an unparseable latest stage comment (no adwId extractable): it conservatively assumes the workflow is still running rather than risking a duplicate spawn.
+- `ensureAdwLabelsExist` never aborts on a single label's create failure — it logs a `warn` per failed label and reports `${succeeded}/${ADW_LABEL_DEFINITIONS.length}` at the end.
+- `adws/core/githubAppAuth.ts` contains all the logic of the former `adws/github/githubAppAuth.ts` shim — treat any documentation or reasoning about `GITHUB_APP_*` env reading, token minting, or expiry caching as belonging there (`app_docs/feature-oqb76h-gitcontext-base-path-authority.md`), not this file.
 
 ## Gotchas
 
-- `activeRepo` is a module-level singleton; in the webhook server (which handles multiple repos concurrently), `ensureAppAuthForRepo` must be called per-request before any `gh` call — otherwise a prior request's token may be in effect.
-- `selectPreferredPR` prefers OPEN PRs to prevent a closed/merged PR from blocking the active open one on the same branch (issue #508).
-- `getAuthenticatedUser` caches `null` on failure rather than retrying; a failed lookup at startup persists for the process lifetime.
-- `workflowComments` is a barrel re-export; some symbols come from `core/workflowCommentParsing` (platform-agnostic) and some from GitHub-specific sub-modules.
-- `hasWontFixLabel` in `prApi` normalizes label names (lowercase, strip punctuation) for matching, so `wontfix`, `Won't fix`, and `wont-fix` all match.
-- `moveIssueToStatus` switches `GH_TOKEN` to `GITHUB_PAT` inside a `try/finally` for Projects V2 mutations (requires `project` scope). The `await notifyReviewTransition(...)` call runs inside the `try` block, so the notifier's two `gh` reads execute under the PAT — harmless because the PAT carries `repo` read scope, but callers should be aware the token differs from the ambient identity during this window.
+- **The old free-function layer is gone, not renamed.** `getRepoInfo`, `fetchGitHubIssue`, the free-function `commentOnIssue` (the `IssueTracker.commentOnIssue` *port method* still exists and is unrelated), `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts` (as a live module), `activateGitHubAppAuth`, and `activeRepo` no longer exist anywhere in the tree. `getRepoInfo` survives only as a *name* in `adws/guard/identityRule.ts`'s `CWD_DERIVED_IDENTITY_FNS` set — a reintroduction guard, not a live function (see `app_docs/feature-oqb76h-gitcontext-base-path-authority.md`).
+- **`adws/github/` itself is gone.** `gitContextFactory.ts` (`gitContextFor`/`gitContextForSync`/`gitContextForRepo`) and the `githubAppAuth.ts` re-export shim — the last two files in the directory — were deleted in #823 along with `adws/providers/repoContext.ts`, the last file that still constructed a `GitContext` through them. `readLocalRepoInfo` now lives in `adws/providers/github/githubIdentity.ts`.
+- `adws/guard/constructionRule.ts`'s `SANCTIONED_CONSTRUCTION_SITES` transitional allowlist shrank from 26 to 17 entries in #821: the eight deleted `adws/github/*` sites and `adws/triggers/autoMergeHandler.ts` were removed outright (not migrated) because the files either no longer exist or no longer construct anything. #822 then retired all 16 remaining non-package call sites — the worktree-owning phases, `orchestratorLib`, `healthCheck`, `worktreeOperations`, and the five trigger files listed below — taking the transitional half from 17 down to 1 (`adws/github/gitContextFactory.ts`, `owner: '#823'`). #823 deleted that file too, taking the transitional half to zero: the allowlist is now exactly two PERMANENT entries (`adws/core/launchGitContext.ts`, `adws/providers/forgeProviders.ts`) and nothing may ever be added to it again.
+- The five trigger files that used to call `gitContextFor`/`gitContextForSync`/`gitContextForRepo` directly now read the launch boundary's own `GitContext` instead (#822): `takeoverHandler.ts`, `cancelHandler.ts`, `devServerJanitor.ts` (one `buildLaunchBoundary` per repo, since its sweep spans many repos), `trigger_webhook.ts`'s `/health` probe (`selfHostBoundary()?.gitContext`), and `webhookHandlers.ts`. There is no longer a construction site left for the guard to track here.
+- `adws/forge/` helpers are deliberately not extractable library code — the module docblock in `issueLinkMarker.ts` says so explicitly: this is ADW application logic built on top of the forge ports, not part of the forge-neutral `adws/gitContext`/`adws/providers` extraction surface.
+- `hitlBoardNotifier.ts`'s `buildNotifierDeps` is consumed from two places: `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (wired to `onStatusMoved` for the HITL Slack ping on a move to `BoardStatus.Review`) and any direct caller building its own `NotifierDeps`. Both go through the same `createGhRepoApi(ctx)` bound view — never a fresh construction.
+- The digit-boundary guard in `issueLinkPattern` is a trailing negative lookahead (`(?!\d)`), so `Closes #1` does not falsely match inside a PR body that also says `Closes #12` — verified by reading the regex directly, not assumed from prior prose.

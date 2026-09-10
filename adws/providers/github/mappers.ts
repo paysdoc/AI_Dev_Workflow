@@ -4,10 +4,9 @@
  * All functions are pure — no side effects, no imports of global state.
  */
 
-import type { GitHubIssue, GitHubComment, IssueCommentSummary } from '../../types/issueTypes';
-import type { PRDetails, PRReviewComment, PRListItem } from '../../types/workflowTypes';
-import type { Issue, IssueComment, PullRequest, ReviewComment, RepoIdentifier } from '../types';
-import type { RepoInfo } from '../../github/githubApi';
+import type { GitHubIssue, GitHubComment, IssueCommentSummary } from './domain/issue';
+import type { PRDetails, PRReviewComment, PRListItem, RawPR } from './domain/pullRequest';
+import type { Issue, IssueComment, PullRequest, PullRequestSummary, ReviewComment } from '../types';
 
 // ── IssueTracker mappers ──────────────────────────────────────────────
 
@@ -51,13 +50,6 @@ export function mapIssueCommentSummaryToIssueComment(comment: IssueCommentSummar
   };
 }
 
-/**
- * Converts a provider RepoIdentifier to the RepoInfo format used by existing GitHub API functions.
- */
-export function toRepoInfo(repoId: RepoIdentifier): RepoInfo {
-  return { owner: repoId.owner, repo: repoId.repo };
-}
-
 // ── CodeHost mappers ──────────────────────────────────────────────────
 
 /**
@@ -72,6 +64,7 @@ export function mapPRDetailsToPullRequest(pr: PRDetails): PullRequest {
     targetBranch: pr.baseBranch,
     url: pr.url,
     linkedIssueNumber: pr.issueNumber ?? undefined,
+    state: pr.state,
   };
 }
 
@@ -86,12 +79,14 @@ export function mapPRReviewCommentToReviewComment(comment: PRReviewComment): Rev
     createdAt: comment.createdAt,
     path: comment.path || undefined,
     line: comment.line ?? undefined,
+    isBot: comment.author.isBot,
   };
 }
 
 /**
  * Maps a GitHub PRListItem to a platform-agnostic PullRequest.
  * PRListItem carries only number and headBranch, so remaining fields are empty strings.
+ * The listing op returns open PRs only, so `state` is always `'OPEN'`.
  */
 export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
   return {
@@ -101,5 +96,20 @@ export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
     sourceBranch: item.headBranch,
     targetBranch: '',
     url: '',
+    state: 'OPEN',
+  };
+}
+
+/**
+ * Maps a RawPR (from `defaultFindPRByBranch`) to a platform-agnostic PullRequestSummary.
+ * Flattens `labels?: {name}[]` to `string[]`, defaulting a missing field to `[]`.
+ */
+export function mapRawPRToSummary(pr: RawPR): PullRequestSummary {
+  return {
+    number: pr.number,
+    state: pr.state,
+    sourceBranch: pr.headRefName,
+    targetBranch: pr.baseRefName,
+    labels: (pr.labels ?? []).map((l) => l.name),
   };
 }

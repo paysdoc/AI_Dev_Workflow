@@ -90,7 +90,7 @@ export async function runScenarioTestFixLoop(
             logsDir,
             fidelityStatePath,
             worktreePath,
-            { selfHost: !repoContext, adwId },
+            { selfHost: !repoContext, adwId, gitContext: config.gitContext },
           );
           tracker.accumulate({ costUsd: fidelityResult.totalCostUsd ?? 0, modelUsage: {} });
           postResolveAligned = fidelityResult.fidelityResult.aligned;

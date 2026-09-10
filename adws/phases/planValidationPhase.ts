@@ -44,7 +44,7 @@ export async function executePlanValidationPhase(
     repoContext,
     ctx,
   } = config;
-  const launchContext = { selfHost: !repoContext, adwId };
+  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.gitContext };
 
   if (!shouldExecuteStage('plan_validating', recoveryState)) {
     log('Skipping plan validation phase (already completed in previous run)', 'info');

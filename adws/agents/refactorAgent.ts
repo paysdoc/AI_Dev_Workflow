@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
+import { runClaudeAgentWithCommand, type AgentResult, type AgentLaunchContext } from './claudeAgent';
 import type { ReviewIssue } from './reviewAgent';
 
 /**
@@ -23,7 +23,7 @@ export async function runRefactorAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const args = [adwId, refactorBlocker.issueDescription];
   const outputFile = path.join(logsDir, 'refactor-agent.jsonl');

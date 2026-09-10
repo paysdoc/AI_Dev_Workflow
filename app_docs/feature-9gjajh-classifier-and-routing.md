@@ -6,7 +6,9 @@ This module classifies GitHub issues into ADW workflow types and routes them to 
 
 ## Responsibilities
 
-- Classifies issues via the `/classify_issue` AI skill (`classifyIssueForTrigger`, `classifyGitHubIssue`)
+- Classifies issues via the `/classify_issue` AI skill (`classifyIssueForTrigger`, `classifyGitHubIssue`). Since #820, `classifyIssueForTrigger(issueNumber, deps)` takes a required, port-shaped `deps.fetchIssue: (issueNumber) => Promise<ClassifiableIssue>` (`ClassifiableIssue` = `Pick<Issue, 'number'|'title'|'body'|'labels'|'comments'>`, forge-neutral string labels) — no `repoInfo` parameter and no legacy default; the trigger caller (`webhookGatekeeper.ts`) supplies its own legacy-backed `fetchIssue` closure until #821 replaces it with a boundary tracker
+- `adws/core/adwLabels.ts` (#820, moved from the now-deleted `adws/github/labelManager.ts`) holds the pure ADW label vocabulary the adw:* override reads: `ADW_*_LABEL` constants, `ADW_LABEL_DEFINITIONS`, `readAdwLabelNames`/`readAdwLabels`, `scenarioAuthoringSkipReason`, `shouldSkipScenarioAuthoring`, `hasRegressionPromotionLabel`, `hasWontFixLabelName`, `resolveAdwLabelDefinition`, `issueTypeToAdwLabel` — no I/O, no forge operation. `labelManager.ts` and `prApi.ts` are gone outright (#821, no re-export shim) — every caller (e.g. `adws/triggers/issueOpenedRouter.ts`, `adws/forge/adwLabelProvisioning.ts`) imports `adws/core/adwLabels.ts` directly
+- `scenarioAuthoringSkipReason(labels)` returns which label (`regression-promotion` or `adw:none`) makes scenario authoring skip for an issue, or `null` when authoring should run; `shouldSkipScenarioAuthoring(labels)` is its boolean face. Both are pure reads of labels the caller already holds — no forge call. Consumed by `alignmentPhase.ts` and `scenarioPhase.ts` (`app_docs/feature-9gjajh-build-and-plan-phases.md` / `feature-9gjajh-test-and-scenario-phases.md`)
 - Enforces deterministic `adw:*` label overrides before falling through to AI classification
 - Scans existing issue comments for a previously-assigned ADW ID on retry paths
 - Maps every slash command to a Claude model tier (opus / sonnet / haiku) and reasoning effort level

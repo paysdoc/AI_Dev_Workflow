@@ -11,17 +11,17 @@ import { execSync, spawn } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT, parseTargetRepoArgs } from '../core';
+import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT, parseTargetRepoArgs, buildLaunchBoundary, type WorkflowStage } from '../core';
 import {
   readPauseQueue,
   removeFromPauseQueue,
   updatePauseQueueEntry,
   type PausedWorkflow,
 } from '../core/pauseQueue';
-import { getRepoInfo, type RepoInfo } from '../github';
+import { readLocalRepoInfo } from '../providers/github/githubIdentity';
+import { Platform, type RepoIdentifier } from '../providers/types';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
-import { createRepoContext } from '../providers/repoContext';
-import { Platform } from '../providers/types';
+import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 import { AgentStateManager } from '../core/agentState';
 
@@ -49,12 +49,38 @@ function containsRateLimitText(text: string): boolean {
  * resume path from pinning the process-global GH_TOKEN to the cron host's own repo
  * (issue #565).
  */
-export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoInfo {
+export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoIdentifier {
   const targetRepo = parseTargetRepoArgs([...(entry.extraArgs ?? [])]);
   if (targetRepo) {
-    return { owner: targetRepo.owner, repo: targetRepo.repo };
+    return { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub };
   }
-  return getRepoInfo();
+  return readLocalRepoInfo();
+}
+
+/** Builds a launch boundary for the paused entry's own repo — the same `--target-repo` resolution as `resolveEntryRepoInfo`. */
+function resolveEntryBoundary(entry: PausedWorkflow) {
+  return buildLaunchBoundary(parseTargetRepoArgs([...(entry.extraArgs ?? [])]));
+}
+
+/**
+ * Posts a best-effort stage comment for a paused-queue entry through a
+ * boundary built for the ENTRY's own repo — never the cron host's cwd.
+ *
+ * Fixes a latent wrong-repo bug: the previous `createRepoContext({ cwd:
+ * process.cwd() })` compared the cron host's OWN git remote against the
+ * paused entry's repo via `validateGitRemote`, so for any `--target-repo`
+ * entry it threw and the surrounding catch silently dropped the "worktree
+ * gone" / "claim diverged" / "probe failures" error comments. Building the
+ * boundary from the entry's own `--target-repo` args (as `resolveEntryRepoInfo`
+ * already does for the spawn/lock flow) fixes that.
+ */
+function postEntryStageComment(entry: PausedWorkflow, stage: WorkflowStage, ctx: WorkflowContext): void {
+  try {
+    const boundary = resolveEntryBoundary(entry);
+    postIssueStageComment(boundary.providers, entry.issueNumber, stage, ctx);
+  } catch (err) {
+    log(`Failed to post ${stage} comment for issue #${entry.issueNumber}: ${err}`, 'warn');
+  }
 }
 
 /**
@@ -120,19 +146,11 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     log(`Paused workflow ${entry.adwId}: worktree gone at ${entry.worktreePath} — removing from queue`, 'warn');
     removeFromPauseQueue(entry.adwId);
 
-    try {
-      const repoContext = createRepoContext({
-        repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
-        cwd: process.cwd(),
-      });
-      postIssueStageComment(repoContext, entry.issueNumber, 'error', {
-        issueNumber: entry.issueNumber,
-        adwId: entry.adwId,
-        errorMessage: `Workflow paused at '${entry.pausedAtPhase}' but worktree no longer exists. Manual restart required.`,
-      });
-    } catch {
-      // Non-fatal
-    }
+    postEntryStageComment(entry, 'error', {
+      issueNumber: entry.issueNumber,
+      adwId: entry.adwId,
+      errorMessage: `Workflow paused at '${entry.pausedAtPhase}' but worktree no longer exists. Manual restart required.`,
+    });
     return;
   }
 
@@ -156,19 +174,11 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     );
     releaseIssueSpawnLock(repoInfo, entry.issueNumber);
     removeFromPauseQueue(entry.adwId);
-    try {
-      const repoContext = createRepoContext({
-        repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
-        cwd: process.cwd(),
-      });
-      postIssueStageComment(repoContext, entry.issueNumber, 'error', {
-        issueNumber: entry.issueNumber,
-        adwId: entry.adwId,
-        errorMessage: `Workflow paused at '${entry.pausedAtPhase}' could not resume: canonical claim diverged (expected adwId=${entry.adwId}, observed=${observed ?? 'missing state file'}). Manual inspection required.`,
-      });
-    } catch {
-      // Non-fatal — mirror the worktree-gone branch's error-comment best-effort pattern
-    }
+    postEntryStageComment(entry, 'error', {
+      issueNumber: entry.issueNumber,
+      adwId: entry.adwId,
+      errorMessage: `Workflow paused at '${entry.pausedAtPhase}' could not resume: canonical claim diverged (expected adwId=${entry.adwId}, observed=${observed ?? 'missing state file'}). Manual inspection required.`,
+    });
     return;
   }
 
@@ -210,19 +220,11 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
       log(`Resumed workflow ${entry.adwId} (pid ${child.pid})`, 'success');
 
       // Post resumed comment
-      try {
-        const repoContext = createRepoContext({
-          repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
-          cwd: entry.worktreePath,
-        });
-        postIssueStageComment(repoContext, entry.issueNumber, 'resumed', {
-          issueNumber: entry.issueNumber,
-          adwId: entry.adwId,
-          pausedAtPhase: entry.pausedAtPhase,
-        });
-      } catch (err) {
-        log(`Failed to post resumed comment for issue #${entry.issueNumber}: ${err}`, 'warn');
-      }
+      postEntryStageComment(entry, 'resumed', {
+        issueNumber: entry.issueNumber,
+        adwId: entry.adwId,
+        pausedAtPhase: entry.pausedAtPhase,
+      });
     } catch (err) {
       // Child exited early or errored — keep entry in queue for next-cycle retry
       log(`Resume spawn failed for ${entry.adwId}: ${err}. See ${resumeLogPath}`, 'error');
@@ -266,20 +268,11 @@ export async function scanPauseQueue(cycleCount: number): Promise<void> {
       if (failures >= MAX_UNKNOWN_PROBE_FAILURES) {
         log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
         removeFromPauseQueue(entry.adwId);
-        try {
-          const repoInfo = resolveEntryRepoInfo(entry);
-          const repoContext = createRepoContext({
-            repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
-            cwd: process.cwd(),
-          });
-          postIssueStageComment(repoContext, entry.issueNumber, 'error', {
-            issueNumber: entry.issueNumber,
-            adwId: entry.adwId,
-            errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${MAX_UNKNOWN_PROBE_FAILURES} probe attempts. Manual restart required.`,
-          });
-        } catch {
-          // Non-fatal
-        }
+        postEntryStageComment(entry, 'error', {
+          issueNumber: entry.issueNumber,
+          adwId: entry.adwId,
+          errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${MAX_UNKNOWN_PROBE_FAILURES} probe attempts. Manual restart required.`,
+        });
       } else {
         updatePauseQueueEntry(entry.adwId, {
           probeFailures: failures,

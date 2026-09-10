@@ -14,8 +14,7 @@ import { AGENTS_STATE_DIR } from '../core/config';
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
 import { clearIssueComments } from '../adwClearComments';
-import { gitContextForSync } from '../github';
-import type { RepoInfo } from '../github/githubApi';
+import type { LaunchBoundary } from '../core';
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
@@ -33,7 +32,7 @@ export interface MutableProcessedSets {
  *
  * @param issueNumber - The GitHub issue number to cancel
  * @param comments - All comments on the issue (used to extract adwIds)
- * @param repoInfo - Repository identity for the GitHub API calls
+ * @param boundary - The launch boundary naming the repository and its providers
  * @param cwd - Working directory for worktree operations (undefined = local repo)
  * @param processedSets - Cron dedup sets to clean; omit on webhook path
  * @returns true on completion (errors are logged but do not throw)
@@ -41,7 +40,7 @@ export interface MutableProcessedSets {
 export function handleCancelDirective(
   issueNumber: number,
   comments: readonly { body: string }[],
-  repoInfo: RepoInfo,
+  boundary: LaunchBoundary,
   cwd?: string,
   processedSets?: MutableProcessedSets,
 ): boolean {
@@ -62,7 +61,9 @@ export function handleCancelDirective(
   // 3. Remove worktrees and local branches
   try {
     log(`Cancel #${issueNumber}: removing worktrees`);
-    gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: !cwd }).removeWorktreesForIssue(issueNumber);
+    // boundary.gitContext.selfHost (targetRepo === null) equals today's !cwd: cancelCwd is the
+    // target-repo workspace path when targetRepo is set, undefined otherwise (#822).
+    boundary.gitContext.removeWorktreesForIssue(issueNumber);
   } catch (error) {
     log(`Cancel #${issueNumber}: worktree removal error (continuing): ${error}`, 'warn');
   }
@@ -81,7 +82,7 @@ export function handleCancelDirective(
   // 5. Clear GitHub comments
   try {
     log(`Cancel #${issueNumber}: clearing GitHub comments`);
-    const result = clearIssueComments(issueNumber, repoInfo);
+    const result = clearIssueComments(issueNumber, boundary.providers.issueTracker);
     log(`Cancel #${issueNumber}: cleared ${result.deleted}/${result.total} comment(s)`);
   } catch (error) {
     log(`Cancel #${issueNumber}: comment clearing error (continuing): ${error}`, 'warn');

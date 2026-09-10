@@ -7,8 +7,8 @@
  */
 
 import { type WorkflowStage, type PRReviewWorkflowStage, log } from '../core';
-import { formatWorkflowComment, type WorkflowContext } from '../github/workflowCommentsIssue';
-import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../github/workflowCommentsPR';
+import { formatWorkflowComment, type WorkflowContext } from '../forge/workflowCommentsIssue';
+import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import type { RepoContext } from '../providers/types';
 
 /**
@@ -31,7 +31,7 @@ export function formatDenialNotice(count: number): string | null {
  *   (issue #762). Appended as a denial notice when greater than 0; omitted otherwise.
  */
 export function postIssueStageComment(
-  repoContext: RepoContext,
+  repoContext: Pick<RepoContext, 'issueTracker'>,
   issueNumber: number,
   stage: WorkflowStage,
   ctx: WorkflowContext,

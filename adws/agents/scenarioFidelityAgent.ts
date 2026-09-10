@@ -5,7 +5,7 @@
  * re-pointed to compare scenarios vs the issue body rather than plan vs scenarios.
  */
 
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJson } from '../core/jsonParser';
 import { log } from '../core/logger';
@@ -57,7 +57,7 @@ export async function runScenarioFidelityAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { fidelityResult: ValidationResult }> {
   log(`Running scenario fidelity agent for issue ${issueNumber}`, 'info');
 

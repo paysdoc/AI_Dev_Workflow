@@ -1,10 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { GitContext } from '../gitContext/gitContext';
 import {
   checkGitRepository,
   checkGitHubCLI,
   checkIssueNumber,
 } from '../healthCheckChecks';
+
+// checkGitHubCLI/checkIssueNumber call createGhRepoApi(ctx).<op>() — an
+// identity pass-through here so the fake ctx's own authenticatedUser/fetchIssue
+// answer exactly as they did before the adapter migration (#797).
+vi.mock('../providers/github/ghRepoApi', () => ({
+  createGhRepoApi: (ctx: unknown) => ctx,
+}));
 
 const ISSUE_JSON = JSON.stringify({
   number: 42,

@@ -9,6 +9,7 @@ import { runPatchAgent } from '../agents/patchAgent';
 import { runRefactorAgent } from '../agents/refactorAgent';
 import { runBuildAgent } from '../agents/buildAgent';
 import type { ReviewIssue } from '../agents/reviewAgent';
+import type { AgentLaunchContext } from '../agents/claudeAgent';
 import type { WorkflowConfig } from './workflowInit';
 
 export interface PatchCtx {
@@ -19,7 +20,7 @@ export interface PatchCtx {
   issue: WorkflowConfig['issue'];
   orchestratorStatePath: string;
   subprocessEnv?: NodeJS.ProcessEnv;
-  launchContext?: { selfHost: boolean; adwId: string };
+  launchContext?: AgentLaunchContext;
 }
 
 export interface RefactorCtx {
@@ -29,7 +30,7 @@ export interface RefactorCtx {
   issue: WorkflowConfig['issue'];
   orchestratorStatePath: string;
   subprocessEnv?: NodeJS.ProcessEnv;
-  launchContext?: { selfHost: boolean; adwId: string };
+  launchContext?: AgentLaunchContext;
 }
 
 export async function applyPatchBlocker(

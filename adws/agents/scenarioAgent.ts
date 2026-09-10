@@ -4,8 +4,8 @@
  */
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
-import type { GitHubIssue } from '../core';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 const scenarioAgentConfig: CommandAgentConfig<void> = {
@@ -32,7 +32,7 @@ export async function runScenarioAgent(
   cwd?: string,
   adwId?: string,
   contextPreamble?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
   const latestActionableContent = [...issue.comments]

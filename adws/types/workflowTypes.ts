@@ -1,5 +1,3 @@
-import type { GitHubUser } from './issueTypes';
-
 /**
  * Workflow stages for ADW progress tracking.
  */
@@ -74,44 +72,6 @@ export type WorkflowStage =
   // Agent watchdog timeout — phase marked failed; orchestrator exits. Recovered on the next
   // cron tick via reset-from-remote takeover (resume-in-place is a later slice).
   | 'phase_timeout';
-
-/**
- * PR review comment from GitHub API.
- */
-export interface PRReviewComment {
-  id: number;
-  author: GitHubUser;
-  body: string;
-  path: string;
-  line: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * PR details from GitHub API.
- */
-export interface PRDetails {
-  number: number;
-  title: string;
-  body: string;
-  state: string;
-  headBranch: string;
-  baseBranch: string;
-  url: string;
-  /** Extracted from PR body (e.g., "Implements #12") */
-  issueNumber: number | null;
-  reviewComments: PRReviewComment[];
-}
-
-/**
- * PR list item for CRON trigger polling.
- */
-export interface PRListItem {
-  number: number;
-  headBranch: string;
-  updatedAt: string;
-}
 
 /**
  * Workflow stages for PR review progress tracking.

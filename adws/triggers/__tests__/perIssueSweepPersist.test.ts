@@ -2,44 +2,51 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Module mocks (hoisted) ───────────────────────────────────────────────────
 
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForRepo: vi.fn(),
-}));
-
 vi.mock('../../core', () => ({
   log: vi.fn(),
-}));
-
-vi.mock('../../github', () => ({
-  getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-  mergePR: vi.fn(),
-  defaultFindPRByBranch: vi.fn(),
 }));
 
 // ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import {
   persistRemovalViaPr,
+  persistCommitViaPr,
   prepareSweepBase,
   cleanupSweepBase,
   SWEEP_BRANCH,
   SWEEP_COMMIT_MESSAGE,
+  PER_ISSUE_SWEEP_SPEC,
   type SweepBase,
+  type SweepPersistSpec,
 } from '../perIssueSweepPersist';
-import { gitContextForRepo } from '../../github/gitContextFactory';
-import { getRepoInfo, mergePR, defaultFindPRByBranch } from '../../github';
 import type { GitContext } from '../../gitContext';
+import type { LaunchBoundary } from '../../core';
+import type { CodeHost, RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 
 function makeFakeGitContext(overrides: Record<string, unknown> = {}): GitContext {
   return {
     owner: 'test-owner',
     repo: 'test-repo',
-    defaultBranch: vi.fn(() => 'dev'),
     removeWorktree: vi.fn(() => true),
     createWorktreeForNewBranch: vi.fn(() => '/repo/.worktrees/chore-scenario-sweep'),
-    createPR: vi.fn(() => 'https://github.com/test-owner/test-repo/pull/99'),
     ...overrides,
   } as unknown as GitContext;
+}
+
+function makeFakeCodeHost(overrides: Record<string, unknown> = {}): CodeHost {
+  return {
+    getDefaultBranch: vi.fn(() => 'dev'),
+    findPullRequestByBranch: vi.fn(() => null),
+    createPullRequest: vi.fn(() => ({ url: 'https://github.com/test-owner/test-repo/pull/99', number: 99 })),
+    mergePullRequest: vi.fn(() => ({ success: true })),
+    ...overrides,
+  } as unknown as CodeHost;
+}
+
+function makeFakeBoundary(gitContext: GitContext, codeHost: CodeHost = makeFakeCodeHost()): LaunchBoundary {
+  const repoId: RepoIdentifier = { owner: gitContext.owner, repo: gitContext.repo, platform: Platform.GitHub };
+  return { gitContext, repoId, providers: { issueTracker: {} as never, codeHost } } as LaunchBoundary;
 }
 
 function makeFakeBase(overrides: Partial<SweepBase> = {}): SweepBase {
@@ -48,12 +55,12 @@ function makeFakeBase(overrides: Partial<SweepBase> = {}): SweepBase {
       removeAndCommitPaths: vi.fn(() => true),
       pushBranch: vi.fn(),
     } as unknown as SweepBase['ctx'],
-    repoInfo: { owner: 'o', repo: 'r' },
+    codeHost: makeFakeCodeHost(),
     defaultBranch: 'dev',
     sweepBranch: SWEEP_BRANCH,
     worktreePath: '/tmp/worktree',
     findOpenSweepPr: vi.fn(() => null),
-    openPr: vi.fn(() => 'https://github.com/o/r/pull/42'),
+    openPr: vi.fn(() => 42),
     mergePr: vi.fn(() => ({ success: true })),
     log: vi.fn(),
     ...overrides,
@@ -115,8 +122,8 @@ describe('persistRemovalViaPr', () => {
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('stale info'), 'error');
   });
 
-  it('an unparseable PR URL is logged at error and does not attempt a merge', async () => {
-    const base = makeFakeBase({ openPr: vi.fn(() => '') });
+  it('a zero/falsy PR number is logged at error and does not attempt a merge', async () => {
+    const base = makeFakeBase({ openPr: vi.fn(() => 0) });
 
     await persistRemovalViaPr(['features/per-issue/feature-1.feature'], base);
 
@@ -152,15 +159,14 @@ describe('prepareSweepBase', () => {
     vi.clearAllMocks();
   });
 
-  it('resolves a SweepBase off a dedicated worktree created from the default branch, deriving repoInfo from the passed context (never getRepoInfo)', () => {
+  it('resolves a SweepBase off a dedicated worktree created from the code host\'s default branch', () => {
     const mockCtx = makeFakeGitContext();
+    const codeHost = makeFakeCodeHost({ getDefaultBranch: vi.fn(() => 'dev') });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
 
     expect(base).not.toBeNull();
-    expect(getRepoInfo).not.toHaveBeenCalled();
-    expect(gitContextForRepo).not.toHaveBeenCalled();
-    expect(base?.repoInfo).toEqual({ owner: 'test-owner', repo: 'test-repo' });
+    expect(codeHost.getDefaultBranch).toHaveBeenCalledTimes(1);
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith(SWEEP_BRANCH, 'dev');
     expect(base?.defaultBranch).toBe('dev');
     expect(base?.sweepBranch).toBe(SWEEP_BRANCH);
@@ -170,7 +176,7 @@ describe('prepareSweepBase', () => {
   it('best-effort cleans a stale prior sweep worktree before creating a fresh one', () => {
     const mockCtx = makeFakeGitContext();
 
-    prepareSweepBase(mockCtx);
+    prepareSweepBase(makeFakeBoundary(mockCtx));
 
     expect(mockCtx.removeWorktree).toHaveBeenCalledWith(SWEEP_BRANCH);
   });
@@ -178,7 +184,7 @@ describe('prepareSweepBase', () => {
   it('a throwing removeWorktree pre-clean does not abort base preparation', () => {
     const mockCtx = makeFakeGitContext({ removeWorktree: vi.fn(() => { throw new Error('nothing to remove'); }) });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx));
 
     expect(base).not.toBeNull();
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalled();
@@ -189,55 +195,147 @@ describe('prepareSweepBase', () => {
       createWorktreeForNewBranch: vi.fn(() => { throw new Error('git worktree add failed'); }),
     });
 
-    expect(prepareSweepBase(mockCtx)).toBeNull();
+    expect(prepareSweepBase(makeFakeBoundary(mockCtx))).toBeNull();
   });
 
-  it('findOpenSweepPr resolves an OPEN PR number via defaultFindPRByBranch', () => {
+  it('findOpenSweepPr resolves an OPEN PR number via codeHost.findPullRequestByBranch', () => {
     const mockCtx = makeFakeGitContext();
-    vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 12, state: 'OPEN', headRefName: SWEEP_BRANCH, baseRefName: 'dev' });
+    const codeHost = makeFakeCodeHost({
+      findPullRequestByBranch: vi.fn(() => ({ number: 12, state: 'OPEN', sourceBranch: SWEEP_BRANCH, targetBranch: 'dev', labels: [] })),
+    });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBe(12);
   });
 
   it('findOpenSweepPr returns null when the found PR is not open', () => {
     const mockCtx = makeFakeGitContext();
-    vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 12, state: 'MERGED', headRefName: SWEEP_BRANCH, baseRefName: 'dev' });
+    const codeHost = makeFakeCodeHost({
+      findPullRequestByBranch: vi.fn(() => ({ number: 12, state: 'MERGED', sourceBranch: SWEEP_BRANCH, targetBranch: 'dev', labels: [] })),
+    });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBeNull();
   });
 
   it('findOpenSweepPr returns null when no PR is found for the branch', () => {
     const mockCtx = makeFakeGitContext();
-    vi.mocked(defaultFindPRByBranch).mockReturnValue(null);
+    const codeHost = makeFakeCodeHost({ findPullRequestByBranch: vi.fn(() => null) });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBeNull();
   });
 
-  it('openPr delegates to ctx.createPR with the sweep head/base branches', () => {
+  it('openPr delegates to codeHost.createPullRequest with the sweep head/base branches and returns the PR number', () => {
     const mockCtx = makeFakeGitContext();
+    const codeHost = makeFakeCodeHost({
+      createPullRequest: vi.fn(() => ({ url: 'https://github.com/test-owner/test-repo/pull/99', number: 99 })),
+    });
 
-    const base = prepareSweepBase(mockCtx);
-    const url = base?.openPr(SWEEP_BRANCH, 'dev');
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
+    const prNumber = base?.openPr(SWEEP_BRANCH, 'dev');
 
-    expect(mockCtx.createPR).toHaveBeenCalledWith(expect.any(String), expect.any(String), SWEEP_BRANCH, 'dev');
-    expect(url).toBe('https://github.com/test-owner/test-repo/pull/99');
+    expect(codeHost.createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ sourceBranch: SWEEP_BRANCH, targetBranch: 'dev' }));
+    expect(prNumber).toBe(99);
   });
 
-  it('mergePr delegates to the repoInfo-scoped mergePR, using repoInfo derived from the passed context', () => {
+  it('mergePr delegates to codeHost.mergePullRequest', () => {
     const mockCtx = makeFakeGitContext({ owner: 'other-owner', repo: 'other-repo' });
-    vi.mocked(mergePR).mockReturnValue({ success: true });
+    const codeHost = makeFakeCodeHost({ mergePullRequest: vi.fn(() => ({ success: true })) });
 
-    const base = prepareSweepBase(mockCtx);
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost));
     const result = base?.mergePr(99);
 
-    expect(mergePR).toHaveBeenCalledWith(99, { owner: 'other-owner', repo: 'other-repo' });
+    expect(codeHost.mergePullRequest).toHaveBeenCalledWith(99);
     expect(result).toEqual({ success: true });
+  });
+});
+
+// ── persistCommitViaPr (#810 generalisation) ────────────────────────────────
+
+describe('persistCommitViaPr', () => {
+  it('skips when an open sweep PR already exists — commit is never invoked', async () => {
+    const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 7) });
+    const commit = vi.fn(() => true);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#7'), 'info');
+  });
+
+  it('no-op when commit(base) returns false — no push, no PR', async () => {
+    const base = makeFakeBase();
+    const commit = vi.fn(() => false);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(base.ctx.pushBranch).not.toHaveBeenCalled();
+    expect(base.openPr).not.toHaveBeenCalled();
+  });
+
+  it('happy path: invokes commit(base), pushes, opens a PR, and merges it', async () => {
+    const base = makeFakeBase();
+    const commit = vi.fn(() => true);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(commit).toHaveBeenCalledWith(base);
+    expect(base.ctx.pushBranch).toHaveBeenCalledWith(base.sweepBranch, base.worktreePath);
+    expect(base.mergePr).toHaveBeenCalledWith(42);
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#42'), 'success');
+  });
+
+  it('prefixes log lines with the given label', async () => {
+    const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 9) });
+
+    await persistCommitViaPr(() => true, base, 'docsIndexSweep');
+
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('docsIndexSweep:'), 'info');
+  });
+
+  it('a merge failure is logged at error, leaving the PR open', async () => {
+    const base = makeFakeBase({ mergePr: vi.fn(() => ({ success: false, error: 'required check pending' })) });
+
+    await persistCommitViaPr(() => true, base);
+
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('required check pending'), 'error');
+  });
+});
+
+// ── prepareSweepBase with a custom SweepPersistSpec (#810 generalisation) ──
+
+describe('prepareSweepBase — custom spec', () => {
+  it('uses the given spec\'s branch for worktree creation and PR title for openPr', () => {
+    const customSpec: SweepPersistSpec = {
+      branch: 'chore/docs-index-sweep',
+      prTitle: 'chore: docs-index sweep',
+      prBody: 'Automated docs-index repair.',
+    };
+    const mockCtx = makeFakeGitContext({ createWorktreeForNewBranch: vi.fn(() => '/repo/.worktrees/chore-docs-index-sweep') });
+    const codeHost = makeFakeCodeHost({ getDefaultBranch: vi.fn(() => 'dev') });
+
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost), customSpec);
+
+    expect(mockCtx.removeWorktree).toHaveBeenCalledWith('chore/docs-index-sweep');
+    expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith('chore/docs-index-sweep', 'dev');
+    expect(base?.sweepBranch).toBe('chore/docs-index-sweep');
+
+    base?.openPr('chore/docs-index-sweep', 'dev');
+    expect(codeHost.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'chore: docs-index sweep', body: 'Automated docs-index repair.' }),
+    );
+  });
+
+  it('defaults to PER_ISSUE_SWEEP_SPEC when no spec is given', () => {
+    const mockCtx = makeFakeGitContext();
+
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx));
+
+    expect(base?.sweepBranch).toBe(PER_ISSUE_SWEEP_SPEC.branch);
   });
 });
 

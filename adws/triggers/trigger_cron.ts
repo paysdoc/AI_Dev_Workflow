@@ -9,11 +9,15 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchGitContext, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
 import type { GitContext } from '../gitContext';
+import type { LaunchBoundary } from '../core';
+import type { BoundProviders } from '../providers/types';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment } from '../github';
+import { readLocalRepoInfo } from '../providers/github/githubIdentity';
+import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
+import { hasUnaddressedComments } from '../forge/prCommentDetector';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -35,13 +39,15 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
-import { runUpgradeRedriveScan } from './upgradeRedrive';
+import { runDocsIndexSweep } from './docsIndexSweep';
+import { runUpgradeRedriveScan, buildDefaultUpgradeRedriveDeps } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { listCronOpenIssues } from './cronIssueListing';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
 import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
-import { fetchLinkedPRs, readAdwLabelNames } from '../github';
+import { fetchLinkedPRs } from '../forge/linkedPrDetector';
+import { readAdwLabelNames } from '../core/adwLabels';
 import { evaluateLabelRecovery } from './cronLabelEligibility';
 import type { CronIssue } from './cronIssueFilter';
 
@@ -51,43 +57,25 @@ const processedSpawns = new Set<number>();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
 
-/** Raw issue data returned from the GitHub CLI. */
-interface RawIssue {
-  number: number;
-  title: string;
-  body: string;
-  comments: { body: string }[];
-  createdAt: string;
-  updatedAt: string;
-  labels: { name: string }[];
-}
-
-
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
-const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
+const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoInfo);
 
-// Module-scope launch context — built exactly once under the entry-script guard.
+// Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).
-let cronGitContext: GitContext | null = null;
+let cronBoundary: LaunchBoundary | null = null;
 
-// Build launch-boundary GitContext only when running as the cron script.
-// Skipped when trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
+// Build the launch boundary only when running as the cron script. Skipped when
+// trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
-  cronGitContext = buildLaunchGitContext(targetRepo);
+  cronBoundary = buildLaunchBoundary(targetRepo);
 }
 
-/** Fetches all open issues with body, comments, and timestamps. */
-function fetchOpenIssues(): RawIssue[] {
-  try {
-    const json = gitContextForRepo(cronRepoInfo).listOpenIssues({
-      fields: ['number', 'title', 'body', 'comments', 'createdAt', 'updatedAt', 'labels'],
-      limit: 100,
-    });
-    return JSON.parse(json);
-  } catch (error) {
-    log(`Failed to fetch issues: ${error}`, 'error');
-    return [];
-  }
+// Context-only view — every existing cronGitContext use is unchanged (#794).
+const cronGitContext: GitContext | null = cronBoundary?.gitContext ?? null;
+
+/** The boundary-minted provider triple, bound to the same identity as `cronGitContext`. Null under the same conditions (module-import guard not fired). */
+export function getCronProviders(): BoundProviders | null {
+  return cronBoundary?.providers ?? null;
 }
 
 /** Builds --target-repo args to pass to spawned workflows. */
@@ -95,7 +83,7 @@ function buildTargetRepoArgs(): string[] {
   return buildCronTargetRepoArgs(
     cronRepoInfo,
     targetRepo,
-    () => { try { return gitContextForRepo(cronRepoInfo).remoteUrl(); } catch { return null; } },
+    () => { try { return cronGitContext?.remoteUrl() ?? null; } catch { return null; } },
   );
 }
 
@@ -131,14 +119,20 @@ export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void
  * cwd-derived identity.
  */
 function boundPerIssueSweep(): (() => Promise<unknown>) | null {
-  const ctx = cronGitContext; // local const so TS narrows inside the closure
-  return ctx ? () => runPerIssueScenarioSweep({ gitContext: ctx }) : null;
+  const boundary = cronBoundary; // local const so TS narrows inside the closure
+  return boundary ? () => runPerIssueScenarioSweep({ boundary }) : null;
 }
 
 /** Same shape as boundPerIssueSweep, for the promotion sweep. */
 function boundPromotionSweep(): (() => Promise<unknown>) | null {
-  const ctx = cronGitContext;
-  return ctx ? () => runPromotionSweep({ gitContext: ctx }) : null;
+  const boundary = cronBoundary;
+  return boundary ? () => runPromotionSweep({ boundary }) : null;
+}
+
+/** Same shape as boundPerIssueSweep, for the docs-index health sweep. */
+function boundDocsIndexSweep(): (() => Promise<unknown>) | null {
+  const boundary = cronBoundary;
+  return boundary ? () => runDocsIndexSweep({ boundary }) : null;
 }
 
 /**
@@ -198,11 +192,59 @@ export async function runPromotionSweepTick(
 }
 
 /**
+ * Docs-index health sweep dispatch: on a cadence-eligible cron cycle
+ * (cycleCount a multiple of DOCS_INDEX_SWEEP_INTERVAL_CYCLES) invokes the
+ * sweep, which repairs dangling entries/dead globs via a merged PR and
+ * reconciles overlap/orphan/count violations into at most one open `hitl`
+ * issue, against the repo of the cron's launch GitContext. Off-cadence
+ * cycles are a no-op (the generous-cadence guarantee — git/gh actions must
+ * not run every 20s tick). When no launch context is available the pass is
+ * skipped (logged), never falling back to a cwd-derived identity. Non-fatal
+ * — any escaped throw is logged and swallowed so it can never abort the cron
+ * tick. Exported (with an injectable sweep) so tests can drive the cadence
+ * gate, the skip, and the swallow directly.
+ */
+export async function runDocsIndexSweepTick(
+  cycleCount: number,
+  sweep: (() => Promise<unknown>) | null = boundDocsIndexSweep(),
+): Promise<void> {
+  if (cycleCount % DOCS_INDEX_SWEEP_INTERVAL_CYCLES !== 0) return;
+  if (sweep === null) {
+    log('docsIndexSweep: no launch GitContext available — skipping pass', 'warn');
+    return;
+  }
+  try {
+    await sweep();
+  } catch (error) {
+    log(`docsIndexSweep: pass failed (non-fatal): ${error}`, 'error');
+  }
+}
+
+/**
+ * Runs one cron tick and contains any escaped rejection. `checkAndTrigger` is
+ * fired-and-forgotten from the entry-script guard (initial call and the setInterval
+ * callback); without this guard a single throw anywhere in the tick — e.g. the
+ * janitor's discovery constructing a GitContext for a repo the GitHub App is not
+ * installed on — became an unhandled rejection and Node killed the whole cron
+ * process, which the webhook then respawned every ~5 minutes (#812). The error is
+ * logged (with its stack, since this is the catch-all of last resort) and the next
+ * tick still runs. Exported with an injectable tick so tests can drive the swallow.
+ */
+export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger): Promise<void> {
+  try {
+    await tick();
+  } catch (error) {
+    const detail = error instanceof Error && error.stack ? error.stack : String(error);
+    log(`checkAndTrigger: tick failed (non-fatal): ${detail}`, 'error');
+  }
+}
+
+/**
  * Handles a single cron tick when the auth gate is set.
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
  */
-async function handleAuthGateTick(): Promise<boolean> {
+async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
   const gate = readAuthGate();
   if (gate === null) return false;
 
@@ -222,7 +264,7 @@ async function handleAuthGateTick(): Promise<boolean> {
 
   if (loggedIn) {
     clearAuthGate();
-    const resumedCount = await scanAuthQueue(cronRepoInfo, targetRepoArgs);
+    const resumedCount = await scanAuthQueue(boundary, targetRepoArgs);
     await sendSlackRecoveryNotification({
       host: gate.host,
       clearedAt: new Date().toISOString(),
@@ -264,15 +306,20 @@ async function handleAuthGateTick(): Promise<boolean> {
   return true;
 }
 
-/** Checks for eligible issues and triggers ADW workflows for each. */
-async function checkAndTrigger(): Promise<void> {
+/** Checks for eligible issues and triggers ADW workflows for each. Boundary defaults to `cronBoundary` (same idiom as `runPerIssueScenarioSweepTick`); exported so tests can drive one tick against a fake boundary. */
+export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoundary): Promise<void> {
+  if (!boundary) {
+    log('checkAndTrigger: no launch boundary (module imported, not launched) — skipping tick', 'warn');
+    return;
+  }
+
   cycleCount += 1;
 
-  if (await handleAuthGateTick()) return;
+  if (await handleAuthGateTick(boundary)) return;
 
   // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
-  await scanAuthQueue(cronRepoInfo, buildTargetRepoArgs());
+  await scanAuthQueue(boundary, buildTargetRepoArgs());
 
   // Detect and abandon hung orchestrators every HUNG_DETECTOR_INTERVAL_CYCLES cycles
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
@@ -294,10 +341,15 @@ async function checkAndTrigger(): Promise<void> {
   // non-fatal swallow both live inside runPromotionSweepTick.
   await runPromotionSweepTick(cycleCount);
 
+  // Run the docs-index health sweep every DOCS_INDEX_SWEEP_INTERVAL_CYCLES cycles
+  // (generous cadence, same reasoning as the promotion sweep). The gate and the
+  // non-fatal swallow both live inside runDocsIndexSweepTick.
+  await runDocsIndexSweepTick(cycleCount);
+
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
-  const issues = fetchOpenIssues();
-  const linkedPrs = fetchLinkedPRs(cronRepoInfo);
+  const issues = listCronOpenIssues(boundary.providers.issueTracker);
+  const linkedPrs = fetchLinkedPRs(boundary.providers.codeHost);
   const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
 
   // Scan all fetched issues for ## Cancel before filterEligibleIssues.
@@ -309,7 +361,7 @@ async function checkAndTrigger(): Promise<void> {
   for (const issue of issues) {
     const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
     if (latestComment && isCancelComment(latestComment.body)) {
-      handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns });
+      handleCancelDirective(issue.number, issue.comments, boundary, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
     } else if (latestComment && isRetryComment(latestComment.body)) {
       handleRetryDirective(issue.number, issue.comments);
@@ -336,7 +388,7 @@ async function checkAndTrigger(): Promise<void> {
   for (const deferral of overlapDeferrals) {
     log(`Issue #${deferral.issueNumber} deferred: region overlap with #${deferral.blockedBy} [${deferral.overlapPaths.join(', ')}]`);
     const deferredBody = issues.find(i => i.number === deferral.issueNumber)?.body ?? '';
-    registerRegionOverlapBlocker(deferral, deferredBody, cronRepoInfo);
+    registerRegionOverlapBlocker(deferral, deferredBody, boundary.providers.issueTracker);
   }
 
   const repoInfo = cronRepoInfo;
@@ -348,7 +400,7 @@ async function checkAndTrigger(): Promise<void> {
   // standard filter), so this cannot disturb the loop below. A scan failure must
   // never abort the tick.
   try {
-    runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs);
+    runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs, buildDefaultUpgradeRedriveDeps(repoInfo, boundary.providers.codeHost));
   } catch (error) {
     log(`upgradeRedrive: redrive scan failed (non-fatal): ${error}`, 'error');
   }
@@ -373,7 +425,7 @@ async function checkAndTrigger(): Promise<void> {
     }
 
     // Standard spawn path: check eligibility (dependencies + concurrency)
-    const eligibility = await checkIssueEligibility(issue.number, issue.body || '', repoInfo);
+    const eligibility = await checkIssueEligibility(issue.number, issue.body || '', boundary.providers);
     if (!eligibility.eligible) {
       if (eligibility.reason === 'open_dependencies') {
         log(`Issue #${issue.number} deferred: open dependencies [${eligibility.blockingIssues?.join(', ')}]`);
@@ -387,7 +439,7 @@ async function checkAndTrigger(): Promise<void> {
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo, gitContext: cronGitContext ?? undefined });
+    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, boundary });
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
@@ -437,7 +489,7 @@ async function checkAndTrigger(): Promise<void> {
       : undefined;
     log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
     try {
-      await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision, labelRouting);
+      await classifyAndSpawnWorkflow(issue.number, boundary, targetRepoArgs, adwId, takeoverDecision, labelRouting);
     } catch (err) {
       if (err instanceof AuthRequiredError) {
         writeAuthGate({ adwId: adwId ?? null, issueNumber: issue.number, agentName: err.agentName });
@@ -451,15 +503,18 @@ async function checkAndTrigger(): Promise<void> {
 
 /** Checks open PRs for actionable review comments and triggers PR review workflows. */
 function checkPRsForReviewComments(): void {
+  const boundary = cronBoundary;
+  if (!boundary) { log('checkPRsForReviewComments: no launch boundary (module imported, not launched) — skipping poll', 'warn'); return; }
+
   log('Polling for PRs with unaddressed review comments...');
-  const prs = fetchPRList(cronRepoInfo);
+  const prs = boundary.providers.codeHost.listOpenPullRequests();
 
   for (const pr of prs) {
     if (processedPRs.has(pr.number)) continue;
     try {
-      if (hasUnaddressedComments(pr.number, cronRepoInfo)) {
+      if (hasUnaddressedComments(pr.number, boundary)) {
         processedPRs.add(pr.number);
-        const target = resolvePrReviewSpawn(pr.number, cronRepoInfo);
+        const target = resolvePrReviewSpawn(pr.number, boundary.providers);
         if (target === null) {
           log(`Skipping issue-less PR #${pr.number} (no ADW review)`);
           continue;
@@ -502,8 +557,8 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   } catch (error) {
     log(`Guardrails probe warm-up failed (non-fatal): ${error}`, 'warn');
   }
-  void checkAndTrigger();
-  setInterval(() => { void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  void runGuardedTick();
+  setInterval(() => { void runGuardedTick(); }, POLL_INTERVAL_MS);
   checkPRsForReviewComments();
   setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
 }

@@ -1,17 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../agentState', () => ({
+  AgentStateManager: {
+    readTopLevelState: vi.fn(),
+  },
+}));
+
 import {
   deriveStageFromRemote,
   mapArtifactsToStage,
+  buildDefaultReconcileDeps,
   MAX_RECONCILE_VERIFICATION_RETRIES,
   type ReconcileDeps,
 } from '../remoteReconcile';
+import { AgentStateManager } from '../agentState';
 import type { AgentState } from '../../types/agentTypes';
-import type { RawPR } from '../../github/prApi';
-import type { RepoInfo } from '../../github/githubApi';
+import type { RawPR } from '../../providers/github/domain/pullRequest';
+import type { LaunchBoundary } from '../launchGitContext';
+import type { GitContext } from '../../gitContext';
+import type { CodeHost, PullRequestSummary } from '../../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {
@@ -82,7 +91,7 @@ describe('deriveStageFromRemote — happy path mappings', () => {
   it('returns branch_created when branch exists and no PR', () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(null) });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('branch_created');
     // initial read + at least one re-verification read
@@ -93,7 +102,7 @@ describe('deriveStageFromRemote — happy path mappings', () => {
   it('returns awaiting_merge when branch exists and PR is OPEN', () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'OPEN' })) });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('awaiting_merge');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(2);
@@ -102,7 +111,7 @@ describe('deriveStageFromRemote — happy path mappings', () => {
   it('returns completed when branch exists and PR is MERGED', () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })) });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('completed');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(2);
@@ -111,7 +120,7 @@ describe('deriveStageFromRemote — happy path mappings', () => {
   it('returns discarded when branch exists and PR is CLOSED', () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })) });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('discarded');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(2);
@@ -129,7 +138,7 @@ describe('deriveStageFromRemote — re-verification', () => {
       .mockReturnValueOnce(makePR({ state: 'MERGED' })); // retry (agrees)
     const branchExists = vi.fn().mockReturnValue(true);
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, makeDeps({
+    const result = deriveStageFromRemote('test-adw-id', makeDeps({
       branchExistsOnRemote: branchExists,
       findPRByBranch: findPR,
     }));
@@ -145,7 +154,7 @@ describe('deriveStageFromRemote — re-verification', () => {
       makePR({ state: call++ % 2 === 0 ? 'OPEN' : 'MERGED' }),
     );
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, makeDeps({
+    const result = deriveStageFromRemote('test-adw-id', makeDeps({
       findPRByBranch: findPR,
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'build_running' })),
     }));
@@ -162,7 +171,7 @@ describe('deriveStageFromRemote — re-verification', () => {
     );
     const state = makeState({ workflowStage: undefined });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, makeDeps({
+    const result = deriveStageFromRemote('test-adw-id', makeDeps({
       findPRByBranch: findPR,
       readTopLevelState: vi.fn().mockReturnValue(state),
     }));
@@ -179,7 +188,7 @@ describe('deriveStageFromRemote — state-file edges', () => {
       readTopLevelState: vi.fn().mockReturnValue(null),
     });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('starting');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(0);
@@ -191,7 +200,7 @@ describe('deriveStageFromRemote — state-file edges', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: undefined })),
     });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('build_running');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(0);
@@ -203,7 +212,7 @@ describe('deriveStageFromRemote — state-file edges', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: '', workflowStage: undefined })),
     });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('starting');
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(0);
@@ -215,7 +224,7 @@ describe('deriveStageFromRemote — state-file edges', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'build_running' })),
     });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('build_running');
   });
@@ -226,8 +235,72 @@ describe('deriveStageFromRemote — state-file edges', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: undefined })),
     });
 
-    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+    const result = deriveStageFromRemote('test-adw-id', deps);
 
     expect(result).toBe('starting');
+  });
+});
+
+// ── buildDefaultReconcileDeps — boundary-bound wiring ─────────────────────────
+
+function makeFakeBoundary(overrides: {
+  lsRemote?: (branchName: string) => string[];
+  findPullRequestByBranch?: (branchName: string) => Pick<PullRequestSummary, 'state'> | null;
+} = {}): LaunchBoundary {
+  const gitContext = {
+    lsRemote: vi.fn(overrides.lsRemote ?? (() => ['abc123\trefs/heads/feature-issue-42-abc'])),
+  } as unknown as GitContext;
+  const codeHost = {
+    findPullRequestByBranch: vi.fn(overrides.findPullRequestByBranch ?? (() => ({ state: 'OPEN' }))),
+  } as unknown as CodeHost;
+  return {
+    gitContext,
+    providers: { issueTracker: {} as never, codeHost },
+  } as unknown as LaunchBoundary;
+}
+
+describe('buildDefaultReconcileDeps — boundary-bound wiring', () => {
+  beforeEach(() => {
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue(makeState());
+  });
+
+  it.each([
+    ['OPEN', 'awaiting_merge'],
+    ['MERGED', 'completed'],
+    ['CLOSED', 'discarded'],
+  ] as const)('maps PR state %s to workflow stage %s through the boundary\'s codeHost', (prState, expectedStage) => {
+    const boundary = makeFakeBoundary({ findPullRequestByBranch: () => ({ state: prState }) });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    const result = deriveStageFromRemote('test-adw-id', deps);
+
+    expect(result).toBe(expectedStage);
+  });
+
+  it('findPullRequestByBranch is called at least twice for one deriveStageFromRemote call — the read-your-write cross-check is never memoised', () => {
+    const findPullRequestByBranch = vi.fn(() => ({ state: 'OPEN' as const }));
+    const boundary = makeFakeBoundary({ findPullRequestByBranch });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    deriveStageFromRemote('test-adw-id', deps);
+
+    expect(findPullRequestByBranch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('falls back to the state-file stage when boundary.gitContext.lsRemote reports the branch absent', () => {
+    const boundary = makeFakeBoundary({ lsRemote: () => [] });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    const result = deriveStageFromRemote('test-adw-id', deps);
+
+    expect(result).toBe('build_running');
+  });
+
+  it('branchExistsOnRemote returns false (and does not throw) when gitContext.lsRemote throws', () => {
+    const boundary = makeFakeBoundary();
+    vi.mocked(boundary.gitContext.lsRemote).mockImplementation(() => { throw new Error('git ls-remote failed'); });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    expect(deps.branchExistsOnRemote('feature-issue-42-abc')).toBe(false);
   });
 });

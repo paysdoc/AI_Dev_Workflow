@@ -10,7 +10,7 @@
 
 import { AgentStateManager, log } from '../core';
 import { postIssueStageComment } from './phaseCommentHelpers';
-import type { WorkflowContext } from '../github/workflowCommentsIssue';
+import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import type { RepoContext } from '../providers/types';
 
 export interface SdlcReviewFailedConfig {

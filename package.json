@@ -12,6 +12,7 @@
     "test:docker": "bash test/docker-run.sh",
     "test:docker:build": "docker build -t adw-bdd-runner:latest -f test/Dockerfile test/",
     "lint:git-guard": "bunx tsx adws/checkGitGhGuard.ts",
+    "lint:docs-index": "bunx tsx adws/checkLivingDocsIndex.ts",
     "jsonl:probe": "bunx tsx adws/jsonl/schemaProbe.ts",
     "jsonl:check": "bunx tsx adws/jsonl/conformanceCheck.ts",
     "jsonl:update": "bunx tsx adws/jsonl/fixtureUpdater.ts"

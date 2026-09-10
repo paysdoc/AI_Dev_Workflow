@@ -6,6 +6,7 @@
 
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions, ExecFn, FsDeps } from '../../../adws/gitContext/index.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 export const TARGET_REPOS_ROOT = '/srv/adw/repos';
 export const FRAMEWORK_ROOT = '/srv/adw/framework';
@@ -14,6 +15,7 @@ export interface SpyCall {
   command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
+  input?: string;
 }
 
 export interface PendingCtxArgs {
@@ -62,7 +64,7 @@ export function makeSpyExec(
 ): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
   const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: { ...options.env } });
+    calls.push({ command, cwd: options.cwd, env: { ...options.env }, input: options.input });
     for (const [pattern, response] of responseMap) {
       if (command.includes(pattern)) {
         if (response instanceof Error) throw response;
@@ -85,7 +87,7 @@ export function makeFullOptions(
     owner,
     repo,
     selfHost: false,
-    token,
+    tokenProvider: createLiteralTokenProvider(token),
     gitIdentity: {
       authorName,
       authorEmail,

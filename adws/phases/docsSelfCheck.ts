@@ -1,10 +1,8 @@
 import * as fs from 'fs';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from '../core/conditionalDocsRegistry';
 import { runDocsGuards, DOC_BLOAT_THRESHOLD_LINES, type DocSize, type GuardFlags, type BloatFlag } from '../core/docsGuards';
-import { createIssue } from '../github';
 import { log as defaultLog, type LogLevel } from '../core';
-import type { RepoInfo } from '../github/githubApi';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import type { IssueTracker } from '../providers/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,15 +21,14 @@ export interface DocsSelfCheckResult {
 
 export interface DocsSelfCheckDeps {
   readFile(filePath: string): string;
-  createIssue(title: string, body: string, repoInfo: RepoInfo): number;
-  findExistingRefactorIssue(repoInfo: RepoInfo, docPath: string): number | null;
+  createIssue(title: string, body: string): number;
+  findExistingRefactorIssue(docPath: string): number | null;
   log(message: string, level?: LogLevel): void;
 }
 
 export interface DocsSelfCheckParams {
   worktreePath: string;
   producedDocPaths: string[];
-  repoInfo: RepoInfo;
   threshold?: number;
 }
 
@@ -39,14 +36,9 @@ export interface DocsSelfCheckParams {
 // Default deps factory
 // ---------------------------------------------------------------------------
 
-function findExistingRefactorIssueDefault(repoInfo: RepoInfo, docPath: string): number | null {
+function findExistingRefactorIssueDefault(tracker: IssueTracker, docPath: string): number | null {
   try {
-    const json = gitContextForRepo(repoInfo).listOpenIssues({
-      fields: ['number', 'title'],
-      search: `docs-bloat: ${docPath}`,
-      limit: 5,
-    });
-    const results = JSON.parse(json) as { number: number; title: string }[];
+    const results = tracker.searchOpenIssues(`docs-bloat: ${docPath}`, 5);
     const found = results.find((r) => r.title.includes(docPath));
     return found ? found.number : null;
   } catch {
@@ -54,11 +46,11 @@ function findExistingRefactorIssueDefault(repoInfo: RepoInfo, docPath: string): 
   }
 }
 
-export function buildDefaultDocsSelfCheckDeps(): DocsSelfCheckDeps {
+export function buildDefaultDocsSelfCheckDeps(issueTracker: IssueTracker): DocsSelfCheckDeps {
   return {
     readFile: (filePath) => fs.readFileSync(filePath, 'utf-8'),
-    createIssue,
-    findExistingRefactorIssue: findExistingRefactorIssueDefault,
+    createIssue: (title, body) => issueTracker.createIssue(title, body),
+    findExistingRefactorIssue: (docPath) => findExistingRefactorIssueDefault(issueTracker, docPath),
     log: defaultLog,
   };
 }
@@ -70,14 +62,13 @@ export function buildDefaultDocsSelfCheckDeps(): DocsSelfCheckDeps {
 function routeBloatFlag(
   flag: BloatFlag,
   registry: ConditionalDocsRegistry,
-  repoInfo: RepoInfo,
   deps: DocsSelfCheckDeps,
 ): RefactorFollowUp {
   const owningEntry = registry.entries.find((e) => e.docPath === flag.docPath);
   const ownedGlobs = owningEntry?.ownedGlobs ?? [];
   const areaText = ownedGlobs.length > 0 ? ownedGlobs.join(', ') : flag.docPath;
 
-  const existing = deps.findExistingRefactorIssue(repoInfo, flag.docPath);
+  const existing = deps.findExistingRefactorIssue(flag.docPath);
   if (existing !== null) {
     return { docPath: flag.docPath, ownedGlobs, issueNumber: existing };
   }
@@ -97,7 +88,7 @@ function routeBloatFlag(
   ].join('\n');
 
   try {
-    const issueNumber = deps.createIssue(title, body, repoInfo);
+    const issueNumber = deps.createIssue(title, body);
     return { docPath: flag.docPath, ownedGlobs, issueNumber };
   } catch (e) {
     deps.log(`docs self-check: failed to file refactor issue for ${flag.docPath} (non-fatal): ${e}`, 'warn');
@@ -111,9 +102,9 @@ function routeBloatFlag(
 
 export function executeDocsPostWriteSelfCheck(
   params: DocsSelfCheckParams,
-  deps: DocsSelfCheckDeps = buildDefaultDocsSelfCheckDeps(),
+  deps: DocsSelfCheckDeps,
 ): DocsSelfCheckResult {
-  const { worktreePath, producedDocPaths, repoInfo } = params;
+  const { worktreePath, producedDocPaths } = params;
   const threshold = params.threshold ?? DOC_BLOAT_THRESHOLD_LINES;
 
   // 1. Parse the registry
@@ -154,7 +145,7 @@ export function executeDocsPostWriteSelfCheck(
 
   // 5. Route each bloat flag
   const routed: RefactorFollowUp[] = flags.bloat.map((f) =>
-    routeBloatFlag(f, registry, repoInfo, deps),
+    routeBloatFlag(f, registry, deps),
   );
 
   return { flags, routed };

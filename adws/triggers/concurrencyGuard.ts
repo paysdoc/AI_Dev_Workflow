@@ -6,23 +6,18 @@
  */
 
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
-import type { RepoInfo } from '../github/githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
-import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../forge/linkedPrDetector';
+import type { BoundProviders, IssueListEntry } from '../providers/types';
 
-interface RawIssueWithComments {
-  number: number;
-  comments: { body: string }[];
-}
+type ConcurrencyProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 
 /**
  * Fetches open issues with their comments from the repository.
  */
-function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[] {
+function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): readonly IssueListEntry[] {
   try {
-    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
-    return JSON.parse(json);
+    return providers.issueTracker.listIssues({ fields: ['number', 'comments'], limit: 100 });
   } catch (error) {
     log(`Failed to fetch open issues for concurrency check: ${error}`, 'error');
     return [];
@@ -34,13 +29,13 @@ function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[]
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
-async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
-  const issues = fetchOpenIssuesWithComments(repoInfo);
-  const prs = fetchLinkedPRs(repoInfo);
+async function getInProgressIssueCount(providers: ConcurrencyProviders): Promise<number> {
+  const issues = fetchOpenIssuesWithComments(providers);
+  const prs = fetchLinkedPRs(providers.codeHost);
 
   let count = 0;
   for (const issue of issues) {
-    const hasAdwComment = issue.comments.some((c) => isAdwComment(c.body));
+    const hasAdwComment = (issue.comments ?? []).some((c) => isAdwComment(c.body));
     if (!hasAdwComment) continue;
 
     if (!hasLinkedMergedOrClosedPR(issue.number, prs)) {
@@ -52,13 +47,21 @@ async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
 }
 
 /**
- * Returns true if the per-repository concurrency limit has been reached or exceeded.
+ * Returns true if the in-progress issue count has reached or exceeded `limit`.
+ * Exported (with the production cap factored out) so tests can pin the threshold
+ * without depending on the frozen, env-derived MAX_CONCURRENT_PER_REPO constant.
  */
-export async function isConcurrencyLimitReached(repoInfo: RepoInfo): Promise<boolean> {
-  const count = await getInProgressIssueCount(repoInfo);
-  const limitReached = count >= MAX_CONCURRENT_PER_REPO;
+export async function isConcurrencyLimitReachedAt(providers: ConcurrencyProviders, limit: number): Promise<boolean> {
+  const count = await getInProgressIssueCount(providers);
+  const limitReached = count >= limit;
   if (limitReached) {
-    log(`Concurrency limit reached for ${repoInfo.owner}/${repoInfo.repo}: ${count}/${MAX_CONCURRENT_PER_REPO} in-progress issues`);
+    const { owner, repo } = providers.codeHost.getRepoIdentifier();
+    log(`Concurrency limit reached for ${owner}/${repo}: ${count}/${limit} in-progress issues`);
   }
   return limitReached;
+}
+
+/** Returns true if the per-repository concurrency limit has been reached or exceeded. */
+export async function isConcurrencyLimitReached(providers: ConcurrencyProviders): Promise<boolean> {
+  return isConcurrencyLimitReachedAt(providers, MAX_CONCURRENT_PER_REPO);
 }

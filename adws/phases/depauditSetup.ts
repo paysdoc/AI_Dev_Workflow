@@ -1,16 +1,14 @@
 import { execWithRetry as defaultExecWithRetry, log as defaultLog } from '../core';
 import type { LogLevel } from '../core';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo } from '../github';
-import type { GitContext } from '../gitContext';
-import type { RepoInfo } from '../github/githubApi';
-import { gitContextForRepo as defaultGitContextForRepo } from '../github/gitContextFactory';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
+import type { CodeHost } from '../providers/types';
 
 export interface DepauditSetupDeps {
   execWithRetry?: typeof defaultExecWithRetry;
   log?: (message: string, level?: LogLevel) => void;
   getEnv?: (name: string) => string | undefined;
-  gitContextForRepo?: (repoInfo: RepoInfo) => GitContext;
+  codeHost?: CodeHost;
 }
 
 export interface DepauditSetupResult {
@@ -22,25 +20,27 @@ export interface DepauditSetupResult {
 const SECRET_NAMES = ['SOCKET_API_TOKEN', 'SLACK_WEBHOOK_URL'] as const;
 type SecretName = typeof SECRET_NAMES[number];
 
-const DEFAULT_DEPS: Required<DepauditSetupDeps> = {
+const DEFAULT_DEPS: Pick<Required<DepauditSetupDeps>, 'execWithRetry' | 'log' | 'getEnv'> = {
   execWithRetry: defaultExecWithRetry,
   log: defaultLog,
   getEnv: (name: string) => process.env[name],
-  gitContextForRepo: defaultGitContextForRepo,
 };
 
 async function propagateSecret(
   envName: SecretName,
-  ctx: GitContext,
+  codeHost: CodeHost | undefined,
   ownerRepo: string,
-  deps: Required<DepauditSetupDeps>,
+  deps: Pick<Required<DepauditSetupDeps>, 'log' | 'getEnv'>,
 ): Promise<{ propagated: boolean; warning?: string }> {
   const envValue = deps.getEnv(envName);
   if (!envValue) {
-    return { propagated: false, warning: `${envName} not set — skipping gh secret set` };
+    return { propagated: false, warning: `${envName} not set — skipping gh secret set on ${ownerRepo}` };
+  }
+  if (!codeHost) {
+    return { propagated: false, warning: `${envName} could not be propagated — no repo context for this run` };
   }
   try {
-    ctx.setSecret(envName, envValue);
+    codeHost.setSecret(envName, envValue);
     deps.log(`Propagated ${envName} to ${ownerRepo} GitHub Actions secrets`, 'success');
     return { propagated: true };
   } catch (error) {
@@ -52,7 +52,8 @@ export async function executeDepauditSetup(
   config: WorkflowConfig,
   deps?: DepauditSetupDeps,
 ): Promise<DepauditSetupResult> {
-  const d: Required<DepauditSetupDeps> = { ...DEFAULT_DEPS, ...deps };
+  const d = { ...DEFAULT_DEPS, ...deps };
+  const codeHost = deps?.codeHost ?? config.repoContext?.codeHost;
   const warnings: string[] = [];
   const skippedSecrets: string[] = [];
 
@@ -65,18 +66,11 @@ export async function executeDepauditSetup(
     warnings.push(msg);
   }
 
-  const ownerRepo = config.targetRepo
-    ? `${config.targetRepo.owner}/${config.targetRepo.repo}`
-    : (() => { const info = getRepoInfo(); return `${info.owner}/${info.repo}`; })();
-
-  const repoInfo: RepoInfo = config.targetRepo
-    ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
-    : getRepoInfo();
-
-  const ctx = config.gitContext ?? d.gitContextForRepo(repoInfo);
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const ownerRepo = `${owner}/${repo}`;
 
   for (const secretName of SECRET_NAMES) {
-    const result = await propagateSecret(secretName, ctx, ownerRepo, d);
+    const result = await propagateSecret(secretName, codeHost, ownerRepo, d);
     if (!result.propagated) {
       if (result.warning) {
         d.log(result.warning, 'warn');

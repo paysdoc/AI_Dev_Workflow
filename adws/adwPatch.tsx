@@ -53,6 +53,7 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
 
   const specPath = getPlanFilePath(issueNumber, worktreePath);
 
+  // selfHost pinned to true = the un-threaded default this call had before #822; only gitContext is new, so the guardrails decision is unchanged.
   const patchResult = await runPatchAgent(
     adwId,
     reviewIssue,
@@ -61,6 +62,9 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
     undefined,
     orchestratorStatePath,
     worktreePath,
+    undefined,
+    undefined,
+    { selfHost: true, adwId, gitContext: config.gitContext },
   );
 
   if (!patchResult.success) {

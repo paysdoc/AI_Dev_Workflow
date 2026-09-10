@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { findOpenDependencies } from '../triggers/issueDependencies';
-
-// Mock external dependencies
-vi.mock('../github/issueApi', () => ({
-  getIssueState: vi.fn(),
-}));
+import type { IssueTracker } from '../providers/types';
 
 vi.mock('../agents/dependencyExtractionAgent', () => ({
   runDependencyExtractionAgent: vi.fn().mockResolvedValue({ success: false, dependencies: [] }),
@@ -15,12 +11,8 @@ vi.mock('../core', async (importOriginal) => {
   return { ...actual, log: vi.fn() };
 });
 
-const REPO_INFO = { owner: 'test', repo: 'repo' };
-
-// Re-import after mocking
-import { getIssueState } from '../github/issueApi';
-
-const mockGetIssueState = vi.mocked(getIssueState);
+const mockGetIssueState = vi.fn<(issueNumber: number) => string>();
+const fakeTracker: Pick<IssueTracker, 'getIssueState'> = { getIssueState: mockGetIssueState };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,7 +26,7 @@ describe('findOpenDependencies — fail-closed behavior', () => {
 
     const result = await findOpenDependencies(
       'Blocked by #10',
-      REPO_INFO,
+      fakeTracker,
     );
 
     expect(result).toContain(10);
@@ -47,7 +39,7 @@ describe('findOpenDependencies — fail-closed behavior', () => {
 
     const result = await findOpenDependencies(
       'Blocked by #10 and blocked by #20',
-      REPO_INFO,
+      fakeTracker,
     );
 
     expect(result).toContain(10);
@@ -64,7 +56,7 @@ describe('findOpenDependencies — fail-closed behavior', () => {
 
     const result = await findOpenDependencies(
       'Blocked by #10, blocked by #20, and blocked by #30',
-      REPO_INFO,
+      fakeTracker,
     );
 
     expect(result).not.toContain(10);
@@ -77,7 +69,7 @@ describe('findOpenDependencies — fail-closed behavior', () => {
 
     const result = await findOpenDependencies(
       'Blocked by #10 and blocked by #20',
-      REPO_INFO,
+      fakeTracker,
     );
 
     expect(result).toHaveLength(0);
@@ -86,7 +78,7 @@ describe('findOpenDependencies — fail-closed behavior', () => {
   it('returns empty array when no dependencies exist', async () => {
     const result = await findOpenDependencies(
       'This issue has no blockers.',
-      REPO_INFO,
+      fakeTracker,
     );
 
     expect(result).toHaveLength(0);

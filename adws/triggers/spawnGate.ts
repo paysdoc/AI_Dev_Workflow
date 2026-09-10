@@ -3,7 +3,7 @@ import * as path from 'path';
 import { log } from '../core';
 import { AGENTS_STATE_DIR } from '../core/config';
 import { getProcessStartTime, isProcessLive } from '../core/processLiveness';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 interface IssueSpawnLockRecord {
   readonly pid: number;
@@ -13,7 +13,7 @@ interface IssueSpawnLockRecord {
   readonly startedAt: string;
 }
 
-export function getSpawnLockFilePath(repoInfo: RepoInfo, issueNumber: number): string {
+export function getSpawnLockFilePath(repoInfo: RepoIdentifier, issueNumber: number): string {
   const fragment = `${repoInfo.owner}_${repoInfo.repo}_issue-${issueNumber}.json`;
   return path.join(AGENTS_STATE_DIR, 'spawn_locks', fragment);
 }
@@ -49,7 +49,7 @@ function tryExclusiveCreate(filePath: string, record: IssueSpawnLockRecord): boo
   }
 }
 
-export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, ownPid: number): boolean {
+export function acquireIssueSpawnLock(repoInfo: RepoIdentifier, issueNumber: number, ownPid: number): boolean {
   ensureSpawnLockDir();
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
   const filePath = getSpawnLockFilePath(repoInfo, issueNumber);
@@ -81,11 +81,11 @@ export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, o
   return tryExclusiveCreate(filePath, record);
 }
 
-export function releaseIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number): void {
+export function releaseIssueSpawnLock(repoInfo: RepoIdentifier, issueNumber: number): void {
   removeSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
 }
 
-export function readSpawnLockRecord(repoInfo: RepoInfo, issueNumber: number): { pid: number; pidStartedAt: string } | null {
+export function readSpawnLockRecord(repoInfo: RepoIdentifier, issueNumber: number): { pid: number; pidStartedAt: string } | null {
   const record = readSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
   if (record === null) return null;
   return { pid: record.pid, pidStartedAt: record.pidStartedAt };

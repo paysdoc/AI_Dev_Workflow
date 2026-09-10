@@ -10,12 +10,12 @@ import {
   type UpgradeRunResult,
 } from '../adwUpgrade';
 import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from '../core';
-import { commentOnIssue } from '../github';
 import type { CreatePROptions } from '../providers/types';
+import { Platform } from '../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const MOCK_HASH = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const FRAMEWORK_ROOT = '/framework';
 const BASE_REPO = '/base/repo';
@@ -36,7 +36,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     pushBranch: vi.fn(),
     isPushRejection: vi.fn().mockReturnValue(false),
     createPullRequest: vi.fn().mockReturnValue({ url: 'https://github.com/acme/target/pull/99', number: 99 }),
-    commentOnIssue: vi.fn<typeof commentOnIssue>(),
+    commentOnIssue: vi.fn(),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/adwupgrade'),
     log: vi.fn(),
     readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: false, unitTests: true }),
@@ -45,7 +45,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     fetchIssueComments: vi.fn().mockReturnValue([]),
     ensureLabel: vi.fn(),
     applyLabel: vi.fn(),
-    moveToStatus: vi.fn().mockReturnValue(true),
+    moveToStatus: vi.fn().mockResolvedValue(true),
     postSlack: vi.fn().mockResolvedValue(undefined),
     maxFailures: 3,
     ...overrides,
@@ -103,7 +103,7 @@ describe('buildUpgradeFailureComment', () => {
 
 describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () => {
   it('no-ops with reason=pr_already_exists when a PR already exists for the claim branch', async () => {
-    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN', labels: [] }) });
     const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
@@ -111,7 +111,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
   });
 
   it('does not regenerate, commit, push, or open a PR when a claim-branch PR exists', async () => {
-    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN', labels: [] }) });
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.runInitCommand).not.toHaveBeenCalled();
@@ -122,7 +122,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
   });
 
   it('also no-ops for a CLOSED claim-branch PR (human-rejected upgrade must not loop)', async () => {
-    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'CLOSED' }) });
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'CLOSED', labels: [] }) });
     const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_already_exists');
@@ -139,7 +139,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
 
   it('rebuilds (does NOT no-op) when the claim-branch PR is labeled wontfix', async () => {
     const deps = makeDeps({
-      findPRByBranch: vi.fn().mockReturnValue({ number: 3, state: 'MERGED', labels: [{ name: "Won't fix" }] }),
+      findPRByBranch: vi.fn().mockReturnValue({ number: 3, state: 'MERGED', labels: ["Won't fix"] }),
     });
     const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
@@ -186,7 +186,7 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.mergePR).toHaveBeenCalledTimes(1);
-    expect(deps.mergePR).toHaveBeenCalledWith(99, REPO_INFO);
+    expect(deps.mergePR).toHaveBeenCalledWith(99);
   });
 
   it('never calls commentOnIssue on default success path', async () => {
@@ -481,7 +481,7 @@ describe('executeUpgrade — LLM failure path', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
-    expect(deps.commentOnIssue).toHaveBeenCalledWith(541, expect.any(String), REPO_INFO);
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(541, expect.any(String));
   });
 
   it('failure comment is not an ADW comment', async () => {
@@ -861,7 +861,7 @@ describe('executeUpgrade — entry gate (already-escalated issue)', () => {
       author: 'adw-bot[bot]',
     }));
     const deps = makeDeps({
-      findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }),
+      findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN', labels: [] }),
       fetchIssueComments: vi.fn().mockReturnValue(comments),
       maxFailures: 3,
     });

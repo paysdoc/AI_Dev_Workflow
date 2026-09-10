@@ -27,7 +27,6 @@
  */
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
-import { issueHasLabel, approvePR } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -145,11 +144,11 @@ async function main(): Promise<void> {
       // hitl on the issue at this moment. Race accepted — a human can add hitl between this
       // approval and the next cron tick; the merge gate is permissive in that case (rule 3).
       if (config.repoContext && config.ctx.prUrl) {
-        const repoInfo = { owner: config.repoContext.repoId.owner, repo: config.repoContext.repoId.repo };
+        const { issueTracker, codeHost } = config.repoContext;
         const prNumber = extractPrNumber(config.ctx.prUrl);
-        if (prNumber && !issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+        if (prNumber && !issueTracker.fetchLabels(issueNumber).includes('hitl')) {
           log(`Chore: pre-approving PR #${prNumber} (no hitl on issue #${issueNumber})`, 'info');
-          const result = approvePR(prNumber, repoInfo);
+          const result = codeHost.approvePullRequest(prNumber);
           if (!result.success) {
             log(`Chore: pre-approval failed (non-fatal — hitl-removed humans can still approve manually): ${result.error}`, 'warn');
           }

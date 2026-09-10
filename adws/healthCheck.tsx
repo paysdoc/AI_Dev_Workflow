@@ -13,8 +13,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, REPO_ROOT } from './core';
-import { gitContextForRepo, readLocalRepoInfo } from './github/gitContextFactory';
+import { log, REPO_ROOT, buildLaunchBoundary } from './core';
+import { readLocalRepoInfo } from './providers/github/githubIdentity';
 import type { GitContext } from './gitContext/gitContext';
 import {
   checkEnvironmentVariables,
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   // On failure, context-dependent checks are skipped and the error is recorded.
   let ctx: GitContext | undefined;
   try {
-    ctx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });
+    ctx = buildLaunchBoundary(null, { getRepoInfo: () => readLocalRepoInfo(REPO_ROOT) }).gitContext;
   } catch (err) {
     result.checks.gitContext = {
       success: false,

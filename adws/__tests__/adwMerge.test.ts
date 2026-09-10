@@ -1,13 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
-import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
-import { commentOnIssue, commentOnPR, fetchPRApprovalState, issueHasLabel } from '../github';
 import { getPlanFilePath, planFileExists } from '../agents';
+import { Platform } from '../providers/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {
@@ -23,14 +22,16 @@ function makeState(overrides: Partial<AgentState> = {}): AgentState {
 function makePR(overrides: {
   number?: number;
   state?: string;
-  headRefName?: string;
-  baseRefName?: string;
+  sourceBranch?: string;
+  targetBranch?: string;
+  labels?: readonly string[];
 } = {}) {
   return {
     number: 7,
     state: 'OPEN',
-    headRefName: 'feature-issue-42-abc',
-    baseRefName: 'main',
+    sourceBranch: 'feature-issue-42-abc',
+    targetBranch: 'main',
+    labels: [],
     ...overrides,
   };
 }
@@ -41,14 +42,13 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     findOrchestratorStatePath: vi.fn().mockReturnValue('/agents/test-adw-id/sdlc-orchestrator'),
     readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-42-abc' })),
     findPRByBranch: vi.fn().mockReturnValue(makePR()),
-    issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
-    fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+    issueHasLabel: vi.fn().mockReturnValue(false),
+    fetchPRApprovalState: vi.fn().mockReturnValue(true),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-42-abc'),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/test-adw-id'),
-    mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({ success: true }),
+    mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({ success: true }),
     writeTopLevelState: vi.fn(),
-    commentOnIssue: vi.fn<typeof commentOnIssue>(),
-    commentOnPR: vi.fn<typeof commentOnPR>(),
+    commentOnIssue: vi.fn(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
     planFileExists: vi.fn<typeof planFileExists>().mockReturnValue(false),
     notifyBlockedTransition: vi.fn().mockResolvedValue(undefined),
@@ -142,12 +142,10 @@ describe('executeMerge — missing state', () => {
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Merge Blocked'),
-      REPO_INFO,
     );
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('## Retry'),
-      REPO_INFO,
     );
   });
 });
@@ -168,7 +166,6 @@ describe('executeMerge — already merged PR', () => {
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Workflow Completed'),
-      REPO_INFO,
     );
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
   });
@@ -217,7 +214,6 @@ describe('executeMerge — successful merge', () => {
     expect(result.reason).toBe('merged');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       7,               // prNumber
-      REPO_INFO,
       'feature-issue-42-abc', // branchName (headBranch)
       'main',          // baseBranch
       '/worktrees/feature-issue-42-abc', // worktreePath
@@ -229,7 +225,6 @@ describe('executeMerge — successful merge', () => {
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Workflow Completed'),
-      REPO_INFO,
     );
   });
 
@@ -243,7 +238,6 @@ describe('executeMerge — successful merge', () => {
 
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       expect.any(Number),
-      REPO_INFO,
       expect.any(String),
       expect.any(String),
       expect.any(String),
@@ -259,7 +253,7 @@ describe('executeMerge — successful merge', () => {
 describe('executeMerge — failed merge', () => {
   it('writes merge_blocked and comments on issue when merge fails', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
         success: false,
         error: 'Conflict detected and could not be resolved',
       }),
@@ -273,19 +267,16 @@ describe('executeMerge — failed merge', () => {
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Merge Blocked'),
-      REPO_INFO,
     );
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('## Retry'),
-      REPO_INFO,
     );
-    expect(deps.commentOnPR).not.toHaveBeenCalled();
   });
 
   it('includes last error in the issue failure comment', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
         success: false,
         error: 'merge conflict in file.txt',
       }),
@@ -320,8 +311,8 @@ describe('executeMerge — worktree error', () => {
 describe('executeMerge — approval gate', () => {
   it('with no hitl label, an unapproved PR still merges (gate satisfied by rule 1)', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      issueHasLabel: vi.fn().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -333,7 +324,7 @@ describe('executeMerge — approval gate', () => {
   it('terminal MERGED state skips approval check — returns already_merged', async () => {
     const deps = makeDeps({
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -346,7 +337,7 @@ describe('executeMerge — approval gate', () => {
   it('terminal CLOSED state skips approval check — returns pr_closed', async () => {
     const deps = makeDeps({
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -358,8 +349,8 @@ describe('executeMerge — approval gate', () => {
 
   it('with no hitl and PR approved, merge proceeds', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+      issueHasLabel: vi.fn().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(true),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -376,7 +367,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-530-top-level' })),
       findOrchestratorStatePath: vi.fn().mockReturnValue(null),
-      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-issue-530-top-level' })),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ sourceBranch: 'feature-issue-530-top-level' })),
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
     });
 
@@ -386,9 +377,9 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(result.reason).not.toBe('no_branch_name');
     expect(result.reason).not.toBe('no_orchestrator_state');
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
-    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level', REPO_INFO);
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
-      expect.any(Number), REPO_INFO, 'feature-issue-530-top-level',
+      expect.any(Number), 'feature-issue-530-top-level',
       expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
     );
   });
@@ -397,7 +388,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-530-top-level' })),
       readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: undefined })),
-      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-issue-530-top-level' })),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ sourceBranch: 'feature-issue-530-top-level' })),
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
     });
 
@@ -405,14 +396,14 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
 
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
-    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level', REPO_INFO);
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level');
   });
 
   it('precedence: top-level branchName wins when both stores differ', async () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-top-level-A' })),
       readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-orchestrator-B' })),
-      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-top-level-A' })),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ sourceBranch: 'feature-top-level-A' })),
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-top-level-A'),
     });
 
@@ -420,8 +411,8 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
 
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
-    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-top-level-A', REPO_INFO);
-    expect(deps.findPRByBranch).not.toHaveBeenCalledWith('feature-orchestrator-B', REPO_INFO);
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-top-level-A');
+    expect(deps.findPRByBranch).not.toHaveBeenCalledWith('feature-orchestrator-B');
   });
 
   it('fallback: uses orchestrator branchName when top-level state has none', async () => {
@@ -433,7 +424,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
-      expect.any(Number), REPO_INFO, 'feature-issue-42-abc',
+      expect.any(Number), 'feature-issue-42-abc',
       expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
     );
   });
@@ -444,8 +435,8 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
 describe('executeMerge — hitl × approved gate matrix', () => {
   it('rule 1: no hitl + not approved → merge (gate open)', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      issueHasLabel: vi.fn().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -457,8 +448,8 @@ describe('executeMerge — hitl × approved gate matrix', () => {
 
   it('rule 2: hitl + not approved → defer with reason hitl_blocked_unapproved', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      issueHasLabel: vi.fn().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -468,13 +459,12 @@ describe('executeMerge — hitl × approved gate matrix', () => {
     expect(deps.writeTopLevelState).not.toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
-    expect(deps.commentOnPR).not.toHaveBeenCalled();
   });
 
   it('rule 3: hitl + approved → merge (gate satisfied by approval)', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+      issueHasLabel: vi.fn().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn().mockReturnValue(true),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -485,8 +475,8 @@ describe('executeMerge — hitl × approved gate matrix', () => {
 
   it('rule 4: no hitl + approved → merge (gate open via rule 1)', async () => {
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+      issueHasLabel: vi.fn().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn().mockReturnValue(true),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -502,8 +492,8 @@ describe('executeMerge — hitl × approved gate matrix', () => {
     });
 
     const deps = makeDeps({
-      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
-      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+      issueHasLabel: vi.fn().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn().mockReturnValue(false),
     });
 
     await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);

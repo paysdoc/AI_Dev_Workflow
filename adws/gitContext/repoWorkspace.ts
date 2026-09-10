@@ -7,14 +7,20 @@
  * All ADW-global config (TARGET_REPOS_DIR) is injected at the shim boundary in
  * targetRepoManager.ts; this module stays ADW-global-free for standalone reuse.
  * The `defaultBranch` thunk is injected so the caller can bind a veracious
- * GitContext token — fixing the ambient-auth `gh repo view` crash in fetchLatestRefs.
+ * forge credential rather than relying on ambient auth.
+ *
+ * The caller supplies a ready-made clone URL (issue #793, PRD story 14): this
+ * module clones exactly the URL it is handed, with no rewriting and no forge
+ * vocabulary. The GitHub HTTPS→SSH rewrite lives in the adapter
+ * (`adws/providers/github/cloneUrl.ts`) and is applied by the ADW wiring
+ * shim (`adws/core/targetRepoManager.ts`) before this module is called.
  */
 
 import { execSync } from 'child_process';
 import type { ExecSyncOptions } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseGitHubRemoteUrl } from './bootstrapIdentity';
+import type { Logger } from './types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,7 +39,7 @@ export interface EnsureRepoWorkspaceDeps {
   /** Override for hermetic tests; defaults to real fs. */
   fsDeps?: Pick<typeof fs, 'existsSync' | 'mkdirSync'>;
   /** Log function; defaults to no-op (tests control verbosity). */
-  log?: (msg: string, level?: string) => void;
+  log?: Logger;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,25 +62,17 @@ export function isRepoCloned(workspacePath: string, fsDeps?: Pick<typeof fs, 'ex
 }
 
 /**
- * Converts an HTTPS GitHub clone URL to SSH format.
- * Non-HTTPS URLs (e.g., already SSH) are returned unchanged.
- */
-export function convertToSshUrl(cloneUrl: string): string {
-  if (!cloneUrl.startsWith('https://github.com/')) return cloneUrl;
-  const info = parseGitHubRemoteUrl(cloneUrl);
-  if (!info) return cloneUrl;
-  return `git@github.com:${info.owner}/${info.repo}.git`;
-}
-
-/**
- * Clones a repository (converting HTTPS → SSH) into workspacePath.
+ * Clones a repository into workspacePath. Clones exactly the URL it is
+ * given (issue #793) — no rewriting, no scheme translation. The caller
+ * (`adws/core/targetRepoManager.ts`) is responsible for handing this
+ * function a ready-made clone URL.
  */
 export function cloneRepo(
   cloneUrl: string,
   workspacePath: string,
   opts?: {
     fsDeps?: Pick<typeof fs, 'mkdirSync'>;
-    log?: (msg: string, level?: string) => void;
+    log?: Logger;
     exec?: WorkspaceExecFn;
   },
 ): void {
@@ -84,10 +82,9 @@ export function cloneRepo(
   const parentDir = path.dirname(workspacePath);
   fsDeps.mkdirSync(parentDir, { recursive: true });
 
-  const sshUrl = convertToSshUrl(cloneUrl);
-  logFn(`Cloning ${sshUrl} into ${workspacePath}...`, 'info');
-  execFn(`git clone "${sshUrl}" "${workspacePath}"`, { stdio: 'pipe', encoding: 'utf-8' });
-  logFn(`Cloned ${sshUrl} into ${workspacePath}`, 'success');
+  logFn(`Cloning ${cloneUrl} into ${workspacePath}...`, 'info');
+  execFn(`git clone "${cloneUrl}" "${workspacePath}"`, { stdio: 'pipe', encoding: 'utf-8' });
+  logFn(`Cloned ${cloneUrl} into ${workspacePath}`, 'success');
 }
 
 // ---------------------------------------------------------------------------
@@ -97,10 +94,13 @@ export function cloneRepo(
 /**
  * Ensures a target repository workspace exists and is up-to-date.
  *
- * - Not cloned: clones via SSH.
+ * - Not cloned: clones `cloneUrl` exactly as given — no rewriting. The
+ *   caller supplies a ready-made clone URL (issue #793); this function never
+ *   consults forge conventions to decide what to clone.
  * - Already cloned: runs `git fetch origin` and reads the default branch through
- *   the injected `getDefaultBranch` thunk — which must run `gh repo view` under
- *   per-command veracious auth (fixes the `fetchLatestRefs` crash class).
+ *   the injected `getDefaultBranch` thunk — the forge's default-branch read,
+ *   under per-command veracious auth. The clone URL is never consulted on
+ *   this path.
  *
  * Returns the absolute workspace path.
  */

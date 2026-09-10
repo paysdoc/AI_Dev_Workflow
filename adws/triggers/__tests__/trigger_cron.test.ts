@@ -25,15 +25,22 @@ vi.mock('../cronRepoResolver', () => ({
   buildCronTargetRepoArgs: vi.fn(() => []),
 }));
 
-vi.mock('../../github', () => ({
-  activateGitHubAppAuth: vi.fn(),
-  ensureAppAuthForRepo: vi.fn(),
-  getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-  fetchPRList: vi.fn(() => []),
-  hasUnaddressedComments: vi.fn(() => false),
-  isCancelComment: vi.fn(() => false),
-  refreshTokenIfNeeded: vi.fn(),
+vi.mock('../../providers/github/githubIdentity', () => ({
+  readLocalRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
 }));
+
+vi.mock('../../forge/linkedPrDetector', () => ({
+  fetchLinkedPRs: vi.fn(() => []),
+}));
+
+vi.mock('../../forge/prCommentDetector', () => ({
+  hasUnaddressedComments: vi.fn(() => false),
+}));
+
+vi.mock('../../core/workflowCommentParsing', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/workflowCommentParsing')>();
+  return { ...actual, isCancelComment: vi.fn(() => false) };
+});
 
 vi.mock('../cronProcessGuard', () => ({
   registerAndGuard: vi.fn(() => true),
@@ -92,10 +99,10 @@ vi.mock('../../core', async (importOriginal) => {
 // Now import the module under test (side effects are all stubbed)
 // ---------------------------------------------------------------------------
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../../core/agentState';
-import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES } from '../../core';
+import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
 
 // ---------------------------------------------------------------------------
@@ -263,5 +270,73 @@ describe('runPromotionSweepTick — null-thunk skip (#769)', () => {
     const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
     await expect(runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
     expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runDocsIndexSweepTick — null-thunk skip (#810)', () => {
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('dispatches the injected sweep exactly once on a cadence-eligible cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES, sweep);
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch on an off-cadence cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES + 1, sweep);
+    expect(sweep).not.toHaveBeenCalled();
+  });
+
+  it('skips without dispatching and logs a warning when the thunk is null (no launch context)', async () => {
+    await runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES, null);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('no launch GitContext available'), 'warn');
+  });
+
+  it('does not even evaluate the skip branch off-cadence when the thunk is null', async () => {
+    await runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES + 1, null);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('swallows a throwing sweep and the tick still resolves', async () => {
+    const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
+    await expect(runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runGuardedTick (#812)', () => {
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('awaits the injected tick exactly once', async () => {
+    const tick = vi.fn(() => Promise.resolve());
+    await runGuardedTick(tick);
+    expect(tick).toHaveBeenCalledTimes(1);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('swallows a rejecting tick, logs an error naming the cause, and resolves', async () => {
+    const tick = vi.fn(() => Promise.reject(new Error('GitHub App installation lookup failed for paicc/paicc-1: HTTP 404 (Not Found)')));
+    await expect(runGuardedTick(tick)).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('paicc/paicc-1'), 'error');
+  });
+
+  it('a rejection on one invocation does not stop the next invocation from running', async () => {
+    const tick = vi.fn()
+      .mockRejectedValueOnce(new Error('transient failure'))
+      .mockResolvedValueOnce(undefined);
+    await runGuardedTick(tick);
+    await runGuardedTick(tick);
+    expect(tick).toHaveBeenCalledTimes(2);
+  });
+
+  it('swallows a non-Error rejection value', async () => {
+    const tick = vi.fn(() => Promise.reject('boom'));
+    await expect(runGuardedTick(tick)).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('boom'), 'error');
   });
 });

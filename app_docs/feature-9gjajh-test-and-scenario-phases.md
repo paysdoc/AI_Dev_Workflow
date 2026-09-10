@@ -7,6 +7,7 @@ The test and scenario phases validate the implementation against the project's t
 ## Responsibilities
 
 - `scenarioPhase.ts` — runs `runScenarioAgent` in the worktree to generate or update BDD feature files; non-fatal — errors are caught and returned as zero-cost results
+- `scenarioPhase.ts` — skips scenario authoring entirely, before `/scenario_writer` is invoked, for issues carrying either `regression-promotion` or `adw:none`, via the pure `scenarioAuthoringSkipReason` reader and its `shouldSkipScenarioAuthoring` boolean face (`adws/core/adwLabels.ts`, #820 — `adws/github/labelManager.ts` was deleted outright in #821, no re-export); promotion issues relocate an already-existing per-issue scenario into the regression suite and must never author a fresh, spurious `features/per-issue/feature-<N>.feature`, and an `adw:none` issue opted out of ADW automation so it is never handed an authoring agent. The reader is a pure read of labels the phase already holds on `config.issue` — no forge call. `alignmentPhase.ts` (`app_docs/feature-9gjajh-build-and-plan-phases.md`) carries an independent, defense-in-depth copy of the same gate, logging the deciding label.
 - `scenarioPhase.ts` — skips when `shouldExecuteStage('plan_validating', recoveryState)` returns false, indicating the phase already completed in a prior run
 - `unitTestPhase.ts` — reads `.github/adw.yml` `unitTests` field (default: enabled); runs `runUnitTestsWithRetry` with the project-configured command (`config.projectConfig.commands.runTests`); evaluates the JUnit report for `hard-fail` vs `warn` vs pass; applies `ADW_UNVERIFIED_LABEL` on warn
 - `unitTestPhase.ts` — calls `reportStackCoherence` before running tests; posts stage comments via `postIssueStageComment`; terminates the process with `exit(1)` on hard-fail
@@ -22,6 +23,8 @@ The test and scenario phases validate the implementation against the project's t
 - A `'regression_possible'` result from the `@regression` tag run causes `computeResolveVerdict` to treat the run as not-green even when the issue-tagged scenarios pass
 - Post-resolve fidelity check only runs when `findScenarioFiles(issueNumber, worktreePath).length > 0`; if no scenario files exist the fidelity result is treated as undefined (aligned)
 - `OutputValidationError` from `runScenarioFidelityAgent` degrades to `postResolveAligned = undefined` (warn-only), not a hard fail
+- The promotion-issue skip gate in `scenarioPhase.ts` returns the same zero-cost shape (`{ costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] }`) as its own resume-skip guard, so cost/token/state accounting is identical whether the phase was skipped for "already ran" or "promotion issue" reasons. The label check is match-exact, not substring, and fires identically on fresh and resumed runs.
+- Because a promotion issue authors zero scenario files, `findScenarioFiles(issueNumber, worktreePath).length === 0` downstream — the same "no scenario files" handling already covered above (`scenarioTestPhase.ts` returning `scenarioProof: undefined`, the fidelity check treating it as aligned) applies unchanged; no separate gate was needed in the test/fix phases themselves.
 
 ## Configuration
 
@@ -38,3 +41,4 @@ The test and scenario phases validate the implementation against the project's t
 - `scenarioTestPhase.ts` injects the port extracted from `config.applicationUrl` into `withDevServer`; if `applicationUrl` is not a parseable URL, the port defaults to 3000
 - `scenarioTestFixLoop.ts` runs `executeScenarioFixPhase` before incrementing `scenarioRetries`; the fix phase runs before the retry count is visible to state observers
 - `applyLabel` for `ADW_UNVERIFIED_LABEL` in `unitTestPhase.ts` is wrapped in a try/catch because GitHub App auth lacks label-write permission; failure is silently swallowed
+- A promotion issue's own `@adw-<issueNumber>` review-proof tag has no matching scenarios once scenario authoring is skipped; with `optional: true` on a zero-match tag, its tag outcome is `{ passed: true, skipped: true }` and never counts toward `hasBlockerFailures` — the run stays green on that tag while the relocated scenario's own `@regression` tag pass still proves the promotion for real. Do not make that tag non-optional without exempting promotion issues, or every promotion run reddens once scenario authoring stops producing a matching scenario.

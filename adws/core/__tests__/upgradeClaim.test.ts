@@ -6,22 +6,21 @@ import {
   buildDefaultUpgradeClaimDeps,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import type { RawPR } from '../../github/prApi';
-import type { RepoInfo } from '../../github/githubApi';
+import type { PullRequestSummary } from '../../providers/types';
 import type { GitContext } from '../../gitContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
 const HASH = 'abc123';
 const BRANCH = 'adw-upgrade-abc123';
 
-function makePR(overrides: Partial<RawPR> = {}): RawPR {
+function makePR(overrides: Partial<PullRequestSummary> = {}): PullRequestSummary {
   return {
     number: 99,
     state: 'OPEN',
-    headRefName: BRANCH,
-    baseRefName: 'main',
+    sourceBranch: BRANCH,
+    targetBranch: 'main',
+    labels: [],
     ...overrides,
   };
 }
@@ -92,7 +91,7 @@ describe('claimUpgradeOrFindExisting — winner path', () => {
   it('returns { won: true, branch } when pushClaimBranch returns true', async () => {
     const deps = makeDeps({ pushClaimBranch: vi.fn().mockReturnValue(true) });
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const result = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(result).toEqual({ won: true, branch: BRANCH });
   });
@@ -100,19 +99,19 @@ describe('claimUpgradeOrFindExisting — winner path', () => {
   it('does not call findPRByBranch or resolveIssueNumberFromPR on the winner path', async () => {
     const deps = makeDeps({ pushClaimBranch: vi.fn().mockReturnValue(true) });
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(deps.findPRByBranch).not.toHaveBeenCalled();
     expect(deps.resolveIssueNumberFromPR).not.toHaveBeenCalled();
   });
 
-  it('calls pushClaimBranch with the computed branch name, hash, and repoInfo', async () => {
+  it('calls pushClaimBranch with the computed branch name and hash', async () => {
     const pushFn = vi.fn().mockReturnValue(true);
     const deps = makeDeps({ pushClaimBranch: pushFn });
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    await claimUpgradeOrFindExisting(HASH, deps);
 
-    expect(pushFn).toHaveBeenCalledWith(BRANCH, HASH, REPO_INFO);
+    expect(pushFn).toHaveBeenCalledWith(BRANCH, HASH);
   });
 });
 
@@ -126,7 +125,7 @@ describe('claimUpgradeOrFindExisting — loser path', () => {
       resolveIssueNumberFromPR: vi.fn().mockReturnValue(9701),
     });
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const result = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(result).toEqual({ won: false, existingIssueNumber: 9701, existingBranch: BRANCH });
   });
@@ -137,7 +136,7 @@ describe('claimUpgradeOrFindExisting — loser path', () => {
       findPRByBranch: vi.fn().mockReturnValue(null),
     });
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const result = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(result).toMatchObject({ won: false, existingIssueNumber: null, existingBranch: BRANCH });
     expect(deps.resolveIssueNumberFromPR).not.toHaveBeenCalled();
@@ -150,24 +149,24 @@ describe('claimUpgradeOrFindExisting — loser path', () => {
       resolveIssueNumberFromPR: vi.fn().mockReturnValue(null),
     });
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const result = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(result).toMatchObject({ won: false, existingIssueNumber: null });
   });
 
-  it('calls findPRByBranch with the claim branch and repoInfo', async () => {
+  it('calls findPRByBranch with the claim branch', async () => {
     const findFn = vi.fn().mockReturnValue(null);
     const deps = makeDeps({
       pushClaimBranch: vi.fn().mockReturnValue(false),
       findPRByBranch: findFn,
     });
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    await claimUpgradeOrFindExisting(HASH, deps);
 
-    expect(findFn).toHaveBeenCalledWith(BRANCH, REPO_INFO);
+    expect(findFn).toHaveBeenCalledWith(BRANCH);
   });
 
-  it('calls resolveIssueNumberFromPR with the PR number and repoInfo', async () => {
+  it('calls resolveIssueNumberFromPR with the PR number', async () => {
     const resolveFn = vi.fn().mockReturnValue(42);
     const deps = makeDeps({
       pushClaimBranch: vi.fn().mockReturnValue(false),
@@ -175,9 +174,9 @@ describe('claimUpgradeOrFindExisting — loser path', () => {
       resolveIssueNumberFromPR: resolveFn,
     });
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    await claimUpgradeOrFindExisting(HASH, deps);
 
-    expect(resolveFn).toHaveBeenCalledWith(99, REPO_INFO);
+    expect(resolveFn).toHaveBeenCalledWith(99);
   });
 });
 
@@ -193,8 +192,8 @@ describe('claimUpgradeOrFindExisting — exactly one winner logic', () => {
       findPRByBranch: vi.fn().mockReturnValue(null),
     });
 
-    const first = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
-    const second = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const first = await claimUpgradeOrFindExisting(HASH, deps);
+    const second = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(first.won).toBe(true);
     expect(second.won).toBe(false);
@@ -210,28 +209,47 @@ describe('claimUpgradeOrFindExisting — error propagation', () => {
       pushClaimBranch: vi.fn().mockImplementation(() => { throw networkError; }),
     });
 
-    await expect(claimUpgradeOrFindExisting(HASH, REPO_INFO, deps)).rejects.toThrow('ECONNREFUSED');
+    await expect(claimUpgradeOrFindExisting(HASH, deps)).rejects.toThrow('ECONNREFUSED');
   });
 });
 
 // ── buildDefaultUpgradeClaimDeps — smoke test ─────────────────────────────────
 
 describe('buildDefaultUpgradeClaimDeps', () => {
+  const spyCtx = {
+    fetchRemote: vi.fn(),
+    addDetachedWorktree: vi.fn(),
+    commitAllowEmpty: vi.fn(),
+    pushHeadToBranch: vi.fn().mockReturnValue(undefined),
+    removeDetachedWorktree: vi.fn(),
+  } as unknown as GitContext;
+
   it('returns an object with the expected dep keys', () => {
-    // Inject a spy ctx so the smoke test does not call readLocalRepoInfo (which
-    // runs git remote get-url origin against /tmp and fails in a sandboxed test).
-    const spyCtx = {
-      defaultBranch: vi.fn().mockReturnValue('main'),
-      fetchRemote: vi.fn(),
-      addDetachedWorktree: vi.fn(),
-      commitAllowEmpty: vi.fn(),
-      pushHeadToBranch: vi.fn().mockReturnValue(undefined),
-      removeDetachedWorktree: vi.fn(),
-    } as unknown as GitContext;
-    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx);
+    const codeHost = { getDefaultBranch: vi.fn().mockReturnValue('main'), findPullRequestByBranch: vi.fn(), fetchPullRequest: vi.fn() };
+    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx, codeHost);
     expect(typeof deps.pushClaimBranch).toBe('function');
     expect(typeof deps.findPRByBranch).toBe('function');
     expect(typeof deps.resolveIssueNumberFromPR).toBe('function');
     expect(typeof deps.log).toBe('function');
+  });
+
+  it('resolveIssueNumberFromPR returns the code host\'s linkedIssueNumber', () => {
+    const codeHost = {
+      getDefaultBranch: vi.fn().mockReturnValue('main'),
+      findPullRequestByBranch: vi.fn(),
+      fetchPullRequest: vi.fn().mockReturnValue({ linkedIssueNumber: 51 }),
+    };
+    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx, codeHost);
+    expect(deps.resolveIssueNumberFromPR(9)).toBe(51);
+  });
+
+  it('resolveIssueNumberFromPR returns null when the code host throws', () => {
+    const codeHost = {
+      getDefaultBranch: vi.fn().mockReturnValue('main'),
+      findPullRequestByBranch: vi.fn(),
+      fetchPullRequest: vi.fn().mockImplementation(() => { throw new Error('boom'); }),
+    };
+    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx, codeHost);
+    expect(deps.resolveIssueNumberFromPR(9)).toBeNull();
   });
 });

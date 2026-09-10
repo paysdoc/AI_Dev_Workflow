@@ -5,10 +5,13 @@
  * eligibility result. Used by both webhook and cron triggers.
  */
 
-import type { RepoInfo } from '../github/githubApi';
+import type { BoundProviders } from '../providers/types';
 import { findOpenDependencies } from './issueDependencies';
 import { isConcurrencyLimitReached } from './concurrencyGuard';
 import { log } from '../core';
+
+/** The provider surface an eligibility check needs. */
+export type EligibilityProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 
 /** Result of an issue eligibility check. */
 export interface EligibilityResult {
@@ -26,12 +29,12 @@ export interface EligibilityResult {
 export async function checkIssueEligibility(
   issueNumber: number,
   issueBody: string,
-  repoInfo: RepoInfo,
+  providers: EligibilityProviders,
 ): Promise<EligibilityResult> {
   log(`Checking eligibility for issue #${issueNumber}`);
 
   // Check dependencies first
-  const openDeps = await findOpenDependencies(issueBody, repoInfo);
+  const openDeps = await findOpenDependencies(issueBody, providers.issueTracker);
   if (openDeps.length > 0) {
     return {
       eligible: false,
@@ -41,7 +44,7 @@ export async function checkIssueEligibility(
   }
 
   // Check concurrency limit
-  const limitReached = await isConcurrencyLimitReached(repoInfo);
+  const limitReached = await isConcurrencyLimitReached(providers);
   if (limitReached) {
     return {
       eligible: false,

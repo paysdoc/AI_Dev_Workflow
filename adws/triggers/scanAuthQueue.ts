@@ -10,13 +10,13 @@
 
 import * as fs from 'fs';
 import { log, AGENTS_STATE_DIR } from '../core';
+import type { LaunchBoundary } from '../core';
 import { AgentStateManager } from '../core/agentState';
 import { readAuthGate } from '../core/authGate';
 import { evaluateCandidate } from './takeoverHandler';
 import type { TakeoverDeps } from './takeoverHandler';
 import { spawnDetached } from './webhookGatekeeper';
 import { releaseIssueSpawnLock } from './spawnGate';
-import type { RepoInfo } from '../github/githubApi';
 
 export interface ScanAuthQueueDeps {
   readAuthGate: () => ReturnType<typeof import('../core/authGate').readAuthGate>;
@@ -57,7 +57,7 @@ function buildDefaultDeps(): ScanAuthQueueDeps {
  * @returns count of orchestrators successfully re-triggered
  */
 export async function scanAuthQueue(
-  cronRepoInfo: RepoInfo,
+  boundary: LaunchBoundary,
   targetRepoArgs: string[],
   takeoverDeps?: TakeoverDeps,
   deps?: ScanAuthQueueDeps,
@@ -93,7 +93,7 @@ export async function scanAuthQueue(
 
     let decision;
     try {
-      decision = d.evaluateCandidate({ issueNumber, repoInfo: cronRepoInfo }, takeoverDeps);
+      decision = d.evaluateCandidate({ issueNumber, boundary }, takeoverDeps);
     } catch (err) {
       log(`scanAuthQueue: evaluateCandidate failed for adwId=${adwId}: ${err}`, 'warn');
       continue;
@@ -108,7 +108,7 @@ export async function scanAuthQueue(
     log(`scanAuthQueue: spawning ${orchestratorScript} for adwId=${adwId} issue #${issueNumber}`, 'success');
     try {
       d.spawnDetached('bunx', ['tsx', orchestratorScript, String(issueNumber), adwId, ...targetRepoArgs]);
-      d.releaseIssueSpawnLock(cronRepoInfo, issueNumber);
+      d.releaseIssueSpawnLock(boundary.repoId, issueNumber);
       resumedCount++;
     } catch (err) {
       log(`scanAuthQueue: spawn failed for adwId=${adwId}: ${err}`, 'warn');

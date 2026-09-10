@@ -20,27 +20,26 @@ export {
   // Data types
   type IssueClassSlashCommand,
   type SlashCommand,
-  type GitHubUser,
-  type GitHubLabel,
-  type GitHubMilestone,
-  type GitHubComment,
-  type GitHubIssueListItem,
-  type GitHubIssue,
   type AgentPromptRequest,
   type AgentPromptResponse,
   type AgentTemplateRequest,
   type ClaudeCodeResultMessage,
   type WorkflowStage,
-  type PRReviewComment,
-  type PRDetails,
-  type PRListItem,
   type PRReviewWorkflowStage,
   type RecoveryState,
-  type IssueCommentSummary,
   // Orchestrator shared utilities
   shouldExecuteStage,
-  hasUncommittedChanges,
   getNextStage,
+  // Unaddressed PR-review comment filter
+  getLastAdwCommitTimestamp,
+  // Workflow comment parsing (platform-agnostic)
+  STAGE_ORDER,
+  parseWorkflowStageFromComment,
+  extractAdwIdFromComment,
+  extractBranchNameFromComment,
+  extractPrUrlFromComment,
+  extractPlanPathFromComment,
+  detectRecoveryState,
 } from './core';
 
 // Agents module - Claude Code agent runners
@@ -69,37 +68,16 @@ export {
   generateBranchName,
 } from './vcs';
 
-// GitHub module - GitHub API and workflow comments
+// Forge helpers - workflow comment formatters
 export {
-  getRepoInfo,
-  fetchGitHubIssue,
-  fetchPRDetails,
-  fetchPRReviews,
-  fetchPRReviewComments,
-  commentOnPR,
-  fetchPRList,
-  commentOnIssue,
-  fetchIssueCommentsRest,
-  deleteIssueComment,
-  type RepoInfo,
-  getLastAdwCommitTimestamp,
-  getUnaddressedComments,
-  hasUnaddressedComments,
-  STAGE_ORDER,
-  parseWorkflowStageFromComment,
-  extractAdwIdFromComment,
-  extractBranchNameFromComment,
-  extractPrUrlFromComment,
-  extractPlanPathFromComment,
-  detectRecoveryState,
   formatResumingComment,
   formatWorkflowComment,
-  postWorkflowComment,
-  formatPRReviewWorkflowComment,
-  postPRWorkflowComment,
   type WorkflowContext,
+} from './forge/workflowCommentsIssue';
+export {
+  formatPRReviewWorkflowComment,
   type PRReviewWorkflowContext,
-} from './github';
+} from './forge/workflowCommentsPR';
 
 // Workflow Phases - Composable orchestrator phase functions
 export {

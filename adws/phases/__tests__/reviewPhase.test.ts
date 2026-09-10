@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPush = vi.hoisted(() => vi.fn());
 const mockCommandEnv = vi.hoisted(() => vi.fn(() => ({})));
-const mockGitContextFor = vi.hoisted(() => vi.fn(() => Promise.resolve({ pushBranch: mockPush, commandEnv: mockCommandEnv })));
 
 vi.mock('../reviewPhase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../reviewPhase')>();
@@ -23,13 +22,6 @@ vi.mock('../../agents/refactorAgent', () => ({
 
 vi.mock('../../agents/gitAgent', () => ({
   runCommitAgent: vi.fn(),
-}));
-
-vi.mock('../../github', () => ({
-  approvePR: vi.fn(),
-  isGitHubAppConfigured: vi.fn(() => false),
-  getRepoInfo: vi.fn(() => ({ owner: 'test', repo: 'repo' })),
-  gitContextFor: mockGitContextFor,
 }));
 
 vi.mock('../../core', () => ({
@@ -93,6 +85,8 @@ const baseConfig = {
   branchName: 'feature-issue-42-test',
   ctx: {},
   repoContext: undefined,
+  targetRepo: { owner: 'test', repo: 'repo', cloneUrl: '' },
+  gitContext: { pushBranch: mockPush, commandEnv: mockCommandEnv },
 } as unknown as Parameters<typeof executeReviewPatchCycle>[0];
 
 const patchBlocker = {

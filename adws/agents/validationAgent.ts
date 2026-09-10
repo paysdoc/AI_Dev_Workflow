@@ -3,7 +3,7 @@
  */
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
-import type { AgentResult } from "./claudeAgent";
+import type { AgentResult, AgentLaunchContext } from "./claudeAgent";
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
 import { log } from "../core/logger";
@@ -146,7 +146,7 @@ export async function runValidationAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { validationResult: ValidationResult }> {
   log(`Running validation agent for issue ${issueNumber}`, "info");
 

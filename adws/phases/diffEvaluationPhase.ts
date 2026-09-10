@@ -116,7 +116,7 @@ export async function executeDiffEvaluationPhase(
       logsDir,
       issueBody: issue.body,
       cwd: worktreePath,
-      launchContext: { selfHost: !repoContext, adwId },
+      launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
     });
 
     modelUsage = result.modelUsage ?? emptyModelUsageMap();

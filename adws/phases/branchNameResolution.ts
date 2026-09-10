@@ -12,7 +12,8 @@
  */
 
 import { AgentStateManager, log } from '../core';
-import type { IssueClassSlashCommand, GitHubIssue, RecoveryState } from '../core';
+import type { IssueClassSlashCommand, RecoveryState } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { runGenerateBranchNameAgent } from '../agents';
 import { AuthRequiredError } from '../types/agentTypes';
 import { deterministicBranchName } from '../vcs/branchIdentity';
@@ -33,7 +34,7 @@ type AgentFn = typeof runGenerateBranchNameAgent;
 type FinderFn = (
   issueType: IssueClassSlashCommand,
   issueNumber: number,
-  deps?: BranchIdentityFallbackDeps,
+  deps: BranchIdentityFallbackDeps,
 ) => string | null;
 
 async function resolveInternal(
@@ -44,6 +45,7 @@ async function resolveInternal(
     logsDir: string;
     recoveryState: RecoveryState;
   },
+  deps: BranchIdentityFallbackDeps,
   agentFn: AgentFn,
   finderFn: FinderFn = findExistingBranchForIssue,
 ): Promise<string> {
@@ -64,7 +66,7 @@ async function resolveInternal(
   // Deterministic fallback: find an existing branch that belongs to this issue
   // without relying on the LLM. Inserted between recovery-comment reuse and LLM
   // generation so a lost-comment run reuses the existing branch, not a new one.
-  const found = finderFn(issueType, issue.number);
+  const found = finderFn(issueType, issue.number, deps);
   if (found) {
     log(`Reusing existing branch found by deterministic identity fallback: ${found}`, 'info');
     persistBranchName(adwId, found);
@@ -124,8 +126,8 @@ export async function resolveWorkflowBranchName(args: {
   issue: GitHubIssue;
   logsDir: string;
   recoveryState: RecoveryState;
-}): Promise<string> {
-  return resolveInternal(args, runGenerateBranchNameAgent);
+}, deps: BranchIdentityFallbackDeps): Promise<string> {
+  return resolveInternal(args, deps, runGenerateBranchNameAgent);
 }
 
 /**

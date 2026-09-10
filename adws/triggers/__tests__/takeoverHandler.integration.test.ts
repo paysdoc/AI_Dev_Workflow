@@ -10,18 +10,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/tmp/integ-worktree'));
-vi.mock('../../github', () => ({
-  gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
-}));
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import type { AgentState } from '../../types/agentTypes';
+import type { LaunchBoundary } from '../../core';
+import type { GitContext } from '../../gitContext';
 
-const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
+const FAKE_BOUNDARY: LaunchBoundary = {
+  repoId: REPO,
+  gitContext: { worktreePathFor: mockWorktreePathFor } as unknown as GitContext,
+  providers: {},
+} as unknown as LaunchBoundary;
 const FIXTURE_ADW_ID = 'fixture-adwid';
 const FIXTURE_BRANCH = 'feature/issue-999-fixture';
 const FIXTURE_ISSUE = 999;
@@ -87,7 +91,7 @@ describe('abandoned takeover end-to-end (integration)', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const deps = makeIntegDeps();
 
-    const decision = evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toMatchObject({
       kind: 'take_over_adwId',
@@ -105,18 +109,18 @@ describe('abandoned takeover end-to-end (integration)', () => {
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe),
     });
 
-    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith(wtPath, FIXTURE_BRANCH);
   });
 
-  it('invokes deriveStageFromRemote with the fixture issueNumber, adwId, and repoInfo', () => {
+  it('invokes deriveStageFromRemote with the fixture adwId', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const deps = makeIntegDeps();
 
-    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps);
 
-    expect(deps.deriveStageFromRemote).toHaveBeenCalledWith(FIXTURE_ISSUE, FIXTURE_ADW_ID, REPO);
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledWith(FIXTURE_ADW_ID);
   });
 
   it('resetWorktree is called before deriveStageFromRemote when gate fails', () => {
@@ -129,7 +133,7 @@ describe('abandoned takeover end-to-end (integration)', () => {
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'awaiting_merge'; }),
     });
 
-    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps);
 
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
@@ -138,7 +142,7 @@ describe('abandoned takeover end-to-end (integration)', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const deps = makeIntegDeps();
 
-    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
@@ -147,7 +151,7 @@ describe('abandoned takeover end-to-end (integration)', () => {
     // No writeFixtureState call — file absent
     const deps = makeIntegDeps();
 
-    const decision = evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps) as CandidateDecision;
+    const decision = evaluateCandidate({ issueNumber: FIXTURE_ISSUE, boundary: FAKE_BOUNDARY }, deps) as CandidateDecision;
 
     expect(decision.kind).toBe('spawn_fresh');
   });

@@ -5,7 +5,7 @@
  */
 
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
 /**
  * Structured PR content returned by the agent.
@@ -95,7 +95,7 @@ export async function runPullRequestAgent(
   repoName?: string,
   resolvedDefaultBranch?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { prContent: PrContent }> {
   const defaultBranch = resolvedDefaultBranch ?? '';
   const args = [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? ''];

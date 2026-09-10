@@ -1,9 +1,10 @@
 /**
  * Package-private worktree create/ensure ops for GitContext.
- * Injects runner and fs for testability — no base-path computation here.
+ * Injects runner, fs and a logger port for testability — no base-path
+ * computation here.
  */
 
-import { log } from '../core/utils';
+import type { Logger } from './types';
 import { worktreeQueryOps } from './worktreeQueryOps';
 
 type Runner = (command: string, cwd: string) => string;
@@ -59,7 +60,7 @@ function isBranchCheckedOutElsewhere(run: Runner, baseCwd: string, branchName: s
   }
 }
 
-function freeBranchFromMainRepo(run: Runner, baseCwd: string, branchName: string): void {
+function freeBranchFromMainRepo(run: Runner, baseCwd: string, branchName: string, log: Logger): void {
   log(`Freeing branch '${branchName}' from main repository at ${baseCwd}`, 'info');
   try {
     const status = run('git status --porcelain', baseCwd);
@@ -94,6 +95,7 @@ function freeBranchFromMainRepo(run: Runner, baseCwd: string, branchName: string
  */
 function copyEnvToWorktree(
   fs: FsDeps,
+  log: Logger,
   baseCwd: string,
   worktreePath: string,
 ): void {
@@ -109,7 +111,7 @@ function copyEnvToWorktree(
   }
 }
 
-function resolveBranchExists(run: Runner, baseCwd: string, branchName: string): boolean {
+function resolveBranchExists(run: Runner, baseCwd: string, branchName: string, log: Logger): boolean {
   try {
     run(`git rev-parse --verify "${branchName}"`, baseCwd);
     return true;
@@ -135,6 +137,7 @@ function resolveBranchExists(run: Runner, baseCwd: string, branchName: string): 
 function createWorktree(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   paths: WorktreePaths,
   branchName: string,
   baseBranch?: string,
@@ -148,14 +151,14 @@ function createWorktree(
   }
 
   try {
-    const branchExists = resolveBranchExists(run, baseCwd, branchName);
+    const branchExists = resolveBranchExists(run, baseCwd, branchName, log);
 
     if (branchExists) {
       const checkoutStatus = isBranchCheckedOutElsewhere(run, baseCwd, branchName);
       if (checkoutStatus.checkedOut) {
         if (checkoutStatus.isMainRepo) {
           log(`Branch '${branchName}' is checked out in main repository, freeing it...`, 'info');
-          freeBranchFromMainRepo(run, baseCwd, branchName);
+          freeBranchFromMainRepo(run, baseCwd, branchName, log);
         } else if (checkoutStatus.path) {
           log(`Branch '${branchName}' is already checked out at ${checkoutStatus.path}, reusing`, 'info');
           return checkoutStatus.path;
@@ -190,6 +193,7 @@ function createWorktree(
 function createWorktreeForNewBranch(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   paths: WorktreePaths,
   branchName: string,
   baseBranch?: string,
@@ -223,6 +227,7 @@ function createWorktreeForNewBranch(
 function ensureWorktree(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   paths: WorktreePaths,
   branchName: string,
   baseBranch?: string,
@@ -230,13 +235,13 @@ function ensureWorktree(
   const existingPath = worktreeQueryOps.getWorktreeForBranch(run, fs, paths.baseCwd, paths.worktreePath, branchName);
   if (existingPath) {
     log(`Worktree for branch '${branchName}' already exists at ${existingPath}, reusing`, 'info');
-    copyEnvToWorktree(fs, paths.baseCwd, existingPath);
+    copyEnvToWorktree(fs, log, paths.baseCwd, existingPath);
     return existingPath;
   }
 
   log(`Worktree for branch '${branchName}' does not exist, creating new worktree...`, 'info');
-  const worktreePath = createWorktree(run, fs, paths, branchName, baseBranch);
-  copyEnvToWorktree(fs, paths.baseCwd, worktreePath);
+  const worktreePath = createWorktree(run, fs, log, paths, branchName, baseBranch);
+  copyEnvToWorktree(fs, log, paths.baseCwd, worktreePath);
   return worktreePath;
 }
 

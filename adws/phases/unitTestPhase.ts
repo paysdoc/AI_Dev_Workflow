@@ -19,6 +19,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
   computeTestVerdict,
+  ADW_UNVERIFIED_LABEL,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -27,8 +28,6 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { BoardStatus } from '../providers/types';
-import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
-import { getRepoInfo } from '../github/githubApi';
 import { reportStackCoherence } from './stackCoherenceReporter';
 
 /**
@@ -80,7 +79,7 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       runTestsCommand: config.projectConfig.commands.runTests ?? 'bun run test:unit',
       cwd: worktreePath,
       issueBody: issue.body,
-      launchContext: { selfHost: !repoContext, adwId },
+      launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
       onCompactionDetected: (continuationNumber) => {
         ctx.tokenContinuationNumber = continuationNumber;
         log(`Test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
@@ -132,12 +131,11 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       // accessible by integration"), so applyLabel can throw; swallow it,
       // mirroring stackCoherenceReporter.
       try {
-        const repoInfo = config.targetRepo
-          ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
-          : getRepoInfo();
-        applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
         if (repoContext) {
+          repoContext.issueTracker.applyLabel(issueNumber, ADW_UNVERIFIED_LABEL);
           postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
+        } else {
+          log('Unit test phase: no repo context — adw:unverified not applied', 'warn');
         }
       } catch (e) {
         log(`Failed to mark unit tests unverified (non-fatal): ${e}`, 'error');

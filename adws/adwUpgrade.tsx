@@ -32,7 +32,7 @@ import { runWithRawOrchestratorLifecycle } from './phases/orchestratorLock';
 import {
   parseTargetRepoArgs,
   parseOrchestratorArguments,
-  buildRepoIdentifier,
+  buildLaunchBoundary,
   generateAdwId,
   log,
   ensureLogsDirectory,
@@ -48,14 +48,13 @@ import {
   countUpgradeFailureComments,
   UPGRADE_FAILURE_SIGNATURE,
   type IssueCommentRecord,
+  ADW_BLOCKED_LABEL,
+  hasWontFixLabelName,
 } from './core';
-import { ADW_BLOCKED_LABEL } from './github/labelManager';
-import { commentOnIssue, mergePR, type RepoInfo, gitContextFor } from './github';
-import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
 import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
-import { createGitHubCodeHost } from './providers/github/githubCodeHost';
-import type { CreatePROptions, PullRequestResult, RepoIdentifier } from './providers/types';
+import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from './providers/types';
+import { BoardStatus } from './providers/types';
 import {
   copyAdwInitCommandToWorktree,
   verifyAdwRegen,
@@ -84,6 +83,13 @@ export interface RunInitCommandParams {
   readonly adwId: string;
   readonly issueJson: string;
   readonly frameworkRepoRoot: string;
+  /**
+   * Launch-boundary GitContext threaded into the spawned agent's launchContext
+   * so ADW_MAIN_REPO_PATH keeps resolving (#822). Optional: the call site in
+   * executeUpgrade only has `deps`, not the raw context — buildDefaultUpgradeDeps
+   * supplies it via a closure over its own `gitCtx`.
+   */
+  readonly gitContext?: GitContext;
 }
 
 /** Injectable dependencies for executeUpgrade — enables unit testing without I/O. */
@@ -98,7 +104,7 @@ export interface UpgradeDeps {
    */
   readonly reconcileWorktreeToRemote: (worktreePath: string, branch: string) => void;
   readonly getDefaultBranch: () => string;
-  readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
+  readonly findPRByBranch: (branch: string) => PullRequestSummary | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
   readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
@@ -110,16 +116,16 @@ export interface UpgradeDeps {
   /** True when a push error is a non-fast-forward rejection (another orchestrator owns the claim branch). */
   readonly isPushRejection: (err: unknown) => boolean;
   readonly createPullRequest: (options: CreatePROptions) => PullRequestResult;
-  readonly commentOnIssue: typeof commentOnIssue;
+  readonly commentOnIssue: (issueNumber: number, body: string) => void;
   readonly ensureLogsDirectory: (adwId: string) => string;
   readonly log: typeof log;
   readonly readAdwYmlConfig: (worktreePath: string) => AdwYmlConfig;
-  readonly mergePR: (prNumber: number, repoInfo: RepoInfo) => { success: boolean; error?: string };
+  readonly mergePR: (prNumber: number) => ForgeActionResult;
   readonly fetchIssueLabels: (issueNumber: number) => readonly string[];
   readonly fetchIssueComments: (issueNumber: number) => readonly IssueCommentRecord[];
   readonly ensureLabel: (name: string, color: string, description: string) => void;
   readonly applyLabel: (issueNumber: number, label: string) => void;
-  readonly moveToStatus: (issueNumber: number, status: string) => boolean;
+  readonly moveToStatus: (issueNumber: number, status: BoardStatus) => Promise<boolean>;
   readonly postSlack: (text: string) => Promise<void>;
   readonly maxFailures: number;
 }
@@ -222,7 +228,7 @@ export function buildUpgradeEscalationComment(adwId: string, issueNumber: number
 /**
  * Builds the escalation Slack alert.
  */
-export function buildUpgradeEscalationSlack(repoInfo: RepoInfo, issueNumber: number, failureCount: number, maxFailures: number): string {
+export function buildUpgradeEscalationSlack(repoInfo: RepoIdentifier, issueNumber: number, failureCount: number, maxFailures: number): string {
   return `:rotating_light: ADW upgrade escalated: *${repoInfo.owner}/${repoInfo.repo}* issue #${issueNumber} reached failure cap (${failureCount}/${maxFailures}). Remove \`adw:blocked\` label to re-arm.`;
 }
 
@@ -235,7 +241,7 @@ export function buildUpgradeEscalationSlack(repoInfo: RepoInfo, issueNumber: num
 export async function executeUpgrade(
   issueNumber: number,
   adwId: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   baseRepoPath: string,
   frameworkRepoRoot: string,
   deps: UpgradeDeps,
@@ -257,7 +263,6 @@ export async function executeUpgrade(
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(String(error), adwId, issueNumber),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'hash_error' };
   }
@@ -270,8 +275,8 @@ export async function executeUpgrade(
   // tick) must not re-run regen or stack duplicate PRs. Only a claim with NO PR is genuinely
   // stalled (the orchestrator died before opening the PR) and safe to (re)build. This is what
   // makes that re-dispatch self-healing without a separate watchdog probe.
-  const existingClaimPr = deps.findPRByBranch(branch, repoInfo);
-  if (existingClaimPr && hasWontFixLabel(existingClaimPr)) {
+  const existingClaimPr = deps.findPRByBranch(branch);
+  if (existingClaimPr && hasWontFixLabelName(existingClaimPr.labels)) {
     // Escape hatch for a flawed-but-merged upgrade: labeling the retired PR
     // `wontfix` disqualifies it from the guard so this hash can be rebuilt.
     // selectPreferredPR prefers OPEN, so once the rebuild opens a fresh PR the
@@ -295,9 +300,9 @@ export async function executeUpgrade(
   if (failureCount >= deps.maxFailures) {
     deps.ensureLabel(TERMINAL_LABEL, 'b60205', 'ADW lane escalated to human (terminal)');
     deps.applyLabel(issueNumber, TERMINAL_LABEL);   // durable idempotency signal first
-    deps.moveToStatus(issueNumber, 'Blocked');        // best-effort; false on no board is non-fatal
+    await deps.moveToStatus(issueNumber, BoardStatus.Blocked); // best-effort; false on no board is non-fatal
     await deps.postSlack(buildUpgradeEscalationSlack(repoInfo, issueNumber, failureCount, deps.maxFailures));
-    deps.commentOnIssue(issueNumber, buildUpgradeEscalationComment(adwId, issueNumber, deps.maxFailures), repoInfo);
+    deps.commentOnIssue(issueNumber, buildUpgradeEscalationComment(adwId, issueNumber, deps.maxFailures));
     deps.log(`adwUpgrade: failure cap reached (${failureCount}/${deps.maxFailures}); escalated issue #${issueNumber}`, 'warn');
     return { outcome: 'escalated', reason: 'failure_cap_reached' };
   }
@@ -318,7 +323,6 @@ export async function executeUpgrade(
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(String(error), adwId, issueNumber),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'worktree_error' };
   }
@@ -344,7 +348,6 @@ export async function executeUpgrade(
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(initResult.error ?? 'unknown', adwId, issueNumber),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'llm_failed' };
   }
@@ -363,7 +366,6 @@ export async function executeUpgrade(
         adwId,
         issueNumber,
       ),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'regen_incomplete' };
   }
@@ -385,7 +387,6 @@ export async function executeUpgrade(
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(String(error), adwId, issueNumber),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'commit_error' };
   }
@@ -411,7 +412,6 @@ export async function executeUpgrade(
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(String(error), adwId, issueNumber),
-      repoInfo,
     );
     return { outcome: 'failed', reason: 'push_error' };
   }
@@ -434,18 +434,18 @@ export async function executeUpgrade(
 
   if (cfg.hitl === true) {
     deps.log(`adwUpgrade: hitl opt-in via .github/adw.yml — leaving PR #${pr.number} for human review`, 'info');
-    deps.commentOnIssue(issueNumber, buildUpgradeHitlComment(pr.number, adwId), repoInfo);
+    deps.commentOnIssue(issueNumber, buildUpgradeHitlComment(pr.number, adwId));
     return { outcome: 'completed', reason: 'pr_opened_hitl', prUrl: pr.url };
   }
 
-  const merge = deps.mergePR(pr.number, repoInfo);
+  const merge = deps.mergePR(pr.number);
   if (merge.success) {
     deps.log(`adwUpgrade: PR #${pr.number} auto-merged`, 'success');
     return { outcome: 'completed', reason: 'pr_merged', prUrl: pr.url };
   }
 
   deps.log(`adwUpgrade: auto-merge failed for PR #${pr.number} (non-fatal): ${merge.error}`, 'warn');
-  deps.commentOnIssue(issueNumber, buildUpgradeMergeFailedComment(pr.number, merge.error ?? 'unknown', adwId), repoInfo);
+  deps.commentOnIssue(issueNumber, buildUpgradeMergeFailedComment(pr.number, merge.error ?? 'unknown', adwId));
   return { outcome: 'completed', reason: 'merge_failed', prUrl: pr.url };
 }
 
@@ -465,7 +465,7 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     undefined,
-    { selfHost: false, adwId: params.adwId },
+    { selfHost: false, adwId: params.adwId, gitContext: params.gitContext },
   );
   return {
     success: result.success,
@@ -473,41 +473,15 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
   };
 }
 
-function parseLabelNames(json: string): readonly string[] {
-  try {
-    const parsed = JSON.parse(json) as unknown;
-    if (!parsed || typeof parsed !== 'object') return [];
-    const arr = (parsed as Record<string, unknown>)['labels'];
-    if (!Array.isArray(arr)) return [];
-    return arr.map((l: unknown) => (typeof l === 'object' && l !== null && 'name' in l ? String((l as Record<string, unknown>)['name']) : '')).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function parseIssueComments(json: string): readonly IssueCommentRecord[] {
-  try {
-    const arr = JSON.parse(json) as unknown[];
-    if (!Array.isArray(arr)) return [];
-    return arr.map((c: unknown) => ({
-      body: typeof c === 'object' && c !== null && 'body' in c ? String((c as Record<string, unknown>)['body'] ?? '') : '',
-      author: typeof c === 'object' && c !== null && 'user' in c && (c as Record<string, unknown>)['user'] !== null && typeof (c as Record<string, unknown>)['user'] === 'object' && 'login' in ((c as Record<string, unknown>)['user'] as object) ? String(((c as Record<string, unknown>)['user'] as Record<string, unknown>)['login'] ?? '') : '',
-    }));
-  } catch {
-    return [];
-  }
-}
-
-/** Builds the default UpgradeDeps using production implementations. */
-function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): UpgradeDeps {
-  const codeHost = createGitHubCodeHost(repoId);
+/** Builds the default UpgradeDeps using production implementations, sourcing every forge dep from the launch boundary's providers. */
+export function buildDefaultUpgradeDeps(providers: BoundProviders, gitCtx: GitContext): UpgradeDeps {
   return {
     computeFrameworkHash,
     ensureWorktree: (branch, baseBranch) => gitCtx.ensureWorktree(branch, baseBranch),
     reconcileWorktreeToRemote: (worktreePath, branch) => gitCtx.fetchAndResetToRemote(branch, worktreePath),
-    getDefaultBranch: () => gitCtx.defaultBranch(),
-    findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),
-    runInitCommand: runInitCommandDefault,
+    getDefaultBranch: () => providers.codeHost.getDefaultBranch(),
+    findPRByBranch: (branch) => providers.codeHost.findPullRequestByBranch(branch),
+    runInitCommand: (params) => runInitCommandDefault({ ...params, gitContext: gitCtx }),
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
     copyStarterSettings: copyStarterSettingsToWorktree,
@@ -515,17 +489,23 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): Up
     commitChanges: (message, cwd, opts) => gitCtx.commitChanges(message, cwd, opts),
     pushBranch: (branch, cwd) => gitCtx.pushBranch(branch, cwd),
     isPushRejection: isPushRejectionError,
-    createPullRequest: (options) => codeHost.createPullRequest(options),
-    commentOnIssue,
+    createPullRequest: (options) => providers.codeHost.createPullRequest(options),
+    commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
     ensureLogsDirectory,
     log,
     readAdwYmlConfig,
-    mergePR: (prNumber, info) => mergePR(prNumber, info),
-    fetchIssueLabels: (issueNumber) => parseLabelNames(gitCtx.issueHasLabel(issueNumber, TERMINAL_LABEL)),
-    fetchIssueComments: (issueNumber) => parseIssueComments(gitCtx.fetchIssueComments(issueNumber)),
-    ensureLabel: (name, color, description) => gitCtx.createLabel(name, color, description),
-    applyLabel: (issueNumber, label) => gitCtx.applyLabel(issueNumber, label),
-    moveToStatus: (issueNumber, status) => gitCtx.moveIssueToStatus(issueNumber, status),
+    mergePR: (prNumber) => providers.codeHost.mergePullRequest(prNumber),
+    fetchIssueLabels: (issueNumber) => providers.issueTracker.fetchLabels(issueNumber),
+    fetchIssueComments: (issueNumber) => {
+      try {
+        return providers.issueTracker.fetchComments(issueNumber);
+      } catch {
+        return [];
+      }
+    },
+    ensureLabel: (name, color, description) => providers.issueTracker.ensureLabel(name, color, description),
+    applyLabel: (issueNumber, label) => providers.issueTracker.applyLabel(issueNumber, label),
+    moveToStatus: (issueNumber, status) => providers.issueTracker.moveToStatus(issueNumber, status),
     postSlack,
     maxFailures: MAX_FAILURES,
   };
@@ -545,11 +525,10 @@ async function main(): Promise<void> {
   });
 
   const adwId = parsedAdwId ?? generateAdwId('adwupgrade');
-  const repoId = buildRepoIdentifier(targetRepo);
-  const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
-  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
+  const { gitContext, repoId, providers } = buildLaunchBoundary(targetRepo);
+  const repoInfo = repoId;
+  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo, () => providers.codeHost.getDefaultBranch()) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const gitCtx = await gitContextFor({ owner: repoId.owner, repo: repoId.repo, selfHost: !targetRepo });
 
   let result: UpgradeRunResult | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
@@ -559,7 +538,7 @@ async function main(): Promise<void> {
       repoInfo,
       baseRepoPath,
       frameworkRepoRoot,
-      buildDefaultUpgradeDeps(repoId, gitCtx),
+      buildDefaultUpgradeDeps(providers, gitContext),
     );
   });
 

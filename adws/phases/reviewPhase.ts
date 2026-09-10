@@ -16,14 +16,14 @@ import {
   mergeModelUsageMaps,
   type ModelUsageMap,
 } from '../core';
-import { GITHUB_PAT } from '../core/environment';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
-import { approvePR, isGitHubAppConfigured, getRepoInfo, gitContextFor } from '../github';
+import type { CodeHost } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
 
@@ -33,6 +33,15 @@ export type { ReviewIssue };
 // sibling promotionRotAdvisory.ts to keep this file under the 300-line
 // guideline; re-exported here since reviewPhase.ts is this feature's home.
 export { executePromotionRotAdvisory } from './promotionRotAdvisory';
+
+/** A code host that refuses the capability probe by name is a code host that cannot approve. */
+function canApprove(codeHost: CodeHost): boolean {
+  try {
+    return codeHost.canApprovePullRequests();
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Executes the Review phase as a passive judge.
@@ -88,7 +97,7 @@ export async function executeReviewPhase(
     issue.body,
     scenarioProofPath || undefined,
     config.gitContext?.commandEnv(),
-    { selfHost: !repoContext, adwId },
+    { selfHost: !repoContext, adwId, gitContext: config.gitContext },
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
@@ -105,14 +114,14 @@ export async function executeReviewPhase(
       postIssueStageComment(repoContext, issueNumber, 'review_passed', ctx);
     }
 
-    // Approve the PR when a GitHub App is configured and PAT is available.
-    // Approval failure is non-fatal — the review still counts as passed.
-    if (isGitHubAppConfigured() && GITHUB_PAT && ctx.prUrl) {
+    // Approve the PR when the code host reports it can. Approval failure is
+    // non-fatal — the review still counts as passed — and so is a refused
+    // capability probe (a forge that cannot express approval cannot approve).
+    if (ctx.prUrl && repoContext && canApprove(repoContext.codeHost)) {
       const prNumber = extractPrNumber(ctx.prUrl);
-      if (prNumber && repoContext) {
-        const repoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
+      if (prNumber) {
         log('Approving PR after review pass...', 'info');
-        const approveResult = approvePR(prNumber, repoInfo);
+        const approveResult = repoContext.codeHost.approvePullRequest(prNumber);
         if (!approveResult.success) {
           log(`PR approval failed (non-fatal to review): ${approveResult.error}`, 'warn');
         } else {
@@ -182,9 +191,7 @@ export async function executeReviewPatchCycle(
     repoContext,
   } = config;
 
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config);
 
   const phaseStartTime = Date.now();
   let costUsd = 0;
@@ -202,7 +209,7 @@ export async function executeReviewPatchCycle(
   );
 
   const subprocessEnv = gitCtx.commandEnv();
-  const launchContext = { selfHost: gitCtx.selfHost, adwId };
+  const launchContext = { selfHost: !repoContext, adwId, gitContext: gitCtx };
 
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {

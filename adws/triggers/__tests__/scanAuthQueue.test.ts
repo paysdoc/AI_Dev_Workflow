@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scanAuthQueue } from '../scanAuthQueue';
 import type { ScanAuthQueueDeps } from '../scanAuthQueue';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import type { AgentState } from '../../types/agentTypes';
+import type { LaunchBoundary } from '../../core';
 
-const REPO: RepoInfo = { owner: 'test', repo: 'repo' };
+const REPO: RepoIdentifier = { owner: 'test', repo: 'repo', platform: Platform.GitHub };
+const BOUNDARY: LaunchBoundary = { repoId: REPO, providers: {} } as unknown as LaunchBoundary;
 const TARGET_ARGS: string[] = [];
 
 function makeState(adwId: string, workflowStage: string, issueNumber = 42): AgentState {
@@ -46,7 +48,7 @@ describe('scanAuthQueue', () => {
     };
     const deps = makeDeps({ readAuthGate: vi.fn().mockReturnValue(gate) });
 
-    const count = await scanAuthQueue(REPO, TARGET_ARGS, undefined, deps);
+    const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(0);
     expect(deps.listAgentDirs).not.toHaveBeenCalled();
@@ -62,11 +64,11 @@ describe('scanAuthQueue', () => {
       evaluateCandidate: vi.fn().mockReturnValue({ kind: 'take_over_adwId', adwId, derivedStage: 'abandoned' }),
     });
 
-    const count = await scanAuthQueue(REPO, TARGET_ARGS, undefined, deps);
+    const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(1);
     expect(deps.writeTopLevelState).toHaveBeenCalledWith(adwId, { workflowStage: 'abandoned' });
-    expect(deps.evaluateCandidate).toHaveBeenCalledWith({ issueNumber: 42, repoInfo: REPO }, undefined);
+    expect(deps.evaluateCandidate).toHaveBeenCalledWith({ issueNumber: 42, boundary: BOUNDARY }, undefined);
     expect(deps.spawnDetached).toHaveBeenCalledOnce();
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledWith(REPO, 42);
   });
@@ -80,7 +82,7 @@ describe('scanAuthQueue', () => {
       evaluateCandidate: vi.fn().mockReturnValue({ kind: 'defer_live_holder', holderPid: 1234 }),
     });
 
-    const count = await scanAuthQueue(REPO, TARGET_ARGS, undefined, deps);
+    const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(0);
     expect(deps.spawnDetached).not.toHaveBeenCalled();
@@ -98,14 +100,14 @@ describe('scanAuthQueue', () => {
     const deps = makeDeps({
       listAgentDirs: vi.fn().mockReturnValue([adwId1, adwId2]),
       readTopLevelState: vi.fn().mockImplementation((id: string) => states[id] ?? null),
-      evaluateCandidate: vi.fn().mockImplementation((input: { issueNumber: number; repoInfo: RepoInfo }) => ({
+      evaluateCandidate: vi.fn().mockImplementation((input: { issueNumber: number; boundary: LaunchBoundary }) => ({
         kind: 'take_over_adwId',
         adwId: input.issueNumber === 11 ? adwId1 : adwId2,
         derivedStage: 'abandoned',
       })),
     });
 
-    const count = await scanAuthQueue(REPO, TARGET_ARGS, undefined, deps);
+    const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(2);
     expect(deps.spawnDetached).toHaveBeenCalledTimes(2);
@@ -127,7 +129,7 @@ describe('scanAuthQueue', () => {
       evaluateCandidate: vi.fn().mockReturnValue({ kind: 'take_over_adwId', adwId: adwId2, derivedStage: 'abandoned' }),
     });
 
-    const count = await scanAuthQueue(REPO, TARGET_ARGS, undefined, deps);
+    const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(1);
     // Should only write/evaluate for adwId2

@@ -11,20 +11,12 @@
 
 import { computeFrameworkHash } from '../core/hashComputer';
 import { readRemoteAdwVersion } from '../core/adwVersion';
-import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps } from '../core/upgradeClaim';
-import {
-  createIssue,
-  updateIssueBody,
-  findOpenUpgradeIssue,
-  applyLabel,
-  ADW_UPGRADE_LABEL,
-} from '../github';
+import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, ADW_UPGRADE_LABEL } from '../core';
 import { spawnDetached } from '../triggers/webhookGatekeeper';
-import { createRepoContext } from '../providers/repoContext';
-import { BoardStatus, type RepoIdentifier } from '../providers/types';
+import { BoardStatus, type BoundProviders } from '../providers/types';
 import { log, type LogLevel } from '../core/utils';
-import type { RepoInfo } from '../github/githubApi';
 import type { UpgradeClaimResult } from '../core/upgradeClaim';
+import type { GitContext } from '../gitContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,7 +30,6 @@ export interface UpgradeGateParams {
    *  `origin/<defaultBranch>:.adw-version` as the authoritative stored version. */
   defaultBranch: string;
   frameworkRepoRoot: string;
-  repoInfo: RepoInfo;
   targetRepoArgs: string[];
 }
 
@@ -47,11 +38,11 @@ export interface UpgradeGateDeps {
   /** Reads the stored ADW version from the remote default branch, not from a local file.
    *  This is the authoritative read: stale local worktrees cannot affect the result. */
   readAdwVersion: (defaultBranch: string, workspacePath: string) => string | null;
-  claimUpgrade: (hash: string, repoInfo: RepoInfo) => Promise<UpgradeClaimResult>;
-  createIssue: (title: string, body: string, repoInfo: RepoInfo) => number;
-  applyLabel: (issueNumber: number, label: string, repoInfo: RepoInfo) => void;
-  updateIssueBody: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
-  findOpenUpgradeIssue: (repoInfo: RepoInfo) => number | null;
+  claimUpgrade: (hash: string) => Promise<UpgradeClaimResult>;
+  createIssue: (title: string, body: string) => number;
+  applyLabel: (issueNumber: number, label: string) => void;
+  updateIssueBody: (issueNumber: number, body: string) => void;
+  findOpenUpgradeIssue: () => number | null;
   spawnUpgradeOrchestrator: (upgNumber: number, targetRepoArgs: string[]) => void;
   moveToStatus: (issueNumber: number, status: BoardStatus) => Promise<void>;
   log: (message: string, level?: LogLevel) => void;
@@ -110,7 +101,7 @@ async function registerDependencyAndPark(
 ): Promise<UpgradeGateOutcome> {
   const newBody = addDependencyToBody(params.issueBody, upgNumber);
   if (newBody !== params.issueBody) {
-    deps.updateIssueBody(params.issueNumber, newBody, params.repoInfo);
+    deps.updateIssueBody(params.issueNumber, newBody);
   }
   try {
     await deps.moveToStatus(params.issueNumber, BoardStatus.Todo);
@@ -137,7 +128,7 @@ export async function runUpgradeGate(
     'info',
   );
 
-  const claim = await deps.claimUpgrade(currentHash, params.repoInfo);
+  const claim = await deps.claimUpgrade(currentHash);
 
   if (claim.won) {
     const title = `ADW framework upgrade ${currentHash.slice(0, 12)}`;
@@ -146,14 +137,14 @@ export async function runUpgradeGate(
       `Claim branch: \`${claim.branch}\``,
       `Framework hash: \`${currentHash}\``,
     ].join('\n\n');
-    const upgNumber = deps.createIssue(title, body, params.repoInfo);
-    deps.applyLabel(upgNumber, ADW_UPGRADE_LABEL, params.repoInfo);
+    const upgNumber = deps.createIssue(title, body);
+    deps.applyLabel(upgNumber, ADW_UPGRADE_LABEL);
     deps.spawnUpgradeOrchestrator(upgNumber, params.targetRepoArgs);
     return registerDependencyAndPark(params, deps, upgNumber, 'winner', claim.branch);
   }
 
   // Loser path
-  const upgNumber = claim.existingIssueNumber ?? deps.findOpenUpgradeIssue(params.repoInfo);
+  const upgNumber = claim.existingIssueNumber ?? deps.findOpenUpgradeIssue();
   if (upgNumber === null) {
     deps.log('Upgrade gate: lost claim but no #UPG issue found yet (race) — parking without body edit', 'warn');
     try {
@@ -169,10 +160,11 @@ export async function runUpgradeGate(
 // ── Default deps factory ──────────────────────────────────────────────────────
 
 export function buildDefaultUpgradeGateDeps(
-  repoId: RepoIdentifier,
+  providers: BoundProviders,
   worktreePath: string,
-  gitShow: (ref: string, filePath: string, cwd: string) => string,
+  gitCtx: GitContext,
 ): UpgradeGateDeps {
+  const gitShow = (ref: string, filePath: string, cwd: string) => gitCtx.show(ref, filePath, cwd);
   return {
     computeFrameworkHash,
     readAdwVersion: (defaultBranch, workspacePath) => readRemoteAdwVersion(gitShow, defaultBranch, workspacePath),
@@ -181,18 +173,17 @@ export function buildDefaultUpgradeGateDeps(
     // target remote) — otherwise it defaults to process.cwd() (the framework repo) and
     // pushes the claim branch to the framework's own GitHub, scoping the winner/loser
     // election globally across every target repo instead of per-target.
-    claimUpgrade: (hash, repoInfo) =>
-      claimUpgradeOrFindExisting(hash, repoInfo, buildDefaultUpgradeClaimDeps(worktreePath)),
-    createIssue,
-    applyLabel,
-    updateIssueBody,
-    findOpenUpgradeIssue,
+    claimUpgrade: (hash) =>
+      claimUpgradeOrFindExisting(hash, buildDefaultUpgradeClaimDeps(worktreePath, gitCtx, providers.codeHost)),
+    createIssue: (title, body) => providers.issueTracker.createIssue(title, body),
+    applyLabel: (issueNumber, label) => providers.issueTracker.applyLabel(issueNumber, label),
+    updateIssueBody: (issueNumber, body) => providers.issueTracker.updateIssueBody(issueNumber, body),
+    findOpenUpgradeIssue: () => providers.issueTracker.findOpenUpgradeIssue(),
     spawnUpgradeOrchestrator: (upgNumber, targetRepoArgs) =>
       spawnDetached('bunx', ['tsx', 'adws/adwUpgrade.tsx', String(upgNumber), ...targetRepoArgs]),
     moveToStatus: async (issueNumber, status) => {
       try {
-        const rc = createRepoContext({ repoId, cwd: worktreePath });
-        await rc.issueTracker.moveToStatus(issueNumber, status);
+        await providers.issueTracker.moveToStatus(issueNumber, status);
       } catch (e) {
         log(`Upgrade gate: moveToStatus best-effort failed: ${e}`, 'warn');
       }

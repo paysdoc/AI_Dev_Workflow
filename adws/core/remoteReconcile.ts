@@ -14,19 +14,23 @@
 
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
-import { defaultFindPRByBranch, type RawPR } from '../github/prApi';
-import type { RepoInfo } from '../github/githubApi';
-import { gitContextForRepo } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
+import type { LaunchBoundary } from './launchGitContext';
+import type { PullRequestSummary } from '../providers/types';
+import type { GitContext } from '../gitContext';
 
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
 
-/** Injectable I/O boundaries for deriveStageFromRemote. */
+/**
+ * Injectable I/O boundaries for deriveStageFromRemote. Identity is closed
+ * over by whichever builder constructed these — neither reads a repoInfo
+ * per call.
+ */
 export interface ReconcileDeps {
   readonly readTopLevelState: (adwId: string) => AgentState | null;
-  readonly branchExistsOnRemote: (branchName: string, repoInfo: RepoInfo) => boolean;
-  readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
+  readonly branchExistsOnRemote: (branchName: string) => boolean;
+  readonly findPRByBranch: (branchName: string) => Pick<PullRequestSummary, 'state'> | null;
 }
 
 /**
@@ -34,7 +38,7 @@ export interface ReconcileDeps {
  * Returns null when the artifacts are insufficient to determine stage
  * (caller should fall back to the state-file value).
  */
-export function mapArtifactsToStage(branchExists: boolean, pr: RawPR | null): WorkflowStage | null {
+export function mapArtifactsToStage(branchExists: boolean, pr: Pick<PullRequestSummary, 'state'> | null): WorkflowStage | null {
   if (!branchExists) return null;
   if (pr === null) return 'branch_created';
   switch (pr.state) {
@@ -45,26 +49,34 @@ export function mapArtifactsToStage(branchExists: boolean, pr: RawPR | null): Wo
   }
 }
 
-function readOnce(branchName: string, repoInfo: RepoInfo, deps: ReconcileDeps): WorkflowStage | null {
+function readOnce(branchName: string, deps: ReconcileDeps): WorkflowStage | null {
   return mapArtifactsToStage(
-    deps.branchExistsOnRemote(branchName, repoInfo),
-    deps.findPRByBranch(branchName, repoInfo),
+    deps.branchExistsOnRemote(branchName),
+    deps.findPRByBranch(branchName),
   );
+}
+
+/** Shared `branchExistsOnRemote` body for both dep builders: a failed `ls-remote` is treated as "branch absent" rather than propagated. */
+function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, branchName: string): boolean {
+  try {
+    return gitContext.lsRemote(branchName).length > 0;
+  } catch (err) {
+    log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
+    return false;
+  }
 }
 
 /**
  * Derives the authoritative WorkflowStage for an ADW run from remote artifacts.
  *
- * The issueNumber parameter is reserved for future commits-ahead checks.
+ * `deps` carries the only wiring this function reads. A caller holding a
+ * launch boundary passes `buildDefaultReconcileDeps(boundary)`.
  */
 export function deriveStageFromRemote(
-  _issueNumber: number,
   adwId: string,
-  repoInfo: RepoInfo,
-  deps?: ReconcileDeps,
+  deps: ReconcileDeps,
 ): WorkflowStage {
-  const effectiveDeps = deps ?? buildDefaultReconcileDeps();
-  const state = effectiveDeps.readTopLevelState(adwId);
+  const state = deps.readTopLevelState(adwId);
   const branchName = state?.branchName;
 
   if (!branchName) {
@@ -73,11 +85,11 @@ export function deriveStageFromRemote(
 
   const stateFallback: WorkflowStage = (state?.workflowStage as WorkflowStage | undefined) ?? 'starting';
 
-  let prev = readOnce(branchName, repoInfo, effectiveDeps);
+  let prev = readOnce(branchName, deps);
   if (prev === null) return stateFallback;
 
   for (let i = 0; i <= MAX_RECONCILE_VERIFICATION_RETRIES; i++) {
-    const next = readOnce(branchName, repoInfo, effectiveDeps);
+    const next = readOnce(branchName, deps);
     if (next === prev) return prev as WorkflowStage;
     prev = next;
     if (prev === null) return stateFallback;
@@ -86,20 +98,17 @@ export function deriveStageFromRemote(
   return stateFallback;
 }
 
-function defaultBranchExistsOnRemote(branchName: string, repoInfo: RepoInfo): boolean {
-  try {
-    return gitContextForRepo(repoInfo).lsRemote(branchName).length > 0;
-  } catch (err) {
-    log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
-    return false;
-  }
-}
-
-/** Wires production I/O implementations into a ReconcileDeps object. */
-export function buildDefaultReconcileDeps(): ReconcileDeps {
+/**
+ * Wires a launch boundary's git ops and providers into a ReconcileDeps
+ * object — no memoisation: both `branchExistsOnRemote` and `findPRByBranch`
+ * hit the code host afresh on every call, since the mandatory
+ * re-verification read inside deriveStageFromRemote must reach the forge a
+ * second time or the read-your-write cross-check degenerates into ceremony.
+ */
+export function buildDefaultReconcileDeps(boundary: LaunchBoundary): ReconcileDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    branchExistsOnRemote: defaultBranchExistsOnRemote,
-    findPRByBranch: defaultFindPRByBranch,
+    branchExistsOnRemote: (branchName) => defaultBranchExistsOnRemote(boundary.gitContext, branchName),
+    findPRByBranch: (branchName) => boundary.providers.codeHost.findPullRequestByBranch(branchName),
   };
 }

@@ -9,21 +9,15 @@
  * handleIssueClosedDependencyUnblock) then ride the existing declared-dependency
  * path — no new enforcement code.
  */
-import type { RepoInfo } from '../github/githubApi';
-import { updateIssueBody, commentOnIssue } from '../github/issueApi';
+import type { IssueTracker } from '../providers/types';
 import { log } from '../core';
 import type { OverlapDeferral } from './cronIssueFilter';
 
 /** Annotation that makes an auto-added Blocked-by ref identifiable and idempotent. */
 export const REGION_OVERLAP_MARKER = '<!-- adw:region-overlap -->';
 
-/** Injectable I/O so unit/BDD tests can spy without touching GitHub. */
-export interface RegionOverlapRegistrationDeps {
-  readonly updateIssueBody: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
-  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
-}
-
-const defaultDeps: RegionOverlapRegistrationDeps = { updateIssueBody, commentOnIssue };
+/** The tracker surface region-overlap registration needs — a bound provider, no repository parameter to get wrong. */
+export type RegionOverlapRegistrationDeps = Pick<IssueTracker, 'updateIssueBody' | 'commentOnIssue'>;
 
 /** The annotated blocked-by reference line for a given blocker. */
 export function blockedByRef(blockedBy: number): string {
@@ -83,15 +77,14 @@ export function formatRegionOverlapComment(deferral: OverlapDeferral): string {
 export function registerRegionOverlapBlocker(
   deferral: OverlapDeferral,
   currentBody: string,
-  repoInfo: RepoInfo,
-  deps: RegionOverlapRegistrationDeps = defaultDeps,
+  tracker: RegionOverlapRegistrationDeps,
 ): boolean {
   if (currentBody.includes(blockedByRef(deferral.blockedBy))) {
     return false; // already registered — no double-append, no duplicate comment
   }
   try {
-    deps.updateIssueBody(deferral.issueNumber, buildBlockedByBody(currentBody, deferral.blockedBy), repoInfo);
-    deps.commentOnIssue(deferral.issueNumber, formatRegionOverlapComment(deferral), repoInfo);
+    tracker.updateIssueBody(deferral.issueNumber, buildBlockedByBody(currentBody, deferral.blockedBy));
+    tracker.commentOnIssue(deferral.issueNumber, formatRegionOverlapComment(deferral));
     log(`Registered region-overlap blocker #${deferral.blockedBy} on issue #${deferral.issueNumber}`, 'success');
     return true;
   } catch (err) {

@@ -25,9 +25,8 @@ import { readSpawnLockRecord } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
 import { spawnDetached } from './webhookGatekeeper';
 import { log, type LogLevel } from '../core';
-import { defaultFindPRByBranch, type RawPR } from '../github/prApi';
-import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../github/labelManager';
-import type { RepoInfo } from '../github/githubApi';
+import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../core/adwLabels';
+import type { CodeHost, RepoIdentifier } from '../providers/types';
 
 // ── Pure claim-branch parser ──────────────────────────────────────────────────
 
@@ -87,7 +86,7 @@ export interface UpgradeRedriveIssue {
 
 /** Injectable dependencies for the redrive scan — enables unit testing without I/O. */
 export interface UpgradeRedriveDeps {
-  readonly findClaimPr: (issueBody: string) => RawPR | null;
+  readonly findClaimPr: (issueBody: string) => { number: number } | null;
   readonly readSpawnLock: (issueNumber: number) => { pid: number; pidStartedAt: string } | null;
   readonly isProcessLive: (pid: number, pidStartedAt: string) => boolean;
   readonly spawn: (upgNumber: number, targetRepoArgs: readonly string[]) => void;
@@ -122,7 +121,7 @@ function deriveSignals(issue: UpgradeRedriveIssue, deps: UpgradeRedriveDeps): Up
  */
 export function findRedrivableUpgrades(
   issues: readonly UpgradeRedriveIssue[],
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: UpgradeRedriveDeps,
 ): number[] {
   const redrivable: number[] = [];
@@ -143,9 +142,9 @@ export function findRedrivableUpgrades(
  */
 export function runUpgradeRedriveScan(
   issues: readonly UpgradeRedriveIssue[],
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   targetRepoArgs: readonly string[],
-  deps: UpgradeRedriveDeps = buildDefaultUpgradeRedriveDeps(repoInfo),
+  deps: UpgradeRedriveDeps,
 ): void {
   const redrivable = findRedrivableUpgrades(issues, repoInfo, deps);
   for (const upgNumber of redrivable) {
@@ -155,11 +154,11 @@ export function runUpgradeRedriveScan(
 
 // ── Default deps factory ──────────────────────────────────────────────────────
 
-export function buildDefaultUpgradeRedriveDeps(repoInfo: RepoInfo): UpgradeRedriveDeps {
+export function buildDefaultUpgradeRedriveDeps(repoInfo: RepoIdentifier, codeHost: Pick<CodeHost, 'findPullRequestByBranch'>): UpgradeRedriveDeps {
   return {
     findClaimPr: (issueBody) => {
       const branch = parseClaimBranch(issueBody);
-      return branch === null ? null : defaultFindPRByBranch(branch, repoInfo);
+      return branch === null ? null : codeHost.findPullRequestByBranch(branch);
     },
     readSpawnLock: (issueNumber) => readSpawnLockRecord(repoInfo, issueNumber),
     isProcessLive,

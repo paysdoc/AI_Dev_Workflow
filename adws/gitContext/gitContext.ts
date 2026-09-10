@@ -2,32 +2,55 @@
  * GitContext deep module — the single authority for "which repo's filesystem."
  *
  * A GitContext is constructed from a mandatory identity (owner, repo, selfHost,
- * token, gitIdentity) plus injected config (frameworkRepoRoot, targetReposDir).
+ * tokenProvider, gitIdentity) plus injected config (frameworkRepoRoot, targetReposDir).
  * Base-path resolution lives only in the constructor — no optional base path,
  * no cwd fallback. Incomplete identity is a hard construction error.
  *
- * Every gh/git operation is routed through one of two private spawn
- * chokepoints, split by command class, not by host state:
- *   - #run()        — git commands and workspace-scoped operations. cwd
- *                      defaults to the context base path (or an explicit
- *                      worktree path when supplied).
- *   - #runRepoApi() — repo-independent gh commands, whose repository identity
- *                      travels in the command string. cwd is always the
- *                      injected framework repo root, which exists regardless
- *                      of whether the target workspace has ever been cloned.
- * Both inject per-command auth (token or PAT) + git identity into the child
- * environment without ever mutating process.env.
+ * Every git operation — and every forge adapter built on this package — is
+ * routed through `exec()`, the package's public, forge-neutral executor — the
+ * single spawn site, single env merge, single cwd resolution and single
+ * ENOENT-rewrap `catch` in the package. `exec()` knows nothing about what a
+ * command means: no forge semantics, no token selection, no `--repo`
+ * awareness.
+ *
+ * A private classifier chooses the working-directory CLASS and assembles the
+ * credential env, then delegates to `exec()`:
+ *   - #run() — git commands and workspace-scoped operations. Resolves to the
+ *              context base path (or an explicit worktree path when
+ *              supplied).
+ * Forge adapters build their own classifier on top of the same primitives —
+ * one resolves to the injected framework repo root (`ExecWorkingDirectory`'s
+ * `frameworkRoot` class) for commands whose repository identity travels in
+ * the command string, so a repo-independent command can run without the
+ * target workspace ever having been cloned.
+ *
+ * `#run` assembles its credential environment through the **TokenProvider
+ * port** (`#credentials`, see `types.ts`), asked once per command and never
+ * cached by the core, plus git identity — merged into the child environment
+ * without ever mutating process.env. It declares only a forge-neutral
+ * `CredentialPurpose`; the provider decides which credential answers it.
+ * Identity validation probes the provider once at construction and discards
+ * the result — see `assertCompleteIdentity`.
  *
  * A spawn failure caused by a missing working directory (basePath or an
  * explicit worktree path that has never been cloned/created on this host)
- * is rewrapped into an error naming the path and repository identity,
- * preserving `code: 'ENOENT'`; every other failure propagates verbatim.
+ * is rewrapped inside `exec()` into an error naming the path and repository
+ * identity, preserving `code: 'ENOENT'`; every other failure propagates
+ * verbatim.
+ *
+ * Worktree-operation logging arrives through an injected `Logger` port
+ * (`deps.logger`), defaulting to `consoleLogger` — so the package carries no
+ * dependency on the host application's logger (PRD story 17).
  */
 
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
-import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps } from './types';
+import type {
+  GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory,
+  TokenProvider, CredentialPurpose, Logger,
+} from './types';
+import { consoleLogger } from './consoleLogger';
 import { branchOps } from './branchOps';
 import { commitOps } from './commitOps';
 import { worktreeResetOps } from './worktreeResetOps';
@@ -40,24 +63,6 @@ import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
 import { claimOps } from './claimOps';
 import { rewrapMissingWorkingDirectory } from './workingDirectoryGuard';
-import {
-  fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
-  fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
-  updateIssueBodyCmd, findOpenUpgradeIssueCmd, deleteIssueCommentCmd,
-  listOpenIssuesCmd, issueCommentsCmd,
-  type ListOpenIssuesOptions,
-} from './commands/issueCommands';
-import {
-  findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
-  commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
-} from './commands/prCommands';
-import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
-import { setSecretCmd } from './commands/secretCommands';
-import {
-  graphQLCmd, graphQLInputCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
-  parseProjectId, parseIssueItem, parseStatusField,
-} from './commands/boardCommands';
 
 /** Single real spawn site for the package — a thin execSync wrapper. */
 const defaultExec: ExecFn = (command, options) => {
@@ -77,7 +82,6 @@ function assertCompleteIdentity(options: GitContextOptions): void {
   const required: Array<[string, string | undefined]> = [
     ['owner', options.owner],
     ['repo', options.repo],
-    ['token', options.token],
     ['frameworkRepoRoot', options.frameworkRepoRoot],
     ['targetReposDir', options.targetReposDir],
   ];
@@ -98,6 +102,23 @@ function assertCompleteIdentity(options: GitContextOptions): void {
   for (const [field, value] of idFields) {
     if (!value?.trim()) throw new Error(`GitContext: gitIdentity.${field} must not be empty`);
   }
+
+  if (!options.tokenProvider) {
+    throw new Error('GitContext: tokenProvider must be provided');
+  }
+  // Validate-and-discard probe: construction performs exactly ONE
+  // resolution to fail loudly when the provider can produce no credential —
+  // preserving the loud launch-time failure that launchGitContext and
+  // gitContextFactory callers depend on — but the answer is thrown away
+  // immediately. The first real command still resolves the provider's
+  // SECOND answer, never this one. This is what keeps "never cached at
+  // construction" literally true while still validating eagerly.
+  const probe = options.tokenProvider.credentialEnv({ owner: options.owner, repo: options.repo, purpose: 'default' });
+  const values = Object.values(probe);
+  const isComplete = values.length > 0 && values.every((v) => !!v?.trim());
+  if (!isComplete) {
+    throw new Error(`GitContext: tokenProvider returned no credential for ${options.owner}/${options.repo}`);
+  }
 }
 
 function resolveBasePath(options: GitContextOptions): string {
@@ -116,24 +137,24 @@ export class GitContext {
   readonly #owner: string;
   readonly #repo: string;
   readonly #selfHost: boolean;
-  readonly #token: string;
-  readonly #pat: string | undefined;
+  readonly #credentials: TokenProvider;
   readonly #gitIdentity: GitIdentity;
-  readonly #exec: ExecFn;
+  readonly #execFn: ExecFn;
   readonly #fsDeps: FsDeps;
+  readonly #log: Logger;
 
   constructor(options: GitContextOptions, deps: GitContextDeps = {}) {
     assertCompleteIdentity(options);
     this.#owner = options.owner;
     this.#repo = options.repo;
     this.#selfHost = options.selfHost;
-    this.#token = options.token;
-    this.#pat = options.pat;
+    this.#credentials = options.tokenProvider;
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
     this.#repoApiCwd = options.frameworkRepoRoot;
-    this.#exec = deps.exec ?? defaultExec;
+    this.#execFn = deps.exec ?? defaultExec;
     this.#fsDeps = deps.fsDeps ?? { existsSync, mkdirSync, copyFileSync, rmSync };
+    this.#log = deps.logger ?? consoleLogger;
   }
 
   get basePath(): string { return this.#basePath; }
@@ -146,10 +167,22 @@ export class GitContext {
     return path.join(this.#basePath, '.worktrees', sanitizeBranchName(branch));
   }
 
-  commandEnv(base: NodeJS.ProcessEnv = {}, usePat = false): NodeJS.ProcessEnv {
+  /**
+   * Assembles a command's environment overlay. The credential is resolved
+   * through the TokenProvider port on **every call** — never captured at
+   * construction — so a long-running orchestrator's agent-subprocess call
+   * sites (buildPhase.ts, documentPhase.ts, reviewPhase.ts, prPhase.ts,
+   * prReviewPhase.ts, scenarioFixPhase.ts, promotionRotAdvisory.ts) each get a
+   * freshly-resolved credential per invocation. The credential is spread
+   * before the GIT_* identity assignments so a hostile or misbehaving
+   * provider can never displace the context's git identity; both are spread
+   * after `base`, preserving existing precedence for call sites that pass an
+   * overlay base.
+   */
+  commandEnv(base: NodeJS.ProcessEnv = {}, purpose: CredentialPurpose = 'default'): NodeJS.ProcessEnv {
     return {
       ...base,
-      GH_TOKEN: (usePat && this.#pat) ? this.#pat : this.#token,
+      ...this.#credentials.credentialEnv({ owner: this.#owner, repo: this.#repo, purpose }),
       GIT_AUTHOR_NAME: this.#gitIdentity.authorName,
       GIT_AUTHOR_EMAIL: this.#gitIdentity.authorEmail,
       GIT_COMMITTER_NAME: this.#gitIdentity.committerName,
@@ -157,19 +190,45 @@ export class GitContext {
     };
   }
 
+  /** Resolves a working-directory CLASS to the concrete path `exec()` spawns in. */
+  #resolveWorkingDirectory(spec: ExecWorkingDirectory): string {
+    if (spec.kind === 'frameworkRoot') return this.#repoApiCwd;
+    if (spec.path === undefined) return this.#basePath;
+    if (!spec.path.trim()) throw new Error('GitContext: exec working directory path must not be empty');
+    return spec.path;
+  }
+
   /**
-   * Single spawn chokepoint — explicit cwd + per-command env
-   * (token or PAT + git identity). Never mutates process.env.
+   * The package's public, forge-neutral executor — the single spawn site.
+   * Every git/gh operation in this class, and every future forge adapter
+   * built on this package, reaches a child process through here.
    *
-   * opts.cwd    — when provided, overrides the context base path as the working directory
-   * opts.usePat — when true and a PAT is configured, uses the PAT as GH_TOKEN
-   * opts.input  — when provided, passes the string to the child's stdin
+   * `command` is the FIRST POSITIONAL parameter by contract, not a field on
+   * `options`: `adws/checkGitGhGuard.ts`'s `git-gh-shellout` rule only
+   * inspects a call's first argument, so an options-object form would
+   * silently disable that guard for every consumer of this method.
+   *
+   * `options.cwd` is a working-directory CLASS, never a bare path, and there
+   * is no `process.cwd()` fallback — see `ExecWorkingDirectory`.
+   * `options.env` is a per-command credential/identity overlay merged over
+   * the inherited process environment; `process.env` itself is never
+   * mutated. `options.input`, when supplied, is piped to the child's stdin.
+   *
+   * Returns stdout, trimmed — every existing call site depends on this.
+   * A spawn failure caused by a missing working directory is rewrapped into
+   * an actionable error naming the path and repository identity, preserving
+   * `code: 'ENOENT'`; every other failure (including an ENOENT whose cwd
+   * genuinely exists) propagates verbatim.
+   *
+   * Deliberately forge-neutral: no credential-purpose parameter, no token
+   * selection, no forge vocabulary anywhere in this signature.
    */
-  #run(command: string, opts: { cwd?: string; input?: string; usePat?: boolean } = {}): string {
-    const cwd = opts.cwd ?? this.#basePath;
-    const env = this.commandEnv(process.env, opts.usePat ?? false);
+  exec(command: string, options: ExecOptions): string {
+    if (!command.trim()) throw new Error('GitContext: exec command must not be empty');
+    const cwd = this.#resolveWorkingDirectory(options.cwd);
+    const env = { ...process.env, ...options.env };
     try {
-      return this.#exec(command, { cwd, env, input: opts.input }).trim();
+      return this.#execFn(command, { cwd, env, input: options.input }).trim();
     } catch (error) {
       throw rewrapMissingWorkingDirectory(
         error,
@@ -180,23 +239,19 @@ export class GitContext {
   }
 
   /**
-   * Repo-API chokepoint — gh commands whose repository identity travels in the
-   * command string (`--repo owner/repo`, `gh api repos/owner/repo/…`) or that
-   * address no repository at all (`gh api user`, `gh api graphql`) are pure
-   * GitHub API calls: they need no repository working directory. They run from
-   * the framework repo root, which always exists, so directive handling
-   * (Cancel/Retry) never depends on a target workspace having been cloned.
+   * Workspace-scoped classifier over `exec()` — git commands and
+   * workspace-scoped operations. Resolves to the context base path, or to an
+   * explicit worktree path when supplied.
    *
-   * Deliberately accepts no cwd override — the fixed cwd is the contract.
+   * opts.cwd   — when provided, narrows the workspace class to this worktree path
+   * opts.input — when provided, passes the string to the child's stdin
    */
-  #runRepoApi(command: string, opts: { input?: string; usePat?: boolean } = {}): string {
-    return this.#run(command, { ...opts, cwd: this.#repoApiCwd });
-  }
-
-  defaultBranch(): string {
-    return this.#runRepoApi(
-      `gh repo view ${this.#owner}/${this.#repo} --json defaultBranchRef --jq .defaultBranchRef.name`,
-    );
+  #run(command: string, opts: { cwd?: string; input?: string } = {}): string {
+    return this.exec(command, {
+      cwd: { kind: 'workspace', path: opts.cwd },
+      env: this.commandEnv({}),
+      input: opts.input,
+    });
   }
 
   // ── Branch ops ───────────────────────────────────────────────────────────────
@@ -276,6 +331,7 @@ export class GitContext {
     return worktreeCreateOps.createWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -286,6 +342,7 @@ export class GitContext {
     return worktreeCreateOps.createWorktreeForNewBranch(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -296,6 +353,7 @@ export class GitContext {
     return worktreeCreateOps.ensureWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -332,6 +390,7 @@ export class GitContext {
     return worktreeRemoveOps.removeWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.worktreePathFor(branchName),
       branchName,
       (branch) => this.deleteLocalBranch(branch),
@@ -343,6 +402,7 @@ export class GitContext {
     return worktreeRemoveOps.removeWorktreesForIssue(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#basePath,
       issueNumber,
       (branch) => this.deleteLocalBranch(branch),
@@ -352,75 +412,10 @@ export class GitContext {
   copyEnvToWorktree(worktreePath: string): void {
     worktreeCreateOps.copyEnvToWorktree(
       this.#fsDeps,
+      this.#log,
       this.#basePath,
       worktreePath,
     );
-  }
-
-  // ── GitHub issue ops ─────────────────────────────────────────────────────────
-
-  fetchIssue(issueNumber: number): string {
-    return this.#runRepoApi(fetchIssueCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  commentOnIssue(issueNumber: number, body: string): void {
-    this.#runRepoApi(commentOnIssueCmd(this.#owner, this.#repo, issueNumber), { input: body });
-  }
-
-  issueState(issueNumber: number): string {
-    return this.#runRepoApi(issueStateCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  closeIssue(issueNumber: number): void {
-    this.#runRepoApi(closeIssueCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  issueTitle(issueNumber: number): string {
-    return this.#runRepoApi(issueTitleCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  fetchIssueComments(issueNumber: number): string {
-    return this.#runRepoApi(fetchIssueCommentsCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  issueHasLabel(issueNumber: number, _labelName: string): string {
-    return this.#runRepoApi(issueHasLabelCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  addIssueLabel(issueNumber: number, labelName: string): void {
-    this.#runRepoApi(addIssueLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
-  }
-
-  createIssue(title: string, body: string): string {
-    return this.#runRepoApi(createIssueCmd(this.#owner, this.#repo, title), { input: body });
-  }
-
-  updateIssueBody(issueNumber: number, body: string): void {
-    this.#runRepoApi(updateIssueBodyCmd(this.#owner, this.#repo, issueNumber), { input: body });
-  }
-
-  findOpenUpgradeIssue(): string {
-    return this.#runRepoApi(findOpenUpgradeIssueCmd(this.#owner, this.#repo));
-  }
-
-  deleteIssueComment(commentId: number): void {
-    this.#runRepoApi(deleteIssueCommentCmd(this.#owner, this.#repo, commentId));
-  }
-
-  listOpenIssues(opts: ListOpenIssuesOptions): string {
-    return this.#runRepoApi(listOpenIssuesCmd(this.#owner, this.#repo, opts));
-  }
-
-  issueComments(issueNumber: number): string {
-    return this.#runRepoApi(issueCommentsCmd(this.#owner, this.#repo, issueNumber));
-  }
-
-  fetchMergedPRs(limit?: number): string {
-    return this.#runRepoApi(fetchMergedPRsCmd(this.#owner, this.#repo, limit));
-  }
-
-  authenticatedUser(): string {
-    return this.#runRepoApi('gh api user');
   }
 
   remoteUrl(cwd?: string): string {
@@ -533,113 +528,4 @@ export class GitContext {
     return gitReadOps.logSince((cmd, c) => this.#run(cmd, { cwd: c }), opts, cwd ?? this.#basePath);
   }
 
-  findPRByBranch(branchName: string): string {
-    return this.#runRepoApi(findPRByBranchCmd(this.#owner, this.#repo, branchName));
-  }
-
-  fetchPRDetails(prNumber: number): string {
-    return this.#runRepoApi(fetchPRDetailsCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  fetchPRReviews(prNumber: number): string {
-    return this.#runRepoApi(fetchPRReviewsCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  fetchPRReviewComments(prNumber: number): string {
-    return this.#runRepoApi(fetchPRReviewCommentsCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  commentOnPR(prNumber: number, body: string): void {
-    this.#runRepoApi(commentOnPRCmd(this.#owner, this.#repo, prNumber), { input: body });
-  }
-
-  mergePR(prNumber: number): void {
-    this.#runRepoApi(mergePRCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  /** Approves a PR using the PAT identity (GitHub forbids bot self-approval). */
-  approvePR(prNumber: number): void {
-    this.#runRepoApi(approvePRCmd(this.#owner, this.#repo, prNumber), { usePat: true });
-  }
-
-  prApprovalState(prNumber: number): string {
-    return this.#runRepoApi(prApprovalStateCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  fetchPRList(): string {
-    return this.#runRepoApi(fetchPRListCmd(this.#owner, this.#repo));
-  }
-
-  fetchAllPRs(): string {
-    return this.#runRepoApi(fetchAllPRsCmd(this.#owner, this.#repo));
-  }
-
-  fetchPRChangedFiles(prNumber: number): string {
-    return this.#runRepoApi(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
-  }
-
-  createPR(title: string, body: string, headBranch: string, baseBranch?: string, labels?: readonly string[]): string {
-    return this.#runRepoApi(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
-  }
-
-  createLabel(name: string, color: string, description: string): void {
-    this.#runRepoApi(createLabelCmd(this.#owner, this.#repo, name, color, description));
-  }
-
-  applyLabel(issueNumber: number, labelName: string): void {
-    this.#runRepoApi(applyLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
-  }
-
-  setSecret(name: string, value: string): void {
-    this.#runRepoApi(setSecretCmd(this.#owner, this.#repo, name), { input: value });
-  }
-
-  runGraphQL(query: string, variables?: Record<string, string | number>): string {
-    return this.#runRepoApi(graphQLCmd(query, variables), { usePat: true });
-  }
-
-  /** stdin-JSON form for GraphQL mutations with complex/array variables that runGraphQL's flag form cannot express. Uses PAT (Projects V2 writes) with graceful fallback to context token when no PAT is set. */
-  runGraphQLInput(body: Record<string, unknown>): string {
-    return this.#runRepoApi(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
-  }
-
-  /**
-   * Moves a GitHub issue to a target status on its Projects V2 board.
-   * Uses the PAT identity (app tokens lack Projects V2 access on user-owned repos).
-   * Returns true if the move succeeded; false if no project, no item, or no status match.
-   * Gracefully handles empty/placeholder responses (e.g., in test mode with a spy exec).
-   */
-  moveIssueToStatus(issueNumber: number, targetStatus: string): boolean {
-    let projectId: string | null = null;
-    try {
-      projectId = parseProjectId(this.#runRepoApi(projectQueryCmd(this.#owner, this.#repo), { usePat: true }));
-    } catch { return false; }
-    if (!projectId) return false;
-
-    let item: { itemId: string; currentStatus: string | null } | null = null;
-    try {
-      item = parseIssueItem(
-        this.#runRepoApi(itemQueryCmd(this.#owner, this.#repo, issueNumber), { usePat: true }),
-        projectId,
-      );
-    } catch { return false; }
-    if (!item) return false;
-    if (item.currentStatus?.toLowerCase() === targetStatus.toLowerCase()) return true;
-
-    let field: { fieldId: string; optionId: string } | 'already_at_status' | null = null;
-    try {
-      field = parseStatusField(
-        this.#runRepoApi(fieldQueryCmd(projectId), { usePat: true }),
-        targetStatus,
-        item.currentStatus,
-      );
-    } catch { return false; }
-    if (!field) return false;
-    if (field === 'already_at_status') return true;
-
-    try {
-      this.#runRepoApi(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { usePat: true });
-    } catch { return false; }
-    return true;
-  }
 }

@@ -4,9 +4,10 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
+import { IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { generateBranchName, validateSlug } from '../vcs/branchOperations';
-import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError } from './claudeAgent';
+import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError, AgentLaunchContext } from './claudeAgent';
 
 /**
  * Formats structured args for the /generate_branch_name skill.
@@ -50,7 +51,7 @@ export async function runGenerateBranchNameAgent(
   issue: GitHubIssue,
   logsDir: string,
   statePath?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { branchName: string }> {
   const args = formatBranchNameArgs(issueType, issue);
   const outputFile = path.join(logsDir, 'branchName-agent.jsonl');
@@ -184,7 +185,7 @@ export async function runCommitAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { commitMessage: string }> {
   const args = formatCommitArgs(agentName, issueClass, issueContext);
   const outputFile = path.join(logsDir, 'commit-agent.jsonl');

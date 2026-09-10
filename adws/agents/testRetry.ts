@@ -14,6 +14,7 @@ import {
   testResultFromCase,
   type TestAgentResult,
 } from './testAgent';
+import type { AgentLaunchContext } from './claudeAgent';
 
 export interface TestRetryResult {
   passed: boolean;
@@ -43,7 +44,7 @@ export interface TestRetryOptions {
   /** Optional issue body for fast/cheap model selection */
   issueBody?: string;
   /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
-  launchContext?: { selfHost: boolean; adwId: string };
+  launchContext?: AgentLaunchContext;
 }
 
 /**

@@ -15,7 +15,7 @@
 import * as path from 'path';
 import { log } from '../core/logger';
 import { getModelForCommand, getEffortForCommand } from '../core/modelRouting';
-import { runClaudeAgentWithCommand, type AgentResult, type ProgressCallback } from './claudeAgent';
+import { runClaudeAgentWithCommand, type AgentResult, type ProgressCallback, type AgentLaunchContext } from './claudeAgent';
 import type { SlashCommand } from '../types/issueTypes';
 
 const MAX_RETRIES = 10;
@@ -90,7 +90,7 @@ export interface CommandAgentOptions {
   /** Optional env overlay merged over getSafeSubprocessEnv() — supplies per-command auth from the launch-boundary GitContext. */
   subprocessEnv?: NodeJS.ProcessEnv;
   /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
-  launchContext?: { selfHost: boolean; adwId: string };
+  launchContext?: AgentLaunchContext;
 }
 
 /**

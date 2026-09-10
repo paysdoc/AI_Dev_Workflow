@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import { shouldDispatchMerge, type MergeDispatchDeps } from '../mergeDispatchGate';
 
 vi.mock('../../core', () => ({ log: vi.fn() }));
 
-const repoInfo: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const repoInfo: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 function makeDeps(overrides: Partial<MergeDispatchDeps> = {}): MergeDispatchDeps {
   return {

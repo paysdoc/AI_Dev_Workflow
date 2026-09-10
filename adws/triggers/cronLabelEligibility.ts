@@ -14,11 +14,11 @@
  * depends on adw:upgrade issues never appearing here).
  */
 
-import { readAdwLabelNames } from '../github/labelManager';
-import type { AdwLabelReading } from '../github/labelManager';
+import { readAdwLabelNames } from '../core/adwLabels';
+import type { AdwLabelReading } from '../core/adwLabels';
 import { isAdwComment } from '../core';
-import { hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
-import type { LinkedPRRef } from '../github/linkedPrDetector';
+import { hasLinkedMergedOrClosedPR } from '../forge/linkedPrDetector';
+import type { LinkedPRRef } from '../forge/linkedPrDetector';
 
 // ── Result types ──────────────────────────────────────────────────────────────
 

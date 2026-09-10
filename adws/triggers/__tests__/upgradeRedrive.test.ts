@@ -8,9 +8,9 @@ import {
   type UpgradeRedriveSignals,
   type UpgradeRedriveIssue,
 } from '../upgradeRedrive';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'target' };
+const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const UPGRADE_LABEL = { name: 'adw:upgrade' };
 const BLOCKED_LABEL = { name: 'adw:blocked' };
 

@@ -17,6 +17,82 @@
 export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }) => string;
 
 /**
+ * The working-directory CLASS a command belongs to — the caller's declaration,
+ * never the executor's inference. There is no `process.cwd()` fallback and no
+ * fourth option.
+ *
+ *  - `workspace`    — the target workspace this context is bound to. Omitting
+ *                      `path` means the context base path; supplying `path`
+ *                      narrows to an explicit worktree beneath it.
+ *  - `frameworkRoot` — the injected framework repository root, for commands
+ *                      that carry their own repository identity and need no
+ *                      checkout (#775's contract). Deliberately carries no `path`
+ *                      — "framework root with an explicit worktree path" is
+ *                      unrepresentable rather than merely undocumented.
+ */
+export type ExecWorkingDirectory =
+  | { readonly kind: 'workspace'; readonly path?: string }
+  | { readonly kind: 'frameworkRoot' };
+
+/**
+ * Options for {@link GitContext.exec}, the package's public forge-neutral
+ * executor. Deliberately carries no forge semantics — no credential
+ * selection, no PAT-versus-installation-token discrimination, no `--repo`
+ * awareness. `command` stays a separate, first positional parameter on
+ * `exec` (not folded into this object) so the `git-gh-shellout` CI guard
+ * keeps inspecting it.
+ */
+export interface ExecOptions {
+  /** The working-directory class this command runs in — never a bare path. */
+  readonly cwd: ExecWorkingDirectory;
+  /**
+   * Per-command credential/identity overlay, merged over the inherited
+   * process environment inside the executor. Never a whole replacement
+   * environment, and never a `process.env` mutation.
+   */
+  readonly env: NodeJS.ProcessEnv;
+  /** Optional data piped to the child process's stdin. */
+  readonly input?: string;
+}
+
+/**
+ * The core's forge-neutral declaration of *why* a command needs a credential —
+ * never a declaration of *which kind* of credential it needs. `'alternateIdentity'`
+ * means "the primary automation identity cannot perform this operation" — true of
+ * PR approval (GitHub forbids bot self-approval) and Projects V2 writes (app tokens
+ * lack access on user-owned repos), and expressible on any forge. `'default'` is
+ * everything else. The core never learns that the answer to `'alternateIdentity'`
+ * is a PAT — only the provider knows that.
+ */
+export type CredentialPurpose = 'default' | 'alternateIdentity';
+
+/** A single command's credential request, bound to the repository it targets. */
+export interface CredentialRequest {
+  readonly owner: string;
+  readonly repo: string;
+  readonly purpose: CredentialPurpose;
+}
+
+/**
+ * The TokenProvider port — the seam a forge adapter implements to hand the core
+ * credentials without the core ever holding one.
+ *
+ * `credentialEnv` is called on **every** command; the core never memoises its
+ * result. A GitHub App installation token expires roughly an hour after minting,
+ * and this is what lets the credential source's own expiry-aware refresh actually
+ * fire for a long-running orchestrator instead of replaying a stale snapshot.
+ *
+ * The return value is a per-command environment **overlay** — the same shape
+ * `ExecOptions.env` accepts — never a whole environment and never a
+ * `process.env` mutation. Returning an overlay rather than a bare token string
+ * keeps the credential variable's *name* (e.g. `GH_TOKEN`) on the provider's
+ * side of the port, so the core carries no forge vocabulary.
+ */
+export interface TokenProvider {
+  credentialEnv(request: CredentialRequest): NodeJS.ProcessEnv;
+}
+
+/**
  * Injectable filesystem seam for worktree management ops.
  * All fields optional; defaults are the real fs functions.
  */
@@ -28,6 +104,19 @@ export interface FsDeps {
 }
 
 /**
+ * The four levels the worktree operations report at.
+ */
+export type LogLevel = 'info' | 'error' | 'success' | 'warn';
+
+/**
+ * The logger port (PRD story 17) — exists so the package carries no
+ * dependency on the host application's utilities. Structurally compatible
+ * with the host application's `log(message, level?)` (`adws/core/logger.ts`),
+ * so the ADW logger is injectable with no adapter.
+ */
+export type Logger = (message: string, level?: LogLevel) => void;
+
+/**
  * Optional dependency bag for GitContext. Follows the ADW Deps idiom
  * (JanitorDeps, MergeDeps, ReconcileDeps). All fields optional so existing
  * call sites `new GitContext(options)` continue to work unchanged.
@@ -36,6 +125,8 @@ export interface GitContextDeps {
   exec?: ExecFn;
   /** Injectable fs for worktree management ops — defaults to real 'fs' functions. */
   fsDeps?: FsDeps;
+  /** Injectable logger port — defaults to `consoleLogger`. */
+  logger?: Logger;
 }
 
 /** Git author and committer identity for child-process env overlays. */
@@ -49,15 +140,16 @@ export interface GitIdentity {
 /**
  * Construction options for GitContext.
  *
- * All fields are mandatory — any missing or empty field is a hard construction
- * error. There is no optional base-path parameter and no cwd fallback.
+ * All fields, including `tokenProvider`, are mandatory — any missing or empty
+ * field is a hard construction error. There is no optional base-path
+ * parameter and no cwd fallback.
  *
  * frameworkRepoRoot and targetReposDir are injected by the caller (e.g. from
  * environment.ts's REPO_ROOT and TARGET_REPOS_DIR) so this package depends on
  * no ADW globals and can be imported by other projects.
  */
 export interface GitContextOptions {
-  /** GitHub owner (organisation or user). */
+  /** Repository owner (organisation or user). */
   owner: string;
   /** Repository name (without the owner prefix). */
   repo: string;
@@ -67,8 +159,6 @@ export interface GitContextOptions {
    * this field is a hard construction error (story 23).
    */
   selfHost: boolean;
-  /** Personal access token or GitHub App installation token. */
-  token: string;
   /** Author and committer identity for git operations. */
   gitIdentity: GitIdentity;
   /**
@@ -84,10 +174,8 @@ export interface GitContextOptions {
    */
   targetReposDir: string;
   /**
-   * Optional Personal Access Token for operations that require a different
-   * identity than the primary app token (e.g., PR approval, Projects V2).
-   * When provided and `usePat: true` is passed to `#run`, this token is used
-   * instead of the context's primary token. Never mutates process.env.
+   * A port the core asks, once per command, for a credential environment
+   * overlay. The core holds no token of its own — see {@link TokenProvider}.
    */
-  pat?: string;
+  tokenProvider: TokenProvider;
 }

@@ -15,7 +15,7 @@
  */
 
 import type { ReconcileFact } from './promotionSweepDecider';
-import { ADW_BLOCKED_LABEL } from '../github/labelManager';
+import { ADW_BLOCKED_LABEL } from './adwLabels';
 
 const PROMOTES_MARKER_RE = /^\s*Promotes:\s*(feature-\d+)\s*$/m;
 

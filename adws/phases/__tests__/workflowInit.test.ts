@@ -34,16 +34,22 @@ const mockGitCtx = vi.hoisted(() => ({
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
   headShort: vi.fn().mockReturnValue('abc1234'),
+  hasUncommittedChanges: vi.fn().mockReturnValue(false),
   show: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
-  fetchGitHubIssue: vi.fn(),
+vi.mock('../../core/issueRecord', () => ({
+  fetchIssueRecord: vi.fn(),
+}));
+
+vi.mock('../../core/workflowCommentParsing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/workflowCommentParsing')>()),
   detectRecoveryState: vi.fn(),
-  getRepoInfo: vi.fn(),
-  activateGitHubAppAuth: vi.fn(),
+}));
+
+vi.mock('../../core/githubAppAuth', () => ({
   isGitHubAppConfigured: vi.fn().mockReturnValue(false),
-  gitContextForSync: vi.fn().mockReturnValue(mockGitCtx),
+  getInstallationToken: vi.fn(),
 }));
 
 vi.mock('../../core/environment', async (importOriginal) => {
@@ -59,12 +65,27 @@ vi.mock('../../vcs', () => ({}));
 vi.mock('../branchIdentityFallback', () => ({
   findExistingBranchForIssue: vi.fn().mockReturnValue(null),
   recoverAdwIdForBranch: vi.fn().mockReturnValue(null),
-  defaultDeps: { listCandidateBranches: vi.fn().mockReturnValue([]), listAdwIds: vi.fn().mockReturnValue([]) },
+  buildDefaultBranchIdentityFallbackDeps: vi.fn().mockReturnValue({
+    listCandidateBranches: vi.fn().mockReturnValue([]),
+    listAdwIds: vi.fn().mockReturnValue([]),
+    readTopLevelState: vi.fn().mockReturnValue(null),
+  }),
 }));
 
-vi.mock('../../providers/repoContext', () => ({
-  createRepoContext: vi.fn().mockReturnValue(undefined),
+vi.mock('../../core/workspaceBinding', () => ({
+  bindWorkspaceContext: vi.fn().mockReturnValue(undefined),
 }));
+
+// Real implementation by default (preserves existing tests' behaviour exactly);
+// individual tests override via mockReturnValueOnce/mockImplementationOnce to
+// assert the boundary-providers passthrough deterministically (#794).
+vi.mock('../../core/launchGitContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/launchGitContext')>();
+  return {
+    ...actual,
+    buildLaunchBoundary: vi.fn(actual.buildLaunchBoundary),
+  };
+});
 
 vi.mock('../../core/issueClassifier', () => ({
   classifyGitHubIssue: vi.fn(),
@@ -111,18 +132,34 @@ import { AGENTS_STATE_DIR } from '../../core/config';
 import { existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { runGenerateBranchNameAgent } from '../../agents';
-import {
-  fetchGitHubIssue,
-  detectRecoveryState,
-  getRepoInfo,
-} from '../../github';
+import { fetchIssueRecord } from '../../core/issueRecord';
+import { detectRecoveryState } from '../../core/workflowCommentParsing';
 import { classifyGitHubIssue } from '../../core/issueClassifier';
+import { bindWorkspaceContext } from '../../core/workspaceBinding';
+import { buildLaunchBoundary } from '../../core/launchGitContext';
+import type { LaunchBoundary } from '../../core/launchGitContext';
+import { Platform } from '../../providers/types';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
-const mockFetchIssue = vi.mocked(fetchGitHubIssue);
+const mockFetchIssue = vi.mocked(fetchIssueRecord);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
-const mockGetRepoInfo = vi.mocked(getRepoInfo);
 const mockClassify = vi.mocked(classifyGitHubIssue);
+const mockBindWorkspaceContext = vi.mocked(bindWorkspaceContext);
+const mockBuildLaunchBoundary = vi.mocked(buildLaunchBoundary);
+
+function makeFakeBoundary(owner: string, repo: string): LaunchBoundary {
+  const repoId = { owner, repo, platform: Platform.GitHub };
+  const providers = {
+    issueTracker: {},
+    codeHost: { getDefaultBranch: vi.fn().mockReturnValue('main') },
+    boardManager: {},
+  };
+  return {
+    gitContext: { owner, repo, ...mockGitCtx } as unknown as LaunchBoundary['gitContext'],
+    repoId,
+    providers,
+  } as unknown as LaunchBoundary;
+}
 
 const BASE_ADW_ID = `test-wfinit-${Date.now()}`;
 const ISSUE_NUMBER = 9000;
@@ -173,11 +210,11 @@ beforeEach(() => {
   mockAgent.mockReset();
   mockFetchIssue.mockResolvedValue(fakeIssue as never);
   mockDetectRecovery.mockReturnValue(nullRecoveryState);
-  mockGetRepoInfo.mockReturnValue({ owner: 'test-owner', repo: 'test-repo' });
   mockClassify.mockResolvedValue({ issueType: '/feature', success: true } as never);
   mockGitCtx.getWorktreeForBranch.mockReturnValue(null);
   mockGitCtx.findWorktreeForIssue.mockReturnValue(null);
   mockGitCtx.ensureWorktree.mockReturnValue(FAKE_WORKTREE_PATH);
+  mockBuildLaunchBoundary.mockReturnValue(makeFakeBoundary('test-owner', 'test-repo'));
 });
 
 // ---------------------------------------------------------------------------
@@ -277,4 +314,44 @@ describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
       }
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Boundary-providers passthrough (issue #794, AC3 — workflow-init half)
+// ---------------------------------------------------------------------------
+
+describe('initializeWorkflow: boundary-providers passthrough to bindWorkspaceContext', () => {
+  const adwId = `${BASE_ADW_ID}-boundary`;
+
+  afterEach(() => cleanupAdwId(adwId));
+
+  it('passes the fake boundary and the worktree path to bindWorkspaceContext', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-match' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockBindWorkspaceContext).toHaveBeenCalledTimes(1);
+    expect(mockBindWorkspaceContext.mock.calls[0][0]).toBe(boundary);
+    expect(mockBindWorkspaceContext.mock.calls[0][1]).toBe(FAKE_WORKTREE_PATH);
+  });
+
+  it('refuses to mint a second provider set when a caller-supplied repoId names a different repository — bindWorkspaceContext is never reached', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-mismatch' });
+
+    const cfg = await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', {
+      issueType: '/feature',
+      repoId: { owner: 'other-owner', repo: 'other-repo', platform: Platform.GitHub },
+    });
+
+    // #796 hardens the wrong-repo invariant: a contradicting caller-supplied identity is
+    // refused (resolveWorkflowProviders throws, caught by initializeWorkflow's surrounding
+    // try/catch) rather than served a second, ad-hoc-bound workspace — bindWorkspaceContext
+    // is never called and cfg.repoContext falls back to undefined.
+    expect(mockBindWorkspaceContext).not.toHaveBeenCalled();
+    expect(cfg.repoContext).toBeUndefined();
+  });
 });

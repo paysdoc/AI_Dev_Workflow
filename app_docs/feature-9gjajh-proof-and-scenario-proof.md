@@ -6,12 +6,12 @@ This module collects BDD scenario results and screenshot artifacts, formats them
 
 ## Responsibilities
 
-- `executeProofPublishPhase`: calls `publishPrProof` with the scenario proof result and PR number from `ctx`; catches and logs all errors so the workflow continues regardless.
+- `executeProofPublishPhase`: calls `publishPrProof` with the scenario proof result and PR number from `ctx`; catches and logs all errors so the workflow continues regardless. Since #820, it skips immediately (before the try, zero cost) when `config.repoContext` is absent, and otherwise binds `commenter` to `repoContext.codeHost.commentOnPullRequest` — no legacy `commentOnPR` import or default.
 - `runScenarioProof`: iterates over `ReviewProofConfig.tags`, substitutes `{issueNumber}` in tag patterns, runs each tag via `runScenariosByTag`, reads the JUnit XML report, derives pass/fail/skip from the report (with a JUnit-overrides-exit-code reconciliation for post-suite noise), writes `scenario_proof.md`, and returns a `ScenarioProofResult`.
 - `shouldRunScenarioProof`: returns false when `.adw/scenarios.md` is empty, allowing callers to fall back to code-diff proof.
 - `harvestProofArtifacts`: recursively walks the `ADW_PROOF_DIR` directory and returns a sorted list of image files as `ProofArtifact` records. Pure — no uploads, no logging.
 - `formatPrProofComment`: composes a Markdown PR comment from tag results and uploaded screenshot URLs. Pure — no I/O, no ADW footer.
-- `publishPrProof`: harvests artifacts, uploads them to R2 (when Cloudflare credentials are configured), calls `formatPrProofComment`, appends `ADW_SIGNATURE`, and posts the comment to the PR. All errors are caught and logged.
+- `publishPrProof`: harvests artifacts, uploads them to R2 (when Cloudflare credentials are configured), calls `formatPrProofComment`, appends `ADW_SIGNATURE`, and posts the comment to the PR. All errors are caught and logged. `PublishDeps.commenter: CommenterFn` (`(prNumber, body) => void`) is required since #820 — bound by the caller to `repoContext.codeHost.commentOnPullRequest`, no legacy default; `PublishDeps.repoInfo` stays (it namespaces the R2 upload key, independent of the commenter).
 
 ## Contracts & Invariants
 

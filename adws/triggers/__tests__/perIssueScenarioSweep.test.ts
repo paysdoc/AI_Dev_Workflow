@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Module mocks (hoisted) ───────────────────────────────────────────────────
 
@@ -10,28 +10,22 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(),
 }));
 
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForRepo: vi.fn(),
-}));
-
 vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
-  getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
+vi.mock('../../forge/issueLinkMarker', () => ({
   bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
-  mergePR: vi.fn(() => ({ success: true })),
-  defaultFindPRByBranch: vi.fn(() => null),
 }));
 
 // ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
-import { gitContextForRepo } from '../../github/gitContextFactory';
-import { getRepoInfo, mergePR, defaultFindPRByBranch } from '../../github';
 import { readFileSync } from 'fs';
 import type { GitContext } from '../../gitContext';
+import type { LaunchBoundary } from '../../core';
+import type { CodeHost, RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 
 const UNTAGGED_CONTENT = 'Feature: plain\n';
 
@@ -51,20 +45,28 @@ function makeFakeGitContext(overrides: Record<string, unknown> = {}): GitContext
   return {
     owner: 'test-owner',
     repo: 'test-repo',
-    fetchMergedPRs: vi.fn(() => '[]'),
     ...overrides,
   } as unknown as GitContext;
 }
 
-const fakeGitContext = makeFakeGitContext();
+function makeFakeCodeHost(overrides: Record<string, unknown> = {}): CodeHost {
+  return {
+    getDefaultBranch: vi.fn(() => 'dev'),
+    findPullRequestByBranch: vi.fn(() => null),
+    createPullRequest: vi.fn(() => ({ url: 'https://github.com/test-owner/test-repo/pull/123', number: 123 })),
+    mergePullRequest: vi.fn(() => ({ success: true })),
+    listMergedPullRequests: vi.fn(() => []),
+    ...overrides,
+  } as unknown as CodeHost;
+}
 
-// The module performs no repo-identity resolution of its own: neither
-// getRepoInfo() nor gitContextForRepo() should ever be invoked by any test
-// in this file, regardless of which deps are injected.
-afterEach(() => {
-  expect(getRepoInfo).not.toHaveBeenCalled();
-  expect(gitContextForRepo).not.toHaveBeenCalled();
-});
+function makeFakeBoundary(gitContext: GitContext, codeHost: CodeHost = makeFakeCodeHost()): LaunchBoundary {
+  const repoId: RepoIdentifier = { owner: gitContext.owner, repo: gitContext.repo, platform: Platform.GitHub };
+  return { gitContext, repoId, providers: { issueTracker: {} as never, codeHost } } as LaunchBoundary;
+}
+
+const fakeGitContext = makeFakeGitContext();
+const fakeBoundary = makeFakeBoundary(fakeGitContext);
 
 // ── Predicate truth table ────────────────────────────────────────────────────
 
@@ -116,7 +118,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const logger = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleFile, freshFile, unmergedFile],
       getMergedAt,
@@ -141,7 +143,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const persistRemoval = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleA, staleB],
       getMergedAt: async () => daysAgo(20),
@@ -164,7 +166,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const listStepDefSiblings = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [freshFile, unmergedFile],
       getMergedAt: async (issueNum) => (issueNum === 200 ? daysAgo(5) : null),
@@ -191,7 +193,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const logger = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [failFile, staleFile],
       getMergedAt,
@@ -206,14 +208,14 @@ describe('runPerIssueScenarioSweep — integration', () => {
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('getMergedAt failed'), 'warn');
   });
 
-  it('default getMergedAt routes through the injected gitContext.fetchMergedPRs (never gitContextForRepo)', async () => {
+  it('default getMergedAt routes through boundary.providers.codeHost.listMergedPullRequests (never gitContextForRepo)', async () => {
     const mergedPRs = [{ body: 'Closes #55', mergedAt: '2026-01-01T00:00:00Z' }];
-    const mockCtx = makeFakeGitContext({ fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)) });
+    const codeHost = makeFakeCodeHost({ listMergedPullRequests: vi.fn(() => mergedPRs) });
 
     const persistRemoval = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: mockCtx,
+      boundary: makeFakeBoundary(fakeGitContext, codeHost),
       now: new Date('2026-02-15T00:00:00Z'),
       listFeatures: () => ['features/per-issue/feature-55.feature'],
       listStepDefSiblings: () => [],
@@ -222,16 +224,16 @@ describe('runPerIssueScenarioSweep — integration', () => {
       readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
-    expect(mockCtx.fetchMergedPRs).toHaveBeenCalledWith(200);
+    expect(codeHost.listMergedPullRequests).toHaveBeenCalledWith(200);
     expect(removed).toEqual(['features/per-issue/feature-55.feature']);
   });
 
   it('default getMergedAt returns null on throw (fail-open)', async () => {
-    const mockCtx = makeFakeGitContext({ fetchMergedPRs: vi.fn(() => { throw new Error('gh error'); }) });
+    const codeHost = makeFakeCodeHost({ listMergedPullRequests: vi.fn(() => { throw new Error('gh error'); }) });
     const persistRemoval = vi.fn();
 
     await runPerIssueScenarioSweep({
-      gitContext: mockCtx,
+      boundary: makeFakeBoundary(fakeGitContext, codeHost),
       now: NOW,
       listFeatures: () => ['features/per-issue/feature-99.feature'],
       listStepDefSiblings: () => [],
@@ -249,7 +251,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const logger = vi.fn();
 
     await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [badFile],
       getMergedAt,
@@ -277,7 +279,7 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     const logger = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleFile],
       getMergedAt: async () => daysAgo(20),
@@ -297,7 +299,7 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     const persistRemoval = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleFile],
       getMergedAt: async () => daysAgo(20),
@@ -316,7 +318,7 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     const persistRemoval = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleFile],
       getMergedAt: async () => daysAgo(20),
@@ -336,7 +338,7 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     const logger = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [staleFile],
       getMergedAt: async () => daysAgo(20),
@@ -357,7 +359,7 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     const persistRemoval = vi.fn();
 
     const removed = await runPerIssueScenarioSweep({
-      gitContext: fakeGitContext,
+      boundary: fakeBoundary,
       now: NOW,
       listFeatures: () => [freshFile],
       getMergedAt: async () => daysAgo(5),
@@ -387,7 +389,6 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
   function makeMockCtx(overrides: Record<string, unknown> = {}) {
     const featurePath = 'features/per-issue/feature-77.feature';
     const siblingPath = 'features/per-issue/step_definitions/feature-77.steps.ts';
-    const mergedPRs = [{ body: 'Closes #77', mergedAt: '2026-01-01T00:00:00Z' }];
     return {
       owner: 'test-owner',
       repo: 'test-repo',
@@ -400,22 +401,35 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
         if (prefix === STEP_DEF_DIR) return [siblingPath];
         return [];
       }),
-      fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)),
-      defaultBranch: vi.fn(() => 'dev'),
       removeWorktree: vi.fn(() => true),
       createWorktreeForNewBranch: vi.fn(() => WORKTREE_PATH),
       removeAndCommitPaths: vi.fn(() => true),
       pushBranch: vi.fn(),
-      createPR: vi.fn(() => 'https://github.com/test-owner/test-repo/pull/123'),
       deleteRemoteBranch: vi.fn(() => true),
       ...overrides,
     };
   }
 
-  it('creates a dedicated worktree off the default branch, lists via lsFiles on the worktree path, and persists via removeAndCommitPaths + pushBranch + createPR + mergePR, then cleans up', async () => {
-    const mockCtx = makeMockCtx();
+  function makeMockCodeHost(overrides: Record<string, unknown> = {}) {
+    const mergedPRs = [{ body: 'Closes #77', mergedAt: '2026-01-01T00:00:00Z' }];
+    return makeFakeCodeHost({
+      listMergedPullRequests: vi.fn(() => mergedPRs),
+      getDefaultBranch: vi.fn(() => 'dev'),
+      createPullRequest: vi.fn(() => ({ url: 'https://github.com/test-owner/test-repo/pull/123', number: 123 })),
+      findPullRequestByBranch: vi.fn(() => null),
+      mergePullRequest: vi.fn(() => ({ success: true })),
+      ...overrides,
+    });
+  }
 
-    const removed = await runPerIssueScenarioSweep({ gitContext: mockCtx as unknown as GitContext, now: new Date('2026-02-15T00:00:00Z') });
+  it('creates a dedicated worktree off the default branch, lists via lsFiles on the worktree path, and persists via removeAndCommitPaths + pushBranch + createPullRequest + mergePullRequest, then cleans up', async () => {
+    const mockCtx = makeMockCtx();
+    const codeHost = makeMockCodeHost();
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+    });
 
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith('chore/scenario-sweep', 'dev');
     expect(mockCtx.lsFiles).toHaveBeenCalledWith(WORKTREE_PATH, PER_ISSUE_DIR);
@@ -427,28 +441,37 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
       WORKTREE_PATH,
     );
     expect(mockCtx.pushBranch).toHaveBeenCalledWith('chore/scenario-sweep', WORKTREE_PATH);
-    expect(mockCtx.createPR).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'chore/scenario-sweep', 'dev');
-    expect(mergePR).toHaveBeenCalledWith(123, { owner: 'test-owner', repo: 'test-repo' });
+    expect(codeHost.createPullRequest).toHaveBeenCalledWith(expect.objectContaining({ sourceBranch: 'chore/scenario-sweep', targetBranch: 'dev' }));
+    expect(codeHost.mergePullRequest).toHaveBeenCalledWith(123);
     expect(mockCtx.deleteRemoteBranch).toHaveBeenCalledWith('chore/scenario-sweep');
     expect(mockCtx.removeWorktree).toHaveBeenCalledWith('chore/scenario-sweep');
   });
 
   it('does not push, open a PR, or merge when removeAndCommitPaths reports nothing was committed', async () => {
     const mockCtx = makeMockCtx({ removeAndCommitPaths: vi.fn(() => false) });
+    const codeHost = makeMockCodeHost();
 
-    await runPerIssueScenarioSweep({ gitContext: mockCtx as unknown as GitContext, now: new Date('2026-02-15T00:00:00Z') });
+    await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+    });
 
     expect(mockCtx.removeAndCommitPaths).toHaveBeenCalled();
     expect(mockCtx.pushBranch).not.toHaveBeenCalled();
-    expect(mockCtx.createPR).not.toHaveBeenCalled();
-    expect(mergePR).not.toHaveBeenCalled();
+    expect(codeHost.createPullRequest).not.toHaveBeenCalled();
+    expect(codeHost.mergePullRequest).not.toHaveBeenCalled();
   });
 
   it('skips the sweep branch and PR when an open sweep PR already exists', async () => {
     const mockCtx = makeMockCtx();
-    vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 55, state: 'OPEN', headRefName: 'chore/scenario-sweep', baseRefName: 'dev' });
+    const codeHost = makeMockCodeHost({
+      findPullRequestByBranch: vi.fn(() => ({ number: 55, state: 'OPEN', sourceBranch: 'chore/scenario-sweep', targetBranch: 'dev', labels: [] })),
+    });
 
-    await runPerIssueScenarioSweep({ gitContext: mockCtx as unknown as GitContext, now: new Date('2026-02-15T00:00:00Z') });
+    await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+    });
 
     expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
     expect(mockCtx.pushBranch).not.toHaveBeenCalled();
@@ -458,7 +481,7 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     const mockCtx = makeMockCtx();
 
     await runPerIssueScenarioSweep({
-      gitContext: mockCtx as unknown as GitContext,
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, makeMockCodeHost()),
       now: new Date('2026-02-15T00:00:00Z'),
       listFeatures: () => [],
       listStepDefSiblings: () => [],
@@ -468,12 +491,15 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     expect(mockCtx.createWorktreeForNewBranch).not.toHaveBeenCalled();
   });
 
-  it('operates on the identity carried by the injected context, not a hardcoded repo (a target-shaped context is swept, not the self-host default)', async () => {
-    vi.mocked(defaultFindPRByBranch).mockReturnValue(null);
+  it('operates on the identity carried by the injected boundary, not a hardcoded repo (a target-shaped boundary is swept, not the self-host default)', async () => {
     const mockCtx = makeMockCtx({ owner: 'vestmatic', repo: 'vestmatic-research' });
+    const codeHost = makeMockCodeHost();
 
-    await runPerIssueScenarioSweep({ gitContext: mockCtx as unknown as GitContext, now: new Date('2026-02-15T00:00:00Z') });
+    await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+    });
 
-    expect(mergePR).toHaveBeenCalledWith(123, { owner: 'vestmatic', repo: 'vestmatic-research' });
+    expect(codeHost.mergePullRequest).toHaveBeenCalledWith(123);
   });
 });

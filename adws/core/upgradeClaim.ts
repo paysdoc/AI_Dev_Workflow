@@ -24,10 +24,8 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { defaultFindPRByBranch, fetchPRDetails, type RawPR } from '../github/prApi';
-import type { RepoInfo } from '../github/githubApi';
+import type { CodeHost, PullRequestSummary } from '../providers/types';
 import { log, type LogLevel } from './utils';
-import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 import type { GitContext } from '../gitContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -37,9 +35,9 @@ export type UpgradeClaimResult =
   | { readonly won: false; readonly existingIssueNumber: number | null; readonly existingBranch: string };
 
 export interface UpgradeClaimDeps {
-  readonly pushClaimBranch: (branchName: string, hash: string, repoInfo: RepoInfo) => boolean;
-  readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
-  readonly resolveIssueNumberFromPR: (prNumber: number, repoInfo: RepoInfo) => number | null;
+  readonly pushClaimBranch: (branchName: string, hash: string) => boolean;
+  readonly findPRByBranch: (branchName: string) => PullRequestSummary | null;
+  readonly resolveIssueNumberFromPR: (prNumber: number) => number | null;
   readonly log: (message: string, level?: LogLevel) => void;
 }
 
@@ -65,18 +63,16 @@ export function buildClaimResult(
 
 export async function claimUpgradeOrFindExisting(
   hash: string,
-  repoInfo: RepoInfo,
-  deps?: UpgradeClaimDeps,
+  deps: UpgradeClaimDeps,
 ): Promise<UpgradeClaimResult> {
-  const effectiveDeps = deps ?? buildDefaultUpgradeClaimDeps();
   const branch = buildClaimBranchName(hash);
 
-  const pushed = effectiveDeps.pushClaimBranch(branch, hash, repoInfo);
+  const pushed = deps.pushClaimBranch(branch, hash);
   if (pushed) return { won: true, branch };
 
-  const pr = effectiveDeps.findPRByBranch(branch, repoInfo);
+  const pr = deps.findPRByBranch(branch);
   const existingIssueNumber = pr
-    ? effectiveDeps.resolveIssueNumberFromPR(pr.number, repoInfo)
+    ? deps.resolveIssueNumberFromPR(pr.number)
     : null;
   return { won: false, existingIssueNumber, existingBranch: branch };
 }
@@ -139,7 +135,7 @@ export function defaultPushClaimBranch(
   hash: string,
   baseRepoPath: string,
   ctx: GitContext,
-  getDefaultBranchFn: () => string = () => ctx.defaultBranch(),
+  getDefaultBranchFn: () => string,
 ): boolean {
   const defaultBranch = getDefaultBranchFn();
   ctx.fetchRemote(defaultBranch, baseRepoPath);
@@ -170,16 +166,18 @@ export function defaultPushClaimBranch(
   }
 }
 
-export function buildDefaultUpgradeClaimDeps(baseRepoPath: string = process.cwd(), ctx?: GitContext): UpgradeClaimDeps {
-  const effectiveCtx = ctx ?? gitContextForRepo(readLocalRepoInfo(baseRepoPath));
+export function buildDefaultUpgradeClaimDeps(
+  baseRepoPath: string,
+  ctx: GitContext,
+  codeHost: Pick<CodeHost, 'getDefaultBranch' | 'findPullRequestByBranch' | 'fetchPullRequest'>,
+): UpgradeClaimDeps {
   return {
-    pushClaimBranch: (branchName, hash) => defaultPushClaimBranch(branchName, hash, baseRepoPath, effectiveCtx),
-    findPRByBranch: (branchName, repoInfo) => defaultFindPRByBranch(branchName, repoInfo),
-    resolveIssueNumberFromPR: (prNumber, repoInfo) => {
+    pushClaimBranch: (branchName, hash) => defaultPushClaimBranch(branchName, hash, baseRepoPath, ctx, () => codeHost.getDefaultBranch()),
+    findPRByBranch: (branchName) => codeHost.findPullRequestByBranch(branchName),
+    resolveIssueNumberFromPR: (prNumber) => {
       try {
-        const details = fetchPRDetails(prNumber, repoInfo);
-        const n = details.issueNumber;
-        return typeof n === 'number' && n > 0 ? n : null;
+        const linked = codeHost.fetchPullRequest(prNumber).linkedIssueNumber;
+        return typeof linked === 'number' && linked > 0 ? linked : null;
       } catch {
         return null;
       }

@@ -17,8 +17,8 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo, gitContextFor } from '../github';
-import { executeDocsPostWriteSelfCheck } from './docsSelfCheck';
+import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**
  * Executes the Document phase: generate feature documentation.
@@ -33,9 +33,7 @@ export async function executeDocumentPhase(
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
   const phaseStartTime = Date.now();
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config);
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -66,7 +64,7 @@ export async function executeDocumentPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
-    { selfHost: gitCtx.selfHost, adwId },
+    { selfHost: !repoContext, adwId, gitContext: gitCtx },
   );
 
   costUsd = result.totalCostUsd || 0;
@@ -96,26 +94,26 @@ export async function executeDocumentPhase(
     ),
   });
 
-  // Post-write self-check — non-fatal; never fails the document phase
-  try {
-    const repoInfo = config.targetRepo
-      ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
-      : getRepoInfo(worktreePath);
-    const selfCheck = executeDocsPostWriteSelfCheck({
-      worktreePath,
-      producedDocPaths: [result.docPath],
-      repoInfo,
-    });
-    AgentStateManager.appendLog(
-      orchestratorStatePath,
-      `Docs self-check: ${selfCheck.flags.bloat.length} bloat, ${selfCheck.flags.regrowth.length} regrowth flag(s); routed ${selfCheck.routed.length} refactor follow-up(s)`,
-    );
-  } catch (e) {
-    log(`Docs post-write self-check failed (non-fatal): ${e}`, 'warn');
+  // Post-write self-check — non-fatal; never fails the document phase. Skipped
+  // (not ad-hoc constructed) when no repoContext is available, matching how the
+  // other migrated phases handle a missing boundary-minted provider set.
+  if (repoContext) {
+    try {
+      const selfCheck = executeDocsPostWriteSelfCheck(
+        { worktreePath, producedDocPaths: [result.docPath] },
+        buildDefaultDocsSelfCheckDeps(repoContext.issueTracker),
+      );
+      AgentStateManager.appendLog(
+        orchestratorStatePath,
+        `Docs self-check: ${selfCheck.flags.bloat.length} bloat, ${selfCheck.flags.regrowth.length} regrowth flag(s); routed ${selfCheck.routed.length} refactor follow-up(s)`,
+      );
+    } catch (e) {
+      log(`Docs post-write self-check failed (non-fatal): ${e}`, 'warn');
+    }
   }
 
   // Commit documentation
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
   // Push documentation commit to remote
   gitCtx.pushBranch(branchName, worktreePath);

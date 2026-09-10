@@ -676,15 +676,18 @@ app_docs/                         # Generated documentation
 - `jsonParser.ts` - JSON extraction from mixed-format output
 - `retryOrchestrator.ts` - Generic retry logic for phase execution
 
-**GitHub** (`github/`):
-- `githubApi.ts` - Core GitHub API wrapper
-- `issueApi.ts` - GitHub issue API operations
-- `prApi.ts` - Pull request API operations
+**Forge helpers** (`forge/`):
+- `adwLabelProvisioning.ts` - ADW label catalogue provisioning (`ensureAdwLabelsExist`)
+- `hitlBoardNotifier.ts` - HITL board-event Slack notifications for Review/Blocked transitions
+- `issueLinkMarker.ts` - Canonical issue-link marker contract for PR bodies
+- `linkedPrDetector.ts` - Linked merged/closed PR detection over `CodeHost.listPullRequests()`
+- `prCommentDetector.ts` - PR review unaddressed-comment detection
+- `proofCommentFormatter.ts` - Scenario-proof-to-markdown comment formatting
 - `workflowCommentsBase.ts` - Base comment filtering and management
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
-- `workflowComments.ts` - Unified comment API
-- `prCommentDetector.ts` - PR comment trigger detection
+
+`adws/github/` was deleted in #823. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary now constructs its `GitContext` directly and assembles providers through `adws/providers/forgeProviders.ts`.
 
 **VCS** (`vcs/`):
 - `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)

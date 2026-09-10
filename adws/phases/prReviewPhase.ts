@@ -4,13 +4,15 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
-import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
+import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { PullRequest, ReviewComment, RepoContext } from '../providers/types';
+import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
+import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { inferIssueTypeFromBranch } from '../vcs';
-import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
-import { createRepoContext } from '../providers/repoContext';
+import { BoardStatus } from '../providers/types';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
@@ -26,8 +28,8 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 export interface PRReviewWorkflowConfig {
   base: WorkflowConfig;
   prNumber: number;
-  prDetails: PRDetails;
-  unaddressedComments: PRReviewComment[];
+  prDetails: PullRequest;
+  unaddressedComments: ReviewComment[];
   ctx: PRReviewWorkflowContext;
 }
 
@@ -35,12 +37,13 @@ export interface PRReviewWorkflowConfig {
  * Initializes a PR review workflow: fetches PR details, checks for unaddressed
  * comments, sets up worktree, and initializes state.
  * @param prNumber - The PR number to review
- * @param adwId - Optional ADW workflow ID (generated if not provided)
+ * @param adwId - The ADW workflow ID
+ * @param boundary - The launch boundary this process was built for
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
-  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-  const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
-  log(`Fetched PR: ${prDetails.title}`, 'success');
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string, boundary: LaunchBoundary, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
+  const codeHost = boundary.providers.codeHost;
+  const pr = codeHost.fetchPullRequest(prNumber);
+  log(`Fetched PR: ${pr.title}`, 'success');
   const resolvedAdwId = adwId;
   setLogAdwId(resolvedAdwId);
   log('===================================', 'info');
@@ -48,11 +51,11 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   log(`PR: #${prNumber}`, 'info');
   log(`ADW ID: ${resolvedAdwId}`, 'info');
   log('===================================', 'info');
-  if (prDetails.state === 'CLOSED' || prDetails.state === 'MERGED') {
-    log(`PR #${prNumber} is ${prDetails.state}, skipping`, 'info');
+  if (pr.state === 'CLOSED' || pr.state === 'MERGED') {
+    log(`PR #${prNumber} is ${pr.state}, skipping`, 'info');
     process.exit(0);
   }
-  const unaddressedComments = getUnaddressedComments(prNumber, resolvedRepoInfo);
+  const unaddressedComments = readUnaddressedComments(prNumber, buildUnaddressedCommentReads(boundary));
   // A genuine resume means a prior PR-review run recorded phases for this adwId.
   // A fresh trigger-seed (from resolvePrReviewSpawn) writes branchName but no phases,
   // so it must NOT bypass the empty-comments early-exit.
@@ -64,13 +67,13 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   }
   log(`Found ${unaddressedComments.length} unaddressed review comment(s)`, 'info');
   const logsDir = ensureLogsDirectory(resolvedAdwId);
-  const issueNumber = prDetails.issueNumber;
+  const issueNumber = pr.linkedIssueNumber ?? null;
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, OrchestratorId.PrReview);
   log(`State: ${orchestratorStatePath}`, 'info');
   const initialState: Partial<AgentState> = {
     adwId: resolvedAdwId,
     issueNumber,
-    branchName: prDetails.headBranch,
+    branchName: pr.sourceBranch,
     agentName: OrchestratorId.PrReview,
     pid: process.pid,
     execution: AgentStateManager.createExecutionState('running'),
@@ -83,15 +86,15 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     adwId: resolvedAdwId,
     prNumber,
     reviewComments: unaddressedComments.length,
-    branchName: prDetails.headBranch,
+    branchName: pr.sourceBranch,
   };
   if (targetRepo) {
     log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    ensureTargetRepoWorkspace(targetRepo);
+    ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
     log(`Target repo workspace ready`, 'success');
   }
-  const gitCtx = await gitContextFor({ owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, selfHost: !targetRepo });
-  const worktreePath = gitCtx.ensureWorktree(prDetails.headBranch);
+  const gitCtx = boundary.gitContext;
+  const worktreePath = gitCtx.ensureWorktree(pr.sourceBranch);
   log(`Worktree path: ${worktreePath}`, 'info');
 
   // Allocate a random port for the dedicated dev server instance
@@ -103,14 +106,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
   try {
-    const repoIdForContext = repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-    });
+    repoContext = bindWorkspaceContext(boundary, worktreePath);
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
   }
@@ -121,8 +117,8 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
 
   const issueStub: GitHubIssue = {
     number: prNumber,
-    title: prDetails.title,
-    body: prDetails.body,
+    title: pr.title,
+    body: pr.body,
     state: 'open',
     author: { login: '', isBot: false },
     assignees: [],
@@ -130,7 +126,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     comments: [],
     createdAt: '',
     updatedAt: '',
-    url: prDetails.url,
+    url: pr.url,
   };
   const defaultRecoveryState: RecoveryState = {
     lastCompletedStage: null,
@@ -149,23 +145,24 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     issue: issueStub,
     issueType: '/pr_review' as IssueClassSlashCommand,
     worktreePath,
-    defaultBranch: prDetails.baseBranch,
+    defaultBranch: pr.targetBranch,
     logsDir,
     orchestratorStatePath,
     orchestratorName: OrchestratorId.PrReview,
     recoveryState: defaultRecoveryState,
     ctx,
-    branchName: prDetails.headBranch,
+    branchName: pr.sourceBranch,
     applicationUrl,
     repoContext,
     projectConfig,
     adwYmlConfig,
     topLevelStatePath,
+    gitContext: boundary.gitContext,
   };
   return {
     base,
     prNumber,
-    prDetails,
+    prDetails: pr,
     unaddressedComments,
     ctx,
   };
@@ -178,7 +175,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
-  const launchContext = { selfHost: !repoContext, adwId };
+  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.base.gitContext };
   const phaseStartTime = Date.now();
   let existingPlanContent = '';
   if (issueNumber) {
@@ -204,7 +201,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
   AgentStateManager.writeState(planAgentStatePath, {
     adwId,
     issueNumber,
-    branchName: prDetails.headBranch,
+    branchName: prDetails.sourceBranch,
     agentName: 'pr-review-plan-agent',
     parentAgent: OrchestratorId.PrReview,
     execution: AgentStateManager.createExecutionState('running'),
@@ -258,7 +255,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
-  const launchContext = { selfHost: !repoContext, adwId };
+  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.base.gitContext };
   const phaseStartTime = Date.now();
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_implementing', ctx);
@@ -269,7 +266,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
   AgentStateManager.writeState(buildAgentStatePath, {
     adwId,
     issueNumber,
-    branchName: prDetails.headBranch,
+    branchName: prDetails.sourceBranch,
     agentName: 'pr-review-build-agent',
     parentAgent: OrchestratorId.PrReview,
     execution: AgentStateManager.createExecutionState('running'),
@@ -328,18 +325,16 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
 export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, repoContext } = config.base;
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config.base);
   const phaseStartTime = Date.now();
 
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
   }
-  const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
-  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
+  const issueType = inferIssueTypeFromBranch(prDetails.sourceBranch);
+  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
-  gitCtx.pushBranch(prDetails.headBranch, worktreePath);
+  gitCtx.pushBranch(prDetails.sourceBranch, worktreePath);
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
   }

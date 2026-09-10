@@ -1,0 +1,406 @@
+/**
+ * Issue workflow comment formatting and posting functions.
+ */
+
+import { WorkflowStage, IssueClassSlashCommand, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
+import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
+import type { ReviewIssue } from '../agents/reviewAgent';
+import type { ScenarioProofResult } from '../phases/scenarioProof';
+import type { PhaseCostRecord } from '../cost/types';
+import { formatReviewProofComment, type ProofCommentInput } from './proofCommentFormatter';
+
+/** Context information for issue workflow comments. */
+export interface WorkflowContext {
+  issueNumber: number | null;
+  adwId: string;
+  branchName?: string;
+  issueType?: IssueClassSlashCommand;
+  planPath?: string;
+  planOutput?: string;
+  buildOutput?: string;
+  prUrl?: string;
+  prNumber?: number;
+  errorMessage?: string;
+  resumeFrom?: WorkflowStage;
+  buildProgress?: {
+    turnCount: number;
+    toolCount: number;
+    lastToolName?: string;
+    lastText?: string;
+  };
+  costBreakdown?: CostBreakdown;
+  /** Phase cost records for the new cost formatter. */
+  phaseCostRecords?: PhaseCostRecord[];
+  /**
+   * Pre-computed cost section string from the new comment formatter.
+   * When set, takes precedence over `costBreakdown` in comment formatting.
+   * An empty string means the formatter ran but cost display is disabled.
+   */
+  costSection?: string;
+  /** Which continuation attempt this is (1, 2, 3...) for token limit recovery. */
+  tokenContinuationNumber?: number;
+  /** Token usage snapshot at the time of interruption. */
+  tokenUsage?: TokenUsageSnapshot;
+  /** Summary from the review agent. */
+  reviewSummary?: string;
+  /** Array of review issues found. */
+  reviewIssues?: ReviewIssue[];
+  /** The specific issue currently being patched. */
+  patchingIssue?: ReviewIssue;
+  /** Current review attempt number. */
+  reviewAttempt?: number;
+  /** Maximum review attempts. */
+  maxReviewAttempts?: number;
+  /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
+  runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
+  /** Public URLs of screenshots uploaded to R2 (set when applicationType is 'web'). */
+  screenshotUrls?: string[];
+  /** Scenario proof result from the final review iteration. */
+  scenarioProof?: ScenarioProofResult;
+  /** Non-blocker issues (tech-debt, skippable) from the review. */
+  nonBlockerIssues?: ReviewIssue[];
+  /** All review agent summaries across iterations. */
+  allSummaries?: string[];
+  /** Screenshot URLs from review iterations (passed through for future formatter use). */
+  allScreenshots?: string[];
+  /** Phases completed before the pause (for paused/resumed comments). */
+  completedPhases?: string[];
+  /** Phase where the workflow was paused. */
+  pausedAtPhase?: string;
+  /** Human-readable reason for the pause. */
+  pauseReason?: string;
+  /** Phase name that exceeded its watchdog (set by handlePhaseTimeout). */
+  timeoutPhaseName?: string;
+  /** Watchdog timeout that fired, in milliseconds (set by handlePhaseTimeout). */
+  timeoutMs?: number;
+  /** Human-readable coherence warning messages from stackCoherenceCheck, set by reportStackCoherence. */
+  coherenceWarnings?: string[];
+}
+
+const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
+  '/feature': 'feature',
+  '/bug': 'bug',
+  '/chore': 'chore',
+  '/pr_review': 'pr-review',
+  '/adw_init': 'adw-init',
+};
+
+function formatStartingComment(ctx: WorkflowContext): string {
+  return `## :rocket: ADW Workflow Started\n\nStarting automated development workflow for this issue.\n\n**ADW ID:** \`${ctx.adwId}\`\n\n_Processing issue..._${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatClassifiedComment(ctx: WorkflowContext): string {
+  const typeLabel = ctx.issueType ? issueTypeLabels[ctx.issueType] : 'unknown';
+  return `## :mag: Issue Classified\n\nIssue classified as: **${typeLabel}**\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatBranchCreatedComment(ctx: WorkflowContext): string {
+  return `## :seedling: Branch Created\n\nWorking on branch: \`${ctx.branchName}\`\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanBuildingComment(ctx: WorkflowContext): string {
+  return `## :pencil: Building Implementation Plan\n\nGenerating implementation plan...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanCreatedComment(ctx: WorkflowContext): string {
+  const truncated = ctx.planOutput ? truncateText(ctx.planOutput, 2000) : '';
+  return `## :white_check_mark: Implementation Plan Created\n\nAn implementation plan has been generated for this issue.\n\n**Plan file:** \`${ctx.planPath}\`\n**Branch:** \`${ctx.branchName}\`\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Plan Summary</summary>\n\n${truncated}\n\n</details>\n\nGenerated by ADW Plan Agent${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanFileCreatedComment(ctx: WorkflowContext): string {
+  return `## :page_facing_up: Plan File Created\n\nPlan file confirmed at: \`${ctx.planPath}\`\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanCommittingComment(ctx: WorkflowContext): string {
+  return `## :floppy_disk: Committing Plan\n\nCommitting implementation plan to branch...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatBuildRunningComment(ctx: WorkflowContext): string {
+  return `## :hammer_and_wrench: Running Build\n\nRunning Build Agent to implement the solution...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatBuildProgressComment(ctx: WorkflowContext): string {
+  const progress = ctx.buildProgress;
+  if (!progress) {
+    return `## :gear: Build Progress\n\nBuild in progress...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  const lastAction = progress.lastToolName ? `Last action: \`${progress.lastToolName}\`` : '';
+  const statusText = progress.lastText ? truncateText(progress.lastText, 300) : '';
+  return `## :gear: Build Progress\n\n**Turns completed:** ${progress.turnCount}\n**Tool calls made:** ${progress.toolCount}\n${lastAction}\n\n${statusText ? `**Status:**\n${statusText}` : ''}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatBuildCompletedComment(ctx: WorkflowContext): string {
+  const truncated = ctx.buildOutput ? truncateText(ctx.buildOutput, 2000) : '';
+  return `## :white_check_mark: Build Completed\n\nThe build for this issue has been completed.\n\n**Branch:** \`${ctx.branchName}\`\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Build Summary</summary>\n\n${truncated}\n\n</details>\n\nGenerated by ADW Build Agent${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatBuildCommittingComment(ctx: WorkflowContext): string {
+  return `## :floppy_disk: Committing Build\n\nCommitting build changes to branch...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPrCreatingComment(ctx: WorkflowContext): string {
+  return `## :memo: Creating Pull Request\n\nCreating pull request for review...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPrCreatedComment(ctx: WorkflowContext): string {
+  return `## :link: Pull Request Created\n\nA pull request has been created for this issue.\n\n**PR:** ${ctx.prUrl}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+/**
+ * Returns the cost section for a workflow comment.
+ * Prefers `ctx.costSection` (pre-computed by the new formatter) when set.
+ * Falls back to the legacy `formatCostBreakdownMarkdown` when only `costBreakdown` is available.
+ */
+export function formatCostSection(ctx: WorkflowContext): string {
+  if (ctx.costSection !== undefined) return ctx.costSection;
+  if (!ctx.costBreakdown) return '';
+  return `\n\n<details>\n<summary>Cost Breakdown</summary>\n\n${formatCostBreakdownMarkdown(ctx.costBreakdown)}\n\n</details>`;
+}
+
+function formatCompletedComment(ctx: WorkflowContext): string {
+  const costSection = formatCostSection(ctx);
+  return `## :tada: ADW Workflow Completed\n\nAutomated development workflow completed successfully!\n\n**Branch:** \`${ctx.branchName}\`\n**PR:** ${ctx.prUrl}\n**ADW ID:** \`${ctx.adwId}\`${costSection}${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatErrorComment(ctx: WorkflowContext): string {
+  const costSection = formatCostSection(ctx);
+  return `## :x: ADW Workflow Error\n\nAn error occurred during the automated development workflow.\n\n**Error:** ${ctx.errorMessage || 'Unknown error'}\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease check the logs for more details.${costSection}${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatDiscardedComment(ctx: WorkflowContext): string {
+  return `## :no_entry: ADW Workflow Discarded\n\nThis workflow ended with a terminal decision and will not be retried.\n\n**Reason:** ${ctx.errorMessage || 'Not specified'}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatTokenLimitRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  const usage = ctx.tokenUsage;
+  const usageDetails = usage
+    ? `\n**Tokens used:** ${usage.totalOutputTokens.toLocaleString()} / ${usage.maxTokens.toLocaleString()} (${(usage.thresholdPercent * 100).toFixed(0)}% threshold)`
+    : '';
+  return `## :warning: Token Limit Recovery\n\nThe build agent approached the token limit and was gracefully terminated. Spawning a continuation agent to resume implementation.\n\n**Continuation:** #${continuationNumber}${usageDetails}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Context Compaction Recovery\n\nThe build agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatTestCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Test Compaction Recovery\n\nThe test resolution agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatReviewCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Review Compaction Recovery\n\nThe review/patch agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatReviewIssueItem(issue: ReviewIssue): string {
+  return `- **#${issue.reviewIssueNumber}** [${issue.issueSeverity}]: ${issue.issueDescription}`;
+}
+
+function formatReviewRunningComment(ctx: WorkflowContext): string {
+  const attemptInfo = ctx.reviewAttempt && ctx.maxReviewAttempts
+    ? `\n**Attempt:** ${ctx.reviewAttempt}/${ctx.maxReviewAttempts}`
+    : '';
+  return `## :mag: Review Running\n\nRunning automated code review...${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatScreenshotSection(screenshotUrls: string[]): string {
+  if (screenshotUrls.length === 0) return '';
+  const images = screenshotUrls
+    .map((url, i) => `[![Screenshot ${i + 1}](${url})](${url})`)
+    .join('\n');
+  return `\n\n<details>\n<summary>Screenshots (${screenshotUrls.length})</summary>\n\n${images}\n\n</details>`;
+}
+
+function formatReviewPassedComment(ctx: WorkflowContext): string {
+  if (ctx.scenarioProof) {
+    const input: ProofCommentInput = {
+      passed: true,
+      reviewSummary: ctx.reviewSummary,
+      scenarioProof: ctx.scenarioProof,
+      blockerIssues: [],
+      nonBlockerIssues: ctx.nonBlockerIssues ?? [],
+      allSummaries: ctx.allSummaries,
+    };
+    const body = formatReviewProofComment(input);
+    return `${body}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  // Fallback: simple format for repos without scenario proof
+  const summary = ctx.reviewSummary
+    ? `\n\n${truncateText(ctx.reviewSummary, 2000)}`
+    : '';
+  const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
+    ? formatScreenshotSection(ctx.screenshotUrls)
+    : '';
+  const nonBlockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity !== 'blocker');
+  const nonBlockerSection = nonBlockers.length > 0
+    ? `\n\n<details>\n<summary>Non-blocker issues (${nonBlockers.length})</summary>\n\n${nonBlockers.map(formatReviewIssueItem).join('\n')}\n\n</details>`
+    : '';
+  return `## :white_check_mark: Review Passed\n\nCode review passed with no blocker issues.${summary}${screenshotSection}${nonBlockerSection}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatReviewFailedComment(ctx: WorkflowContext): string {
+  const branchLine = ctx.branchName ? `\n**Branch:** \`${ctx.branchName}\`` : '';
+  const retryLine = '\n\nPush a fix to the branch above, then post `## Retry` on this issue to re-run the review.';
+
+  if (ctx.scenarioProof) {
+    const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
+    const input: ProofCommentInput = {
+      passed: false,
+      reviewSummary: ctx.reviewSummary,
+      scenarioProof: ctx.scenarioProof,
+      blockerIssues: blockers,
+      nonBlockerIssues: ctx.nonBlockerIssues ?? [],
+      allSummaries: ctx.allSummaries,
+    };
+    const body = formatReviewProofComment(input);
+    return `${body}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  // Fallback: simple format for repos without scenario proof
+  const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
+  const blockerList = blockers.length > 0
+    ? `\n\n**Remaining blocker issues (${blockers.length}):**\n${blockers.map(formatReviewIssueItem).join('\n')}`
+    : '';
+  const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
+    ? formatScreenshotSection(ctx.screenshotUrls)
+    : '';
+  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}${screenshotSection}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatReviewPatchingComment(ctx: WorkflowContext): string {
+  const issue = ctx.patchingIssue;
+  if (!issue) {
+    return `## :wrench: Patching Review Issue\n\nApplying patch for review issue...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  const resolution = issue.issueResolution
+    ? `\n**Proposed resolution:** ${truncateText(issue.issueResolution, 500)}`
+    : '';
+  return `## :wrench: Patching Review Issue\n\nPatching blocker **#${issue.reviewIssueNumber}**: ${truncateText(issue.issueDescription, 500)}${resolution}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanValidatingComment(ctx: WorkflowContext): string {
+  return `## :mag: Validating Plan-Scenario Alignment\n\nComparing implementation plan against BDD scenarios...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanValidatedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan and Scenarios Aligned\n\nImplementation plan and BDD scenarios are aligned.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanResolvingComment(ctx: WorkflowContext): string {
+  return `## :wrench: Resolving Plan-Scenario Mismatches\n\nReconciling mismatches using the GitHub issue as the sole arbiter of truth...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanResolvedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan-Scenario Mismatches Resolved\n\nMismatches between the plan and scenarios have been resolved.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanValidationFailedComment(ctx: WorkflowContext): string {
+  return `## :x: Plan-Scenario Validation Failed\n\nPlan and scenarios could not be aligned after maximum resolution attempts.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanAligningComment(ctx: WorkflowContext): string {
+  return `## :arrows_counterclockwise: Aligning Plan and Scenarios\n\nPerforming single-pass alignment of implementation plan against BDD scenarios...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanAlignedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan and Scenarios Aligned\n\nImplementation plan and BDD scenarios have been aligned.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPausedComment(ctx: WorkflowContext): string {
+  const completedList = ctx.completedPhases && ctx.completedPhases.length > 0
+    ? `\n\n**Completed phases:** ${ctx.completedPhases.join(', ')}`
+    : '';
+  const pausedAt = ctx.pausedAtPhase ? `\n**Paused at phase:** \`${ctx.pausedAtPhase}\`` : '';
+  const reason = ctx.pauseReason ? `\n**Reason:** ${ctx.pauseReason}` : '';
+  return `## :pause_button: ADW Workflow Paused\n\nWorkflow paused due to rate limit or API outage. It will resume automatically when capacity returns.${completedList}${pausedAt}${reason}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+function formatResumedComment(ctx: WorkflowContext): string {
+  const resumingFrom = ctx.pausedAtPhase ? `\n**Resuming from phase:** \`${ctx.pausedAtPhase}\`` : '';
+  return `## :arrow_forward: ADW Workflow Resuming\n\nRate limit cleared — resuming workflow from paused phase.${resumingFrom}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+/** Formats the resuming workflow comment. */
+export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
+  return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatStackIncoherentComment(ctx: WorkflowContext): string {
+  const warnings = ctx.coherenceWarnings ?? [];
+  const bulletList = warnings.length > 0
+    ? '\n\n' + warnings.map(w => `- ${w}`).join('\n')
+    : '';
+  return `## :warning: ADW Unverified — Stack Coherence\n\nThe detected test/BDD configuration appears incoherent. \`adw_init\` may have mis-detected the stack (it falls back to \`cucumber-js\` on non-recognition).${bulletList}\n\n**Non-blocking** — the workflow continued and the PR is marked \`adw:unverified\`.\n\n**Next steps:** confirm \`## Test Framework\` / \`## Run Tests\` in \`.adw/commands.md\` and \`## BDD Framework\` in \`.adw/scenarios.md\`.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatUnverifiedComment(ctx: WorkflowContext): string {
+  return `## :warning: ADW Unverified — No JUnit Report Emitted\n\nThe unit-test phase ran \`## Run Tests\`, but no readable JUnit XML report appeared at \`$ADW_UNIT_TEST_REPORT_PATH\`. Either the command emitted no report, or the file it wrote could not be parsed (a parse failure is logged as \`[testReportParser] Failed to parse JUnit report at …\`).\n\n**What this means:** The unit-test verdict could not be verified against a report, so this run is marked \`adw:unverified\` — **non-blocking**, the workflow continued but the PR was not fully verified.\n\n**Next steps:** Configure the runner named in \`## Run Tests\` (\`.adw/commands.md\`), or its config file, to emit a JUnit report to the path in \`$ADW_UNIT_TEST_REPORT_PATH\` — e.g. vitest \`--reporter=junit --outputFile=$ADW_UNIT_TEST_REPORT_PATH\`, cucumber-js \`--format junit:$ADW_UNIT_TEST_REPORT_PATH\`, pytest \`--junitxml=$ADW_UNIT_TEST_REPORT_PATH\`.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
+  const phase = ctx.timeoutPhaseName ?? 'unknown';
+  const minutes = ctx.timeoutMs ? Math.round(ctx.timeoutMs / 60_000) : '?';
+  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will be recovered automatically on the next cron tick: the worktree is reset to the remote and the run resumes from the reconciled stage.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+/** Formats a workflow comment for the given stage. */
+export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext): string {
+  switch (stage) {
+    case 'starting': return formatStartingComment(ctx);
+    case 'resuming': return formatResumingComment(ctx, ctx.resumeFrom || 'starting');
+    case 'classified': return formatClassifiedComment(ctx);
+    case 'branch_created': return formatBranchCreatedComment(ctx);
+    case 'plan_building': return formatPlanBuildingComment(ctx);
+    case 'plan_created': return formatPlanCreatedComment(ctx);
+    case 'planFile_created': return formatPlanFileCreatedComment(ctx);
+    case 'plan_committing': return formatPlanCommittingComment(ctx);
+    case 'build_running': return formatBuildRunningComment(ctx);
+    case 'build_progress': return formatBuildProgressComment(ctx);
+    case 'build_completed': return formatBuildCompletedComment(ctx);
+    case 'build_committing': return formatBuildCommittingComment(ctx);
+    case 'pr_creating': return formatPrCreatingComment(ctx);
+    case 'pr_created': return formatPrCreatedComment(ctx);
+    case 'completed': return formatCompletedComment(ctx);
+    case 'error': return formatErrorComment(ctx);
+    case 'discarded': return formatDiscardedComment(ctx);
+    case 'token_limit_recovery': return formatTokenLimitRecoveryComment(ctx);
+    case 'compaction_recovery': return formatCompactionRecoveryComment(ctx);
+    case 'test_compaction_recovery': return formatTestCompactionRecoveryComment(ctx);
+    case 'review_compaction_recovery': return formatReviewCompactionRecoveryComment(ctx);
+    case 'review_running': return formatReviewRunningComment(ctx);
+    case 'review_passed': return formatReviewPassedComment(ctx);
+    case 'review_failed': return formatReviewFailedComment(ctx);
+    case 'review_patching': return formatReviewPatchingComment(ctx);
+    case 'plan_validating': return formatPlanValidatingComment(ctx);
+    case 'plan_validated': return formatPlanValidatedComment(ctx);
+    case 'plan_resolving': return formatPlanResolvingComment(ctx);
+    case 'plan_resolved': return formatPlanResolvedComment(ctx);
+    case 'plan_validation_failed': return formatPlanValidationFailedComment(ctx);
+    case 'plan_aligning': return formatPlanAligningComment(ctx);
+    case 'plan_aligned': return formatPlanAlignedComment(ctx);
+    case 'paused': return formatPausedComment(ctx);
+    case 'resumed': return formatResumedComment(ctx);
+    case 'phase_timeout': return formatPhaseTimeoutComment(ctx);
+    case 'unverified': return formatUnverifiedComment(ctx);
+    case 'stack_incoherent': return formatStackIncoherentComment(ctx);
+    default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+}
+
+/**
+ * Builds the explanatory issue comment posted when the resume cap is exhausted
+ * and the workflow escalates to human_gated. Context-free (no WorkflowContext).
+ */
+export function formatHumanGatedComment(adwId: string, attempts: number, max: number): string {
+  return [
+    '## :warning: ADW Resume Blocked',
+    '',
+    `**Cause:** This workflow was automatically resumed ${attempts} time${attempts === 1 ? '' : 's'} after a watchdog timeout (cap: ${max}) without completing the wedging phase. Resuming again without intervention would burn tokens in an infinite loop.`,
+    '',
+    '**Remedy:** Investigate the underlying issue (inspect the plan, the phase logs, or the repo state), then comment `## Retry` on this issue. ADW will re-arm the resume counter and pick up recovery on the next cron tick.',
+    '',
+    `**ADW ID:** \`${adwId}\``,
+  ].join('\n') + ADW_SIGNATURE;
+}

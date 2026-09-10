@@ -8,7 +8,6 @@
 import { log, emptyModelUsageMap, type ModelUsageMap } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { extractPrNumber } from '../adwBuildHelpers';
-import { getRepoInfo } from '../github/githubApi';
 import { publishPrProof } from '../proof/prProofPublisher';
 import type { WorkflowConfig } from './workflowInit';
 
@@ -27,20 +26,22 @@ export async function executeProofPublishPhase(
 
   log('Phase: Proof Publish', 'info');
 
+  if (!repoContext) {
+    log('Proof publish phase: no repo context — skipping proof comment', 'info');
+    return { costUsd: 0, modelUsage, phaseCostRecords: [] };
+  }
+
   try {
     const scenarioProof = ctx.scenarioProof;
     const prNumber = extractPrNumber(ctx.prUrl);
-
-    const repoInfo = repoContext?.repoId
-      ? { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo }
-      : getRepoInfo();
 
     await publishPrProof({
       artifactsDir: scenarioProof?.artifactsDir,
       scenarioProof,
       prNumber,
-      repoInfo,
+      repoInfo: repoContext.repoId,
       adwId,
+      commenter: (n, body) => repoContext.codeHost.commentOnPullRequest(n, body),
     });
   } catch (err) {
     log(`Proof publish phase: unexpected error — ${err}`, 'warn');

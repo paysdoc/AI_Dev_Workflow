@@ -7,6 +7,7 @@ import * as path from 'path';
 import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
+import type { GitContext } from '../gitContext';
 import type { AgentResult } from '../types/agentTypes';
 import { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/agentTypes';
 import { killProcessGroup } from '../core/processKill';
@@ -48,6 +49,17 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Launch-boundary facts threaded into a spawned agent. `gitContext` narrows to
+ * `mainRepoPath` only — the seam a spawned agent needs to learn its main repo
+ * path without constructing a GitContext of its own (#822).
+ */
+export interface AgentLaunchContext {
+  selfHost: boolean;
+  adwId: string;
+  gitContext?: Pick<GitContext, 'mainRepoPath'>;
+}
+
+/**
  * Runs a Claude Code agent with a slash command.
  * The command is passed as a CLI argument rather than via stdin.
  *
@@ -62,9 +74,10 @@ function delay(ms: number): Promise<void> {
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
  * @param phaseName - Optional phase name used to look up the per-phase watchdog timeout.
- * @param launchContext - Optional launch-boundary facts ({ selfHost, adwId }) used to decide guardrails
- *   `--settings` injection (issue #762). Absent → treated as self-host, so an un-threaded caller never
- *   injects (fail-safe = today's behaviour).
+ * @param launchContext - Optional launch-boundary facts used to decide guardrails `--settings`
+ *   injection (issue #762) and to resolve ADW_MAIN_REPO_PATH via its `gitContext` (issue #822).
+ *   Absent → treated as self-host, so an un-threaded caller never injects (fail-safe = today's
+ *   behaviour).
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -79,7 +92,7 @@ export async function runClaudeAgentWithCommand(
   contextPreamble?: string,
   phaseName?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -122,10 +135,17 @@ export async function runClaudeAgentWithCommand(
 
   // Subprocess receives per-command auth from the launch-boundary context, never from a process-global (PRD Auth model).
   const spawnEnv = { ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) };
+  // Pipeline agents are stateless: Claude Code's auto-memory (the operator's
+  // ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned
+  // agent. A worktree resolves to the same project key as the framework checkout, so
+  // without this the operator's interactive-session memories are read as instructions
+  // (#797 plan agent re-ran /install from a memory note and blew its context budget).
+  // Set after the overlay so no caller can re-enable it.
+  spawnEnv['CLAUDE_CODE_DISABLE_AUTO_MEMORY'] = '1';
   const resolvedCwd = cwd || process.cwd();
-  if (cwd && cwd.includes('.worktrees/')) {
+  if (cwd && cwd.includes('.worktrees/') && launchContext?.gitContext) {
     try {
-      const mainRepoPath = getMainRepoPath(cwd);
+      const mainRepoPath = getMainRepoPath(launchContext.gitContext, cwd);
       spawnEnv['ADW_WORKTREE_PATH'] = cwd;
       spawnEnv['ADW_MAIN_REPO_PATH'] = mainRepoPath;
     } catch {

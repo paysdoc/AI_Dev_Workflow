@@ -2,14 +2,18 @@
  * GitHub implementation of the BoardManager provider interface.
  * Ensures a GitHub Projects V2 board exists for the repository and
  * that all required ADW columns are present.
+ *
+ * Binds `createGhCommandRunner(ctx)` once at construction, over a
+ * `GitContext` the caller already holds, and logs through the injected
+ * `Logger` port instead of `adws/core`'s `log`.
  */
 
-import { log } from '../../core';
+import { consoleLogger, type GitContext, type Logger } from '../../gitContext';
 import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
-import { toRepoInfo } from './mappers';
-import type { RepoInfo } from '../../github/githubApi';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { assertContextBoundTo } from './contextBinding';
+import { createGhCommandRunner, type GhCommandRunner } from './ghCommandRunner';
+import { graphQLCmd, graphQLInputCmd } from './commands/boardCommands';
 
 type StatusOption = { id?: string; name: string; color: string; description: string };
 
@@ -69,46 +73,49 @@ export function mergeStatusOptions(
   return { merged, changed, added };
 }
 
+export interface GitHubBoardManagerDeps {
+  readonly logger?: Logger;
+}
+
 /**
- * GitHub implementation of the BoardManager interface.
- * Bound to a specific repository at construction time.
+ * GitHub implementation of the BoardManager interface. Bound to a specific
+ * repository and `GitContext` at construction time.
  */
 class GitHubBoardManager implements BoardManager {
-  private readonly repoInfo: RepoInfo;
+  private readonly gh: GhCommandRunner;
+  private readonly logger: Logger;
 
-  constructor(private readonly repoId: RepoIdentifier) {
+  constructor(ctx: GitContext, private readonly repoId: RepoIdentifier, deps: GitHubBoardManagerDeps = {}) {
     validateRepoIdentifier(repoId);
-    this.repoInfo = toRepoInfo(repoId);
-  }
-
-  private get ctx() {
-    return gitContextForRepo(this.repoInfo);
+    assertContextBoundTo(ctx, repoId, 'createGitHubBoardManager');
+    this.gh = createGhCommandRunner(ctx);
+    this.logger = deps.logger ?? consoleLogger;
   }
 
   /** Finds the first GitHub Projects V2 board linked to the repository. */
   async findBoard(): Promise<string | null> {
-    const { owner, repo } = this.repoInfo;
+    const { owner, repo } = this.repoId;
     try {
       const query = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:1){nodes{id}}}}`;
-      const result = this.ctx.runGraphQL(query, { owner, repo });
+      const result = this.gh.run(graphQLCmd(query, { owner, repo }), { purpose: 'alternateIdentity' });
       const parsed = JSON.parse(result) as {
         data: { repository: { projectsV2: { nodes: Array<{ id: string }> } } };
       };
       const nodes = parsed.data.repository.projectsV2.nodes;
       return nodes.length > 0 ? nodes[0].id : null;
     } catch (error) {
-      log(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
+      this.logger(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
       return null;
     }
   }
 
   /** Creates a new GitHub Projects V2 board and links it to the repository. */
   async createBoard(name: string): Promise<string> {
-    const { owner, repo } = this.repoInfo;
+    const { owner, repo } = this.repoId;
 
     // Look up the owner node ID
     const ownerIdQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){owner{id}}}`;
-    const ownerIdResult = this.ctx.runGraphQL(ownerIdQuery, { owner, repo });
+    const ownerIdResult = this.gh.run(graphQLCmd(ownerIdQuery, { owner, repo }), { purpose: 'alternateIdentity' });
     const ownerIdParsed = JSON.parse(ownerIdResult) as {
       data: { repository: { owner: { id: string } } };
     };
@@ -116,7 +123,7 @@ class GitHubBoardManager implements BoardManager {
 
     // Create the project
     const createMutation = `mutation($ownerId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,title:$title}){projectV2{id}}}`;
-    const createResult = this.ctx.runGraphQL(createMutation, { ownerId, title: name });
+    const createResult = this.gh.run(graphQLCmd(createMutation, { ownerId, title: name }), { purpose: 'alternateIdentity' });
     const createParsed = JSON.parse(createResult) as {
       data: { createProjectV2: { projectV2: { id: string } } };
     };
@@ -124,16 +131,16 @@ class GitHubBoardManager implements BoardManager {
 
     // Link the project to the repository
     const repoNodeQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){id}}`;
-    const repoNodeResult = this.ctx.runGraphQL(repoNodeQuery, { owner, repo });
+    const repoNodeResult = this.gh.run(graphQLCmd(repoNodeQuery, { owner, repo }), { purpose: 'alternateIdentity' });
     const repoNodeParsed = JSON.parse(repoNodeResult) as {
       data: { repository: { id: string } };
     };
     const repositoryId = repoNodeParsed.data.repository.id;
 
     const linkMutation = `mutation($projectId:ID!,$repositoryId:ID!){linkProjectV2ToRepository(input:{projectId:$projectId,repositoryId:$repositoryId}){repository{id}}}`;
-    this.ctx.runGraphQL(linkMutation, { projectId, repositoryId });
+    this.gh.run(graphQLCmd(linkMutation, { projectId, repositoryId }), { purpose: 'alternateIdentity' });
 
-    log(`Created project board "${name}" (id: ${projectId})`, 'success');
+    this.logger(`Created project board "${name}" (id: ${projectId})`, 'success');
     return projectId;
   }
 
@@ -156,14 +163,14 @@ class GitHubBoardManager implements BoardManager {
         : { name: o.name, color: o.color, description: o.description },
     );
     const body = { query: mutation, variables: { fieldId, singleSelectOptions } };
-    this.ctx.runGraphQLInput(body);
+    this.gh.run(graphQLInputCmd(), { input: JSON.stringify(body), purpose: 'alternateIdentity' });
   }
 
   /** Ensures all required ADW columns exist on the board. */
   async ensureColumns(boardId: string): Promise<boolean> {
     const statusField = this.getStatusFieldOptions(boardId);
     if (!statusField) {
-      log('No Status field found on project board', 'warn');
+      this.logger('No Status field found on project board', 'warn');
       return false;
     }
 
@@ -172,7 +179,7 @@ class GitHubBoardManager implements BoardManager {
     if (!changed) return true;
 
     this.updateStatusFieldOptions(statusField.fieldId, merged);
-    added.forEach((name) => log(`Added board column "${name}"`, 'info'));
+    added.forEach((name) => this.logger(`Added board column "${name}"`, 'info'));
 
     return true;
   }
@@ -182,7 +189,7 @@ class GitHubBoardManager implements BoardManager {
   ): { fieldId: string; options: Array<{ id: string; name: string; color: string; description: string }> } | null {
     try {
       const query = `query($projectId:ID!){node(id:$projectId){...on ProjectV2{field(name:"Status"){...on ProjectV2SingleSelectField{id options{id name color description}}}}}}`;
-      const result = this.ctx.runGraphQL(query, { projectId });
+      const result = this.gh.run(graphQLCmd(query, { projectId }), { purpose: 'alternateIdentity' });
       const parsed = JSON.parse(result) as {
         data: {
           node: {
@@ -194,13 +201,13 @@ class GitHubBoardManager implements BoardManager {
       if (!field || !field.id) return null;
       return { fieldId: field.id, options: field.options };
     } catch (error) {
-      log(`Failed to get status field options: ${error}`, 'warn');
+      this.logger(`Failed to get status field options: ${error}`, 'warn');
       return null;
     }
   }
 }
 
-/** Factory function to create a GitHub BoardManager provider. */
-export function createGitHubBoardManager(repoId: RepoIdentifier): BoardManager {
-  return new GitHubBoardManager(repoId);
+/** Factory function to create a GitHub BoardManager provider, bound to the given `GitContext` and repository. */
+export function createGitHubBoardManager(ctx: GitContext, repoId: RepoIdentifier, deps: GitHubBoardManagerDeps = {}): BoardManager {
+  return new GitHubBoardManager(ctx, repoId, deps);
 }

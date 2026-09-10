@@ -10,11 +10,11 @@
 import { readSpawnLockRecord } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
 import { log } from '../core';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 /** Injectable dependencies for shouldDispatchMerge — enables unit testing. */
 export interface MergeDispatchDeps {
-  readonly readLock: (repoInfo: RepoInfo, issueNumber: number) => { pid: number; pidStartedAt: string } | null;
+  readonly readLock: (repoInfo: RepoIdentifier, issueNumber: number) => { pid: number; pidStartedAt: string } | null;
   readonly isLive: (pid: number, pidStartedAt: string) => boolean;
 }
 
@@ -37,7 +37,7 @@ const defaultDeps: MergeDispatchDeps = {
  * @param deps        - Optional injectable deps for testing
  */
 export function shouldDispatchMerge(
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   issueNumber: number,
   deps: MergeDispatchDeps = defaultDeps,
 ): boolean {

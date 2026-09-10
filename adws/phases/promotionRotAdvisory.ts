@@ -19,9 +19,8 @@
  *    do not exist earlier in the pipeline.
  */
 
-import { log, emptyModelUsageMap, mergeModelUsageMaps, type ModelUsageMap, type LogLevel } from '../core';
+import { log, emptyModelUsageMap, mergeModelUsageMaps, type ModelUsageMap, type LogLevel, hasRegressionPromotionLabel } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { hasRegressionPromotionLabel } from '../github/labelManager';
 import { extractPrNumber } from '../adwBuildHelpers';
 import { parsePromotesMarker } from '../core/promotionReconcileLink';
 import { runRotAnalysisAgent, type RotVerdict } from '../agents/rotAnalysisAgent';
@@ -131,7 +130,7 @@ export async function executePromotionRotAdvisory(
             issueBody: issue.body,
             subprocessEnv: config.gitContext?.commandEnv(),
             phaseName: 'promotionRotAdvisory',
-            launchContext: { selfHost: !repoContext, adwId },
+            launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
           });
           costUsd += result.totalCostUsd || 0;
           modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage ?? emptyModelUsageMap());

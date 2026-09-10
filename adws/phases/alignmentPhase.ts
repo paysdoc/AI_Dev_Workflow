@@ -24,7 +24,7 @@ import {
   runAlignmentAgent,
   OutputValidationError,
 } from "../agents";
-import { shouldSkipScenarioAuthoring } from "../github";
+import { scenarioAuthoringSkipReason } from "../core";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
 
@@ -57,12 +57,13 @@ export async function executeAlignmentPhase(
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  // Promotion issues skip scenario authoring entirely; with no @adw-N scenarios the
-  // alignment pass has nothing to align. Explicit gate (defense-in-depth on top of the
-  // "no scenario files" skip below). See PRD user story 11.
-  if (shouldSkipScenarioAuthoring(issue.labels)) {
-    log('Skipping alignment phase: regression-promotion issue (no scenario authoring)', 'info');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Alignment phase skipped: regression-promotion label present (promotion issue)');
+  // Issues that skip scenario authoring have no @adw-N scenarios, so the alignment pass has
+  // nothing to align. Explicit gate (defense-in-depth on top of the "no scenario files" skip
+  // below), keyed on the same pure label read. See PRD user story 11.
+  const skipReason = scenarioAuthoringSkipReason(issue.labels);
+  if (skipReason) {
+    log(`Skipping alignment phase: ${skipReason} label present (no scenario authoring)`, 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, `Alignment phase skipped: ${skipReason} label present`);
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
@@ -144,7 +145,7 @@ export async function executeAlignmentPhase(
       logsDir,
       alignmentAgentStatePath,
       worktreePath,
-      { selfHost: !repoContext, adwId },
+      { selfHost: !repoContext, adwId, gitContext: config.gitContext },
     );
     costUsd += alignmentResult.totalCostUsd || 0;
     if (alignmentResult.modelUsage) {
@@ -202,7 +203,7 @@ export async function executeAlignmentPhase(
   // Step 7: Commit updated artifacts if changes were made
   if (changes.length > 0) {
     log("Committing updated plan/scenario artifacts...", "info");
-    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId });
+    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
   }
 
   const phaseCostRecords = createPhaseCostRecords({

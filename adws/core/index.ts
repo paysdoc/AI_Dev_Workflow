@@ -7,21 +7,14 @@ export { OrchestratorId, MAX_AUTO_MERGE_ATTEMPTS } from './constants';
 export type { OrchestratorIdType } from './constants';
 
 // Configuration
-export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, MAX_FAILURES, WORKTREES_DIR, TARGET_REPOS_DIR, REPO_ROOT, assertCwdIsRepoRoot, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, HEARTBEAT_TICK_INTERVAL_MS, HEARTBEAT_STALE_THRESHOLD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, JANITOR_INTERVAL_CYCLES, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand, COST_API_URL, COST_API_TOKEN } from './config';
+export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, MAX_FAILURES, WORKTREES_DIR, TARGET_REPOS_DIR, REPO_ROOT, assertCwdIsRepoRoot, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, HEARTBEAT_TICK_INTERVAL_MS, HEARTBEAT_STALE_THRESHOLD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, JANITOR_INTERVAL_CYCLES, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand, COST_API_URL, COST_API_TOKEN } from './config';
 export type { ReasoningEffort } from './config';
 
 // Data types (from issueTypes.ts)
 export type {
   IssueClassSlashCommand,
   SlashCommand,
-  GitHubUser,
-  GitHubLabel,
-  GitHubMilestone,
-  GitHubComment,
-  GitHubIssueListItem,
-  GitHubIssue,
   PullRequestWebhookPayload,
-  IssueCommentSummary,
   TargetRepoInfo,
 } from '../types/issueTypes';
 export { VALID_ISSUE_TYPES } from '../types/issueTypes';
@@ -45,9 +38,6 @@ export { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/a
 // Data types (from workflowTypes.ts)
 export type {
   WorkflowStage,
-  PRReviewComment,
-  PRDetails,
-  PRListItem,
   PRReviewWorkflowStage,
   RecoveryState,
 } from '../types/workflowTypes';
@@ -85,7 +75,7 @@ export {
 } from './agentState';
 
 // Orchestrator shared utilities
-export { shouldExecuteStage, hasUncommittedChanges, getNextStage } from './orchestratorLib';
+export { shouldExecuteStage, getNextStage } from './orchestratorLib';
 
 // Cost types (re-exported from adws/cost for backward compatibility)
 export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../cost';
@@ -115,6 +105,14 @@ export { computeTestVerdict } from './testVerdict';
 export type { DocSize, BloatFlag, RegrowthFlag, GuardFlags } from './docsGuards';
 export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, runDocsGuards } from './docsGuards';
 
+// Docs index health (pure — no I/O)
+export type { CountBand, DocsIndexRepair, DocsIndexViolation, DocsIndexHealthInputs, DocsIndexAssessment } from './docsIndexHealth';
+export { DEFAULT_COUNT_BAND, isFeatureDocPath, findRepairs, applyRepairs, findViolations, assessDocsIndexHealth, formatRepair, formatViolation } from './docsIndexHealth';
+
+// Docs index report body (pure — no I/O)
+export type { BuildDocsIndexReportIssueInput, DocsIndexReportIssueSpec, DocsIndexReportMarker, DocsIndexReportIssueRef } from './docsIndexReportBody';
+export { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, buildDocsIndexReportIssue, parseDocsIndexReportMarker, findOpenDocsIndexReport } from './docsIndexReportBody';
+
 // Resolve freeze guard (pure classifier — no fs)
 export type { ResolveEditVerdict } from './resolveFreezeGuard';
 export { evaluateResolveEdit } from './resolveFreezeGuard';
@@ -135,8 +133,44 @@ export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, 
 export { stackCoherenceCheck } from './stackCoherenceCheck';
 
 // Issue classifier
-export type { IssueClassificationResult } from './issueClassifier';
+export type { IssueClassificationResult, ClassifiableIssue, ClassifyIssueForTriggerDeps } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
+
+// ADW label vocabulary (pure)
+export type { AdwLabelDefinition, AdwLabelReading } from './adwLabels';
+export {
+  ADW_NONE_LABEL,
+  ADW_UPGRADE_LABEL,
+  ADW_UNVERIFIED_LABEL,
+  ADW_BLOCKED_LABEL,
+  ADW_REGRESSION_PROMOTION_LABEL,
+  hasRegressionPromotionLabel,
+  ADW_CLASSIFICATION_LABELS,
+  ADW_LABEL_DEFINITIONS,
+  REGRESSION_PROMOTION_LABEL_DEFINITION,
+  readAdwLabelNames,
+  readAdwLabels,
+  issueTypeToAdwLabel,
+  shouldSkipScenarioAuthoring,
+  scenarioAuthoringSkipReason,
+  type ScenarioAuthoringSkipReason,
+  resolveAdwLabelDefinition,
+  hasWontFixLabelName,
+} from './adwLabels';
+
+// GitHub-App environment wrapper (moved from adws/github/githubAppAuth.ts, #820)
+export { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
+
+// Issue record — the full forge-shaped issue read over the boundary's GitContext
+export { fetchIssueRecord } from './issueRecord';
+
+// Unaddressed PR-review comment filter
+export { readUnaddressedComments, getLastAdwCommitTimestamp } from './unaddressedComments';
+export type { UnaddressedCommentCandidate, UnaddressedCommentReads } from './unaddressedComments';
+
+// PR-review invocation resolution (adwPrReview.tsx's branch→PR/adwId lookup)
+export { resolvePrReviewInvocation } from './prReviewInvocation';
+export type { PrReviewInvocationDeps, PrReviewInvocation } from './prReviewInvocation';
 
 // Workflow mapping
 export { getWorkflowScript } from './workflowMapping';
@@ -157,14 +191,15 @@ export {
   getTargetRepoWorkspacePath,
   isRepoCloned,
   cloneTargetRepo,
-  fetchLatestRefs,
-  pullLatestDefaultBranch,
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
-export type { LaunchGitContextDeps } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
+
+// Workspace binding over the caller's own context (moved out of launchGitContext.ts, #823)
+export { bindWorkspaceContext, validateGitRemote } from './workspaceBinding';
 
 // Repo identity cross-check (launch-boundary persistence and resume tripwire)
 export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';

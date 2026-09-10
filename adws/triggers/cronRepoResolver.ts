@@ -5,12 +5,12 @@
  * triggering the cron's module-level side effects (setInterval, process guard).
  */
 
-import type { RepoInfo } from '../github/githubApi';
 import type { TargetRepoInfo } from '../types/issueTypes';
 import { parseTargetRepoArgs } from '../core/orchestratorCli';
+import { Platform, type RepoIdentifier } from '../providers/types';
 
 export interface CronRepoResolution {
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   targetRepo: TargetRepoInfo | null;
 }
 
@@ -18,12 +18,12 @@ export interface CronRepoResolution {
  * Resolves the cron process repo identity from CLI args.
  * When `--target-repo` is present, uses that; otherwise calls `fallback`.
  */
-export function resolveCronRepo(args: string[], fallback: () => RepoInfo): CronRepoResolution {
+export function resolveCronRepo(args: string[], fallback: () => RepoIdentifier): CronRepoResolution {
   const argsCopy = [...args];
   const targetRepo = parseTargetRepoArgs(argsCopy);
   if (targetRepo) {
     return {
-      repoInfo: { owner: targetRepo.owner, repo: targetRepo.repo },
+      repoInfo: { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub },
       targetRepo,
     };
   }
@@ -38,7 +38,7 @@ export function resolveCronRepo(args: string[], fallback: () => RepoInfo): CronR
  * @param fallbackCloneUrl - Called when targetRepo is null to obtain a clone URL (e.g. from local git remote).
  */
 export function buildCronTargetRepoArgs(
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   targetRepo: TargetRepoInfo | null,
   fallbackCloneUrl: () => string | null,
 ): string[] {

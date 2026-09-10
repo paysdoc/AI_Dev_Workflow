@@ -11,12 +11,10 @@ import {
   generateAdwId,
   resolveClaudeCodePath,
   type IssueClassSlashCommand,
-  type GitHubIssue,
   AgentStateManager,
   type AgentState,
   type AgentIdentifier,
   type RecoveryState,
-  hasUncommittedChanges,
   getNextStage,
   allocateRandomPort,
   type TargetRepoInfo,
@@ -26,29 +24,26 @@ import {
   loadProjectConfig,
   readAdwYmlConfig,
   type AdwYmlConfig,
-  buildLaunchGitContext,
+  buildLaunchBoundary,
+  bindWorkspaceContext,
+  type LaunchBoundary,
   crossCheckRepoIdentity,
+  sameRepoIdentity,
   branchPrefixMap,
   branchPrefixAliases,
+  fetchIssueRecord,
+  detectRecoveryState,
+  isGitHubAppConfigured,
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
-import {
-  fetchGitHubIssue,
-  type WorkflowContext,
-  detectRecoveryState,
-  getRepoInfo,
-  type RepoInfo,
-  isGitHubAppConfigured,
-} from '../github';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { GITHUB_PAT } from '../core/environment';
-import { gitContextForSync } from '../github';
-import type { RepoContext, RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
-import { createRepoContext } from '../providers/repoContext';
+import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
-import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
+import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeAssetsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -87,9 +82,32 @@ export interface WorkflowConfig {
   completedPhases?: string[];
   /** Absolute path to the top-level workflow state file: agents/{adwId}/state.json */
   topLevelStatePath: string;
-  /** Launch-boundary GitContext for this orchestrator process. Optional to avoid
-   *  breaking existing phase-test fixtures; always present for new orchestrators. */
+  /** Launch-boundary GitContext for this orchestrator process. Always set in
+   *  production by initializeWorkflow/initializePRReviewWorkflow; optional only
+   *  so phase-test fixtures using `as unknown as WorkflowConfig` keep compiling. */
   gitContext?: GitContext;
+}
+
+/**
+ * Resolves the provider set a workflow's RepoContext must use. The boundary is the
+ * only source: with no caller-supplied identity, both the identity and the provider
+ * instances come straight from the boundary — no repository is read a second time.
+ * A caller-supplied identity that contradicts the boundary is refused rather than
+ * served a second, ad-hoc-minted provider set naming a repository the boundary
+ * never saw.
+ * @throws when callerRepoId names a different repository than the boundary
+ */
+export function resolveWorkflowProviders(
+  boundary: LaunchBoundary,
+  callerRepoId?: RepoIdentifier,
+): { repoId: RepoIdentifier; providers: BoundProviders } {
+  const repoId = callerRepoId ?? boundary.repoId;
+  if (!sameRepoIdentity(repoId, boundary.repoId)) {
+    throw new Error(
+      `resolveWorkflowProviders: caller-supplied repository ${repoId.owner}/${repoId.repo} does not match the launch boundary's ${boundary.repoId.owner}/${boundary.repoId.repo}`,
+    );
+  }
+  return { repoId, providers: boundary.providers };
 }
 
 /**
@@ -122,20 +140,20 @@ export async function initializeWorkflow(
 
   // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
-  const repoInfo: RepoInfo | undefined = targetRepo
-    ? { owner: targetRepo.owner, repo: targetRepo.repo }
-    : undefined;
 
-  const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
-  const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
-
-  // Construct exactly one launch-boundary GitContext for this orchestrator process.
-  // Graceful fallback: if construction fails (e.g. test fixtures with fake git remotes),
-  // gitContext remains undefined — phases that require it must check.
-  let gitContext: import('../gitContext').GitContext | undefined;
+  // Construct exactly one launch boundary for this orchestrator process — a GitContext
+  // and the forge providers bound to that same identity. It is now the SOLE identity
+  // source for this run: no repository parameter or local-remote read precedes it.
+  let boundary: LaunchBoundary | undefined;
   try {
-    gitContext = buildLaunchGitContext(targetRepo ?? null);
-  } catch { /* non-fatal: phases inherit the context when available */ }
+    boundary = buildLaunchBoundary(targetRepo ?? null);
+  } catch { /* see the throw below */ }
+  if (!boundary) {
+    throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
+  }
+
+  const gitCtx = boundary.gitContext;
+  const branchIdentityDeps = buildDefaultBranchIdentityFallbackDeps(boundary.gitContext);
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -144,9 +162,9 @@ export async function initializeWorkflow(
     );
   }
 
-  // Fetch issue (targeting external repo if specified)
+  // Fetch issue (targeting external repo if specified) — over the boundary's own GitContext.
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber, repoInfo ?? getRepoInfo());
+  const issue = await fetchIssueRecord(boundary.gitContext, issueNumber);
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Detect recovery state early to reuse existing ADW ID and branch name
@@ -176,8 +194,8 @@ export async function initializeWorkflow(
   } else {
     // Deterministic-branch fallback: find an existing branch for this issue/classifier
     // and recover the adwId from the persisted state store.
-    const existingBranch = findExistingBranchForIssue(issueType, issueNumber);
-    const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch) : null;
+    const existingBranch = findExistingBranchForIssue(issueType, issueNumber, branchIdentityDeps);
+    const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch, branchIdentityDeps) : null;
     if (recoveredId) {
       log(`Recovered adwId "${recoveredId}" from existing branch "${existingBranch}" (deterministic fallback)`, 'info');
       resolvedAdwId = recoveredId;
@@ -208,13 +226,13 @@ export async function initializeWorkflow(
   let targetRepoWorkspacePath: string | undefined;
   if (targetRepo) {
     log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
+    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
     targetRepo.workspacePath = targetRepoWorkspacePath;
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
   // Resolve default branch early — used by both the upgrade gate (below) and worktree setup.
-  const defaultBranch = gitCtx.defaultBranch();
+  const defaultBranch = boundary.providers.codeHost.getDefaultBranch();
 
   // Upgrade gate: detect framework hash mismatch and park the issue if the target
   // repo's .adw/ is stale. Runs BEFORE worktree setup so a stale reused worktree's
@@ -223,16 +241,10 @@ export async function initializeWorkflow(
   // feature worktree; the winner's claim push uses a temp worktree created inside
   // targetRepoWorkspacePath (existing invariant from 94059b5, unchanged).
   if (targetRepo && targetRepoWorkspacePath) {
-    const repoInfoForGate = repoInfo ?? getRepoInfo();
     const targetRepoArgs = [
       '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
       ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
     ];
-    const gateRepoId = options?.repoId ?? {
-      owner: repoInfoForGate.owner,
-      repo: repoInfoForGate.repo,
-      platform: Platform.GitHub,
-    };
     const outcome = await runUpgradeGate(
       {
         issueNumber,
@@ -240,10 +252,9 @@ export async function initializeWorkflow(
         worktreePath: targetRepoWorkspacePath,
         defaultBranch,
         frameworkRepoRoot,
-        repoInfo: repoInfoForGate,
         targetRepoArgs,
       },
-      buildDefaultUpgradeGateDeps(gateRepoId, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
+      buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, gitCtx),
     );
     if (outcome.action === 'parked') {
       log(
@@ -263,7 +274,7 @@ export async function initializeWorkflow(
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
     // For external repos, create worktrees within the target repo workspace
-    branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
+    branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath, gitCtx);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
@@ -278,7 +289,7 @@ export async function initializeWorkflow(
       gitCtx.copyEnvToWorktree(worktreePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
-      branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
+      branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
       const existingWorktree = gitCtx.getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
@@ -294,18 +305,15 @@ export async function initializeWorkflow(
     log(`Worktree path: ${worktreePath}`, 'info');
   }
 
-  // Create RepoContext early so it is available to board setup and subsequent phases
+  // Create RepoContext early so it is available to board setup and subsequent phases.
+  // When the resolved repoId matches the launch boundary's identity, reuse the
+  // boundary-minted providers instead of resolving a second set (#794).
   let repoContext: RepoContext | undefined;
   let repoIdForContext: RepoIdentifier | undefined;
   try {
-    repoIdForContext = options?.repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-    });
+    const resolved = resolveWorkflowProviders(boundary, options?.repoId);
+    repoIdForContext = resolved.repoId;
+    repoContext = bindWorkspaceContext(boundary, worktreePath, repoIdForContext);
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
   }
@@ -315,11 +323,8 @@ export async function initializeWorkflow(
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
 
-  // Derive launch identity from the boundary GitContext; fall back to the already-resolved
-  // launch repo info when the context is unavailable (e.g. test fixtures with fake remotes).
-  const launchRepoIdentity: RepoIdentity = gitContext
-    ? { owner: gitContext.owner, repo: gitContext.repo }
-    : { owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo };
+  // Derive launch identity from the boundary — the sole identity source for this run.
+  const launchRepoIdentity: RepoIdentity = { owner: boundary.repoId.owner, repo: boundary.repoId.repo };
 
   // Cross-check (not source of truth): if a prior run persisted a divergent identity for
   // this adwId, fail closed before any worktree/gh work rather than operate on the wrong repo.
@@ -407,7 +412,7 @@ export async function initializeWorkflow(
   // Handle recovery mode
   if (recoveryState.canResume && recoveryState.lastCompletedStage) {
     log(`Recovery mode active: last completed stage was '${recoveryState.lastCompletedStage}'`, 'info');
-    if (hasUncommittedChanges(worktreePath)) {
+    if (gitCtx.hasUncommittedChanges(worktreePath)) {
       log('Warning: There are uncommitted changes in the working directory', 'info');
     }
     if (recoveryState.branchName) ctx.branchName = recoveryState.branchName;
@@ -462,6 +467,6 @@ export async function initializeWorkflow(
     adwYmlConfig,
     completedPhases,
     topLevelStatePath,
-    gitContext,
+    gitContext: gitCtx,
   };
 }

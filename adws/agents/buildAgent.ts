@@ -4,9 +4,11 @@
  * or /implement-tdd when BDD scenarios tagged @adw-{issueNumber} are present.
  */
 
-import { GitHubIssue, PRDetails, log } from '../core';
+import { log } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { PrReviewPullRequest } from './planAgent';
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
-import type { AgentResult, ProgressCallback } from './claudeAgent';
+import type { AgentResult, ProgressCallback, AgentLaunchContext } from './claudeAgent';
 import { findScenarioFiles } from './validationAgent';
 
 const buildAgentConfig: CommandAgentConfig<void> = {
@@ -40,7 +42,7 @@ const prReviewBuildAgentConfig: CommandAgentConfig<void> = {
  * @param issueBody - Optional issue body for model/effort selection
  */
 export async function runPrReviewBuildAgent(
-  prDetails: PRDetails,
+  pr: PrReviewPullRequest,
   revisionPlan: string,
   logsDir: string,
   onProgress?: ProgressCallback,
@@ -48,17 +50,17 @@ export async function runPrReviewBuildAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
-  const args = `## PR #${prDetails.number}: ${prDetails.title}
-**URL:** ${prDetails.url}
-**Branch:** ${prDetails.headBranch}
+  const args = `## PR #${pr.number}: ${pr.title}
+**URL:** ${pr.url}
+**Branch:** ${pr.sourceBranch}
 
 ## Revision Plan
 ${revisionPlan}`;
 
   log(`PR Review Build Agent starting with arguments:`, 'info');
-  log(`  PR: #${prDetails.number} - ${prDetails.title}`, 'info');
+  log(`  PR: #${pr.number} - ${pr.title}`, 'info');
   log(`  Revision plan length: ${revisionPlan.length} characters`, 'info');
 
   return runCommandAgent(prReviewBuildAgentConfig, {
@@ -95,7 +97,7 @@ export async function runBuildAgent(
   statePath?: string,
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const worktreePath = cwd ?? process.cwd();
   const scenarioFiles = findScenarioFiles(issue.number, worktreePath);
