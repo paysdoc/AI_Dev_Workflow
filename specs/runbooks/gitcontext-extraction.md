@@ -173,6 +173,12 @@ The filtered tree is `src/` only: no manifest, no tsconfig, no test config.
    log, and `agents/cron/paysdoc_devplatform.json`). Respect the
    single-host constraint. Cron PID files and spawn locks are keyed per
    repo, so a second cron process on the same host is supported.
+   Every agent spawn in the new clone logs `Ignoring N permissions.allow
+   entries from .claude/settings.json: this workspace has not been trusted`
+   until the clone path is trusted. Harmless for the pipeline (agents run
+   with `--dangerously-skip-permissions`); silence it by opening Claude Code
+   there once, or set `projects["<TARGET_REPOS_DIR>/paysdoc/devplatform"]
+   .hasTrustDialogAccepted: true` in `~/.claude.json`.
 4. Create the `hitl` label (`--color ee35f5 --description "Human in the loop"`).
 5. File L1, L2, L3 (bodies below). L1 first; L2 and L3 carry a
    `## Blocked by` section naming L1's number.
@@ -220,7 +226,12 @@ above 1.0.0 if commits have landed since), never 1.0.0 again.
    AND filter and finds nothing):
 
    ```bash
-   for f in agents/*/adw_state.json; do jq -r '"\(.issueNumber) \(.workflowStage)"' "$f"; done | sort -u
+   for f in agents/*/state.json; do
+     jq -r 'select(.repoIdentity.repo == "AI_Dev_Workflow") | "#\(.issueNumber) \(.workflowStage)"' "$f"
+   done | sort -u | grep -vE ' (completed|abandoned|discarded)$'
+   # Also: `gh issue list --state open` shows no `adw:*`-labelled issue.
+   # Stale `starting` entries for already-closed issues are leftovers of
+   # superseded spawns and do not count.
    ```
 
    Human-gated and retriable stages (`merge_blocked`, `review_failed`,
