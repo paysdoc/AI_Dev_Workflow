@@ -826,7 +826,9 @@ function buildRefusalProviders(): { issueTracker: IssueTracker; codeHost: CodeHo
       owner: REFUSAL_REPO_ID.owner,
       repo: REFUSAL_REPO_ID.repo,
       selfHost: false,
-      tokenProvider: { credentialEnv: () => ({}) },
+      // GitContext's constructor validates (and discards) one credential probe eagerly —
+      // this must be non-empty, even though the §9 refusals never reach the executor.
+      tokenProvider: { credentialEnv: () => ({ GH_TOKEN: 'unused-refusal-token' }) },
       gitIdentity: { authorName: 'ADW Bot', authorEmail: 'bot@adw.dev', committerName: 'ADW Bot', committerEmail: 'bot@adw.dev' },
       frameworkRepoRoot: '/srv/adw/framework',
       targetReposDir: '/srv/adw/repos',
