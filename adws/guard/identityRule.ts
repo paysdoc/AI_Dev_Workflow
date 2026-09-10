@@ -113,6 +113,30 @@ function describeViolation(calleeName: string, arg: ts.Node): string {
 }
 
 /**
+ * Inspects a single call expression against `cwdDerivedNames`; returns the
+ * Violation when it matches a context-constructor call with a cwd-derived
+ * identity argument (inline zero-argument read, or a bound identifier), else
+ * null.
+ */
+function inspectConstructorCall(node: ts.CallExpression, cwdDerivedNames: Set<string>, sourceFile: ts.SourceFile): Violation | null {
+  if (node.arguments.length === 0) return null;
+  const calleeName = contextConstructorCalleeName(node.expression);
+  if (!calleeName) return null;
+  const identityArg = identityArgumentOf(calleeName, node);
+  if (!identityArg) return null;
+  const isInlineRead = isZeroArgCwdDerivedCall(identityArg);
+  const isCollectedIdentifier = ts.isIdentifier(identityArg) && cwdDerivedNames.has(identityArg.text);
+  if (!isInlineRead && !isCollectedIdentifier) return null;
+  const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+  return {
+    file: sourceFile.fileName,
+    line: line + 1,
+    command: describeViolation(calleeName, identityArg),
+    rule: 'cwd-derived-identity',
+  };
+}
+
+/**
  * Flags context-constructor calls whose identity argument is cwd-derived: an
  * inline zero-argument read, or an identifier bound to one earlier in the
  * file. The local-variable form is essential — it is the shape most call
@@ -125,22 +149,9 @@ export function flagCwdDerivedIdentityUses(sourceFile: ts.SourceFile): Violation
   const cwdDerivedNames = collectCwdDerivedIdentityNames(sourceFile);
   const violations: Violation[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && node.arguments.length > 0) {
-      const calleeName = contextConstructorCalleeName(node.expression);
-      const identityArg = calleeName ? identityArgumentOf(calleeName, node) : null;
-      if (calleeName && identityArg) {
-        const isInlineRead = isZeroArgCwdDerivedCall(identityArg);
-        const isCollectedIdentifier = ts.isIdentifier(identityArg) && cwdDerivedNames.has(identityArg.text);
-        if (isInlineRead || isCollectedIdentifier) {
-          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-          violations.push({
-            file: sourceFile.fileName,
-            line: line + 1,
-            command: describeViolation(calleeName, identityArg),
-            rule: 'cwd-derived-identity',
-          });
-        }
-      }
+    if (ts.isCallExpression(node)) {
+      const violation = inspectConstructorCall(node, cwdDerivedNames, sourceFile);
+      if (violation) violations.push(violation);
     }
     ts.forEachChild(node, visit);
   };

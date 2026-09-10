@@ -217,7 +217,7 @@ export function buildLaunchBoundary(
   }, { logger: log });
   const repoId: RepoIdentifier = { owner, repo, platform };
 
-  return freezeBoundary(gitContext, repoId, () => {
+  const assembleProviders = (): BoundProviders => {
     const config = loadConfig(gitContext.basePath);
     return assemble({
       forge: { codeHost: config.codeHost, issueTracker: config.issueTracker },
@@ -226,7 +226,9 @@ export function buildLaunchBoundary(
       gitContext,
       deps: buildForgeDeps(config, repoId, gitContext),
     });
-  });
+  };
+
+  return freezeBoundary(gitContext, repoId, assembleProviders);
 }
 
 /**
