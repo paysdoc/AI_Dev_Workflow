@@ -285,6 +285,13 @@ last known-good commit.
 
 ## Deferred issues
 
+**Body rule (learned 2026-09-10):** ADW's dependency parser treats any `#N`
+within 80 characters after *blocked by*, *depends on*, *requires*,
+*prerequisite*, *waiting on* or *after* as a blocking issue, fail-closed,
+in the repo the issue lives in. Both L4 and A0 were deferred on a prose
+"prerequisite for … #840". Outside the `## Blocked by` section, refer to
+issues by number without the hash.
+
 ### L1 — Package build, exports map, CI (repo: `paysdoc/devplatform`, AFK)
 
 **Parent PRD:** `paysdoc/AI_Dev_Workflow` `specs/prd/gitcontext-library-extraction.md`
@@ -361,7 +368,7 @@ with two rules; wire into CI.
 
 ### L4 — Forge-keyed credential factory (repo: `paysdoc/devplatform`, AFK) — filed as `paysdoc/devplatform#9`
 
-**Parent PRD:** `paysdoc/AI_Dev_Workflow` `specs/prd/gitcontext-library-extraction.md`. Prerequisite for the ADW switchover (`paysdoc/AI_Dev_Workflow#840`), whose build stopped because ADW's launch boundary can only build a `TokenProvider` and a bootstrap `GitIdentity` through GitHub-named exports that the published barrels do not carry. The consumer must not name a forge; the library resolves the implementation from the forge name, the way `forgeProviders()` already does for the tracker, code host and board.
+**Parent PRD:** `paysdoc/AI_Dev_Workflow` `specs/prd/gitcontext-library-extraction.md`. Unblocks the ADW switchover (AI_Dev_Workflow issue 840), whose build stopped because ADW's launch boundary can only build a `TokenProvider` and a bootstrap `GitIdentity` through GitHub-named exports that the published barrels do not carry. The consumer must not name a forge; the library resolves the implementation from the forge name, the way `forgeProviders()` already does for the tracker, code host and board.
 
 ## What to build
 
@@ -397,7 +404,7 @@ none
 
 ### A0 — Route ADW callers through the forge ports (repo: `paysdoc/AI_Dev_Workflow`, **HITL**) — filed as #844
 
-**Parent PRD:** `specs/prd/gitcontext-library-extraction.md`. Runbook: `specs/runbooks/gitcontext-extraction.md`. Prerequisite for the switchover #840, whose first build stopped because ADW still reaches around the forge ports into the GitHub adapter and into git-core internals. Everything below is ADW-side and needs nothing new from the library; the launch boundary itself is untouched here and moves to the library's forge-keyed credential factory in #840.
+**Parent PRD:** `specs/prd/gitcontext-library-extraction.md`. Runbook: `specs/runbooks/gitcontext-extraction.md`. Unblocks the ADW switchover (issue 840, kept open on purpose), whose first build stopped because ADW still reaches around the forge ports into the GitHub adapter and into git-core internals. Everything below is ADW-side and needs nothing new from the library; the launch boundary itself is untouched here and moves to the library's forge-keyed credential factory in the switchover issue.
 
 ## What to build
 
@@ -410,7 +417,7 @@ none
 4. **Delete ADW tests of library internals.** `adws/vcs/__tests__/commitOperations.test.ts` and `adws/vcs/__tests__/fetchAndResetToRemote.test.ts` test `commitOps`/`branchOps` that now live in `@paysdoc/devplatform`; delete them. `features/regression/step_definitions/feature-818.steps.ts` and `feature-820.steps.ts` instantiate `GitLabApiClient` directly; rewrite those steps against the `CodeHost` port or drop the scenario steps that exist only to prove the extracted module's shape, and update the matching `.feature` files. Regression tag counts must not regress for anything else.
 5. **Guard.** No new `git`/`gh` shell-out anywhere; `lint:git-guard` unchanged and green.
 
-After this issue, the only ADW imports that resolve into `adws/providers/github/**` or `adws/providers/gitlab/**` are test fixtures and `adws/core/launchGitContext.ts`, which #840 replaces.
+After this issue, the only ADW imports that resolve into `adws/providers/github/**` or `adws/providers/gitlab/**` are test fixtures and `adws/core/launchGitContext.ts`, which the switchover issue replaces.
 
 ## Acceptance criteria
 - [ ] `git grep -l "providers/github\|providers/gitlab\|providers/jira" -- adws features test ':!adws/providers' ':!**/__tests__/**'` lists only `adws/core/launchGitContext.ts` and `adws/core/githubAppAuth.ts`
