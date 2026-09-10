@@ -16,7 +16,7 @@ function comment(body: string, createdAt: string): IssueComment {
 
 function makeTracker(comments: IssueComment[]): Pick<IssueTracker, 'fetchIssue'> {
   return {
-    fetchIssue: async () => ({ id: '1', number: 1, title: '', body: '', state: 'open', author: '', labels: [], comments } as Issue),
+    fetchIssue: async () => ({ id: '1', number: 1, title: '', body: '', state: 'open', author: '', labels: [], comments, createdAt: '', url: '' } as Issue),
   };
 }
 

@@ -166,18 +166,16 @@ const ISSUE_NUMBER = 9000;
 const FAKE_WORKTREE_PATH = '/tmp/fake-worktree';
 
 const fakeIssue = {
+  id: String(ISSUE_NUMBER),
   number: ISSUE_NUMBER,
   title: 'Test issue',
   body: '',
   state: 'open',
-  user: { login: 'test' },
+  author: 'test',
   labels: [],
   comments: [],
   createdAt: '',
-  updatedAt: '',
-  closedAt: null,
   url: '',
-  htmlUrl: '',
 };
 
 const baseAgentResult = {
@@ -335,6 +333,16 @@ describe('initializeWorkflow: boundary-providers passthrough to bindWorkspaceCon
     expect(mockBindWorkspaceContext).toHaveBeenCalledTimes(1);
     expect(mockBindWorkspaceContext.mock.calls[0][0]).toBe(boundary);
     expect(mockBindWorkspaceContext.mock.calls[0][1]).toBe(FAKE_WORKTREE_PATH);
+  });
+
+  it('reads the issue through the boundary\'s own providers.issueTracker (#844)', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-issue-tracker' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockFetchIssue).toHaveBeenCalledWith(boundary.providers.issueTracker, ISSUE_NUMBER);
   });
 
   it('refuses to mint a second provider set when a caller-supplied repoId names a different repository — bindWorkspaceContext is never reached', async () => {

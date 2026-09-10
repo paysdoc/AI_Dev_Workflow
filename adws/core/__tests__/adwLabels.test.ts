@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import type { GitHubLabel } from '../../providers/github/domain/issue';
 import {
   readAdwLabels,
   readAdwLabelNames,
@@ -8,12 +7,8 @@ import {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeLabel(name: string): GitHubLabel {
-  return { id: name, name, color: 'cccccc', description: null };
-}
-
-function makeIssue(...labelNames: string[]) {
-  return { labels: labelNames.map(makeLabel) };
+function makeIssue(...labelNames: string[]): { labels: string[] } {
+  return { labels: labelNames };
 }
 
 // ── readAdwLabels — all branches ──────────────────────────────────────────────

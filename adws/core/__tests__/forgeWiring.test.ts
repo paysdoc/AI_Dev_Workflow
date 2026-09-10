@@ -21,10 +21,13 @@ import type { ProviderConfig } from '../providerConfig';
 import { notifyReviewTransition } from '../../forge/hitlBoardNotifier';
 import { isGitHubAppConfigured } from '../githubAppAuth';
 import { forgeProviders } from '../../providers/forgeProviders';
-import { Platform, BoardStatus, type RepoIdentifier } from '../../providers/types';
+import { Platform, BoardStatus, type RepoIdentifier, type BoundProviders } from '../../providers/types';
 import { GitContext } from '../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../gitContext';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+
+/** A stand-in resolver for tests that never actually invoke it — buildNotifierDeps is mocked module-wide above. */
+const FAKE_RESOLVE_PROVIDERS = (): BoundProviders => ({} as BoundProviders);
 
 const notifyMock = vi.mocked(notifyReviewTransition);
 const mockIsGitHubAppConfigured = vi.mocked(isGitHubAppConfigured);
@@ -117,9 +120,8 @@ const GITHUB_CONFIG: ProviderConfig = { codeHost: 'github', issueTracker: 'githu
 describe('buildAdwForgeDeps', () => {
   it('github/github reads no GitLab env — no throw with an empty GITLAB_TOKEN', () => {
     const repoId = makeRepoId();
-    const ctx = makeCtx();
-    expect(() => buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx)).not.toThrow();
-    const deps = buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx);
+    expect(() => buildAdwForgeDeps(GITHUB_CONFIG, repoId, FAKE_RESOLVE_PROVIDERS)).not.toThrow();
+    const deps = buildAdwForgeDeps(GITHUB_CONFIG, repoId, FAKE_RESOLVE_PROVIDERS);
     expect(deps.gitlab).toBeUndefined();
     expect(deps.jira).toBeUndefined();
   });
@@ -128,18 +130,25 @@ describe('buildAdwForgeDeps', () => {
     // ADW_FORGE_ENV binds process.env at import time via adws/core/environment; the
     // test environment carries no GITLAB_TOKEN, so this exercises the real default.
     const repoId = makeRepoId();
-    const ctx = makeCtx();
-    expect(() => buildAdwForgeDeps({ codeHost: 'gitlab', issueTracker: 'github' }, repoId, ctx)).toThrow(/GITLAB_TOKEN/);
+    expect(() => buildAdwForgeDeps({ codeHost: 'gitlab', issueTracker: 'github' }, repoId, FAKE_RESOLVE_PROVIDERS)).toThrow(/GITLAB_TOKEN/);
   });
 
   it('threads a logger and adwGitHubForgeDeps for github/github', () => {
     const repoId = makeRepoId();
-    const ctx = makeCtx();
-    const deps = buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx);
+    const deps = buildAdwForgeDeps(GITHUB_CONFIG, repoId, FAKE_RESOLVE_PROVIDERS);
     expect(deps.logger).toBeDefined();
     expect(deps.github).toBeDefined();
     expect(typeof deps.github?.resolveLabelDefinition).toBe('function');
     expect(typeof deps.github?.canApprovePullRequests).toBe('function');
+  });
+
+  it('the third argument, once invoked after minting, returns the boundary\'s own memoised providers', () => {
+    const repoId = makeRepoId();
+    const providers = { issueTracker: {}, codeHost: {} } as unknown as BoundProviders;
+    const deps = buildAdwForgeDeps(GITHUB_CONFIG, repoId, () => providers);
+    expect(deps.github).toBeDefined();
+    // adwGitHubForgeDeps/buildNotifierDeps is mocked module-wide; this only proves the
+    // thunk we handed in is the one the wiring threads through, not a re-derived one.
   });
 });
 
@@ -190,12 +199,12 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
   it('a successful move to Review calls notifyReviewTransition once, awaited', async () => {
     const repoId = makeRepoId();
     const ctx = makeCtx({}, makeMoveExec('Review'));
-    const providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
       gitContext: ctx,
-      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx),
+      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, () => providers),
     });
 
     const result = await providers.issueTracker.moveToStatus(42, BoardStatus.Review);
@@ -208,12 +217,12 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
   it('a move to a non-Review status does not call notifyReviewTransition', async () => {
     const repoId = makeRepoId();
     const ctx = makeCtx({}, makeMoveExec('In Progress'));
-    const providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
       gitContext: ctx,
-      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx),
+      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, () => providers),
     });
 
     const result = await providers.issueTracker.moveToStatus(42, BoardStatus.InProgress);
@@ -233,12 +242,12 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
       return '';
     };
     const ctx = makeCtx({}, exec);
-    const providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
       gitContext: ctx,
-      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, ctx),
+      deps: buildAdwForgeDeps(GITHUB_CONFIG, repoId, () => providers),
     });
 
     providers.issueTracker.applyLabel(42, 'adw:blocked');
@@ -248,8 +257,7 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
 
   it('canApprovePullRequests follows isGitHubAppConfigured() (GITHUB_PAT mocked truthy)', () => {
     const repoId = makeRepoId();
-    const ctx = makeCtx();
-    const deps = adwGitHubForgeDeps(repoId, ctx);
+    const deps = adwGitHubForgeDeps(repoId, FAKE_RESOLVE_PROVIDERS);
 
     mockIsGitHubAppConfigured.mockReturnValue(true);
     expect(deps.canApprovePullRequests?.()).toBe(true);

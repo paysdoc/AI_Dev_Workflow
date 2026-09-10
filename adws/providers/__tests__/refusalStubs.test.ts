@@ -32,12 +32,12 @@ describe('GitLabCodeHost — refusal stubs', () => {
 
 describe('JiraIssueTracker — refusal stubs', () => {
   it('fetchLabels throws naming the method', () => {
-    const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW');
+    const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW', 'https://acme.atlassian.net');
     expect(() => tracker.fetchLabels()).toThrow('JiraIssueTracker.fetchLabels is not implemented');
   });
 
   it('listIssues throws naming the method', () => {
-    const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW');
+    const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW', 'https://acme.atlassian.net');
     expect(() => tracker.listIssues()).toThrow('JiraIssueTracker.listIssues is not implemented');
   });
 });

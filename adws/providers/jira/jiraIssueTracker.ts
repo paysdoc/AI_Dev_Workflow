@@ -48,12 +48,14 @@ function matchTransition(
 export class JiraIssueTracker implements IssueTracker {
   private readonly client: JiraApiClient;
   private readonly projectKey: string;
+  private readonly instanceUrl: string;
   private readonly logger: Logger;
   private readonly commentIssueMap = new Map<string, string>();
 
-  constructor(client: JiraApiClient, projectKey: string, logger: Logger = consoleLogger) {
+  constructor(client: JiraApiClient, projectKey: string, instanceUrl: string, logger: Logger = consoleLogger) {
     this.client = client;
     this.projectKey = projectKey;
+    this.instanceUrl = instanceUrl.replace(/\/+$/, '');
     this.logger = logger;
   }
 
@@ -89,6 +91,8 @@ export class JiraIssueTracker implements IssueTracker {
       author: jiraIssue.fields.creator.displayName,
       labels: [...jiraIssue.fields.labels],
       comments,
+      createdAt: jiraIssue.fields.created,
+      url: `${this.instanceUrl}/browse/${jiraIssue.key}`,
     };
   }
 
@@ -287,5 +291,5 @@ function validateJiraConfig(config: JiraConfig): void {
 export function createJiraIssueTracker(config: JiraConfig, deps: JiraApiClientDeps = {}): IssueTracker {
   validateJiraConfig(config);
   const client = new JiraApiClient(config.instanceUrl, config.auth, deps);
-  return new JiraIssueTracker(client, config.projectKey, deps.logger ?? consoleLogger);
+  return new JiraIssueTracker(client, config.projectKey, config.instanceUrl, deps.logger ?? consoleLogger);
 }

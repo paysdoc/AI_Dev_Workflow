@@ -249,7 +249,7 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     getPlanFilePath,
     planFileExists,
     notifyBlockedTransition: repoId.platform === Platform.GitHub
-      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(gitCtx, repoId))
+      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(() => providers, repoId))
       : async () => undefined,
   };
 }

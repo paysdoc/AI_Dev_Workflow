@@ -59,6 +59,10 @@ export interface Issue {
   author: string;
   labels: string[];
   comments: IssueComment[];
+  /** ISO 8601 creation timestamp — read by the plan/scenario agent prompts (#844). */
+  createdAt: string;
+  /** The forge-published issue URL — read by the build agent prompt (#844). */
+  url: string;
 }
 
 /**
@@ -146,6 +150,10 @@ export interface PullRequestRecord {
   body: string;
   state: string;
   mergedAt: string | null;
+  /** ISO 8601 last-update timestamp — the "newest first" ordering key for preferred-PR selection (#844). */
+  updatedAt: string;
+  /** The forge-published pull-request URL (#844). */
+  url: string;
 }
 
 /**

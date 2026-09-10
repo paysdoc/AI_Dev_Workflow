@@ -96,6 +96,16 @@ export interface Fixture {
   undefinedLabels: Set<string>;
   /** #821: every PR of the repository (open, closed, merged) — CodeHost.listPullRequests()'s backing store. */
   allPRs: PullRequestRecord[];
+  /** #844: per-issue Issue field overrides for fetchIssue — default '' (today's behaviour) when unset. */
+  issueUrls: Map<number, string>;
+  issueCreatedAts: Map<number, string>;
+  issueAuthors: Map<number, string>;
+  issueStates: Map<number, string>;
+  /** #844: issue numbers whose fetchIssue should reject, as the real tracker does on a forge refusal. */
+  refuseIssueFetch: Set<number>;
+  /** #844: codeHost refusal flags for the two "refuses by name" health-check rows. */
+  refuseListPullRequests: boolean;
+  refuseAuthenticatedUser: boolean;
 }
 
 export interface World796 {
@@ -250,6 +260,13 @@ export function makeFixture(): Fixture {
     prLinkedIssue: new Map(),
     undefinedLabels: new Set(),
     allPRs: [],
+    issueUrls: new Map(),
+    issueCreatedAts: new Map(),
+    issueAuthors: new Map(),
+    issueStates: new Map(),
+    refuseIssueFetch: new Set(),
+    refuseListPullRequests: false,
+    refuseAuthenticatedUser: false,
   };
 }
 
@@ -296,9 +313,16 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
   return {
     async fetchIssue(issueNumber) {
       record(callLog, 'fetchIssue', issueNumber);
+      if (fixture.refuseIssueFetch.has(issueNumber)) {
+        // Mirrors the real GitHub tracker's wrap exactly — fetchIssueRecord (#844) no
+        // longer wraps it a second time, so this IS the message the caller sees.
+        throw new Error(`Failed to fetch issue #${issueNumber}: recording tracker configured to refuse`);
+      }
       return {
-        id: String(issueNumber), number: issueNumber, title: '', body: '', state: 'open',
-        author: '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        id: String(issueNumber), number: issueNumber, title: fixture.issueTitles.get(issueNumber) ?? '', body: '',
+        state: fixture.issueStates.get(issueNumber) ?? 'open',
+        author: fixture.issueAuthors.get(issueNumber) ?? '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        createdAt: fixture.issueCreatedAts.get(issueNumber) ?? '', url: fixture.issueUrls.get(issueNumber) ?? '',
       };
     },
     commentOnIssue(issueNumber, body) {
@@ -426,6 +450,9 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     getAuthenticatedUser() {
       record(callLog, 'getAuthenticatedUser');
+      if (fixture.refuseAuthenticatedUser) {
+        throw new Error('CodeHost.getAuthenticatedUser is not implemented');
+      }
       return fixture.authenticatedUser;
     },
     canApprovePullRequests() {
@@ -438,6 +465,9 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     listPullRequests() {
       record(callLog, 'listPullRequests');
+      if (fixture.refuseListPullRequests) {
+        throw new Error('recording code host configured to refuse listing pull requests');
+      }
       return fixture.allPRs;
     },
   };

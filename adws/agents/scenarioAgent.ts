@@ -5,7 +5,7 @@
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
-import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { Issue } from '../providers/types';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 const scenarioAgentConfig: CommandAgentConfig<void> = {
@@ -26,7 +26,7 @@ const scenarioAgentConfig: CommandAgentConfig<void> = {
  * @param contextPreamble - Optional context preamble for the agent
  */
 export async function runScenarioAgent(
-  issue: GitHubIssue,
+  issue: Issue,
   logsDir: string,
   statePath?: string,
   cwd?: string,
@@ -44,11 +44,11 @@ export async function runScenarioAgent(
     title: issue.title,
     body: issue.body,
     state: issue.state,
-    author: issue.author.login,
-    labels: issue.labels.map(l => l.name),
+    author: issue.author,
+    labels: issue.labels,
     createdAt: issue.createdAt,
     comments: humanComments.map(c => ({
-      author: c.author.login,
+      author: c.author,
       createdAt: c.createdAt,
       body: c.body,
     })),

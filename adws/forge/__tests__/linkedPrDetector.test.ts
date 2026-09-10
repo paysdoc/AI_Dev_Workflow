@@ -77,7 +77,7 @@ describe('hasLinkedMergedOrClosedPR', () => {
 
 describe('fetchLinkedPRs', () => {
   it('returns the code host\'s records unchanged', () => {
-    const records: PullRequestRecord[] = [{ number: 1, body: 'Implements #42', state: 'MERGED', mergedAt: '2024-01-01T00:00:00Z' }];
+    const records: PullRequestRecord[] = [{ number: 1, body: 'Implements #42', state: 'MERGED', mergedAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z', url: 'https://github.com/acme/widget/pull/1' }];
     const codeHost: Pick<CodeHost, 'listPullRequests'> = { listPullRequests: () => records };
     expect(fetchLinkedPRs(codeHost)).toEqual(records);
   });

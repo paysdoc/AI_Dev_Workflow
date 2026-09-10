@@ -1,51 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { GitContext } from '../gitContext/gitContext';
+import type { GitContext } from '../gitContext';
+import type { CodeHost, Issue, IssueTracker } from '../providers/types';
 import {
   checkGitRepository,
   checkGitHubCLI,
   checkIssueNumber,
 } from '../healthCheckChecks';
 
-// checkGitHubCLI/checkIssueNumber call createGhRepoApi(ctx).<op>() — an
-// identity pass-through here so the fake ctx's own authenticatedUser/fetchIssue
-// answer exactly as they did before the adapter migration (#797).
-vi.mock('../providers/github/ghRepoApi', () => ({
-  createGhRepoApi: (ctx: unknown) => ctx,
-}));
-
-const ISSUE_JSON = JSON.stringify({
-  number: 42,
-  title: 'Test issue',
-  state: 'OPEN',
-  body: '',
-  author: { login: 'alice' },
-  assignees: [],
-  labels: [],
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
-  closedAt: null,
+const SAMPLE_ISSUE: Issue = {
+  id: '42', number: 42, title: 'Test issue', body: '', state: 'OPEN',
+  author: 'alice', labels: [], comments: [], createdAt: '2024-01-01T00:00:00Z',
   url: 'https://github.com/owner/repo/issues/42',
-});
+};
 
 function makeFakeCtx(overrides: Partial<{
   getCurrentBranch: () => string;
   remotes: () => string[];
   hasUncommittedChanges: () => boolean;
   gitConfigUser: () => { name: string | null; email: string | null };
-  authenticatedUser: () => string;
-  fetchIssue: (n: number) => string;
-  owner: string;
-  repo: string;
 }> = {}): GitContext {
   return {
     getCurrentBranch: () => 'main',
     remotes: () => ['origin'],
     hasUncommittedChanges: () => false,
     gitConfigUser: () => ({ name: 'Alice', email: 'alice@example.com' }),
-    authenticatedUser: () => '{"login":"alice","id":1}',
-    fetchIssue: () => ISSUE_JSON,
-    owner: 'owner',
-    repo: 'repo',
     ...overrides,
   } as unknown as GitContext;
 }
@@ -120,25 +98,41 @@ describe('checkGitRepository', () => {
 // ── checkGitHubCLI ────────────────────────────────────────────────────────────
 
 describe('checkGitHubCLI', () => {
-  it('returns authenticated:true when authenticatedUser resolves', () => {
-    const ctx = makeFakeCtx();
-    const result = checkGitHubCLI(ctx);
+  function makeCodeHost(getAuthenticatedUser: CodeHost['getAuthenticatedUser']): Pick<CodeHost, 'getAuthenticatedUser'> {
+    return { getAuthenticatedUser };
+  }
+
+  it('returns authenticated:true when getAuthenticatedUser resolves a login', () => {
+    const codeHost = makeCodeHost(() => 'alice');
+    const result = checkGitHubCLI(codeHost);
     // Only meaningful if gh is installed on the test host; test the shape
     expect(typeof result.success).toBe('boolean');
     expect(typeof result.details.installed).toBe('boolean');
+    if (result.details.installed) {
+      expect(result.details.authenticated).toBe(true);
+    }
   });
 
-  it('authenticated:false when authenticatedUser throws', () => {
-    const ctx = makeFakeCtx({ authenticatedUser: () => { throw new Error('not logged in'); } });
-    const result = checkGitHubCLI(ctx);
+  it('authenticated:false when getAuthenticatedUser returns null', () => {
+    const codeHost = makeCodeHost(() => null);
+    const result = checkGitHubCLI(codeHost);
     if (result.details.installed) {
       expect(result.details.authenticated).toBe(false);
     }
   });
 
+  it('authenticated:false when the code host refuses the operation by name (a non-GitHub port)', () => {
+    const codeHost = makeCodeHost(() => { throw new Error('GitLabCodeHost.getAuthenticatedUser is not implemented'); });
+    const result = checkGitHubCLI(codeHost);
+    if (result.details.installed) {
+      expect(result.details.authenticated).toBe(false);
+      expect(result.success).toBe(true);
+    }
+  });
+
   it('returns success:true even when unauthenticated (warning, not error)', () => {
-    const ctx = makeFakeCtx({ authenticatedUser: () => { throw new Error('unauth'); } });
-    const result = checkGitHubCLI(ctx);
+    const codeHost = makeCodeHost(() => null);
+    const result = checkGitHubCLI(codeHost);
     if (result.details.installed) {
       expect(result.success).toBe(true);
     }
@@ -148,54 +142,47 @@ describe('checkGitHubCLI', () => {
 // ── checkIssueNumber ──────────────────────────────────────────────────────────
 
 describe('checkIssueNumber', () => {
-  it('happy path: parses title and state from fetchIssue output', () => {
-    const ctx = makeFakeCtx();
-    const result = checkIssueNumber(42, ctx);
+  function makeTracker(fetchIssue: IssueTracker['fetchIssue']): Pick<IssueTracker, 'fetchIssue'> {
+    return { fetchIssue };
+  }
+
+  it('happy path: fills title and state from the tracker\'s Issue', async () => {
+    const tracker = makeTracker(async () => SAMPLE_ISSUE);
+    const result = await checkIssueNumber(42, tracker);
     expect(result.success).toBe(true);
     expect(result.details.title).toBe('Test issue');
     expect(result.details.state).toBe('OPEN');
     expect(result.details.exists).toBe(true);
   });
 
-  it('returns failure for invalid issue number (0)', () => {
-    const ctx = makeFakeCtx();
-    const result = checkIssueNumber(0, ctx);
+  it('returns failure for invalid issue number (0) without calling the tracker', async () => {
+    const fetchIssue = vi.fn();
+    const result = await checkIssueNumber(0, makeTracker(fetchIssue));
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid issue number');
+    expect(fetchIssue).not.toHaveBeenCalled();
   });
 
-  it('returns failure for NaN issue number', () => {
-    const ctx = makeFakeCtx();
-    const result = checkIssueNumber(NaN, ctx);
+  it('returns failure for NaN issue number without calling the tracker', async () => {
+    const fetchIssue = vi.fn();
+    const result = await checkIssueNumber(NaN, makeTracker(fetchIssue));
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid issue number');
+    expect(fetchIssue).not.toHaveBeenCalled();
   });
 
-  it('returns failure for negative issue number', () => {
-    const ctx = makeFakeCtx();
-    const result = checkIssueNumber(-1, ctx);
+  it('returns failure for negative issue number without calling the tracker', async () => {
+    const fetchIssue = vi.fn();
+    const result = await checkIssueNumber(-1, makeTracker(fetchIssue));
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid issue number');
+    expect(fetchIssue).not.toHaveBeenCalled();
   });
 
-  it('returns not-found failure when fetchIssue throws', () => {
-    const ctx = makeFakeCtx({ fetchIssue: () => { throw new Error('not found'); } });
-    const result = checkIssueNumber(999, ctx);
+  it('returns not-found failure when the tracker rejects', async () => {
+    const tracker = makeTracker(async () => { throw new Error('Failed to fetch issue #999: not found'); });
+    const result = await checkIssueNumber(999, tracker);
     expect(result.success).toBe(false);
     expect(result.error).toContain('not found or not accessible');
-  });
-
-  it('returns not-found failure when fetchIssue returns "Could not resolve"', () => {
-    const ctx = makeFakeCtx({ fetchIssue: () => 'Could not resolve to a Repository' });
-    const result = checkIssueNumber(999, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('not found or not accessible');
-  });
-
-  it('returns parse failure when fetchIssue returns invalid JSON', () => {
-    const ctx = makeFakeCtx({ fetchIssue: () => 'not json at all' });
-    const result = checkIssueNumber(1, ctx);
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Failed to parse');
   });
 });

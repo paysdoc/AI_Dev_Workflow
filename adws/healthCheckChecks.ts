@@ -9,8 +9,8 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
-import type { GitContext } from './gitContext/gitContext';
-import { createGhRepoApi } from './providers/github/ghRepoApi';
+import type { GitContext } from './gitContext';
+import type { CodeHost, IssueTracker } from './providers/types';
 
 /**
  * Individual check result.
@@ -174,7 +174,7 @@ export function checkClaudeCodeCLI(): CheckResult {
 /**
  * Checks GitHub CLI (gh) functionality.
  */
-export function checkGitHubCLI(ctx: GitContext): CheckResult {
+export function checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>): CheckResult {
   const details: Record<string, unknown> = {};
 
   // Check if gh CLI exists (indirect variable avoids guard false-positive on 'gh' literal)
@@ -190,11 +190,13 @@ export function checkGitHubCLI(ctx: GitContext): CheckResult {
     };
   }
 
-  // Check if authenticated via context
+  // Check authentication via the code host port. GitHubCodeHost.getAuthenticatedUser()
+  // already returns null on failure rather than throwing, but a non-GitHub code host
+  // (e.g. GitLab) REFUSES BY NAME instead — the try/catch is what keeps that refusal
+  // from turning this whole health check into an uncaught stack trace.
   let authenticated = false;
   try {
-    const user = createGhRepoApi(ctx).authenticatedUser();
-    authenticated = Boolean(user && user.trim().length > 0);
+    authenticated = Boolean(codeHost.getAuthenticatedUser());
   } catch {
     authenticated = false;
   }
@@ -250,9 +252,9 @@ export function checkDirectoryStructure(): CheckResult {
 }
 
 /**
- * Validates a GitHub issue number and fetches its details via the GitContext.
+ * Validates an issue number and fetches its details through the issue tracker port.
  */
-export function checkIssueNumber(issueNumber: number, ctx: GitContext): CheckResult {
+export async function checkIssueNumber(issueNumber: number, issueTracker: Pick<IssueTracker, 'fetchIssue'>): Promise<CheckResult> {
   const details: Record<string, unknown> = {
     issueNumber
   };
@@ -265,34 +267,15 @@ export function checkIssueNumber(issueNumber: number, ctx: GitContext): CheckRes
     };
   }
 
-  let issueData: string;
   try {
-    issueData = createGhRepoApi(ctx).fetchIssue(issueNumber);
-  } catch {
-    return {
-      success: false,
-      error: `Issue #${issueNumber} not found or not accessible`,
-      details
-    };
-  }
-
-  if (!issueData || issueData.includes('Could not resolve')) {
-    return {
-      success: false,
-      error: `Issue #${issueNumber} not found or not accessible`,
-      details
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(issueData);
-    details.title = parsed.title;
-    details.state = parsed.state;
+    const issue = await issueTracker.fetchIssue(issueNumber);
+    details.title = issue.title;
+    details.state = issue.state;
     details.exists = true;
   } catch {
     return {
       success: false,
-      error: `Failed to parse issue data for #${issueNumber}`,
+      error: `Issue #${issueNumber} not found or not accessible`,
       details
     };
   }

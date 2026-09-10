@@ -13,7 +13,7 @@
 
 import { AgentStateManager, log } from '../core';
 import type { IssueClassSlashCommand, RecoveryState } from '../core';
-import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { Issue } from '../providers/types';
 import { runGenerateBranchNameAgent } from '../agents';
 import { AuthRequiredError } from '../types/agentTypes';
 import { deterministicBranchName } from '../vcs/branchIdentity';
@@ -41,7 +41,7 @@ async function resolveInternal(
   args: {
     adwId: string;
     issueType: IssueClassSlashCommand;
-    issue: GitHubIssue;
+    issue: Issue;
     logsDir: string;
     recoveryState: RecoveryState;
   },
@@ -123,7 +123,7 @@ async function resolveInternal(
 export async function resolveWorkflowBranchName(args: {
   adwId: string;
   issueType: IssueClassSlashCommand;
-  issue: GitHubIssue;
+  issue: Issue;
   logsDir: string;
   recoveryState: RecoveryState;
 }, deps: BranchIdentityFallbackDeps): Promise<string> {

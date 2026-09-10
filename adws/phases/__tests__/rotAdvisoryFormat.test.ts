@@ -53,11 +53,11 @@ describe('formatRotAdvisoryComment', () => {
 });
 
 describe('hasRegressionPromotionLabel', () => {
-  const cases: Array<[string, { name: string }[], boolean]> = [
-    ['label present', [{ name: 'regression-promotion' }], true],
-    ['label absent', [{ name: 'enhancement' }], false],
-    ['mixed labels including the target', [{ name: 'adw:feature' }, { name: 'regression-promotion' }, { name: 'hitl' }], true],
-    ['mixed labels without the target', [{ name: 'adw:feature' }, { name: 'hitl' }], false],
+  const cases: Array<[string, string[], boolean]> = [
+    ['label present', ['regression-promotion'], true],
+    ['label absent', ['enhancement'], false],
+    ['mixed labels including the target', ['adw:feature', 'regression-promotion', 'hitl'], true],
+    ['mixed labels without the target', ['adw:feature', 'hitl'], false],
     ['empty labels', [], false],
   ];
 

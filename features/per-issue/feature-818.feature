@@ -80,17 +80,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
   and §6 pins that exclusion for these two directories specifically, because the alternative —
   discovering it after merge — is a red build on the tests AC2 requires.
 
-  TRAP 7 — TWO EXISTING SUITES CONSTRUCT THESE CLASSES POSITIONALLY, AND A THIRD PINS THE FACTORY
-  NAMES. `refusalStubs.test.ts` builds `new GitLabCodeHost(REPO_ID, {} as GitLabApiClient)` and
-  `new JiraIssueTracker({} as JiraApiClient, 'ADW')`; `boardManager.test.ts` calls
-  `createGitLabBoardManager()` and `createJiraBoardManager()` with no arguments;
-  `checkGitGhGuard.test.ts:566-569` requires `export function createGitLabCodeHost(`,
-  `createGitLabBoardManager(`, `createJiraIssueTracker(` and `createJiraBoardManager(` to still be
-  declared under those names, because all four are entries in `PROVIDER_CONSTRUCTORS`
-  (`adws/guard/constructionRule.ts:42-45`). Renaming a factory or making the logger a required
-  leading parameter turns AC5 red in a place nothing in this issue's file list points at. §7 pins
-  the arities that must survive.
-
   HOW THESE SCENARIOS OBSERVE THE SYSTEM. Every assertion targets a runtime artefact. §1-§5 stand a
   real HTTP recorder on `127.0.0.1`, hand its address to the adapter AS THE INJECTED `instanceUrl`,
   and assert the method, path, headers and body it captured — observability surface 2, and the one
@@ -627,40 +616,14 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     Then the guard run over the guard fixture tree fails naming "adws/core/branchHelper.ts"
     And the guard failure over the guard fixture tree cites no extraction-readiness rule
 
-  # ── §7 THE EXISTING SUITES AND THE RATCHET (AC5) ───────────────────────────────────────
+  # ── §7 THE BACKSTOPS (AC4, AC5) ─────────────────────────────────────────────────────────
   #
-  # TRAP 7. Three suites nothing in this issue's file list points at construct these classes and
-  # factories at the arities they have today. The logger and the config object must therefore arrive
-  # as APPENDED, OPTIONAL parameters, and the four guarded factory names must survive verbatim —
-  # they are `PROVIDER_CONSTRUCTORS` entries, and `checkGitGhGuard.test.ts` fails on a rename with a
-  # message pointing at the guard rather than at this issue.
-
-  @adw-818 @adw-lzod6e-gitlab-and-jira-adap
-  Scenario: A GitLab code host built from a repository identifier and a client alone still refuses by name
-    When a GitLab code host is constructed with only a repository identifier and an API client
-    Then asking it to approve a pull request refuses naming "GitLabCodeHost.approvePullRequest"
-    And asking it to list merged pull requests refuses naming "GitLabCodeHost.listMergedPullRequests"
-
-  @adw-818 @adw-lzod6e-gitlab-and-jira-adap
-  Scenario: A Jira issue tracker built from a client and a project key alone still refuses by name
-    When a Jira issue tracker is constructed with only an API client and the project key "ADW"
-    Then asking it to fetch labels refuses naming "JiraIssueTracker.fetchLabels"
-    And asking it to list issues refuses naming "JiraIssueTracker.listIssues"
-
-  # The board managers are in the widened scope and in the issue's file list, but they take no
-  # configuration and no logger — there is nothing for them to log. They are here because a sweeping
-  # "thread a logger through every factory" edit gives them a required parameter and turns
-  # `boardManager.test.ts` red for a reason that has nothing to do with this issue.
-
-  @adw-818 @adw-lzod6e-gitlab-and-jira-adap
-  Scenario Outline: The board manager factories still construct with no arguments and refuse by name
-    When the "<platform>" board manager is constructed with no arguments
-    Then asking it to find a board refuses naming "<platform>"
-
-    Examples:
-      | platform |
-      | GitLab   |
-      | Jira     |
+  # TRAP 7's constructor-arity scenarios (GitLab/Jira "refuses by name" and the board-manager
+  # zero-argument outline) moved out from under this file in #844: `refusalStubs.test.ts` and
+  # `boardManager.test.ts` still cover the same arities directly against the four
+  # `PROVIDER_CONSTRUCTORS` names, and `checkGitGhGuard.test.ts`'s guarded-factory-name table still
+  # ratchets that they survive a rename. What remains here is the whole-repository backstop: the
+  # guard and the type-check, run for real.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: The guard passes across the whole repository with both adapter directories in scope

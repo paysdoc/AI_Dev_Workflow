@@ -5,8 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
-import type { GitHubIssue } from '../providers/github/domain/issue';
-import type { PullRequest, ReviewComment, RepoContext } from '../providers/types';
+import type { Issue, PullRequest, ReviewComment, RepoContext } from '../providers/types';
 import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
@@ -115,18 +114,17 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     postPRStageComment(repoContext, prNumber, 'pr_review_starting', ctx);
   }
 
-  const issueStub: GitHubIssue = {
+  const issueStub: Issue = {
+    id: String(prNumber),
     number: prNumber,
     title: pr.title,
     body: pr.body,
     state: 'open',
-    author: { login: '', isBot: false },
-    assignees: [],
+    author: '',
     labels: [],
     comments: [],
     createdAt: '',
-    updatedAt: '',
-    url: pr.url,
+    url: pr.url ?? '',
   };
   const defaultRecoveryState: RecoveryState = {
     lastCompletedStage: null,

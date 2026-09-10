@@ -35,6 +35,8 @@ export function mapGitHubIssueToIssue(issue: GitHubIssue): Issue {
     author: issue.author.login,
     labels: issue.labels.map((l) => l.name),
     comments: issue.comments.map(mapGitHubCommentToIssueComment),
+    createdAt: issue.createdAt,
+    url: issue.url,
   };
 }
 

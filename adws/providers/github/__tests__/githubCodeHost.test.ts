@@ -156,10 +156,10 @@ describe('GitHubCodeHost — parse and map', () => {
   });
 
   it('listPullRequests spawns the exact all-state command and returns the parsed array unchanged', () => {
-    const raw = [{ number: 1, body: 'Closes #1', state: 'MERGED', mergedAt: '2024-01-01' }];
+    const raw = [{ number: 1, body: 'Closes #1', state: 'MERGED', mergedAt: '2024-01-01', updatedAt: '2024-01-01T00:00:00Z', url: 'https://github.com/acme/widget/pull/1' }];
     const { exec, calls } = makeSpyExec(new Map([['--state all', JSON.stringify(raw)]]));
     const result = createGitHubCodeHost(makeCtx({}, exec), REPO_ID).listPullRequests();
-    expect(calls[0].command).toBe('gh pr list --repo acme/widget --state all --json number,body,state,mergedAt --limit 200');
+    expect(calls[0].command).toBe('gh pr list --repo acme/widget --state all --json number,body,state,mergedAt,updatedAt,url --limit 200');
     expect(result).toEqual(raw);
   });
 

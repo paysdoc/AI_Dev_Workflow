@@ -13,9 +13,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, REPO_ROOT, buildLaunchBoundary } from './core';
-import { readLocalRepoInfo } from './providers/github/githubIdentity';
-import type { GitContext } from './gitContext/gitContext';
+import { log, REPO_ROOT, buildLaunchBoundary, readLocalRepoIdentity } from './core';
+import type { GitContext } from './gitContext';
+import type { BoundProviders } from './providers/types';
 import {
   checkEnvironmentVariables,
   checkGitRepository,
@@ -104,12 +104,27 @@ async function main(): Promise<void> {
     errors: []
   };
 
-  // Construct a self-host GitContext for all git/gh probes.
-  // Wrapped in try/catch: construction can fail if no token is resolvable.
-  // On failure, context-dependent checks are skipped and the error is recorded.
+  // Construct the launch boundary once for all git and forge probes. Wrapped in
+  // try/catch: construction can fail if no token is resolvable. On failure,
+  // context-dependent checks are skipped and the error is recorded.
   let ctx: GitContext | undefined;
+  let providers: BoundProviders | undefined;
   try {
-    ctx = buildLaunchBoundary(null, { getRepoInfo: () => readLocalRepoInfo(REPO_ROOT) }).gitContext;
+    const boundary = buildLaunchBoundary(null, { getRepoInfo: () => readLocalRepoIdentity(REPO_ROOT) });
+    ctx = boundary.gitContext;
+    // The provider mint is lazy and has its own failure mode (an unrecognised
+    // forge name in .adw/providers.md) — a second try/catch so that failure
+    // degrades to a recorded check rather than crashing the whole script.
+    try {
+      providers = boundary.providers;
+    } catch (err) {
+      result.checks.providers = {
+        success: false,
+        error: `Failed to resolve providers: ${err instanceof Error ? err.message : String(err)}`,
+        details: {}
+      };
+      result.success = false;
+    }
   } catch (err) {
     result.checks.gitContext = {
       success: false,
@@ -132,16 +147,16 @@ async function main(): Promise<void> {
   result.checks.claudeCodeCLI = checkClaudeCodeCLI();
 
   log('Checking GitHub CLI...', 'info');
-  if (ctx) {
-    result.checks.gitHubCLI = checkGitHubCLI(ctx);
+  if (providers) {
+    result.checks.gitHubCLI = checkGitHubCLI(providers.codeHost);
   }
 
   log('Checking directory structure...', 'info');
   result.checks.directoryStructure = checkDirectoryStructure();
 
   log(`Checking issue #${issueNumber}...`, 'info');
-  if (ctx) {
-    result.checks.issueAccessibility = checkIssueNumber(issueNumber, ctx);
+  if (providers) {
+    result.checks.issueAccessibility = await checkIssueNumber(issueNumber, providers.issueTracker);
   }
 
   // Collect warnings and errors

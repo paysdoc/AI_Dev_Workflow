@@ -6,8 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
-import type { GitHubIssue } from '../providers/github/domain/issue';
-import type { PullRequest, ReviewComment } from '../providers/types';
+import type { Issue, PullRequest, ReviewComment } from '../providers/types';
 import { runClaudeAgentWithCommand, AgentResult, AgentLaunchContext } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
@@ -15,7 +14,7 @@ import { isAdwComment, extractActionableContent } from '../core/workflowCommentP
  * Formats issue context as arguments for plan commands.
  * Filters out ADW bot comments and surfaces actionable comment content prominently.
  */
-export function formatIssueContextAsArgs(issue: GitHubIssue): string {
+export function formatIssueContextAsArgs(issue: Issue): string {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
 
   const latestActionableContent = [...issue.comments]
@@ -24,7 +23,7 @@ export function formatIssueContextAsArgs(issue: GitHubIssue): string {
 
   const commentsSection = humanComments.length > 0
     ? humanComments
-        .map(c => `**${c.author.login}** (${c.createdAt}):\n${c.body}`)
+        .map(c => `**${c.author}** (${c.createdAt}):\n${c.body}`)
         .join('\n\n---\n\n')
     : 'No comments.';
 
@@ -35,8 +34,8 @@ export function formatIssueContextAsArgs(issue: GitHubIssue): string {
   return `## GitHub Issue #${issue.number}
 **Title:** ${issue.title}
 **State:** ${issue.state}
-**Author:** ${issue.author.login}
-**Labels:** ${issue.labels.map(l => l.name).join(', ') || 'none'}
+**Author:** ${issue.author}
+**Labels:** ${issue.labels.join(', ') || 'none'}
 **Created:** ${issue.createdAt}
 
 ### Description
@@ -243,7 +242,7 @@ export async function runPrReviewPlanAgent(
  * @param adwId - Optional ADW workflow ID for plan file naming
  */
 export async function runPlanAgent(
-  issue: GitHubIssue,
+  issue: Issue,
   logsDir: string,
   issueType: IssueClassSlashCommand = '/feature',
   statePath?: string,
@@ -263,11 +262,11 @@ export async function runPlanAgent(
     title: issue.title,
     body: issue.body,
     state: issue.state,
-    author: issue.author.login,
-    labels: issue.labels.map(l => l.name),
+    author: issue.author,
+    labels: issue.labels,
     createdAt: issue.createdAt,
     comments: humanComments.map(c => ({
-      author: c.author.login,
+      author: c.author,
       createdAt: c.createdAt,
       body: c.body,
     })),

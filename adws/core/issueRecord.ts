@@ -1,36 +1,23 @@
 /**
- * The full forge-shaped issue record, read over the boundary's own
- * `GitContext` — the single GitHub-shaped read left in the framework (#820).
+ * The workflow's issue record — the port's `Issue`, read through the launch
+ * boundary's `IssueTracker` (#844). Before #844 this was a bound
+ * `createGhRepoApi(ctx).fetchIssue` + `parseGitHubIssue` reproduction of the
+ * legacy GitHub-shaped record; the GitHub-shaped record is gone as of this
+ * issue. `Issue` gained `createdAt`/`url` in `adws/providers/types.ts` so the
+ * port crossing is byte-stable for the four agents that read them
+ * (`planAgent`/`scenarioAgent`'s `createdAt`, `buildAgent`'s `url`).
  *
- * `WorkflowConfig.issue` is a `GitHubIssue`, not the provider-neutral `Issue`:
- * it is `JSON.stringify`'d whole into the commit/PR/alignment/validation
- * agent prompts, and `planAgent.ts`/`scenarioAgent.ts`/`buildAgent.ts` print
- * `issue.state`, `issue.author.login`, `issue.createdAt` and `issue.url` —
- * none of which `IssueTracker.fetchIssue`'s `Issue` shape carries. Reading
- * through the port would silently change every byte those agents see, so
- * this helper reproduces the legacy `fetchGitHubIssue`'s exact command, parse
- * and error text over the ONE `GitContext` the launch boundary constructed,
- * rather than minting a fresh `gitContextForRepo(repoInfo)` per call.
- *
- * Promoting the record to a forge-neutral `IssueRecord` port type (and typing
- * the agents on it) is a separate, HITL-worthy design decision — not this
- * slice's call.
- *
- * `createGhRepoApi` is a bound view over an existing context, not a provider
- * or context constructor, so this file is outside the construction guard's
- * sanctioned-site allowlist entirely.
+ * Callers receive the tracker through the launch boundary's `BoundProviders`
+ * — this helper constructs nothing.
  */
 
-import { createGhRepoApi } from '../providers/github/ghRepoApi';
-import { parseGitHubIssue } from '../providers/github/ghIssueParsers';
-import type { GitContext } from '../gitContext';
-import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { Issue, IssueTracker } from '../providers/types';
 
-/** Reads issue #`issueNumber` over `ctx`; wraps any failure in the legacy `Failed to fetch issue #N: …` message. */
-export async function fetchIssueRecord(ctx: GitContext, issueNumber: number): Promise<GitHubIssue> {
-  try {
-    return parseGitHubIssue(createGhRepoApi(ctx).fetchIssue(issueNumber));
-  } catch (error) {
-    throw new Error(`Failed to fetch issue #${issueNumber}: ${error}`);
-  }
+/**
+ * Delegates to `issueTracker.fetchIssue(issueNumber)` and returns its `Issue`
+ * untouched. No additional error wrap: the GitHub tracker already throws
+ * `Failed to fetch issue #N: …`, and wrapping again would double the prefix.
+ */
+export async function fetchIssueRecord(issueTracker: Pick<IssueTracker, 'fetchIssue'>, issueNumber: number): Promise<Issue> {
+  return issueTracker.fetchIssue(issueNumber);
 }

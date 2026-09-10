@@ -228,6 +228,7 @@ function makeRecordingIssueTracker(fixture: Fixture797, callLog: CallRecord[]): 
       return {
         id: String(issueNumber), number: issueNumber, title: e?.title ?? '', body: e?.body ?? '',
         state: e?.state ?? 'OPEN', author: '', labels: (e?.labels ?? []).map((l) => l.name), comments: [],
+        createdAt: e?.createdAt ?? '', url: '',
       };
     },
     commentOnIssue(issueNumber, body) {

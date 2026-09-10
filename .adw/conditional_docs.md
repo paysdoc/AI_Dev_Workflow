@@ -68,6 +68,7 @@
     - When working on PR creation, PR review, PR review completion, or auto-merge phases in `adws/phases/`
     - When working on post-review-outcome routing (`resolvePrReviewTarget`, `resolvePrReviewSpawn`, `decidePostReviewOutcome`, `executeSdlcReviewFailedHandoff`)
     - When working on `resolvePrReviewInvocation` (the branch→PR/adwId resolution `adwPrReview.tsx` runs after the launch boundary exists) or `readUnaddressedComments` (the pr-review bot/self/ADW-signed comment filter, decomposed off the legacy `prCommentDetector` composite, #820)
+    - When working on `handlePRReviewWorkflowError`'s HITL Blocked notification — since #844 its notifier deps default to `buildNotifierDeps(() => repoContext, repoContext.repoId)`, not a `config.base.gitContext` read
 
 - app_docs/feature-9gjajh-issue-routing-and-eligibility.md
   - Owns:
@@ -158,8 +159,9 @@
     - adws/forge/**
   - Conditions:
     - When working on the ADW-application forge helpers in `adws/forge/`: comment formatting (`workflowCommentsIssue.ts`, `workflowCommentsPR.ts`, `workflowCommentsBase.ts`, `proofCommentFormatter.ts`), the HITL board notifier (`hitlBoardNotifier.ts`), linked-PR detection (`linkedPrDetector.ts`), PR review comment detection (`prCommentDetector.ts`), the issue-link marker (`issueLinkMarker.ts`), or adw:* label provisioning (`adwLabelProvisioning.ts`)
-    - When `adws/github/`, `gitContextFactory.ts`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`, or the `githubAppAuth.ts` re-export shim are referenced and not found — the whole directory was deleted in #823; `readLocalRepoInfo` lives in `adws/providers/github/githubIdentity.ts`, the App-auth env wrapper in `adws/core/githubAppAuth.ts`
-    - When `notifyReviewTransition`/`notifyBlockedTransition` are referenced — they take a required `NotifierDeps` (no more optional/defaulted internal readers); `buildNotifierDeps(ctx, repoId)` lives in `hitlBoardNotifier.ts` and is consumed by `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (#823; formerly `adws/providers/repoContext.ts`)
+    - When `adws/github/`, `gitContextFactory.ts`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`, or the `githubAppAuth.ts` re-export shim are referenced and not found — the whole directory was deleted in #823; `readLocalRepoInfo` still lives in `adws/providers/github/githubIdentity.ts` but is library-internal as of #844 (ADW reads identity through `readLocalRepoIdentity`, `adws/core/localRepoIdentity.ts`); the App-auth env wrapper is in `adws/core/githubAppAuth.ts`
+    - When `notifyReviewTransition`/`notifyBlockedTransition` are referenced — they take a required `NotifierDeps` (no more optional/defaulted internal readers); `buildNotifierDeps(resolvePorts, repoId)` (#844, `resolvePorts: () => NotifierPorts` a thunk resolved lazily) lives in `hitlBoardNotifier.ts`, reads `IssueTracker.fetchIssue`/`CodeHost.listPullRequests` (never `createGhRepoApi`), and is consumed by `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (#823; formerly `adws/providers/repoContext.ts`)
+    - When the HITL-announced pull-request link is wrong or GitHub-specific — it comes from the port's `PullRequestRecord.url` (#844), never a synthesised `https://github.com/<owner>/<repo>/pull/<n>`; the preferred-PR "open over merged, newest first" choice is a local `updatedAt` sort over `CodeHost.listPullRequests()` filtered to `state === 'OPEN'`, not `selectPreferredPR`
     - When `fetchLinkedPRs(codeHost)` is referenced — it now takes a `Pick<CodeHost, 'listPullRequests'>` instead of a `repoInfo`, reading `CodeHost.listPullRequests()` (every PR of the repo — open/closed/merged; new port method, #821)
     - When `buildUnaddressedCommentReads(boundary)`/`hasUnaddressedComments(prNumber, boundary)` are referenced — rewritten around `Pick<LaunchBoundary, 'providers' | 'gitContext'>`, shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`
     - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
@@ -271,6 +273,7 @@
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
     - When `mintBoundProviders`, `createRepoContext`, `resolveIssueTracker`/`resolveCodeHost`/`resolveBoardManager`, `MintProvidersOptions` or `repoContext.ts` are referenced and not found — replaced by `forgeProviders()` (#823)
     - When `forgeProviders` refuses a forge name, a mismatched `gitContext`, or a missing `deps.gitlab`/`deps.jira` — see `adws/providers/forgeProviders.ts`'s `UnknownForgeError` and its per-port `CodeHostForge`/`IssueTrackerForge` unions
+    - When `Issue.createdAt`/`Issue.url` or `PullRequestRecord.updatedAt`/`PullRequestRecord.url` are missing, wrong, or need populating in a new adapter — widened in `adws/providers/types.ts` (#844); the GitHub mapper copies them off `GitHubIssue`, `JiraIssueTracker.toIssue` synthesises `url` from its constructor's `instanceUrl` param, and `fetchAllPRsCmd`'s `--json` projection must list `updatedAt,url` or the bare-cast `listPullRequests()` silently produces `undefined` values
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -303,8 +306,8 @@
     - adws/healthCheckChecks.ts
   - Conditions:
     - When working on the ADW health check orchestrator or health check predicates in `adws/healthCheck.tsx` and `adws/healthCheckChecks.ts`
-    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures or their `GitContext` parameter — signatures are `(ctx: GitContext)` unchanged; internally they call `createGhRepoApi(ctx).authenticatedUser()` / `.fetchIssue(n)` (#797), not a deleted `GitContext` semantic method
-    - When the self-host `GitContext` construction in `main()` or the webhook `/health` endpoint needs changes
+    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures — since #844, `checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)` and `checkIssueNumber(issueNumber, issueTracker: Pick<IssueTracker, 'fetchIssue'>): Promise<CheckResult>` (now async) take port `Pick`s, not a `GitContext`; only `checkGitRepository(ctx: GitContext)` still does, since git reads stay the core's job
+    - When the self-host `LaunchBoundary` construction in `main()`, its `providers` mint's own try/catch, or the webhook `/health` endpoint needs changes
     - When troubleshooting the mandatory-token construction failure path in the health check
     - When `healthCheck.tsx` or `healthCheckChecks.ts` appear in the git/gh guard ALLOWLIST (they must not — they are now scanned clean)
 
@@ -429,8 +432,12 @@
     - adws/core/__tests__/forgeWiring.test.ts
     - adws/core/workspaceBinding.ts
     - adws/core/__tests__/workspaceBinding.test.ts
+    - adws/core/localRepoIdentity.ts
+    - adws/core/__tests__/localRepoIdentity.test.ts
   - Conditions:
-    - When working on `fetchIssueRecord` (the boundary-context issue read that keeps `WorkflowConfig.issue`'s full `GitHubIssue` shape for prompt fidelity, #820) or the `GITHUB_APP_*` env wrapper (`adws/core/githubAppAuth.ts`, moved from `adws/github/githubAppAuth.ts` in #820, which no longer exists — deleted in #823)
+    - When working on `fetchIssueRecord` — since #844 a thin delegation to `IssueTracker.fetchIssue`, returning the port's `Issue` (which gained `createdAt`/`url` so the plan/scenario/build agent prompts stay byte-stable); the GitHub-shaped record it used to reproduce over `boundary.gitContext` is gone
+    - When working on `readLocalRepoIdentity` (`adws/core/localRepoIdentity.ts`, #844) — the ADW-owned, host-neutral replacement for `readLocalRepoInfo`, composed from the git core's `readOriginRemoteUrl` and the host-neutral `parseOwnerRepoFromUrl`; it is `buildLaunchBoundary`'s default `getRepoInfo` and is registered in the guard's `CWD_DERIVED_IDENTITY_FNS`
+    - When working on the `GITHUB_APP_*` env wrapper (`adws/core/githubAppAuth.ts`, moved from `adws/github/githubAppAuth.ts` in #820, which no longer exists — deleted in #823)
     - When working on GitContext base-path resolution, per-command credential injection, worktree management, or the git-only bootstrap primitives in `adws/gitContext/`
     - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process, threaded into the assembly via `ForgeProvidersOptions.gitContext` (#823; formerly `MintProvidersOptions.gitContext`, #819)
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
@@ -444,6 +451,7 @@
     - When `buildLaunchBoundary`'s `forgeProviders`/`forgeDeps` seams or `buildAdwForgeDeps` (`adws/core/forgeWiring.ts`) are relevant (#823)
     - When `bindWorkspaceContext`/`validateGitRemote` (`adws/core/workspaceBinding.ts`) are referenced — the remote is read through the boundary's own context, `createRepoContext` is gone (#823)
     - When `bun run lint:git-guard` reports `Extraction-readiness scope — 10 entries` / `2 permanent, 0 sunset` — scope == extractable set since #823
+    - When `unsanctioned-construction` and `cwd-derived-identity` disagree on a context constructor fed a direct identity-read call (`gitContextForRepo(readLocalRepoIdentity(root))`) — since #844, `isIdentityReadComposite` (`identityRule.ts`) is the sole adjudicator of that composite and `constructionRule.ts` defers to it; every other construction shape is still flagged by callee name alone
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:
@@ -514,11 +522,14 @@
     - adws/core/portAllocator.ts
     - adws/core/remoteReconcile.ts
     - adws/core/targetRepoManager.ts
+    - adws/core/sshCloneUrl.ts
     - adws/core/__tests__/devServerLifecycle.test.ts
     - adws/core/__tests__/remoteReconcile.test.ts
+    - adws/core/__tests__/sshCloneUrl.test.ts
   - Conditions:
     - When working on dev server lifecycle management, dynamic port allocation, remote repo reconciliation, or target repo cloning/updating
     - When working on `devServerLifecycle.ts`, `portAllocator.ts`, `remoteReconcile.ts`, or `targetRepoManager.ts`
+    - When working on `convertToSshUrl` (`adws/core/sshCloneUrl.ts`, #844) — ADW-owned and host-neutral (`https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`, anything else passed through), re-exported by `targetRepoManager.ts` at the stable import path; no longer the GitHub-only adapter helper
 
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:

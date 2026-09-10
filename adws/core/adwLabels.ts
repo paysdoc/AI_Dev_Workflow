@@ -5,7 +5,7 @@
  */
 
 import type { IssueClassSlashCommand } from '../types/issueTypes';
-import type { GitHubIssue, GitHubLabel } from '../providers/github/domain/issue';
+import type { Issue } from '../providers/types';
 
 // ── Canonical label data ──────────────────────────────────────────────────────
 
@@ -30,8 +30,8 @@ export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
  * `regression-promotion` (`buildPromotionIssue`), and that label is already on
  * `config.issue.labels` with no extra I/O.
  */
-export function hasRegressionPromotionLabel(labels: readonly { name: string }[]): boolean {
-  return labels.some(l => l.name === ADW_REGRESSION_PROMOTION_LABEL);
+export function hasRegressionPromotionLabel(labels: readonly string[]): boolean {
+  return labels.includes(ADW_REGRESSION_PROMOTION_LABEL);
 }
 
 export const ADW_CLASSIFICATION_LABELS = {
@@ -92,8 +92,8 @@ export function readAdwLabelNames(labelNames: readonly string[]): AdwLabelReadin
  * Reads an issue's labels and returns the structured ADW classification shape.
  * Pure function — no I/O, no logging.
  */
-export function readAdwLabels(issue: Pick<GitHubIssue, 'labels'>): AdwLabelReading {
-  return readAdwLabelNames(issue.labels.map((l: GitHubLabel) => l.name));
+export function readAdwLabels(issue: Pick<Issue, 'labels'>): AdwLabelReading {
+  return readAdwLabelNames(issue.labels);
 }
 
 /**
@@ -124,16 +124,16 @@ export type ScenarioAuthoringSkipReason = typeof ADW_REGRESSION_PROMOTION_LABEL 
  * the labels on `config.issue`.
  */
 export function scenarioAuthoringSkipReason(
-  labels: readonly GitHubLabel[],
+  labels: readonly string[],
 ): ScenarioAuthoringSkipReason | null {
-  const names = new Set(labels.map((l) => l.name));
+  const names = new Set(labels);
   if (names.has(ADW_REGRESSION_PROMOTION_LABEL)) return ADW_REGRESSION_PROMOTION_LABEL;
   if (names.has(ADW_NONE_LABEL)) return ADW_NONE_LABEL;
   return null;
 }
 
 /** Boolean face of {@link scenarioAuthoringSkipReason} for callers that need no reason. */
-export function shouldSkipScenarioAuthoring(labels: readonly GitHubLabel[]): boolean {
+export function shouldSkipScenarioAuthoring(labels: readonly string[]): boolean {
   return scenarioAuthoringSkipReason(labels) !== null;
 }
 

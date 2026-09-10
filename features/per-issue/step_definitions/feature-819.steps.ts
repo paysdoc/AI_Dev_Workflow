@@ -260,12 +260,12 @@ Given('the recording gh seam is configured for a successful board move of issue 
 
 Given('the GitHub providers are minted over the recording gh seam', function () {
   const forge = { codeHost: 'github' as const, issueTracker: 'github' as const };
-  const providers = forgeProviders({
+  const providers: ReturnType<typeof forgeProviders> = forgeProviders({
     forge,
     identity: requireRepoId(),
     tokenProvider: requireTokenProvider(),
     gitContext: requireCtx(),
-    deps: buildAdwForgeDeps({ codeHost: 'github', issueTracker: 'github' }, requireRepoId(), requireCtx()),
+    deps: buildAdwForgeDeps({ codeHost: 'github', issueTracker: 'github' }, requireRepoId(), () => providers),
   });
   mintedProviders = providers;
   issueTracker = providers.issueTracker;

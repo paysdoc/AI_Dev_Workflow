@@ -15,7 +15,7 @@ import type { LaunchBoundary } from '../core';
 import type { BoundProviders } from '../providers/types';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { readLocalRepoInfo } from '../providers/github/githubIdentity';
+import { readLocalRepoIdentity } from '../core/localRepoIdentity';
 import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
 import { hasUnaddressedComments } from '../forge/prCommentDetector';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
@@ -58,7 +58,7 @@ const processedPRs = new Set<number>();
 let cycleCount = 0;
 
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
-const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoInfo);
+const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoIdentity);
 
 // Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).

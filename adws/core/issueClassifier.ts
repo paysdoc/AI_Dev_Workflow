@@ -7,7 +7,6 @@
  */
 
 import type { Issue } from '../providers/types';
-import type { GitHubIssue } from '../providers/github/domain/issue';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
   IssueClassSlashCommand,
@@ -173,19 +172,19 @@ export async function classifyIssueForTrigger(
 }
 
 /**
- * Classifies a pre-fetched GitHub issue to determine its type.
+ * Classifies a pre-fetched issue to determine its type.
  * Uses LLM-only classification via /classify_issue.
  *
- * @param issue - The pre-fetched GitHub issue
+ * @param issue - The pre-fetched issue
  * @returns Classification result with issue type and success status
  */
 export async function classifyGitHubIssue(
-  issue: GitHubIssue
+  issue: ClassifiableIssue
 ): Promise<IssueClassificationResult> {
   try {
     log(`Classifying issue #${issue.number} (${issue.title})...`);
 
-    const labelsText = issue.labels.map((l) => l.name).join(', ') || 'none';
+    const labelsText = issue.labels.join(', ') || 'none';
     log(`classifyGitHubIssue: issue #${issue.number} labels=[${labelsText}], body length=${issue.body?.length ?? 0}`);
     const issueContext = `**Title:** ${issue.title}
 **Labels:** ${labelsText}

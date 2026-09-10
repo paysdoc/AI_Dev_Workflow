@@ -17,22 +17,28 @@
  * `identity` property of a first-argument object literal, bare or shorthand.
  * Both retired-or-not names stay in `CONTEXT_CONSTRUCTOR_NAMES` regardless of
  * whether a declaration still exists for them (PRD story 24).
+ *
+ * `readLocalRepoIdentity` (`adws/core/localRepoIdentity.ts`, #844) joined
+ * `CWD_DERIVED_IDENTITY_FNS` alongside the two names above: introducing a new
+ * cwd-derived identity reader without registering its name here would let the
+ * composite it exists to catch go quietly unflagged rather than red.
  */
 
 import * as ts from 'typescript';
 import type { Violation } from './violationTypes';
 
 /**
- * The two legitimate pre-context cwd reads; a zero-argument call to either is
- * cwd-derived identity. `getRepoInfo` stays in this set even after #821
- * deletes its declaration (`adws/github/githubApi.ts`): this is a name-based
- * AST match against identifier text, not a file reference, so retaining the
- * name is what stops a cwd-derived identity fallback of that name being
- * reintroduced later. Only `SANCTIONED_CONSTRUCTION_SITES` (constructionRule.ts)
- * carries a stale-entry ratchet — nothing here fails because a guarded name
- * has no declaration left.
+ * The three legitimate pre-context cwd reads; a zero-argument call to any of
+ * them is cwd-derived identity. `getRepoInfo` stays in this set even after
+ * #821 deletes its declaration (`adws/github/githubApi.ts`), and
+ * `readLocalRepoInfo` stays even after #844 retires it in favour of
+ * `readLocalRepoIdentity`: this is a name-based AST match against identifier
+ * text, not a file reference, so retaining a retired name is what stops a
+ * cwd-derived identity fallback of that name being reintroduced later. Only
+ * `SANCTIONED_CONSTRUCTION_SITES` (constructionRule.ts) carries a stale-entry
+ * ratchet — nothing here fails because a guarded name has no declaration left.
  */
-export const CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo']);
+export const CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo', 'readLocalRepoIdentity']);
 
 /** The context constructors whose identity argument this rule inspects — name-based, surviving both retired declarations (PRD story 24). */
 export const CONTEXT_CONSTRUCTOR_NAMES: ReadonlySet<string> = new Set(['gitContextForRepo', 'forgeProviders']);
@@ -97,6 +103,33 @@ function identityArgumentOf(calleeName: string, node: ts.CallExpression): ts.Exp
   const [firstArg] = node.arguments;
   if (!firstArg) return null;
   return calleeName === 'forgeProviders' ? identityPropertyOf(firstArg) : firstArg;
+}
+
+/**
+ * True when `node` is a context-constructor call whose identity argument is a
+ * direct identity READ — `gitContextForRepo(readLocalRepoIdentity(…))` or
+ * `forgeProviders({ identity: getRepoInfo(…) })`, with or without arguments.
+ *
+ * This composite is adjudicated by THIS rule alone, and `constructionRule.ts`
+ * defers on it (that module's only import from here). Both rules inspect the
+ * same argument position, but only this one reads the argument: an identity
+ * read taking no argument is cwd-derived and fails; one given an explicit
+ * root is the sanctioned pre-context read that entry points make
+ * (`healthCheck.tsx`'s `readLocalRepoIdentity(REPO_ROOT)`, #844) and passes.
+ * Were the construction rule to flag the composite regardless — as it does
+ * every other construction, by callee name alone — the passing half would be
+ * unwritable anywhere except the two sanctioned files, and this rule's "an
+ * explicit root is legal" verdict would be unobservable outside them.
+ *
+ * Deferral costs the construction rule nothing it was holding alone: the
+ * failing half still fails here, under the rule that names the actual defect.
+ */
+export function isIdentityReadComposite(node: ts.CallExpression): boolean {
+  const calleeName = contextConstructorCalleeName(node.expression);
+  if (!calleeName) return false;
+  const identityArg = identityArgumentOf(calleeName, node);
+  if (!identityArg || !ts.isCallExpression(identityArg)) return false;
+  return ts.isIdentifier(identityArg.expression) && CWD_DERIVED_IDENTITY_FNS.has(identityArg.expression.text);
 }
 
 /** Readable shape string for the violation's `command` field. */

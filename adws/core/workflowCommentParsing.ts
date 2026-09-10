@@ -7,7 +7,7 @@
  */
 
 import type { WorkflowStage, RecoveryState } from './index';
-import type { GitHubComment } from '../providers/github/domain/issue';
+import type { IssueComment } from '../providers/types';
 
 /** Stage order for determining recovery resume point. */
 export const STAGE_ORDER: WorkflowStage[] = [
@@ -185,8 +185,8 @@ export function extractPlanPathFromComment(commentBody: string): string | null {
   return match ? match[1] : null;
 }
 
-/** Detects recovery state from GitHub comments. */
-export function detectRecoveryState(comments: GitHubComment[]): RecoveryState {
+/** Detects recovery state from issue comments. */
+export function detectRecoveryState(comments: readonly IssueComment[]): RecoveryState {
   const defaultState: RecoveryState = {
     lastCompletedStage: null,
     adwId: null,

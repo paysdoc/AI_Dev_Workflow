@@ -38,6 +38,7 @@ Fast/cheap mode is activated per-issue by the presence of `/fast` or `/cheap` (c
 ## Gotchas
 
 - `classifyGitHubIssue` does not apply the `adw:*` label override — only `classifyIssueForTrigger` does. Callers that use `classifyGitHubIssue` directly (e.g. bulk scans) bypass the label chokepoint.
+- `classifyGitHubIssue(issue: ClassifiableIssue)` (#844) takes the same forge-neutral `ClassifiableIssue` shape `classifyIssueForTrigger`'s `deps.fetchIssue` already returned — `Pick<Issue, 'number'|'title'|'body'|'labels'|'comments'>`, string labels — not the GitHub-shaped record the pre-#844 `WorkflowConfig.issue` carried. Its only caller is `workflowInit.ts`, which now reads the issue through the boundary's `IssueTracker.fetchIssue`.
 - The AI output parser takes the _last_ match of a valid slash command in the output, not the first. Preamble reasoning that mentions a command does not set the classification.
 - `extractAdwIdFromComment` matches the `**ADW ID:** \`{id}\`` markdown pattern exactly; ADW IDs written in plain text or without backtick formatting are silently skipped.
 - `detectRecoveryState` skips `error`, `paused`, and `resumed` stages when computing the highest completed stage, so a workflow paused mid-build correctly resumes from the build stage.
