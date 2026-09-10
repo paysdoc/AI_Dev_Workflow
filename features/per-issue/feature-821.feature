@@ -280,9 +280,9 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And the boundary's code host was asked for the pull request on branch "<branch>"
 
     Examples:
-      | branch                       | state  | stage       |
-      | feature-issue-42-ciwxf3-prior | OPEN   | pr_created  |
-      | feature-issue-42-ciwxf3-prior | MERGED | merged      |
+      | branch                       | state  | stage          |
+      | feature-issue-42-ciwxf3-prior | OPEN   | awaiting_merge |
+      | feature-issue-42-ciwxf3-prior | MERGED | completed      |
 
   # ── §4  THE CANCEL DIRECTIVE (AC1) ────────────────────────────────────────────────────────
   #

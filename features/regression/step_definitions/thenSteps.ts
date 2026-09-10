@@ -319,8 +319,27 @@ Then(
   },
 );
 
-// T14 (mock harness recorded zero comment posts on issue {int}) is defined in
-// features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
+// ---------------------------------------------------------------------------
+// T14: mock harness recorded zero comment posts on issue {int}
+// ---------------------------------------------------------------------------
+// feature-509.steps.ts, which used to own this phrase, was removed by the per-issue
+// retention sweep; the phrase is still exercised (feature-542 and others), so it lives
+// here now alongside its T13/T21 siblings.
+
+Then(
+  'the mock harness recorded zero comment posts on issue {int}',
+  function (this: RegressionWorld, issueNumber: number) {
+    const requests = this.getRecordedRequests();
+    const commentPosts = requests.filter(
+      (r: RecordedRequest) => r.method === 'POST' && r.url.includes(`/issues/${issueNumber}/comments`),
+    );
+    assert.strictEqual(
+      commentPosts.length,
+      0,
+      `Expected zero comment posts on issue ${issueNumber} but recorded ${commentPosts.length}`,
+    );
+  },
+);
 
 // T15 (artefact file carries a "@promotion-suggested-" tag dated today on the seeded scenario)
 // and T16 (carries no "@promotion-suggested-" tag on the seeded scenario) are covered by the
