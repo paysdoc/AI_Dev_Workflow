@@ -4,7 +4,7 @@
  */
 
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
 export interface RemovedScenario {
   featureFile: string;
@@ -81,7 +81,7 @@ export async function runStepDefAgent(
   cwd?: string,
   issueBody?: string,
   contextPreamble?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<StepDefAgentResult> {
   const result = await runCommandAgent(stepDefAgentConfig, {
     args: [String(issueNumber), adwId],

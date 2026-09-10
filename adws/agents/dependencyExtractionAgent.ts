@@ -5,7 +5,7 @@
 
 import { log } from '../core';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
 export const dependencyExtractionSchema: Record<string, unknown> = {
   type: 'array',
@@ -64,7 +64,7 @@ export async function runDependencyExtractionAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { dependencies: number[] }> {
   const result = await runCommandAgent(dependencyExtractionAgentConfig, {
     args: issueBody,

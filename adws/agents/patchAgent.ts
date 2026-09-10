@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, AgentResult, ProgressCallback } from './claudeAgent';
+import { runClaudeAgentWithCommand, AgentResult, ProgressCallback, AgentLaunchContext } from './claudeAgent';
 import { ReviewIssue } from './reviewAgent';
 
 /**
@@ -34,7 +34,7 @@ export async function runPatchAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
   const args = [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent'];

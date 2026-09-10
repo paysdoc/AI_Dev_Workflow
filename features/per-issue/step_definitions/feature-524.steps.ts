@@ -34,9 +34,16 @@ import {
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import { _resolveWorkflowBranchNameForTest } from '../../../adws/phases/branchNameResolution.ts';
+import type { BranchIdentityFallbackDeps } from '../../../adws/phases/branchIdentityFallback.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { IssueClassSlashCommand, RecoveryState } from '../../../adws/core/index.ts';
 import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
+
+const fakeBranchIdentityDeps: BranchIdentityFallbackDeps = {
+  listCandidateBranches: () => [],
+  listAdwIds: () => [],
+  readTopLevelState: () => null,
+};
 
 // ---------------------------------------------------------------------------
 // Per-scenario mutable state (reset in Before hook for each @adw-524 scenario)
@@ -86,7 +93,7 @@ function makeTestIssue(number: number): GitHubIssue {
   };
 }
 
-type AgentFn = Parameters<typeof _resolveWorkflowBranchNameForTest>[1];
+type AgentFn = Parameters<typeof _resolveWorkflowBranchNameForTest>[2];
 
 function makeScenarioAgentFn(adwId: string): AgentFn {
   return async (_issueType: IssueClassSlashCommand, issue: GitHubIssue, _logsDir: string) => {
@@ -133,6 +140,7 @@ async function runWorkflowInit(adwId: string, issueNumber: number): Promise<void
         logsDir: '/tmp/feature-524-bdd-logs',
         recoveryState: nullRecoveryState,
       },
+      fakeBranchIdentityDeps,
       makeScenarioAgentFn(adwId),
     );
   } catch (err) {

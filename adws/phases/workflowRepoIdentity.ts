@@ -10,6 +10,7 @@
  */
 
 import { Platform, type RepoIdentifier } from '../providers/types';
+import type { GitContext } from '../gitContext';
 import type { WorkflowConfig } from './workflowInit';
 
 export function resolveWorkflowRepoId(config: Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>): RepoIdentifier {
@@ -18,5 +19,18 @@ export function resolveWorkflowRepoId(config: Pick<WorkflowConfig, 'repoContext'
   if (config.targetRepo) return { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub };
   throw new Error(
     'resolveWorkflowRepoId: this WorkflowConfig carries no launch identity (repoContext, gitContext or targetRepo) — initializeWorkflow always sets one',
+  );
+}
+
+/**
+ * Returns the launch-boundary GitContext a WorkflowConfig carries, or throws.
+ * `gitContext` is optional only for phase-test fixtures — every production
+ * config comes from initializeWorkflow or initializePRReviewWorkflow, both of
+ * which always set one.
+ */
+export function requireWorkflowGitContext(config: Pick<WorkflowConfig, 'gitContext'>): GitContext {
+  if (config.gitContext) return config.gitContext;
+  throw new Error(
+    'requireWorkflowGitContext: this WorkflowConfig carries no launch GitContext — initializeWorkflow and initializePRReviewWorkflow always set one',
   );
 }

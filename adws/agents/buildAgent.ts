@@ -8,7 +8,7 @@ import { log } from '../core';
 import type { GitHubIssue } from '../providers/github/domain/issue';
 import type { PrReviewPullRequest } from './planAgent';
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
-import type { AgentResult, ProgressCallback } from './claudeAgent';
+import type { AgentResult, ProgressCallback, AgentLaunchContext } from './claudeAgent';
 import { findScenarioFiles } from './validationAgent';
 
 const buildAgentConfig: CommandAgentConfig<void> = {
@@ -50,7 +50,7 @@ export async function runPrReviewBuildAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const args = `## PR #${pr.number}: ${pr.title}
 **URL:** ${pr.url}
@@ -97,7 +97,7 @@ export async function runBuildAgent(
   statePath?: string,
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const worktreePath = cwd ?? process.cwd();
   const scenarioFiles = findScenarioFiles(issue.number, worktreePath);

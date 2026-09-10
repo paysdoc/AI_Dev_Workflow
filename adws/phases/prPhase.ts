@@ -7,7 +7,6 @@
 import {
   log,
   shouldExecuteStage,
-  hasUncommittedChanges,
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
@@ -20,7 +19,7 @@ import {
 } from '../agents';
 import { BoardStatus } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
-import { gitContextFor } from '../github/gitContextFactory';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**
  * Executes the PR phase: generate PR title/body via agent, push branch, create PR via CodeHost.
@@ -34,9 +33,9 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   let modelUsage = emptyModelUsageMap();
 
   // Safety net: commit any uncommitted changes before PR creation
-  if (hasUncommittedChanges(worktreePath)) {
+  if (requireWorkflowGitContext(config).hasUncommittedChanges(worktreePath)) {
     log('Uncommitted changes detected, committing before PR creation...', 'info');
-    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, config.gitContext?.commandEnv(), { selfHost: !repoContext, adwId });
+    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, config.gitContext?.commandEnv(), { selfHost: !repoContext, adwId, gitContext: config.gitContext });
     log('Pre-PR commit completed', 'success');
   }
 
@@ -52,9 +51,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     const repoOwner = repoContext?.repoId.owner ?? '';
     const repoName = repoContext?.repoId.repo ?? '';
 
-    const gitCtx = repoContext
-      ? await gitContextFor({ owner: repoContext.repoId.owner, repo: repoContext.repoId.repo, selfHost: false })
-      : null;
+    const gitCtx = repoContext ? requireWorkflowGitContext(config) : null;
     const resolvedDefaultBranch = repoContext ? repoContext.codeHost.getDefaultBranch() : config.defaultBranch;
 
     const result = await runPullRequestAgent(
@@ -69,7 +66,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       repoOwner,
       repoName,
       resolvedDefaultBranch,
-      gitCtx?.commandEnv() ?? config.gitContext?.commandEnv(),
+      requireWorkflowGitContext(config).commandEnv(),
       { selfHost: !repoContext, adwId },
     );
 

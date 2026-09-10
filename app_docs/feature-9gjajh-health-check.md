@@ -12,7 +12,7 @@ The health check module is a standalone diagnostic tool that validates the ADW s
 - Check GitHub CLI (`gh`) installation and authentication status via `checkGitHubCLI(ctx)` — routes authentication through `createGhRepoApi(ctx).authenticatedUser()`.
 - Check expected directory structure (`logs/`, `specs/`, `.claude/commands/`) via `checkDirectoryStructure`.
 - Fetch and validate a specific GitHub issue number via `checkIssueNumber(issueNumber, ctx)` — routes through `createGhRepoApi(ctx).fetchIssue(issueNumber)`.
-- Construct a self-host `GitContext` once in `main()` via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })` and pass it into the three git/gh-touching predicates.
+- Construct a self-host `GitContext` once in `main()` via `buildLaunchBoundary(null, { getRepoInfo: () => readLocalRepoInfo(REPO_ROOT) }).gitContext` (#822 — `healthCheck.tsx` is itself a launch boundary now, not a direct `gitContextForRepo` caller; the `getRepoInfo` seam pins the identity read to `REPO_ROOT` rather than `process.cwd()`) and pass it into the three git/gh-touching predicates.
 - Degrade gracefully when `GitContext` construction fails (token not resolvable): record a `gitContext` check failure, mark `success: false`, and still run the three context-independent checks (`checkEnvironmentVariables`, `checkClaudeCodeCLI`, `checkDirectoryStructure`).
 - Aggregate all checks into a `HealthCheckResult` with a top-level `success` flag, `warnings` list, and `errors` list.
 - Export individual check functions and `CheckResult` type for reuse by other modules (including the webhook `/health` endpoint).
@@ -34,8 +34,8 @@ No configuration file. `CLAUDE_CODE_PATH`, `GITHUB_PAT`, `LOGS_DIR`, and `SPECS_
 
 ## Gotchas
 
-- **Mandatory-token contract** — `gitContextForRepo` requires a resolvable auth token (App installation → `GH_TOKEN` → `gh auth token`). On a configured ADW host a token always resolves via `gh auth token`. If resolution fails, the entry point catches the throw and records it as a `gitContext` check failure rather than crashing; the three context-independent checks still run.
+- **Mandatory-token contract** — `buildLaunchBoundary`'s underlying `GitContext` construction requires a resolvable auth token (App installation → `GH_TOKEN` → `gh auth token`). On a configured ADW host a token always resolves via `gh auth token`. If resolution fails, the entry point catches the throw and records it as a `gitContext` check failure rather than crashing; the three context-independent checks still run.
 - **`commandExists` and `execCommand` remain** — `commandExists` uses `which` (not `git`/`gh`) and `execCommand` is used only for `${resolvedPath} --version` (Claude CLI binary probe). Neither is flagged by the git/gh guard.
 - **`process.cwd()` is passed explicitly** as the `cwd` argument to every context read (`getCurrentBranch`, `remotes`, `hasUncommittedChanges`, `gitConfigUser`) — preserving "inspect the current working directory's repo" semantics even though the self-host `GitContext`'s `basePath` is the framework repo root.
 - **`checkClaudeCodeCLI` resolves the path via `resolveClaudeCodePath()`** from `adws/core/environment.ts`; if neither `CLAUDE_CODE_PATH` nor a `claude` binary on PATH is found, this check fails with the resolver's error message.
-- **The webhook `/health` endpoint** (`adws/triggers/trigger_webhook.ts`) also calls `checkGitRepository` and `checkGitHubCLI` with a self-host `GitContext` constructed on-demand. The same construction-failure guard applies there.
+- **The webhook `/health` endpoint** (`adws/triggers/trigger_webhook.ts`) also calls `checkGitRepository` and `checkGitHubCLI` with a self-host `GitContext` — since #822 resolved via `selfHostBoundary()?.gitContext` (the same memoised boundary `webhookRepoResolver.ts` uses for other self-host reads) rather than its own construction. The same construction-failure guard applies there.

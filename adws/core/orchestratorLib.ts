@@ -7,7 +7,6 @@
 
 import { WorkflowStage, RecoveryState } from '../types/workflowTypes';
 import { STAGE_ORDER } from './workflowCommentParsing';
-import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 export { deriveOrchestratorScript, orchestratorNamesForScript } from './orchestratorNames';
 
 /**
@@ -23,19 +22,6 @@ export function shouldExecuteStage(stage: WorkflowStage, recoveryState: Recovery
   const lastCompletedIndex = STAGE_ORDER.indexOf(recoveryState.lastCompletedStage);
 
   return stageIndex > lastCompletedIndex;
-}
-
-/**
- * Checks if there are uncommitted changes in the working directory.
- *
- * @param cwd - Optional working directory to check (defaults to process.cwd())
- */
-export function hasUncommittedChanges(cwd?: string): boolean {
-  try {
-    return gitContextForRepo(readLocalRepoInfo(cwd)).hasUncommittedChanges(cwd ?? process.cwd());
-  } catch {
-    return false;
-  }
 }
 
 /**

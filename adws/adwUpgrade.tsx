@@ -83,6 +83,13 @@ export interface RunInitCommandParams {
   readonly adwId: string;
   readonly issueJson: string;
   readonly frameworkRepoRoot: string;
+  /**
+   * Launch-boundary GitContext threaded into the spawned agent's launchContext
+   * so ADW_MAIN_REPO_PATH keeps resolving (#822). Optional: the call site in
+   * executeUpgrade only has `deps`, not the raw context — buildDefaultUpgradeDeps
+   * supplies it via a closure over its own `gitCtx`.
+   */
+  readonly gitContext?: GitContext;
 }
 
 /** Injectable dependencies for executeUpgrade — enables unit testing without I/O. */
@@ -458,7 +465,7 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     undefined,
-    { selfHost: false, adwId: params.adwId },
+    { selfHost: false, adwId: params.adwId, gitContext: params.gitContext },
   );
   return {
     success: result.success,
@@ -474,7 +481,7 @@ export function buildDefaultUpgradeDeps(providers: BoundProviders, gitCtx: GitCo
     reconcileWorktreeToRemote: (worktreePath, branch) => gitCtx.fetchAndResetToRemote(branch, worktreePath),
     getDefaultBranch: () => providers.codeHost.getDefaultBranch(),
     findPRByBranch: (branch) => providers.codeHost.findPullRequestByBranch(branch),
-    runInitCommand: runInitCommandDefault,
+    runInitCommand: (params) => runInitCommandDefault({ ...params, gitContext: gitCtx }),
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
     copyStarterSettings: copyStarterSettingsToWorktree,

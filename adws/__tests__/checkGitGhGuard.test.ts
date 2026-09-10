@@ -106,7 +106,8 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       'const ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });\n',
     );
 
-    const { violations } = scanFiles(['adws/healthCheck.tsx'], '/repo');
+    // Sanctioned path — see comment on the first cwd-derived-identity test above.
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe('cwd-derived-identity');
@@ -118,7 +119,8 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       'const ctx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });\n',
     );
 
-    const { violations } = scanFiles(['adws/healthCheck.tsx'], '/repo');
+    // Sanctioned path — see comment on the first cwd-derived-identity test above.
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(0);
   });
@@ -322,12 +324,12 @@ describe('scanFiles — unsanctioned-construction rule (#795)', () => {
       expect(violations).toHaveLength(0);
     });
 
-    it('permits createGitHubIssueTracker(...) at a transitional entry', () => {
+    it('permits createGitHubIssueTracker(...) at a sunset entry', () => {
       mockReadFileSync.mockReturnValue(
         "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
       );
 
-      const { violations } = scanFiles(['adws/phases/prReviewPhase.ts'], '/repo');
+      const { violations } = scanFiles(['adws/github/gitContextFactory.ts'], '/repo');
 
       expect(violations).toHaveLength(0);
     });
@@ -379,8 +381,8 @@ describe('isSanctionedConstructionSite — permanent/transitional allowlist (#79
     expect(isSanctionedConstructionSite('adws/providers/repoContext.ts')).toBe(true);
   });
 
-  it('is true for a sampled transitional path', () => {
-    expect(isSanctionedConstructionSite('adws/phases/prReviewPhase.ts')).toBe(true);
+  it('is true for the sampled sunset path', () => {
+    expect(isSanctionedConstructionSite('adws/github/gitContextFactory.ts')).toBe(true);
   });
 
   it('is false for an unlisted file', () => {

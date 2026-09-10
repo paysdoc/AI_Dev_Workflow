@@ -3,7 +3,7 @@
  * Resolves conflicts using the GitHub issue as the sole source of truth.
  * Flags unresolvable conflicts as inline warnings in the plan rather than throwing.
  */
-import type { AgentResult } from "./claudeAgent";
+import type { AgentResult, AgentLaunchContext } from "./claudeAgent";
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
 import { log } from "../core/logger";
@@ -115,7 +115,7 @@ export async function runAlignmentAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { alignmentResult: AlignmentResult }> {
   const result = await runCommandAgent(alignmentAgentConfig, {
     args: formatAlignmentArgs(adwId, issueNumber, planFilePath, worktreePath, issueJson),

@@ -30,7 +30,6 @@ import {
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote, buildDefaultReconcileDeps, type ReconcileDeps } from '../core/remoteReconcile';
-import { gitContextForSync } from '../github/gitContextFactory';
 import type { LaunchBoundary } from '../core';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
@@ -74,6 +73,7 @@ export interface TakeoverDeps {
 
 /** `reconcileDeps` defaults to the boundary's own wiring; overridable so tests can pin `branchExistsOnRemote` without a real git remote (the fixture repo is deliberately non-existent). */
 export function buildDefaultTakeoverDeps(boundary: LaunchBoundary, reconcileDeps: ReconcileDeps = buildDefaultReconcileDeps(boundary)): TakeoverDeps {
+  const gitCtx = boundary.gitContext;
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -98,18 +98,16 @@ export function buildDefaultTakeoverDeps(boundary: LaunchBoundary, reconcileDeps
       }
     },
     resetWorktree: (worktreePath, branch) => {
-      gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false }).resetWorktree(worktreePath, branch);
+      gitCtx.resetWorktree(worktreePath, branch);
     },
     deriveStageFromRemote: (adwId) => deriveStageFromRemote(adwId, reconcileDeps),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body) => boundary.providers.issueTracker.commentOnIssue(issueNumber, body),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {
-      const ctx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false });
-      return probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }, buildDefaultProbeDeps(ctx));
+      return probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }, buildDefaultProbeDeps(gitCtx));
     },
     clearOrphanedIndexLock: (worktreePath) => {
-      const ctx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false });
-      clearOrphanedIndexLock(worktreePath, buildDefaultProbeDeps(ctx));
+      clearOrphanedIndexLock(worktreePath, buildDefaultProbeDeps(gitCtx));
     },
   };
 }

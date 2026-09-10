@@ -75,7 +75,7 @@ export {
 } from './agentState';
 
 // Orchestrator shared utilities
-export { shouldExecuteStage, hasUncommittedChanges, getNextStage } from './orchestratorLib';
+export { shouldExecuteStage, getNextStage } from './orchestratorLib';
 
 // Cost types (re-exported from adws/cost for backward compatibility)
 export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../cost';

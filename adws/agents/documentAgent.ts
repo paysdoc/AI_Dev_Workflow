@@ -4,7 +4,7 @@
  */
 
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
 export const documentOutputSchema: Record<string, unknown> = {
   type: 'string',
@@ -54,7 +54,7 @@ export async function runDocumentAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { docPath: string }> {
   const result = await runCommandAgent(documentAgentConfig, {
     args: [adwId, specPath ?? '', screenshotsDir ?? ''],

@@ -67,57 +67,37 @@ export const GIT_CONTEXT_CLASS_NAME = 'GitContext';
  *
  *  - PERMANENT (2, no `owner`) — the launch boundary and the mint
  *    implementation it delegates to. Nothing will ever remove these.
- *  - TRANSITIONAL (owned by #796) — the not-yet-migrated call sites #794
- *    deliberately left behind. Each entry is deleted the moment its file's
- *    migration slice lands; the stale-entry ratchet in
- *    `checkGitGhGuard.ts`'s `main()` enforces that deletion. NOTHING MAY
- *    EVER BE ADDED TO THE TRANSITIONAL HALF — a new construction site must
- *    call `buildLaunchBoundary`, not join this list.
+ *  - SUNSET (owned by #823) — #822 retired every #796-migration-wave entry:
+ *    the worktree-owning phases, `orchestratorLib`, `healthCheck`,
+ *    `worktreeOperations`, and the five trigger files that used to call
+ *    `gitContextForSync`/`gitContextForRepo` directly (`takeoverHandler`,
+ *    `cancelHandler`, `devServerJanitor`, `trigger_webhook`,
+ *    `webhookHandlers`) all take a threaded GitContext now — none of them
+ *    construct one. The single entry left is the file that DEFINES the
+ *    retired factories, `adws/github/gitContextFactory.ts`; #823 deletes
+ *    that file outright and takes this half to zero. NOTHING MAY EVER BE
+ *    ADDED TO THIS HALF — a new construction site must call
+ *    `buildLaunchBoundary`, not join this list.
  *
- * Transitional entries are the residual per-call `gitContextFor`/
- * `gitContextForSync`/`gitContextForRepo` constructions inside the
- * worktree-owning phases, `orchestratorLib`, `healthCheck`,
- * `worktreeOperations`, and the five trigger files that still call
- * `gitContextForSync`/`gitContextForRepo` directly — `takeoverHandler`,
- * `cancelHandler`, `devServerJanitor`, `trigger_webhook` and
- * `webhookHandlers` (#796's remit; retiring those constructions is #822's
- * enumerated scope). #821 deleted the legacy `adws/github/*` free-function
- * layer outright — `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`,
- * `issueListApi.ts`, `githubApi.ts`, `hitlBoardNotifier.ts`,
- * `linkedPrDetector.ts` and `prCommentDetector.ts` no longer exist, and the
- * ADW-application survivors relocated to `adws/forge/` construct nothing —
- * so their transitional entries are gone, not migrated. `autoMergeHandler.ts`
- * lost its fallback construction the same way. `adws/github/gitContextFactory.ts`
- * itself stays: it still defines the factories (#823 retires it). #797
- * closed every provider/RepoContext construction site — `createRepoContext`
- * and the forge provider factories (`createGitHubCodeHost` and siblings) are
- * now called only from `adws/providers/repoContext.ts` and
- * `adws/core/launchGitContext.ts`, so no entry in this list is owned by
- * #797 any longer.
+ * #821 deleted the legacy `adws/github/*` free-function layer outright —
+ * `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`,
+ * `githubApi.ts`, `hitlBoardNotifier.ts`, `linkedPrDetector.ts` and
+ * `prCommentDetector.ts` no longer exist, and the ADW-application survivors
+ * relocated to `adws/forge/` construct nothing — so their transitional
+ * entries are gone, not migrated. `autoMergeHandler.ts` lost its fallback
+ * construction the same way. #797 closed every provider/RepoContext
+ * construction site — `createRepoContext` and the forge provider factories
+ * (`createGitHubCodeHost` and siblings) are now called only from
+ * `adws/providers/repoContext.ts` and `adws/core/launchGitContext.ts`, so no
+ * entry in this list is owned by #797 any longer.
  */
 export const SANCTIONED_CONSTRUCTION_SITES = [
   // ── Permanent (2) ──────────────────────────────────────────────────────
   { file: 'adws/core/launchGitContext.ts', reason: 'the launch boundary: the one sanctioned construction site (PRD story 6)' },
   { file: 'adws/providers/repoContext.ts', reason: 'the mint implementation the boundary delegates to' },
 
-  // ── Transitional (#796 — gitContextFor*/GitContext factory call sites) ──
-  { file: 'adws/github/gitContextFactory.ts', reason: 'defines gitContextFor/gitContextForSync/gitContextForRepo via new GitContext(...)', owner: '#796' },
-  { file: 'adws/core/orchestratorLib.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/healthCheck.tsx', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/branchIdentityFallback.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/buildPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/documentPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/prPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/prReviewPhase.ts', reason: 'non-boundary gitContextForSync/gitContextFor call site for worktree work (createRepoContext removed in #797)', owner: '#796' },
-  { file: 'adws/phases/reviewPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/scenarioFixPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/workflowInit.ts', reason: 'non-boundary gitContextForSync/gitContextFor call site for worktree work (createRepoContext removed in #797)', owner: '#796' },
-  { file: 'adws/triggers/cancelHandler.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/devServerJanitor.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/takeoverHandler.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/trigger_webhook.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/webhookHandlers.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/vcs/worktreeOperations.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
+  // ── Sunset (#823 — the last gitContextFor*/GitContext factory definition) ──
+  { file: 'adws/github/gitContextFactory.ts', reason: 'defines gitContextFor/gitContextForSync/gitContextForRepo via new GitContext(...); #823 deletes this file with the boundary rewire', owner: '#823' },
 ] as const;
 
 /** True when `relPath` exactly matches a sanctioned site. Exact path match only — a directory prefix is never sanctioned. */

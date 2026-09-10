@@ -15,7 +15,7 @@
 // implicit contract at the entrypoint (issue #647, fix #3 — defensive only).
 import '../core/environment';
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict, REPO_ROOT } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict } from '../core';
 import { isActionableComment, isCancelComment, isRetryComment, truncateText } from '../core/workflowCommentParsing';
 import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 import { handleCancelDirective } from './cancelHandler';
@@ -29,7 +29,6 @@ import { resolveWebhookRepo, buildEventBoundary, selfHostBoundary } from './webh
 import type { LaunchBoundary } from '../core';
 import type { TargetRepoInfo } from '../types/issueTypes';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
-import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
 import { AuthRequiredError } from '../types/agentTypes';
 import { describeWebhookEvent, reportWebhookEventFailure, safeParseWebhookBody } from './webhookEventBoundary';
@@ -92,7 +91,7 @@ const server = http.createServer((req, res) => {
       // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
       let healthCtx: import('../gitContext').GitContext | undefined;
       try {
-        healthCtx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });
+        healthCtx = selfHostBoundary()?.gitContext;
       } catch { /* token unavailable — context-dependent checks get a failure result */ }
       const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
       result.checks.environmentVariables = checkEnvironmentVariables();

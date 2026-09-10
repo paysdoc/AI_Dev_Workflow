@@ -8,7 +8,7 @@ import * as path from 'path';
 import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
 import type { GitHubIssue } from '../providers/github/domain/issue';
 import type { PullRequest, ReviewComment } from '../providers/types';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runClaudeAgentWithCommand, AgentResult, AgentLaunchContext } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 /**
@@ -223,7 +223,7 @@ export async function runPrReviewPlanAgent(
   cwd?: string,
   issueBody?: string,
   contextPreamble?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const args = formatPrReviewContextAsArgs(pr, comments, existingPlanContent);
   const outputFile = path.join(logsDir, 'pr-review-plan-agent.jsonl');
@@ -250,7 +250,7 @@ export async function runPlanAgent(
   cwd?: string,
   adwId?: string,
   contextPreamble?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
 

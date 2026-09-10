@@ -9,7 +9,7 @@
 
 import * as path from 'path';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
 /**
@@ -121,7 +121,7 @@ export async function runReviewAgent(
   issueBody?: string,
   scenarioProofPath?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<ReviewAgentResult> {
   const args = formatReviewArgs(adwId, specFile, 'Review', scenarioProofPath);
 

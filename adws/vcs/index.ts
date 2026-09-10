@@ -17,7 +17,9 @@ export {
 // Branch identity (deterministic fallback predicates)
 export { deterministicBranchName, branchMatchesIssue } from './branchIdentity';
 
-// Main repo path utility (used by agent subprocess env injection)
+// Main repo path utility (used by agent subprocess env injection). Takes an
+// injected GitContext (#822) — resolves the path through it rather than
+// constructing one.
 export { getMainRepoPath } from './worktreeOperations';
 
 // Worktree cleanup — killProcessesInDirectory re-exported from gitContext
