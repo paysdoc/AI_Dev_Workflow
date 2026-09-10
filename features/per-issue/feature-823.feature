@@ -341,14 +341,28 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   # fail at build. Only the second is what "closed union" means, and only the second is frozen by the
   # HITL review. The probe is a module the step authors into a throwaway directory and compiles
   # against the real project config — the artefact asserted is the compiler's verdict.
+  #
+  # TWO THINGS THE PROBE SOURCE HAS TO GET RIGHT, both of which turn this row green for the wrong
+  # reason if they are missed. (a) `feature-817.steps.ts` writes the probe at
+  # `adws/zzProbe817-<rand>/probe.ts`, so every specifier is relative to THAT directory: `../providers/…`
+  # reaches `adws/providers/…`, while `./providers/…` reaches a path that does not exist and fails as
+  # an unresolvable module rather than on the forge name. (b) `… as never` COMPILES — `never` is
+  # assignable to every parameter type and the assertion is legal — so the cast must not be there; and
+  # a bare object literal missing `identity`/`tokenProvider`/`gitContext` short-circuits on the
+  # missing-property diagnostic before TypeScript ever elaborates into `forge.codeHost`. Spreading a
+  # `declare const` of the options type supplies those fields ambiently, leaving the forge name as the
+  # one diagnostic.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A forge name outside the union is rejected by the compiler, not only at runtime
     Given a type probe module that reads:
       """
-      import { forgeProviders } from './providers/forgeProviders';
+      import { forgeProviders } from '../providers/forgeProviders';
+      import type { ForgeProvidersOptions } from '../providers/forgeProviders';
 
-      export const probe = () => forgeProviders({ forge: { codeHost: 'bitbucket', issueTracker: 'github' } } as never);
+      declare const options: ForgeProvidersOptions;
+
+      export const probe = () => forgeProviders({ ...options, forge: { codeHost: 'bitbucket', issueTracker: 'github' } });
       """
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile rejecting the forge name "bitbucket"
@@ -504,7 +518,7 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   Scenario: The retired mint is no longer part of the provider package's surface
     Given a type probe module that reads:
       """
-      import { mintBoundProviders } from './providers';
+      import { mintBoundProviders } from '../providers';
 
       export const probe = mintBoundProviders;
       """
@@ -520,12 +534,12 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   Scenario: The boundary-free context factory module cannot be imported at all
     Given a type probe module that reads:
       """
-      import { gitContextForRepo } from './github/gitContextFactory';
+      import { gitContextForRepo } from '../github/gitContextFactory';
 
       export const probe = gitContextForRepo;
       """
     When the type probe is compiled against the ADW project
-    Then the type probe fails to compile reporting the unresolvable module "./github/gitContextFactory"
+    Then the type probe fails to compile reporting the unresolvable module "../github/gitContextFactory"
 
   # The positive direction, so the section cannot be satisfied by deleting things until nothing
   # compiles. The assembly function must be reachable from the package barrel — it is the library's
@@ -536,7 +550,7 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   Scenario: The assembly function is reachable from the provider package's barrel
     Given a type probe module that reads:
       """
-      import { forgeProviders } from './providers';
+      import { forgeProviders } from '../providers';
 
       export const probe = forgeProviders;
       """
@@ -627,7 +641,7 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
       import { createJiraIssueTracker } from './jira/jiraIssueTracker';
 
-      export function forgeProviders(input: { identity: RepoIdentifier; gitContext: GitContext; tokenProvider: TokenProvider; logger?: Logger }): BoundProviders {
+      export function forgeProviders(input: { forge: { codeHost: 'github' | 'gitlab'; issueTracker: 'github' | 'jira' }; identity: RepoIdentifier; tokenProvider: TokenProvider; gitContext: GitContext; deps?: { logger?: Logger } }): BoundProviders {
         void createGitHubIssueTracker; void createGitHubCodeHost;
         void createGitLabCodeHost; void createJiraIssueTracker;
         void input;
