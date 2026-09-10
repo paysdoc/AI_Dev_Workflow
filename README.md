@@ -509,6 +509,7 @@ adws/                   # ADW workflow system
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
@@ -520,6 +521,7 @@ adws/                   # ADW workflow system
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
 │   │   ├── guardrailsPayload.test.ts
 │   │   ├── hashComputer.test.ts
@@ -736,6 +738,7 @@ adws/                   # ADW workflow system
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
+│   │   ├── prReviewCompletion.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
