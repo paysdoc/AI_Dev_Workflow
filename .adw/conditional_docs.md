@@ -355,9 +355,6 @@
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
-  - Owns:
-    - features/per-issue/feature-612.feature
-    - features/per-issue/step_definitions/feature-612.steps.ts
   - Conditions:
     - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
 
@@ -394,10 +391,6 @@
     - .adw/conditional_docs.md
     - .claude/commands/document.md
     - adws/checkLivingDocsIndex.ts
-    - features/per-issue/feature-609.feature
-    - features/per-issue/feature-610.feature
-    - features/per-issue/step_definitions/feature-609.steps.ts
-    - features/per-issue/step_definitions/feature-610.steps.ts
     - adws/core/docsIndexHealth.ts
     - adws/core/__tests__/docsIndexHealth.test.ts
     - adws/core/docsIndexReportBody.ts
