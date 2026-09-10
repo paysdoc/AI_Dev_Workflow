@@ -432,7 +432,7 @@ none
 
 **Parent PRD:** `specs/prd/gitcontext-library-extraction.md`. Runbook: `specs/runbooks/gitcontext-extraction.md` step 7.
 
-**Prerequisites (both must be done before this builds):** #844 merged (ADW callers routed through the forge ports), and `paysdoc/devplatform#9` released on npm (forge-keyed `createForgeCredentials`). The first attempt at this issue (PR #843, plan only) stopped because neither existed; the plan it wrote is still valid apart from its Step 1 and the launch-boundary mapping below.
+**Prerequisites (both must be done before this builds):** #844 merged (ADW callers routed through the forge ports), and devplatform issue 9 released on npm (forge-keyed `createForgeCredentials`). The first attempt at this issue (PR 843, plan only) stopped because neither existed; the plan it wrote is still valid apart from its Step 1 and the launch-boundary mapping below.
 
 **Step 1 gate:** `npm view @paysdoc/devplatform versions` lists a version above 1.0.0 whose `/providers` barrel exports `createForgeCredentials` and whose `/git` barrel exports `createLiteralTokenProvider`. If not, stop and report; do not open a PR.
 
