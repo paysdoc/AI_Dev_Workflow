@@ -85,6 +85,7 @@
 | Term | Definition | Aliases to avoid |
 |------|-----------|-----------------|
 | **Platform** | A code hosting service: `github`, `gitlab`, or `bitbucket` | Host, service, provider |
+| **Forge** | A development platform such as GitHub, GitLab, or Jira, seen through the Issue Tracker, Code Host, and Board Manager ports. A forge name selects which adapters `forgeProviders()` assembles; the library that ships them is `@paysdoc/devplatform` | Platform (when the port view is meant), vendor, backend |
 | **Code Host** | The platform-agnostic interface for repository and Pull Request operations | VCS provider, git host |
 | **Issue Tracker** | The platform-agnostic interface for Issue retrieval, commenting, and status transitions | Ticket system, project tracker |
 | **Repo Context** | An immutable bundle of Issue Tracker, Code Host, working directory, and Repo Identifier passed through the Workflow | Provider context, platform context |

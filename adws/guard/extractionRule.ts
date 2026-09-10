@@ -2,7 +2,7 @@
  * extractionRule.ts — the 'extraction-readiness' rule (#816, PRD stories 11/12).
  *
  * Asserts that extraction of `adws/gitContext/` and `adws/providers/` into the
- * `@paysdoc/gitcontext` library repository (specs/prd/gitcontext-library-extraction.md)
+ * `@paysdoc/devplatform` library repository (specs/prd/gitcontext-library-extraction.md)
  * can be a pure file move: a file inside the enforced scope may import only
  * Node built-ins, npm packages, and files inside the extractable set — never
  * the rest of the framework.
