@@ -108,16 +108,11 @@ export async function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig
     postPRStageComment(repoContext, prNumber, 'pr_review_error', ctx);
     repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Blocked).catch(() => {});
     if (repoContext.repoId.platform === Platform.GitHub) {
-      const gitContext = config.base.gitContext;
-      const deps = notifierDeps ?? (gitContext ? buildNotifierDeps(gitContext, repoContext.repoId) : undefined);
-      if (deps) {
-        await notifyBlockedTransition(
-          { issueNumber: config.base.issueNumber, repoInfo: repoContext.repoId, source: 'review_error', errorMessage: ctx.errorMessage },
-          deps,
-        );
-      } else {
-        log('hitlBoardNotifier: no GitContext on this workflow config — skipping HITL Slack notification', 'warn');
-      }
+      const deps = notifierDeps ?? buildNotifierDeps(() => repoContext, repoContext.repoId);
+      await notifyBlockedTransition(
+        { issueNumber: config.base.issueNumber, repoInfo: repoContext.repoId, source: 'review_error', errorMessage: ctx.errorMessage },
+        deps,
+      );
     }
   }
 

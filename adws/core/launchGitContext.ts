@@ -69,8 +69,15 @@ export interface LaunchGitContextDeps {
   loadProviderConfig?: (dir: string) => ProviderConfig;
   /** Assembles the bound provider triple. Defaults to the library's forgeProviders(). Deliberately a property-access seam, unflagged by the construction rule. */
   forgeProviders?: (options: ForgeProvidersOptions) => BoundProviders;
-  /** Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. */
-  forgeDeps?: (config: ProviderConfig, repoId: RepoIdentifier, ctx: GitContext) => ForgeProviderDeps;
+  /**
+   * Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the
+   * selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. The third
+   * argument is a thunk resolving to the boundary's own memoised `BoundProviders` —
+   * invoked only at notification time (a status move), never during assembly, since
+   * this function itself runs inside the lazy mint, before the providers it resolves
+   * to exist.
+   */
+  forgeDeps?: (config: ProviderConfig, repoId: RepoIdentifier, resolveProviders: () => BoundProviders) => ForgeProviderDeps;
 }
 
 /**
@@ -218,6 +225,12 @@ export function buildLaunchBoundary(
   }, { logger: log });
   const repoId: RepoIdentifier = { owner, repo, platform };
 
+  // Declared before assignment so assembleProviders can close over a thunk
+  // (`() => boundary.providers`) that resolves only once minting has
+  // completed — the notifier deps built by buildForgeDeps need to read
+  // through the very providers this function is still assembling.
+  let boundary: LaunchBoundary;
+
   const assembleProviders = (): BoundProviders => {
     const config = loadConfig(gitContext.basePath);
     return assemble({
@@ -225,11 +238,12 @@ export function buildLaunchBoundary(
       identity: repoId,
       tokenProvider,
       gitContext,
-      deps: buildForgeDeps(config, repoId, gitContext),
+      deps: buildForgeDeps(config, repoId, () => boundary.providers),
     });
   };
 
-  return freezeBoundary(gitContext, repoId, assembleProviders);
+  boundary = freezeBoundary(gitContext, repoId, assembleProviders);
+  return boundary;
 }
 
 /**

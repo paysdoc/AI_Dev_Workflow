@@ -37,7 +37,7 @@ export function fetchPRListCmd(owner: string, repo: string): string {
 }
 
 export function fetchAllPRsCmd(owner: string, repo: string): string {
-  return `gh pr list --repo ${owner}/${repo} --state all --json number,body,state,mergedAt --limit 200`;
+  return `gh pr list --repo ${owner}/${repo} --state all --json number,body,state,mergedAt,updatedAt,url --limit 200`;
 }
 
 export function prChangedFilesCmd(owner: string, repo: string, prNumber: number): string {

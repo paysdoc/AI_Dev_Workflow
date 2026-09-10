@@ -14,7 +14,6 @@ import { Platform, type RepoContext, type RepoIdentifier } from '../../providers
 import type { WorkflowConfig } from '../workflowInit';
 import type { PRReviewWorkflowConfig } from '../prReviewPhase';
 import type { PRReviewWorkflowContext } from '../../forge/workflowCommentsPR';
-import { makeCtx, makeSpyExec } from '../../providers/github/__tests__/gitContextFixture';
 
 // Sentinel thrown when process.exit is called inside the terminal handler.
 class ExitCalled extends Error {
@@ -48,15 +47,15 @@ describe('handlePRReviewWorkflowError — notifier deps fallback', () => {
   });
 
   it('reaches notifyBlockedTransition with real buildNotifierDeps readers when no deps are injected and the config carries a GitHub repoContext', async () => {
-    const { exec, calls } = makeSpyExec(
-      new Map([['gh issue view', JSON.stringify({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] })]]),
-    );
-    const gitContext = makeCtx({}, exec);
+    const fetchIssueMock = vi.fn().mockResolvedValue({
+      id: '42', number: 42, title: 'Fix the retry budget', body: '', state: 'OPEN',
+      author: 'octocat', labels: ['hitl'], comments: [], createdAt: '', url: '',
+    });
 
     const repoContext: RepoContext = {
       repoId: REPO_ID,
-      issueTracker: { moveToStatus: vi.fn().mockResolvedValue(true) } as unknown as RepoContext['issueTracker'],
-      codeHost: { commentOnPullRequest: vi.fn() } as unknown as RepoContext['codeHost'],
+      issueTracker: { moveToStatus: vi.fn().mockResolvedValue(true), fetchIssue: fetchIssueMock } as unknown as RepoContext['issueTracker'],
+      codeHost: { commentOnPullRequest: vi.fn(), listPullRequests: vi.fn().mockReturnValue([]) } as unknown as RepoContext['codeHost'],
       cwd: tmpDir,
     };
 
@@ -95,7 +94,6 @@ describe('handlePRReviewWorkflowError — notifier deps fallback', () => {
       applicationUrl: '',
       projectConfig: {} as WorkflowConfig['projectConfig'],
       adwYmlConfig: { hitl: false, unitTests: true, guardrails: false },
-      gitContext,
     };
 
     const prReviewConfig: PRReviewWorkflowConfig = {
@@ -121,8 +119,8 @@ describe('handlePRReviewWorkflowError — notifier deps fallback', () => {
 
     expect(typeof deps.readIssue).toBe('function');
     expect(typeof deps.listOpenPRs).toBe('function');
-    expect(deps.readIssue(42, REPO_ID)).toEqual({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] });
-    expect(calls.some((c) => c.command.includes('gh issue view'))).toBe(true);
+    await expect(deps.readIssue(42, REPO_ID)).resolves.toEqual({ title: 'Fix the retry budget', labels: ['hitl'] });
+    expect(fetchIssueMock).toHaveBeenCalledWith(42);
 
     expect(fs.existsSync(path.join(orchestratorStatePath, 'state.json'))).toBe(true);
   });

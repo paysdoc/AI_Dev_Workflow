@@ -150,6 +150,10 @@ export interface PullRequestRecord {
   body: string;
   state: string;
   mergedAt: string | null;
+  /** ISO 8601 last-update timestamp — the "newest first" ordering key for preferred-PR selection (#844). */
+  updatedAt: string;
+  /** The forge-published pull-request URL (#844). */
+  url: string;
 }
 
 /**

@@ -4,9 +4,9 @@ import {
   notifyBlockedTransition,
   buildNotifierDeps,
   type NotifierDeps,
+  type NotifierPorts,
 } from '../hitlBoardNotifier';
-import { Platform, type RepoIdentifier } from '../../providers/types';
-import { makeCtx, makeSpyExec } from '../../providers/github/__tests__/gitContextFixture';
+import { Platform, type RepoIdentifier, type Issue, type PullRequestRecord } from '../../providers/types';
 
 const WEBHOOK_URL = 'https://hooks.slack.com/test';
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
@@ -19,19 +19,19 @@ function makeIssueReader(
   title: string,
   labels: string[],
 ): NonNullable<NotifierDeps['readIssue']> {
-  return () => ({ title, labels: labels.map((name) => ({ name })) });
+  return async () => ({ title, labels });
 }
 
 function makePRLister(
-  prs: { number: number; url: string; body: string }[],
+  prs: { number: number; url: string; body: string; state?: string; updatedAt?: string }[],
 ): NonNullable<NotifierDeps['listOpenPRs']> {
   return () =>
     prs.map((pr) => ({
-      ...pr,
-      state: 'OPEN',
-      headRefName: `feature-issue-${pr.number}-x`,
-      baseRefName: 'main',
-      updatedAt: new Date().toISOString(),
+      number: pr.number,
+      url: pr.url,
+      body: pr.body,
+      state: pr.state ?? 'OPEN',
+      updatedAt: pr.updatedAt ?? new Date().toISOString(),
     }));
 }
 
@@ -155,6 +155,26 @@ describe('notifyReviewTransition', () => {
     expect(body.text).not.toContain('/pull/300');
   });
 
+  it('picks the linked PR with the newest updatedAt, regardless of listing order', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    const mockFetch = makeFetchMock();
+    vi.stubGlobal('fetch', mockFetch);
+
+    const deps: NotifierDeps = {
+      readIssue: makeIssueReader('Two attempts', ['hitl']),
+      listOpenPRs: makePRLister([
+        { number: 7, url: 'https://github.com/acme/myrepo/pull/7', body: 'Implements #42', updatedAt: '2026-09-02T10:00:00Z' },
+        { number: 8, url: 'https://github.com/acme/myrepo/pull/8', body: 'Implements #42', updatedAt: '2026-09-09T10:00:00Z' },
+      ]),
+    };
+
+    await notifyReviewTransition({ issueNumber: 42, repoInfo: REPO_INFO }, deps);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.text).toContain('/pull/8');
+    expect(body.text).not.toContain('/pull/7');
+  });
+
   it('does not post when no matching PR is found', async () => {
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
     const mockFetch = makeFetchMock();
@@ -191,10 +211,42 @@ describe('notifyReviewTransition', () => {
     const mockFetch = makeFetchMock();
     vi.stubGlobal('fetch', mockFetch);
 
-    const deps: NotifierDeps = { readIssue: () => null, listOpenPRs: () => null };
+    const deps: NotifierDeps = { readIssue: async () => null, listOpenPRs: () => null };
 
     await expect(
       notifyReviewTransition({ issueNumber: 999, repoInfo: REPO_INFO }, deps),
+    ).resolves.toBeUndefined();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('does not post when the only linked PR is merged, not open', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    const mockFetch = makeFetchMock();
+    vi.stubGlobal('fetch', mockFetch);
+
+    // listOpenPRs models the port-level OPEN filter — a merged-only pool is empty here.
+    const deps: NotifierDeps = {
+      readIssue: makeIssueReader('Already landed', ['hitl']),
+      listOpenPRs: () => [],
+    };
+
+    await notifyReviewTransition({ issueNumber: 42, repoInfo: REPO_INFO }, deps);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when listOpenPRs throws', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    const mockFetch = makeFetchMock();
+    vi.stubGlobal('fetch', mockFetch);
+
+    const deps: NotifierDeps = {
+      readIssue: makeIssueReader('A stuck workflow', ['hitl']),
+      listOpenPRs: () => { throw new Error('rate limited'); },
+    };
+
+    await expect(
+      notifyReviewTransition({ issueNumber: 42, repoInfo: REPO_INFO }, deps),
     ).resolves.toBeUndefined();
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -323,41 +375,61 @@ describe('notifyBlockedTransition — review_error', () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildNotifierDeps — the one production reader set
+// buildNotifierDeps — the one production reader set, over a resolved-later thunk
 // ---------------------------------------------------------------------------
 
 describe('buildNotifierDeps', () => {
   const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };
 
-  it('readIssue parses title and labels from the fetchIssue JSON', () => {
-    const json = JSON.stringify({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] });
-    const { exec } = makeSpyExec(new Map([['gh issue view', json]]));
-    const deps = buildNotifierDeps(makeCtx({}, exec), REPO_ID);
-    expect(deps.readIssue(42, REPO_ID)).toEqual({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] });
+  const SAMPLE_ISSUE: Issue = {
+    id: '42', number: 42, title: 'Fix the retry budget', body: '', state: 'OPEN',
+    author: 'octocat', labels: ['hitl'], comments: [], createdAt: '', url: '',
+  };
+
+  function fakePorts(overrides: Partial<NotifierPorts> = {}): NotifierPorts {
+    return {
+      issueTracker: { fetchIssue: async () => SAMPLE_ISSUE },
+      codeHost: { listPullRequests: () => [] },
+      ...overrides,
+    };
+  }
+
+  it('does not invoke the thunk until a reader actually runs', () => {
+    const resolvePorts = vi.fn(() => fakePorts());
+    buildNotifierDeps(resolvePorts, REPO_ID);
+    expect(resolvePorts).not.toHaveBeenCalled();
   });
 
-  it('readIssue returns null when exec throws', () => {
-    const throwingExec = (): string => { throw new Error('gh: not found'); };
-    const deps = buildNotifierDeps(makeCtx({}, throwingExec), REPO_ID);
-    expect(deps.readIssue(42, REPO_ID)).toBeNull();
+  it('readIssue resolves title and string labels from the tracker', async () => {
+    const deps = buildNotifierDeps(() => fakePorts(), REPO_ID);
+    await expect(deps.readIssue(42, REPO_ID)).resolves.toEqual({ title: 'Fix the retry budget', labels: ['hitl'] });
   });
 
-  it('listOpenPRs keeps only OPEN PRs and builds the pull URL', () => {
-    const json = JSON.stringify([
-      { number: 100, body: 'Implements #42', state: 'OPEN' },
-      { number: 101, body: 'Implements #43', state: 'CLOSED' },
-    ]);
-    const { exec } = makeSpyExec(new Map([['--state all', json]]));
-    const deps = buildNotifierDeps(makeCtx({}, exec), REPO_ID);
+  it('readIssue returns null when the tracker throws', async () => {
+    const deps = buildNotifierDeps(() => fakePorts({
+      issueTracker: { fetchIssue: async () => { throw new Error('gh: not found'); } },
+    }), REPO_ID);
+    await expect(deps.readIssue(42, REPO_ID)).resolves.toBeNull();
+  });
+
+  it('listOpenPRs keeps only OPEN records and carries the forge-published url and updatedAt through', () => {
+    const records: PullRequestRecord[] = [
+      { number: 100, body: 'Implements #42', state: 'OPEN', mergedAt: null, updatedAt: '2026-09-01T00:00:00Z', url: 'https://github.com/acme/widget/pull/100' },
+      { number: 101, body: 'Implements #43', state: 'CLOSED', mergedAt: null, updatedAt: '2026-09-02T00:00:00Z', url: 'https://github.com/acme/widget/pull/101' },
+    ];
+    const deps = buildNotifierDeps(() => fakePorts({ codeHost: { listPullRequests: () => records } }), REPO_ID);
+
     const prs = deps.listOpenPRs(REPO_ID);
+
     expect(prs).toEqual([
-      { number: 100, url: 'https://github.com/acme/widget/pull/100', body: 'Implements #42', state: 'OPEN', headRefName: '', baseRefName: '', updatedAt: '' },
+      { number: 100, url: 'https://github.com/acme/widget/pull/100', body: 'Implements #42', state: 'OPEN', updatedAt: '2026-09-01T00:00:00Z' },
     ]);
   });
 
-  it('listOpenPRs returns null when exec throws', () => {
-    const throwingExec = (): string => { throw new Error('gh: rate limited'); };
-    const deps = buildNotifierDeps(makeCtx({}, throwingExec), REPO_ID);
+  it('listOpenPRs returns null when the code host throws', () => {
+    const deps = buildNotifierDeps(() => fakePorts({
+      codeHost: { listPullRequests: () => { throw new Error('gh: rate limited'); } },
+    }), REPO_ID);
     expect(deps.listOpenPRs(REPO_ID)).toBeNull();
   });
 });

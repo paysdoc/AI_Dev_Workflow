@@ -5,21 +5,27 @@
  * ADW's own environment, label catalogue and Slack notification behaviour
  * live. Deep-imports `../providers/forgeProviders` — never the providers
  * barrel, which would close an import cycle back through `../../core` (#792).
+ *
+ * Config types are expressed as indexed-access aliases on the assembly
+ * contract (`ForgeProviderDeps`) rather than imported from the GitLab/Jira
+ * adapters directly (#844) — this module has no production reason to reach
+ * into adapter internals, only into the contract `forgeProviders()` itself
+ * publishes.
  */
 
-import type { GitContext } from '../gitContext';
-import type { RepoIdentifier } from '../providers/types';
+import type { BoundProviders, RepoIdentifier } from '../providers/types';
 import { BoardStatus } from '../providers/types';
-import type { GitLabConfig } from '../providers/gitlab/gitlabApiClient';
-import type { JiraAuth } from '../providers/jira/jiraApiClient';
-import type { JiraConfig } from '../providers/jira/jiraIssueTracker';
 import type { ForgeProviderDeps, GitHubForgeDeps } from '../providers/forgeProviders';
 import type { ProviderConfig } from './providerConfig';
-import { notifyReviewTransition, buildNotifierDeps } from '../forge/hitlBoardNotifier';
+import { notifyReviewTransition, buildNotifierDeps, type NotifierPorts } from '../forge/hitlBoardNotifier';
 import { resolveAdwLabelDefinition } from './adwLabels';
 import { isGitHubAppConfigured } from './githubAppAuth';
 import { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, GITHUB_PAT } from './environment';
 import { log } from './logger';
+
+type GitLabConfig = NonNullable<ForgeProviderDeps['gitlab']>;
+type JiraConfig = NonNullable<ForgeProviderDeps['jira']>;
+type JiraAuth = JiraConfig['auth'];
 
 /** The GitLab/Jira variables ADW's environment supplies (#818) — a value, so the wiring below is pure and testable without mocking. */
 export type ForgeEnv = Readonly<Record<'GITLAB_TOKEN' | 'GITLAB_INSTANCE_URL' | 'JIRA_EMAIL' | 'JIRA_API_TOKEN' | 'JIRA_PAT', string>>;
@@ -57,9 +63,14 @@ export function jiraConfigFrom(config: Pick<ProviderConfig, 'issueTrackerUrl' | 
  * catalogue, and the PR-approval capability predicate — re-homed as injected
  * seams so the adapter itself never learns about Slack, ADW's label colours,
  * or the GitHub App/PAT configuration.
+ *
+ * `resolvePorts` is a thunk, not the ports themselves: this function runs
+ * inside the launch boundary's lazy provider mint, before `forgeProviders`
+ * has returned, so the only way the notifier can read through the ports it
+ * is being wired into is to resolve them later, at notification time.
  */
-export function adwGitHubForgeDeps(repoId: RepoIdentifier, ctx: GitContext): GitHubForgeDeps {
-  const notifierDeps = buildNotifierDeps(ctx, repoId);
+export function adwGitHubForgeDeps(repoId: RepoIdentifier, resolvePorts: () => NotifierPorts): GitHubForgeDeps {
+  const notifierDeps = buildNotifierDeps(resolvePorts, repoId);
   return {
     onStatusMoved: async (issueNumber, status) => {
       if (status === BoardStatus.Review) {
@@ -77,10 +88,10 @@ export function adwGitHubForgeDeps(repoId: RepoIdentifier, ctx: GitContext): Git
  * for a forge that is actually selected — a GitHub-only deployment never
  * touches `GITLAB_TOKEN` or the Jira variables.
  */
-export function buildAdwForgeDeps(config: ProviderConfig, repoId: RepoIdentifier, ctx: GitContext): ForgeProviderDeps {
+export function buildAdwForgeDeps(config: ProviderConfig, repoId: RepoIdentifier, resolveProviders: () => BoundProviders): ForgeProviderDeps {
   return {
     logger: log,
-    github: adwGitHubForgeDeps(repoId, ctx),
+    github: adwGitHubForgeDeps(repoId, resolveProviders),
     gitlab: config.codeHost === 'gitlab' ? gitLabConfigFromEnv() : undefined,
     jira: config.issueTracker === 'jira' ? jiraConfigFrom(config) : undefined,
   };
