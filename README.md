@@ -531,6 +531,7 @@ adws/                   # ADW workflow system
 │   │   ├── issueClassifier.test.ts
 │   │   ├── issueRecord.test.ts
 │   │   ├── launchGitContext.test.ts
+│   │   ├── localRepoIdentity.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -547,6 +548,7 @@ adws/                   # ADW workflow system
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── sshCloneUrl.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
@@ -589,6 +591,7 @@ adws/                   # ADW workflow system
 │   ├── issueRecord.ts  # fetchIssueRecord(ctx, issueNumber) — the full GitHubIssue read over the boundary's own GitContext, kept forge-shaped for prompt fidelity (#820)
 │   ├── jsonParser.ts
 │   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND assembles the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity via forgeProviders(), in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are assembled lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
+│   ├── localRepoIdentity.ts  # Host-neutral origin-remote reader (readLocalRepoIdentity) replacing the GitHub-only readLocalRepoInfo (#844)
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -616,6 +619,7 @@ adws/                   # ADW workflow system
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
+│   ├── sshCloneUrl.ts  # Host-neutral HTTPS→SSH clone URL rewrite (convertToSshUrl) replacing the GitHub-only version; passes through anything not a two-segment HTTPS URL (#844)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
 │   ├── stateHelpers.ts
@@ -801,7 +805,10 @@ adws/                   # ADW workflow system
 ├── providers/          # Provider interfaces and implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── boardManager.test.ts
+│   │   ├── forgeProviders.deps.test.ts  # forgeProviders() dependency-wiring coverage
+│   │   ├── forgeProviders.selection.test.ts  # forgeProviders() forge-name selection coverage
 │   │   ├── forgeProviders.test.ts  # The critical suite (#823) — one identity in, every member bound to it; mismatched context/unknown forge name refused before construction; GitLab/Jira selection; the board-manager omission
+│   │   ├── forgeProvidersFixture.ts  # Shared forgeProviders() test fixture
 │   │   ├── refusalStubs.test.ts  # Asserts GitLab/Jira named-refusal-stub methods reject rather than silently no-op
 │   │   └── workspaceValidation.test.ts  # parseOwnerRepoFromUrl + validateWorkingDirectory, relocated from repoContext.test.ts (#823)
 │   ├── github/         # GitHub forge adapter — the only package (besides the git core) exempt from the git/gh CLI guard; its gh call sites feed command strings into the core's executor, never spawning a process itself (#792)
@@ -976,6 +983,7 @@ adws/                   # ADW workflow system
 ├── known_issues.md     # Known issues and workarounds
 ├── guard/              # Git/GH CLI Guard rule modules (#795)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── extractionRule.integration.test.ts
 │   │   └── extractionRule.test.ts
 │   ├── violationTypes.ts    # Shared ViolationRule ('git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction') / Violation types
 │   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823)
