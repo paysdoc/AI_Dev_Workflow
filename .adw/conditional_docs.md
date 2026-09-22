@@ -523,13 +523,17 @@
     - adws/core/remoteReconcile.ts
     - adws/core/targetRepoManager.ts
     - adws/core/sshCloneUrl.ts
+    - adws/core/workspaceTrust.ts
     - adws/core/__tests__/devServerLifecycle.test.ts
     - adws/core/__tests__/remoteReconcile.test.ts
     - adws/core/__tests__/sshCloneUrl.test.ts
+    - adws/core/__tests__/workspaceTrust.test.ts
+    - adws/core/__tests__/targetRepoManager.test.ts
   - Conditions:
     - When working on dev server lifecycle management, dynamic port allocation, remote repo reconciliation, or target repo cloning/updating
     - When working on `devServerLifecycle.ts`, `portAllocator.ts`, `remoteReconcile.ts`, or `targetRepoManager.ts`
     - When working on `convertToSshUrl` (`adws/core/sshCloneUrl.ts`, #844) — ADW-owned and host-neutral (`https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`, anything else passed through), re-exported by `targetRepoManager.ts` at the stable import path; no longer the GitHub-only adapter helper
+    - When working on Claude Code workspace trust (`ensureWorkspaceTrusted`, `adws/core/workspaceTrust.ts`, #846) — the once-per-repo `~/.claude.json` `projects[<workspacePath>].hasTrustDialogAccepted` write performed by `ensureTargetRepoWorkspace` on both the clone and fetch branches; atomic tmp+rename, exact-key, skip-and-warn on missing/corrupt/unwritable, never on the per-spawn `claudeAgent.ts` path
 
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:

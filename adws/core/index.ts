@@ -196,7 +196,9 @@ export {
   isRepoCloned,
   cloneTargetRepo,
   ensureTargetRepoWorkspace,
+  ensureWorkspaceTrusted,
 } from './targetRepoManager';
+export type { WorkspaceTrustDeps, WorkspaceTrustResult } from './workspaceTrust';
 
 // Launch-boundary GitContext adapter
 export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
