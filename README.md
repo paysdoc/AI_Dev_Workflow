@@ -553,6 +553,7 @@ adws/                   # ADW workflow system
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stepDefDetection.test.ts
+│   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
@@ -562,7 +563,8 @@ adws/                   # ADW workflow system
 │   │   ├── upgradeFailureCap.test.ts
 │   │   ├── workflowCommentParsing.test.ts
 │   │   ├── workflowMapping.test.ts
-│   │   └── workspaceBinding.test.ts
+│   │   ├── workspaceBinding.test.ts
+│   │   └── workspaceTrust.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates) — moved out of adws/github/labelManager.ts/prApi.ts (#820), which now re-export it
 │   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
@@ -624,7 +626,7 @@ adws/                   # ADW workflow system
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
 │   ├── stateHelpers.ts
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
-│   ├── targetRepoManager.ts
+│   ├── targetRepoManager.ts  # Target repo workspace shim — SSH clone-URL rewrite + ensureRepoWorkspace delegation + ~/.claude.json trust write via ensureWorkspaceTrusted (#846)
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── unaddressedComments.ts  # readUnaddressedComments — the pr-review bot/self/ADW-signed comment filter over injected reads, decomposed off the legacy prCommentDetector composite (#820)
@@ -633,7 +635,8 @@ adws/                   # ADW workflow system
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   ├── workflowMapping.ts  # Issue type → orchestrator mapping
-│   └── workspaceBinding.ts  # bindWorkspaceContext/validateGitRemote (#823) — binds the boundary's already-minted providers to a validated workspace directory; the origin remote is read through the caller's own GitContext, never a second one constructed for the check; moved out of adws/providers/repoContext.ts and adws/core/launchGitContext.ts
+│   ├── workspaceBinding.ts  # bindWorkspaceContext/validateGitRemote (#823) — binds the boundary's already-minted providers to a validated workspace directory; the origin remote is read through the caller's own GitContext, never a second one constructed for the check; moved out of adws/providers/repoContext.ts and adws/core/launchGitContext.ts
+│   └── workspaceTrust.ts  # Claude Code workspace-trust write (ensureWorkspaceTrusted) — sets projects[<workspacePath>].hasTrustDialogAccepted in ~/.claude.json atomically (tmp + rename), skips (warn, never throws) on missing/corrupt/unwritable file; called once per repo from ensureTargetRepoWorkspace (#846)
 ├── forge/              # ADW-application helpers over the forge provider ports (#821)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── adwLabelProvisioning.test.ts

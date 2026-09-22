@@ -16,6 +16,7 @@ This module manages the full lifecycle of development server processes needed du
 - Applies a mandatory double-read verification against the GitHub API to guard against read-your-write lag, retrying up to 3 times on divergence before falling back to the state-file value
 - Clones external target repositories to `~/.adw/repos/{owner}/{repo}/` on first use and fetches latest refs on subsequent uses (`targetRepoManager.ts`)
 - Converts HTTPS clone URLs to SSH format before cloning — host-neutral and ADW-owned (`convertToSshUrl`, `adws/core/sshCloneUrl.ts`, #844), re-exported at the stable `targetRepoManager.ts` import path
+- Grants Claude Code workspace trust for the ensured workspace path by setting `projects[<workspacePath>].hasTrustDialogAccepted: true` in `~/.claude.json`, written atomically and once per repo at ensure time (`workspaceTrust.ts`, #846)
 
 ## Contracts & Invariants
 
@@ -25,6 +26,7 @@ This module manages the full lifecycle of development server processes needed du
 - `mapArtifactsToStage` returns `null` (not a stage) when artifacts are insufficient, signaling callers to fall back
 - `ensureTargetRepoWorkspace` is idempotent: it clones once and fetches on every subsequent call
 - `pullLatestDefaultBranch` is deprecated; all callers must use `fetchLatestRefs` instead
+- `ensureWorkspaceTrusted` never throws and never gates the ensure: missing/corrupt/unwritable `~/.claude.json` → `{ action: 'skipped' }` + warning; already trusted → no write; the key is the exact path `ensureTargetRepoWorkspace` returns, never realpath'd
 
 ## Configuration
 
@@ -45,3 +47,4 @@ This module manages the full lifecycle of development server processes needed du
 - `fetchLatestRefs` shells out to `gh repo view` to determine the default branch name, meaning a valid `gh` CLI session is required in the working directory's context
 - HTTPS clone URLs are silently converted to SSH; if SSH keys are not configured, the clone will fail with an opaque git error
 - **`convertToSshUrl` is host-neutral (#844), not GitHub-only** — any `https://<host>/<owner>/<repo>[.git]` two-segment URL converts to `git@<host>:<owner>/<repo>.git` (a GitLab or self-hosted target now converts too, needing an SSH key on the box HTTPS did not); anything else (`ssh://`, an explicit port, a three-segment path, `http://`, a non-URL string) passes through unchanged. Lives in `adws/core/sshCloneUrl.ts`, not the GitHub adapter.
+- Trust is keyed on the main repo root, not the worktree — one entry per target repo; `~/.claude.json` is shared with every live Claude session, hence tmp+rename and never a per-spawn write
