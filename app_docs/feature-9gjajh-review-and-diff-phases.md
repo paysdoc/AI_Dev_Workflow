@@ -6,7 +6,7 @@ The review and diff phases govern the quality gate before a PR is merged. The re
 
 ## Responsibilities
 
-- `reviewPhase.ts` (`executeReviewPhase`) — calls `runReviewAgent` once with the plan file path and optional `scenarioProofPath`; posts stage comments; when review passes and a GitHub App is configured, approves the PR using a PAT; returns `reviewPassed`, `reviewIssues`, and cost fields
+- `reviewPhase.ts` (`executeReviewPhase`) — calls `runReviewAgent` once with the plan file path and optional `scenarioProofPath`; posts stage comments; when review passes, `ctx.prUrl` is set, the code host reports `canApprovePullRequests()`, and the issue does **not** currently carry the `hitl` label (read live via `IssueTracker.fetchLabels`), approves the PR; otherwise logs a skip naming the issue; returns `reviewPassed`, `reviewIssues`, and cost fields
 - `reviewPhase.ts` (`executeReviewPatchCycle`) — receives the current blocker list, routes each blocker to `applyPatchBlocker` or `applyRefactorBlockers` based on `remediationStrategy`, commits all changes in one commit, and pushes the branch
 - `diffEvaluationPhase.ts` — computes `git diff {defaultBranch}...HEAD`, passes the diff to `runDiffEvaluatorAgent`, posts the verdict as an audit comment on the issue, and returns a `DiffEvaluationPhaseResult` with `verdict: 'safe' | 'regression_possible'`
 - `reviewPatchHelpers.ts` (`applyPatchBlocker`) — runs `runPatchAgent` for a single blocker, then runs `runBuildAgent` on the patch output to apply the changes
@@ -15,7 +15,8 @@ The review and diff phases govern the quality gate before a PR is merged. The re
 ## Contracts & Invariants
 
 - `executeReviewPhase` is a single-shot judge; the patch-retest retry loop is the orchestrator's responsibility, not the phase's
-- PR approval in `executeReviewPhase` requires both `isGitHubAppConfigured()` and `GITHUB_PAT` to be truthy and `ctx.prUrl` to be set; approval failure is non-fatal
+- PR approval in `executeReviewPhase` requires `ctx.prUrl` to be set, `repoContext.codeHost.canApprovePullRequests()` to be true, and the issue to **not** currently carry the `hitl` label (read live via `repoContext.issueTracker.fetchLabels`, never from the `config.issue.labels` workflow-start snapshot); approval failure, a refused capability probe, and a refused label read are all non-fatal — a refused label read does not approve (fail-closed)
+- The review-phase approval is the second of the two approval sites in ADW (`adwChore.tsx`'s pre-approval is the other); both honour `hitl`, so the merge gate `(no hitl) OR approved` cannot be satisfied by automation on a `hitl` issue (#848)
 - `executeReviewPatchCycle` issues one commit after all patch and refactor blockers are resolved, not one commit per blocker
 - `diffEvaluationPhase.ts` defaults to `'regression_possible'` when the diff is empty (no changes — treat as safe), when the agent returns no parsed verdict, or when the agent throws; only a confirmed `'safe'` verdict propagates up
 - `applyPatchBlocker` always runs `runBuildAgent` after `runPatchAgent` when the patch succeeds; the build agent applies the patch instructions to the actual codebase

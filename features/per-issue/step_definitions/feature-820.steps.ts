@@ -184,6 +184,17 @@ export function setUnaddressedComments(comments: ReviewComment[]): void {
   s.unaddressedComments = comments;
 }
 
+/** #848: lets a sibling step file reset this file's local state and stub from its own hooks. */
+export function resetFeature820State(): void {
+  restoreClaudeCliStub();
+  resetLocalState();
+}
+
+/** #848: the configuration the last "a workflow configuration bound to that boundary …" step built. */
+export function currentWorkflowConfig(): WorkflowConfig {
+  return requireConfig();
+}
+
 function activateClaudeCliStub(): void {
   s.originalClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
   process.env['CLAUDE_CODE_PATH'] = CLAUDE_CLI_STUB_PATH;
