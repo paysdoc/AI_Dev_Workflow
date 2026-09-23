@@ -173,6 +173,12 @@ The filtered tree is `src/` only: no manifest, no tsconfig, no test config.
    log, and `agents/cron/paysdoc_devplatform.json`). Respect the
    single-host constraint. Cron PID files and spawn locks are keyed per
    repo, so a second cron process on the same host is supported.
+   Every agent spawn in the new clone logs `Ignoring N permissions.allow
+   entries from .claude/settings.json: this workspace has not been trusted`
+   until the clone path is trusted. Harmless for the pipeline (agents run
+   with `--dangerously-skip-permissions`); silence it by opening Claude Code
+   there once, or set `projects["<TARGET_REPOS_DIR>/paysdoc/devplatform"]
+   .hasTrustDialogAccepted: true` in `~/.claude.json`.
 4. Create the `hitl` label (`--color ee35f5 --description "Human in the loop"`).
 5. File L1, L2, L3 (bodies below). L1 first; L2 and L3 carry a
    `## Blocked by` section naming L1's number.
@@ -220,7 +226,12 @@ above 1.0.0 if commits have landed since), never 1.0.0 again.
    AND filter and finds nothing):
 
    ```bash
-   for f in agents/*/adw_state.json; do jq -r '"\(.issueNumber) \(.workflowStage)"' "$f"; done | sort -u
+   for f in agents/*/state.json; do
+     jq -r 'select(.repoIdentity.repo == "AI_Dev_Workflow") | "#\(.issueNumber) \(.workflowStage)"' "$f"
+   done | sort -u | grep -vE ' (completed|abandoned|discarded)$'
+   # Also: `gh issue list --state open` shows no `adw:*`-labelled issue.
+   # Stale `starting` entries for already-closed issues are leftovers of
+   # superseded spawns and do not count.
    ```
 
    Human-gated and retriable stages (`merge_blocked`, `review_failed`,
@@ -241,6 +252,27 @@ above 1.0.0 if commits have landed since), never 1.0.0 again.
    - Tag the pre-merge commit: `git tag pre-gitcontext-switchover <sha>` and
      push the tag.
    - Then approve.
+5. **What happened on 2026-09-10 and how to restart A1.** The first A1 run
+   (PR #843, plan only) stopped at its own Step 1 gate: ADW's launch
+   boundary and three readers reached around the forge ports into the
+   GitHub adapter and into git-core internals, and the published barrels
+   correctly do not export those names. The fix is not to widen the
+   library's surface with GitHub-named exports; it is L4 (a forge-keyed
+   `createForgeCredentials` factory, `paysdoc/devplatform#9`) plus A0
+   (route ADW's callers through the ports, #844, HITL). #840 carries
+   `## Blocked by #844` and a Step 1 gate on L4's release.
+
+   Restarting A1 once A0 has merged **and** L4 is on npm (the cross-repo
+   dependency is not enforced by ADW; check `npm view` by hand):
+   - Post `## Cancel` on #840. That kills any orchestrator, removes the
+     local worktree and branch, deletes `agents/<adwId>/`, clears the bot
+     comments and drops the spawn dedup, so cron respawns the issue fresh
+     on the next tick. It does **not** touch the remote branch or PR #843;
+     the respawn reuses the existing remote branch.
+   - **Never close PR #843 (or any unmerged ADW PR) by hand.** The webhook
+     treats an unmerged close as abandonment, closes the linked issue, and
+     a closed blocker counts as satisfied, so A2 (#841) would spawn and
+     build against pre-switchover code.
 
 ## 8. Rollback
 
@@ -252,6 +284,13 @@ last known-good commit.
 ---
 
 ## Deferred issues
+
+**Body rule (learned 2026-09-10):** ADW's dependency parser treats any `#N`
+within 80 characters after *blocked by*, *depends on*, *requires*,
+*prerequisite*, *waiting on* or *after* as a blocking issue, fail-closed,
+in the repo the issue lives in. Both L4 and A0 were deferred on a prose
+"prerequisite for … #840". Outside the `## Blocked by` section, refer to
+issues by number without the hash.
 
 ### L1 — Package build, exports map, CI (repo: `paysdoc/devplatform`, AFK)
 
@@ -327,23 +366,83 @@ with two rules; wire into CI.
 **Blocked by:** L1.
 **User stories:** 22.
 
-### A1 — ADW switchover to `@paysdoc/devplatform` (repo: `paysdoc/AI_Dev_Workflow`, **HITL**)
+### L4 — Forge-keyed credential factory (repo: `paysdoc/devplatform`, AFK) — filed as `paysdoc/devplatform#9`
 
-**What to build:** One atomic migration. Add the dependency at the published
-version; rewrite every `adws/gitContext` import to `@paysdoc/devplatform/git`
-and every `adws/providers` import to `@paysdoc/devplatform` (ports, domain
-model) or `@paysdoc/devplatform/providers` (`forgeProviders`, adapters);
-repoint `buildLaunchBoundary` at the library's `forgeProviders` and
-`GitContext`; delete `adws/gitContext/` and `adws/providers/`; set ADW's guard
-`EXEMPT_PACKAGES` to the empty set, delete the extraction-readiness rule, and
-remove the now-stale `adws/providers/forgeProviders.ts` entry from
-`SANCTIONED_CONSTRUCTION_SITES`; update the identity/construction rules to
-recognise the imported names; update `features/regression/**/feature-729.feature`
-path references; retire the living docs for the extracted modules and their
-`conditional_docs.md` entries.
+**Parent PRD:** `paysdoc/AI_Dev_Workflow` `specs/prd/gitcontext-library-extraction.md`. Unblocks the ADW switchover (AI_Dev_Workflow issue 840), whose build stopped because ADW's launch boundary can only build a `TokenProvider` and a bootstrap `GitIdentity` through GitHub-named exports that the published barrels do not carry. The consumer must not name a forge; the library resolves the implementation from the forge name, the way `forgeProviders()` already does for the tracker, code host and board.
+
+## What to build
+
+One forge-keyed factory in `src/providers/`, exported from `@paysdoc/devplatform/providers`:
+
+```ts
+createForgeCredentials(options: {
+  forge: ForgeSelection;          // same selection object forgeProviders() takes
+  identity: RepoIdentifier;
+  deps?: ForgeCredentialDeps;     // per-forge, mirrors ForgeProviderDeps
+}): { tokenProvider: TokenProvider; gitIdentity: GitIdentity }
+```
+
+Dispatch on `forge.codeHost`:
+
+- **github** — `tokenProvider` is today's `createGitHubTokenProvider` fed by today's `resolveContextToken` chain (installation token when the App is configured, else PAT, else `gh auth token`), with `alternateIdentityPat` honoured. `gitIdentity` is today's `resolveBootstrapGitIdentity` (App-bot identity when the App is configured, else env, else git config, else the fallback). `deps.github` carries what the launch boundary currently injects by hand: `appConfig` (`GitHubAppConfig | null`, already resolved from env by the caller), `pat?`, `alternateIdentityPat?`, `ghAuthToken?` (test seam), `env?`, `exec?`.
+- **gitlab** — there is no GitLab `TokenProvider` in the tree today. Add the minimal one: a `TokenProvider` whose `credentialEnv` supplies `GitLabConfig.token` for both purposes; `gitIdentity` from env → git config → fallback (no bot derivation). `deps.gitlab` is the existing `GitLabConfig`.
+- Unknown code host: throw at construction, same as `forgeProviders()`.
+
+Also:
+- Move `createLiteralTokenProvider` out of `src/providers/github/` into the git core and export it from `@paysdoc/devplatform/git` — it is a fixed-string `TokenProvider` with no forge knowledge and every ADW test fixture uses it. Keep the GitHub file re-exporting it so nothing inside the library moves.
+- Do **not** add the GitHub-named helpers (`createGhRepoApi`, `readLocalRepoInfo`, `ghAuthToken`, `resolveContextToken`, `getInstallationToken`, …) to any barrel. They stay adapter-internal; the factory is the only new public name.
+
+## Acceptance criteria
+- [ ] `createForgeCredentials` is importable from `@paysdoc/devplatform/providers`; `createLiteralTokenProvider` from `@paysdoc/devplatform/git`; a committed test packs the tarball and asserts both names resolve at runtime and in the emitted `.d.ts`
+- [ ] Unit tests: github branch reproduces the three token-resolution paths and the App-bot identity; gitlab branch supplies the config token and env/git-config identity; unknown code host throws
+- [ ] `@paysdoc/devplatform/git` still imports nothing from `src/providers/**` (existing import-graph assertion stays green)
+- [ ] `bun run test`, `test:unit`, `lint:git-guard` green
+- [ ] Merged with a `feat:` commit so semantic-release publishes a minor version
+
+## Blocked by
+none
+
+### A0 — Route ADW callers through the forge ports (repo: `paysdoc/AI_Dev_Workflow`, **HITL**) — filed as #844
+
+**Parent PRD:** `specs/prd/gitcontext-library-extraction.md`. Runbook: `specs/runbooks/gitcontext-extraction.md`. Unblocks the ADW switchover (issue 840, kept open on purpose), whose first build stopped because ADW still reaches around the forge ports into the GitHub adapter and into git-core internals. Everything below is ADW-side and needs nothing new from the library; the launch boundary itself is untouched here and moves to the library's forge-keyed credential factory in the switchover issue.
+
+## What to build
+
+1. **Route the three raw-GitHub call sites through the ports.**
+   - `adws/core/issueRecord.ts`: replace `createGhRepoApi(ctx).fetchIssue` + `parseGitHubIssue` with the `IssueTracker.fetchIssue` port. Callers receive the port through the launch boundary's `BoundProviders`; thread it rather than constructing anything.
+   - `adws/forge/hitlBoardNotifier.ts`: replace the bound repo API (`fetchIssue`, `fetchAllPRs`) and `selectPreferredPR` with `IssueTracker.fetchIssue` and `CodeHost.listPullRequests` / `findPullRequestByBranch`. If the preferred-PR choice (open over merged, newest first) is not expressible on the port's `PullRequestRecord`, add the missing field to the domain model in `adws/providers/types.ts` and both adapters, not a GitHub-only helper.
+   - `adws/healthCheckChecks.ts`: `authenticatedUser()` → `CodeHost.getAuthenticatedUser()`; `fetchIssue` → `IssueTracker.fetchIssue`.
+2. **Local repo identity without the GitHub adapter.** Replace every `readLocalRepoInfo` import (`orchestratorCli`, `healthCheck.tsx`, `pauseQueueScanner`, `trigger_cron`, `launchGitContext`'s default) with an ADW-owned `readLocalRepoIdentity(cwd?)` in `adws/core/` composed from `readOriginRemoteUrl` (git core) and `parseOwnerRepoFromUrl` (provider types, host-neutral). Same error message on failure.
+3. **SSH clone URL without the GitHub adapter.** `adws/core/targetRepoManager.ts`: replace `convertToSshUrl` with a host-neutral conversion (`https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`, anything else passed through) owned by ADW. Keep the re-export name so existing callers compile, or update them.
+4. **Delete ADW tests of library internals.** `adws/vcs/__tests__/commitOperations.test.ts` and `adws/vcs/__tests__/fetchAndResetToRemote.test.ts` test `commitOps`/`branchOps` that now live in `@paysdoc/devplatform`; delete them. `features/regression/step_definitions/feature-818.steps.ts` and `feature-820.steps.ts` instantiate `GitLabApiClient` directly; rewrite those steps against the `CodeHost` port or drop the scenario steps that exist only to prove the extracted module's shape, and update the matching `.feature` files. Regression tag counts must not regress for anything else.
+5. **Guard.** No new `git`/`gh` shell-out anywhere; `lint:git-guard` unchanged and green.
+
+After this issue, the only ADW imports that resolve into `adws/providers/github/**` or `adws/providers/gitlab/**` are test fixtures and `adws/core/launchGitContext.ts`, which the switchover issue replaces.
+
+## Acceptance criteria
+- [ ] `git grep -l "providers/github\|providers/gitlab\|providers/jira" -- adws features test ':!adws/providers' ':!**/__tests__/**'` lists only `adws/core/launchGitContext.ts` and `adws/core/githubAppAuth.ts`
+- [ ] No non-test import of `adws/gitContext/<module>`; only the barrel
+- [ ] Unit suite, typecheck, `lint:git-guard`, `lint:docs-index`, BDD regression green
+- [ ] Living docs for `issueRecord`, `hitlBoardNotifier`, `healthCheck`, `targetRepoManager` updated where they describe the removed helpers
+
+## Blocked by
+none
+
+### A1 — ADW switchover to `@paysdoc/devplatform` (repo: `paysdoc/AI_Dev_Workflow`, **HITL**) — filed as #840, body as revised 2026-09-10
+
+**Parent PRD:** `specs/prd/gitcontext-library-extraction.md`. Runbook: `specs/runbooks/gitcontext-extraction.md` step 7.
+
+**Prerequisites (both must be done before this builds):** #844 merged (ADW callers routed through the forge ports), and devplatform issue 9 released on npm (forge-keyed `createForgeCredentials`). The first attempt at this issue (PR 843, plan only) stopped because neither existed; the plan it wrote is still valid apart from its Step 1 and the launch-boundary mapping below.
+
+**Step 1 gate:** `npm view @paysdoc/devplatform versions` lists a version above 1.0.0 whose `/providers` barrel exports `createForgeCredentials` and whose `/git` barrel exports `createLiteralTokenProvider`. If not, stop and report; do not open a PR.
+
+**What to build:** One atomic migration. Add `@paysdoc/devplatform` at that version as an exact-pinned dependency; rewrite every `adws/gitContext` import to `@paysdoc/devplatform/git` and every `adws/providers` import to `@paysdoc/devplatform` (ports, domain model) or `@paysdoc/devplatform/providers` (`forgeProviders`, adapters, `createForgeCredentials`). Rewrite `adws/core/launchGitContext.ts` so the token provider and bootstrap git identity come from `createForgeCredentials({ forge, identity, deps })` with `deps.github` built from `adws/core/githubAppAuth.ts`'s env-read App config, the PAT and the alternate-identity PAT; delete the direct imports of `resolveContextToken`, `ghAuthToken`, `createGitHubTokenProvider`, `readLocalRepoInfo` and `resolveBootstrapGitIdentity`. Test fixtures take `createLiteralTokenProvider` from `@paysdoc/devplatform/git`; `test/mocks/gitContextFixture.ts` replaces the one under `adws/providers/github/__tests__/`. Repoint `buildLaunchBoundary` at the library's `forgeProviders` and `GitContext`; delete `adws/gitContext/` and `adws/providers/`; set ADW's guard `EXEMPT_PACKAGES` to the empty set, delete the extraction-readiness rule, and remove the now-stale `adws/providers/forgeProviders.ts` entry from `SANCTIONED_CONSTRUCTION_SITES`; update the identity/construction rules to recognise the imported names; update `features/regression/**/feature-729.feature` path references; retire the living docs for the extracted modules and their `conditional_docs.md` entries.
+
+**Rule:** no ADW module outside test fixtures imports a forge-named symbol (`createGitHub*`, `createGitLab*`, `GitLabApiClient`, `Jira*`) from the library. Production code sees only `forgeProviders`, `createForgeCredentials`, `GitContext`, the ports and the domain model.
 
 **Acceptance criteria:**
 - [ ] No `adws/gitContext/` or `adws/providers/` directory; no relative import of either remains
+- [ ] `git grep -lE "createGitHub|createGitLab|GitLabApiClient|JiraApiClient|JiraIssueTracker" -- adws ':!**/__tests__/**'` prints nothing
 - [ ] Guard exempt set empty; a git/gh shell-out anywhere in ADW fails CI; `SANCTIONED_CONSTRUCTION_SITES` lists only the launch boundary
 - [ ] Full unit suite, typecheck, BDD regression green
 - [ ] `feature-729.feature` and living docs updated; `bun run lint:docs-index` green
@@ -351,9 +450,10 @@ path references; retire the living docs for the extracted modules and their
 Operator verification (smoke workflow, rollback tag) is runbook step 7.4, not
 an acceptance criterion.
 
-**Blocked by:** none at filing time (filed only after #823, L1–L3, and the
-first publish are done; see runbook step 7).
 **User stories:** 23, 24, 25, 26, 27, 29.
+
+## Blocked by
+#844
 
 ### A2 — Dependabot for `@paysdoc/devplatform` (repo: `paysdoc/AI_Dev_Workflow`, AFK)
 

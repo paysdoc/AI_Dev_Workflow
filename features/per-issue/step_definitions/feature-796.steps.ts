@@ -105,6 +105,12 @@ export interface Fixture {
   /** #844: codeHost refusal flags for the two "refuses by name" health-check rows. */
   refuseListPullRequests: boolean;
   refuseAuthenticatedUser: boolean;
+  /** #848: when true, approvePullRequest records the call but reports { success: false }. */
+  approveFails: boolean;
+  /** #848: when true, canApprovePullRequests records the call then refuses by name (throws). */
+  refuseCanApprove: boolean;
+  /** #848: when true, every recorded approval also flips prApproval for that PR — as GitHub does with ADW's PAT-served approval. */
+  approvalsCountAsReviews: boolean;
 }
 
 export interface World796 {
@@ -266,6 +272,9 @@ export function makeFixture(): Fixture {
     refuseIssueFetch: new Set(),
     refuseListPullRequests: false,
     refuseAuthenticatedUser: false,
+    approveFails: false,
+    refuseCanApprove: false,
+    approvalsCountAsReviews: false,
   };
 }
 
@@ -438,7 +447,8 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     approvePullRequest(prNumber) {
       record(callLog, 'approvePullRequest', prNumber);
-      return { success: true };
+      if (fixture.approvalsCountAsReviews) fixture.prApproval.set(prNumber, true);
+      return fixture.approveFails ? { success: false, error: 'simulated approval failure' } : { success: true };
     },
     mergePullRequest(prNumber) {
       record(callLog, 'mergePullRequest', prNumber);
@@ -456,6 +466,9 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     canApprovePullRequests() {
       record(callLog, 'canApprovePullRequests');
+      if (fixture.refuseCanApprove) {
+        throw new Error('CodeHost.canApprovePullRequests is not implemented');
+      }
       return fixture.canApprove;
     },
     listMergedPullRequests(limit) {
