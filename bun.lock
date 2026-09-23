@@ -8,7 +8,7 @@
         "@aws-sdk/client-s3": "^3.1015.0",
         "@cucumber/gherkin": "^39.1.0",
         "@cucumber/messages": "^32.3.1",
-        "@paysdoc/devplatform": "1.1.0",
+        "@paysdoc/devplatform": "1.2.0",
         "ajv": "^8.18.0",
         "dotenv": "^16.4.7",
         "fast-xml-parser": "^5.9.0",
@@ -25,9 +25,6 @@
         "vitest": "^4.1.0",
       },
     },
-  },
-  "patchedDependencies": {
-    "@paysdoc/devplatform@1.1.0": "patches/@paysdoc%2Fdevplatform@1.1.0.patch",
   },
   "packages": {
     "@aws-crypto/crc32": ["@aws-crypto/crc32@5.2.0", "", { "dependencies": { "@aws-crypto/util": "^5.2.0", "@aws-sdk/types": "^3.222.0", "tslib": "^2.6.2" } }, "sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg=="],
@@ -238,7 +235,7 @@
 
     "@oxc-project/types": ["@oxc-project/types@0.120.0", "", {}, "sha512-k1YNu55DuvAip/MGE1FTsIuU3FUCn6v/ujG9V7Nq5Df/kX2CWb13hhwD0lmJGMGqE+bE1MXvv9SZVnMzEXlWcg=="],
 
-    "@paysdoc/devplatform": ["@paysdoc/devplatform@1.1.0", "", {}, "sha512-v05n3b5CFgW1ZKriwzjqPrcbq9cA6cIhkukx1OFHJZ+q2LP4uJzSns0jS05jDEgl7dzZz4zcM3UkyoXMIWisgQ=="],
+    "@paysdoc/devplatform": ["@paysdoc/devplatform@1.2.0", "", {}, "sha512-xJtrh6QX7ceJithA7zpXIudINW3LylTjUejB/drMvYm4MwoXqzIYlP2hAhv5hy364frLOrBUPjHlYCpVDmig/A=="],
 
     "@rolldown/binding-android-arm64": ["@rolldown/binding-android-arm64@1.0.0-rc.10", "", { "os": "android", "cpu": "arm64" }, "sha512-jOHxwXhxmFKuXztiu1ORieJeTbx5vrTkcOkkkn2d35726+iwhrY1w/+nYY/AGgF12thg33qC3R1LMBF5tHTZHg=="],
 
