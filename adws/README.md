@@ -687,7 +687,7 @@ app_docs/                         # Generated documentation
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
 
-`adws/github/` was deleted in #823. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary now constructs its `GitContext` directly and assembles providers through `adws/providers/forgeProviders.ts`.
+`adws/github/` was deleted in #823. Since issue #840, `adws/gitContext/` and `adws/providers/` are gone too: `GitContext` and the forge provider layer (GitHub/GitLab/Jira adapters, `forgeProviders()`) now come from the `@paysdoc/devplatform` npm package rather than living in this repo. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary (`adws/core/launchGitContext.ts`) constructs its `GitContext` directly and assembles providers by calling the library's `forgeProviders()`.
 
 **VCS** (`vcs/`):
 - `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)

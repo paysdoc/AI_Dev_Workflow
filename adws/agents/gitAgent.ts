@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 import { generateBranchName, validateSlug } from '../vcs/branchOperations';
 import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError, AgentLaunchContext } from './claudeAgent';
 

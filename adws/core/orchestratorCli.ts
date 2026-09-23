@@ -9,8 +9,8 @@
 
 import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/issueTypes';
 import { VALID_ISSUE_TYPES } from '../types/issueTypes';
-import type { RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 import { readLocalRepoIdentity } from './localRepoIdentity';
 
 /**

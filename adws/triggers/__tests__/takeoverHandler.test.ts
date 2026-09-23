@@ -5,11 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/worktrees/feature-branch'));
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
-import { GitContext } from '../../gitContext';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
 
 const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };

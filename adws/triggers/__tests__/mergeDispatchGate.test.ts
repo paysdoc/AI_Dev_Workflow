@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import { shouldDispatchMerge, type MergeDispatchDeps } from '../mergeDispatchGate';
 
 vi.mock('../../core', () => ({ log: vi.fn() }));

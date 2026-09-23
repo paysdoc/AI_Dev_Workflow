@@ -5,7 +5,7 @@
  */
 
 import { log } from '../core';
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 import type { PrReviewPullRequest } from './planAgent';
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, ProgressCallback, AgentLaunchContext } from './claudeAgent';

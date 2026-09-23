@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { hasLinkedMergedOrClosedPR, fetchLinkedPRs } from '../linkedPrDetector';
 import type { LinkedPRRef } from '../linkedPrDetector';
-import type { CodeHost, PullRequestRecord } from '../../providers/types';
+import type { CodeHost, PullRequestRecord } from '@paysdoc/devplatform';
 
 vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 

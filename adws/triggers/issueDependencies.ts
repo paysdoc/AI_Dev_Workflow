@@ -13,7 +13,7 @@
  */
 
 import { createHash } from 'crypto';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 import { log } from '../core';
 import { runDependencyExtractionAgent } from '../agents/dependencyExtractionAgent';
 

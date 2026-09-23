@@ -5,7 +5,7 @@
  * eligibility result. Used by both webhook and cron triggers.
  */
 
-import type { BoundProviders } from '../providers/types';
+import type { BoundProviders } from '@paysdoc/devplatform';
 import { findOpenDependencies } from './issueDependencies';
 import { isConcurrencyLimitReached } from './concurrencyGuard';
 import { log } from '../core';

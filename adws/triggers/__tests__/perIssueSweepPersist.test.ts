@@ -19,10 +19,10 @@ import {
   type SweepBase,
   type SweepPersistSpec,
 } from '../perIssueSweepPersist';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
-import type { CodeHost, RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 function makeFakeGitContext(overrides: Record<string, unknown> = {}): GitContext {
   return {

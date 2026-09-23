@@ -24,7 +24,7 @@ import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, buildLaunchBoundary, type LogL
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
-import { killProcessesInDirectory } from '../gitContext';
+import { killProcessesInDirectory } from '@paysdoc/devplatform/git';
 import type { AgentState } from '../types/agentTypes';
 
 // ---------------------------------------------------------------------------

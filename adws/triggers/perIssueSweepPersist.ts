@@ -24,8 +24,8 @@
 
 import { log as coreLog, type LogLevel } from '../core';
 import type { LaunchBoundary } from '../core';
-import type { GitContext } from '../gitContext';
-import type { CodeHost } from '../providers/types';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { CodeHost } from '@paysdoc/devplatform';
 
 /** Stable dedicated branch the per-issue sweep's removal is pushed to and PR'd from. */
 export const SWEEP_BRANCH = 'chore/scenario-sweep';

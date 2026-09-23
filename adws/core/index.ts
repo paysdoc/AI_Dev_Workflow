@@ -201,7 +201,7 @@ export {
 export type { WorkspaceTrustDeps, WorkspaceTrustResult } from './workspaceTrust';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary } from './launchGitContext';
 export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
 
 // Workspace binding over the caller's own context (moved out of launchGitContext.ts, #823)

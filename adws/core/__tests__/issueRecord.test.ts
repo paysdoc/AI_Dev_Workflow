@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fetchIssueRecord } from '../issueRecord';
-import type { Issue, IssueTracker } from '../../providers/types';
+import type { Issue, IssueTracker } from '@paysdoc/devplatform';
 
 const SAMPLE_ISSUE: Issue = {
   id: '42', number: 42, title: 'Ship it', body: 'Do the thing', state: 'OPEN',

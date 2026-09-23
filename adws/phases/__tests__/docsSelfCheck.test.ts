@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IssueTracker, IssueSummary } from '../../providers/types';
+import type { IssueTracker, IssueSummary } from '@paysdoc/devplatform';
 
 vi.mock('../../core', () => ({
   log: vi.fn(),

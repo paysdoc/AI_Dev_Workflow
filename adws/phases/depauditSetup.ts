@@ -2,7 +2,7 @@ import { execWithRetry as defaultExecWithRetry, log as defaultLog } from '../cor
 import type { LogLevel } from '../core';
 import type { WorkflowConfig } from './workflowInit';
 import { resolveWorkflowRepoId } from './workflowRepoIdentity';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 
 export interface DepauditSetupDeps {
   execWithRetry?: typeof defaultExecWithRetry;

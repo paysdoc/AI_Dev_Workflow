@@ -5,13 +5,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
-import type { Issue, PullRequest, ReviewComment, RepoContext } from '../providers/types';
+import type { Issue, PullRequest, ReviewComment, RepoContext } from '@paysdoc/devplatform';
 import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { inferIssueTypeFromBranch } from '../vcs';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';

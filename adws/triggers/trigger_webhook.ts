@@ -91,7 +91,7 @@ const server = http.createServer((req, res) => {
       // Construct a self-host boundary for git and forge probes; degrade gracefully on failure.
       const boundary = selfHostBoundary();
       const healthCtx = boundary?.gitContext;
-      let codeHost: import('../providers/types').CodeHost | undefined;
+      let codeHost: import('@paysdoc/devplatform').CodeHost | undefined;
       try {
         codeHost = boundary?.providers.codeHost;
       } catch { /* lazy provider mint failed — the forge probe gets a failure result */ }

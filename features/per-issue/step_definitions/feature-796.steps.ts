@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import type { ForgeProvidersOptions } from '../../../adws/providers/forgeProviders.ts';
+import type { ForgeProvidersOptions } from '@paysdoc/devplatform/providers';
 import type {
   BoundProviders,
   RepoIdentifier,
@@ -46,10 +46,9 @@ import type {
   PullRequestSummary,
   PullRequestRecord,
   ReviewComment,
-} from '../../../adws/providers/types.ts';
-import { Platform } from '../../../adws/providers/types.ts';
-import { GitHubCodeHost } from '../../../adws/providers/github/githubCodeHost.ts';
-import { GitHubIssueTracker } from '../../../adws/providers/github/githubIssueTracker.ts';
+} from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
+import { GitHubCodeHost, GitHubIssueTracker } from '@paysdoc/devplatform/providers';
 
 import { executeMerge, buildDefaultDeps } from '../../../adws/adwMerge.tsx';
 import type { MergeDeps, MergeRunResult } from '../../../adws/adwMerge.tsx';
@@ -65,7 +64,7 @@ import { computeFrameworkHash } from '../../../adws/core/hashComputer.ts';
 import { buildClaimBranchName } from '../../../adws/core/upgradeClaim.ts';
 import { UPGRADE_FAILURE_SIGNATURE } from '../../../adws/core/upgradeFailureCap.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
-import type { GitContext, GitIdentity } from '../../../adws/gitContext/index.ts';
+import type { GitContext, GitIdentity } from '@paysdoc/devplatform/git';
 
 // ── The fixture repo's real filesystem home (never on disk as a git repo) ─────
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');

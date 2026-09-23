@@ -8,7 +8,7 @@ import { listCronOpenIssues } from '../cronIssueListing';
 import { log } from '../../core';
 import { evaluateIssue } from '../cronIssueFilter';
 import type { StageResolution } from '../cronStageResolver';
-import type { IssueTracker } from '../../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 function makeFakeIssueTracker(overrides: Record<string, unknown> = {}): Pick<IssueTracker, 'listIssues'> {
   return {

@@ -13,7 +13,7 @@
 
 import { AgentStateManager, log } from '../core';
 import type { IssueClassSlashCommand, RecoveryState } from '../core';
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 import { runGenerateBranchNameAgent } from '../agents';
 import { AuthRequiredError } from '../types/agentTypes';
 import { deterministicBranchName } from '../vcs/branchIdentity';

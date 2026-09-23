@@ -15,10 +15,10 @@ import {
 } from '../remoteReconcile';
 import { AgentStateManager } from '../agentState';
 import type { AgentState } from '../../types/agentTypes';
-import type { RawPR } from '../../providers/github/domain/pullRequest';
+import type { RawPR } from '@paysdoc/devplatform/providers';
 import type { LaunchBoundary } from '../launchGitContext';
-import type { GitContext } from '../../gitContext';
-import type { CodeHost, PullRequestSummary } from '../../providers/types';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { CodeHost, PullRequestSummary } from '@paysdoc/devplatform';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

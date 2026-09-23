@@ -16,7 +16,7 @@ import {
   isIssueTrackerForge,
   type CodeHostForge,
   type IssueTrackerForge,
-} from '../providers/forgeProviders';
+} from '@paysdoc/devplatform/providers';
 
 /** Provider forge configuration read from `.adw/providers.md`. */
 export interface ProviderConfig {

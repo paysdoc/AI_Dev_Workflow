@@ -6,7 +6,7 @@
  * delegates to an injected GitContext rather than constructing its own (#822).
  */
 
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 /**
  * Gets the path of the main repository (not a worktree).

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Platform } from '../../providers/types';
-import type { IssueTracker } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
+import type { IssueTracker } from '@paysdoc/devplatform';
 import { ADW_LABEL_DEFINITIONS } from '../../core/adwLabels';
 import { ensureAdwLabelsExist } from '../adwLabelProvisioning';
 

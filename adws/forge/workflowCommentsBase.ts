@@ -7,7 +7,7 @@
 
 import { WorkflowStage, AgentStateManager } from '../core';
 import { parseWorkflowStageFromComment, extractAdwIdFromComment } from '../core/workflowCommentParsing';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
 

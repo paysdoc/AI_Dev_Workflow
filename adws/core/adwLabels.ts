@@ -5,7 +5,7 @@
  */
 
 import type { IssueClassSlashCommand } from '../types/issueTypes';
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 
 // ── Canonical label data ──────────────────────────────────────────────────────
 

@@ -14,7 +14,7 @@ import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import type { PhaseCostRecord } from '../cost';
 import { runDiffEvaluatorAgent } from '../agents/diffEvaluatorAgent';
 import type { WorkflowConfig } from './workflowInit';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 export type DiffEvaluationPhaseResult = {
   costUsd: number;

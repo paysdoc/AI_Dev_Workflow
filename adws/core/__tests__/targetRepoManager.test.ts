@@ -14,7 +14,7 @@ const {
   mockEnsureWorkspaceTrusted: vi.fn(),
 }));
 
-vi.mock('../../gitContext', () => ({
+vi.mock('@paysdoc/devplatform/git', () => ({
   ensureRepoWorkspace: mockEnsureRepoWorkspace,
   isRepoCloned: mockIsRepoCloned,
   cloneRepo: mockCloneRepo,

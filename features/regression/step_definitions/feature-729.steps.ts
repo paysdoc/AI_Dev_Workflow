@@ -16,7 +16,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 import { copyAdwInitCommandToWorktree } from '../../../adws/phases/worktreeSetup.ts';
-import { commitOps } from '../../../adws/gitContext/commitOps.ts';
+import { commitOps } from '@paysdoc/devplatform/git';
 
 // ---------------------------------------------------------------------------
 // Module-level scenario state (reset in Before/After hooks)

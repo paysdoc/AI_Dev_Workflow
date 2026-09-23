@@ -10,7 +10,7 @@
 import { readSpawnLockRecord } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
 import { log } from '../core';
-import type { RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
 
 /** Injectable dependencies for shouldDispatchMerge — enables unit testing. */
 export interface MergeDispatchDeps {

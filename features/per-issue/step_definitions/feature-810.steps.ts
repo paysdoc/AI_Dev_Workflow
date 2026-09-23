@@ -30,11 +30,10 @@ import {
 import { runLivingDocsIndexCheck } from '../../../adws/checkLivingDocsIndex.ts';
 import { runDocsIndexSweepTick } from '../../../adws/triggers/trigger_cron.ts';
 import { DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../../adws/core/index.ts';
-import { GitContext } from '../../../adws/gitContext/index.ts';
-import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import { runDocsIndexSweep, type DocsIndexSweepReport } from '../../../adws/triggers/docsIndexSweep.ts';
 import { DOCS_INDEX_SWEEP_SPEC } from '../../../adws/triggers/docsIndexSweepDefaults.ts';
-import { Platform, type BoundProviders, type IssueTracker, type CodeHost } from '../../../adws/providers/types.ts';
+import { Platform, type BoundProviders, type IssueTracker, type CodeHost } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { cronLaunchContextCtx, resetCronLaunchContext } from './cron-launch-context-ctx.ts';
 

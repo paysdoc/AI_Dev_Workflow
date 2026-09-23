@@ -9,7 +9,7 @@
  */
 
 import { log } from '../core';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 /** Raw issue data the cron's eligibility filter (cronIssueFilter.ts) reads. */
 export interface RawIssue {

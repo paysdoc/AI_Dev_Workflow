@@ -13,8 +13,8 @@ import { serializeConditionalDocs, type ConditionalDocsRegistry, type Conditiona
 import { assessDocsIndexHealth, type DocsIndexRepair } from '../../core/docsIndexHealth';
 import { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, type DocsIndexReportIssueSpec } from '../../core/docsIndexReportBody';
 import type { LaunchBoundary } from '../../core';
-import type { RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

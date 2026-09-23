@@ -6,7 +6,7 @@
  * is performed exclusively by the AI heuristic.
  */
 
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
   IssueClassSlashCommand,

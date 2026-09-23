@@ -31,7 +31,7 @@ import { formatPrProofComment, publishPrProof } from '../../../adws/proof/prProo
 import { ADW_SIGNATURE } from '../../../adws/core/workflowCommentParsing.ts';
 import type { UploadedArtifact } from '../../../adws/proof/types.ts';
 import type { RegressionWorld } from './world.ts';
-import { Platform } from '../../../adws/providers/types.ts';
+import { Platform } from '@paysdoc/devplatform';
 
 const ADW_ID = 'x3qme8-python-fixture-targe';
 

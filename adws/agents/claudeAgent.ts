@@ -7,7 +7,7 @@ import * as path from 'path';
 import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { AgentResult } from '../types/agentTypes';
 import { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/agentTypes';
 import { killProcessGroup } from '../core/processKill';

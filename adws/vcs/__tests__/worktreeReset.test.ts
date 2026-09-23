@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { worktreeResetOps } from '../../gitContext/worktreeResetOps';
+import { worktreeResetOps } from '@paysdoc/devplatform/git';
 
 type Call = { command: string; cwd: string };
 

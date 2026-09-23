@@ -14,13 +14,13 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
-- **GitContext repo-context authority, forge-neutral** — `adws/gitContext/` is a deep module that owns every git interaction and exposes a single forge-neutral `exec()` executor (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) that any forge adapter builds on; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) has been deleted; every caller now reaches those operations through `adws/providers/github/ghRepoApi.ts` (`GhRepoApi`, composed from `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops), a bound view built on the same `exec()` primitive via `ghCommandRunner.ts` (issue #797). Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter itself still constructs a `GhRepoApi`.
-- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for four independent violation classes: a direct `git`/`gh` shell-out outside the closed, two-entry `EXEMPT_PACKAGES` set (`adws/gitContext`, the git core; `adws/providers/github`, the GitHub forge adapter — `git-gh-shellout`), a `gitContextForRepo(…)` or `forgeProviders({ identity })` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769; `CONTEXT_CONSTRUCTOR_NAMES` since #823), ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped allowlist (`unsanctioned-construction`, #795) — since #823 the allowlist is exactly two PERMANENT entries (`adws/core/launchGitContext.ts`, `adws/providers/forgeProviders.ts`) and nothing may ever be added to it, and a self-cleaning ratchet fails the build if a stale transitional entry is ever left behind — or a framework import from a file inside the widen-only `EXTRACTION_SCOPE` allowlist resolving outside the extractable `adws/gitContext`/`adws/providers` set (`extraction-readiness`, #816; ten scope entries as of #823, where `EXTRACTION_SCOPE == EXTRACTABLE_SET` — the whole of both packages). The four rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`, `extractionRule.ts`).
+- **GitContext repo-context authority, forge-neutral, now a library import** — since issue #840, `GitContext` and the forge-neutral `exec()` executor it exposes (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) are no longer owned in-tree: ADW imports them from `@paysdoc/devplatform/git`, and the GitHub forge adapter (`GhRepoApi`, `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops, `ghCommandRunner.ts`) from `@paysdoc/devplatform/providers`. `adws/core/launchGitContext.ts` is ADW's sole wiring layer over the library: it constructs the one `GitContext` at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), and the library resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace) and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs that motivated the original design. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) was deleted well before the library extraction; every caller reaches those operations through the library's `GhRepoApi`. Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter inside the library still constructs a `GhRepoApi`.
+- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for three independent violation classes: a direct `git`/`gh` shell-out (`git-gh-shellout`) — since issue #840 moved the git core and the GitHub forge adapter into `@paysdoc/devplatform`, `EXEMPT_PACKAGES` is deliberately **empty** and nothing may ever be added back to it, since no in-repo package is permitted to shell out to git or gh at all; a `gitContextForRepo(…)` or `forgeProviders({ identity })` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769; `CONTEXT_CONSTRUCTOR_NAMES` since #823); or ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped allowlist (`unsanctioned-construction`, #795) — the allowlist is exactly one PERMANENT entry, `adws/core/launchGitContext.ts` (the library's own `forgeProviders.ts` assembly module lives outside this repo since #840 and is no longer a second site to sanction), and nothing may ever be added to it, with a self-cleaning ratchet failing the build if a stale transitional entry is ever left behind. The extraction-readiness rule (`extractionRule.ts`) was retired along with the `adws/gitContext`/`adws/providers` packages it guarded. The three remaining rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`).
 - **JSONL schema conformance checking** — `adws/jsonl/` (`schemaProbe.ts`, `conformanceCheck.ts`, `fixtureUpdater.ts`) probes the real Claude CLI's streamed JSONL envelope shape, persists it to `adws/jsonl/schema.json`, and validates recorded test fixtures against both that schema and ADW's own `claudeStreamParser.ts` parsers (`bun run jsonl:probe` / `jsonl:check` / `jsonl:update`), failing the build on drift so a CLI output-format change is caught before it silently breaks stream parsing.
 - **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Stateless pipeline agents** — every `claude` spawn in `adws/agents/claudeAgent.ts` sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` after the env overlay, so no agent ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
-- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for. Providers are assembled by `adws/providers/forgeProviders.ts`'s `forgeProviders()` (#823) — the library's one public entry point, refusing an unknown forge name or a mismatched `gitContext` by name before constructing anything — called from `adws/core/launchGitContext.ts`'s `buildLaunchBoundary`, ADW's only production caller. `adws/github/` no longer exists: it was deleted in #823 along with `adws/providers/repoContext.ts`, the last file that constructed a `GitContext` outside the launch boundary. The ADW-application helpers that used to sit atop the old free-function layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) live in `adws/forge/`; ADW's own environment-to-config wiring for the forge adapters lives in `adws/core/forgeWiring.ts`.
+- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for. Providers are assembled by `@paysdoc/devplatform/providers`'s `forgeProviders()` — the library's one public entry point, refusing an unknown forge name or a mismatched `gitContext` by name before constructing anything — called from `adws/core/launchGitContext.ts`'s `buildLaunchBoundary`, ADW's only production caller. Since issue #840, `adws/providers/` and `adws/gitContext/` no longer exist in this repo at all: the port/domain model, the forge adapters, and the git core they used to hold now live in `@paysdoc/devplatform` (three entry points — `@paysdoc/devplatform` for ports/domain model, `@paysdoc/devplatform/providers` for `forgeProviders()`/adapters, `@paysdoc/devplatform/git` for `GitContext`). `adws/github/` was already gone before that, deleted in #823 along with `adws/providers/repoContext.ts`, the last in-tree file that constructed a `GitContext` outside the launch boundary. The ADW-application helpers that used to sit atop the old free-function layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) live in `adws/forge/`; ADW's own environment-to-config wiring for the forge adapters lives in `adws/core/forgeWiring.ts`.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Per-event webhook crash isolation** — `trigger_webhook.ts` wraps each event's dispatch in a try/catch around `dispatchWebhookEvent()`; a synchronous throw is contained (`webhookEventBoundary.ts`) rather than crashing the process, answers HTTP 500 only if headers are unsent, and reports failures via a no-throw, best-effort Slack alert (`reportWebhookEventFailure`) so one bad event can't take the trigger down.
@@ -137,7 +137,7 @@ If you want to evaluate the codebase directly, the recommended reading order is:
 2. `adws/triggers/trigger_cron.ts` together with `adws/triggers/takeoverHandler.ts` — the control loop.
 3. `adws/phases/orchestratorLock.ts` together with `adws/triggers/spawnGate.ts` — the locking model.
 4. `adws/core/processLiveness.ts`, `adws/core/heartbeat.ts`, and `adws/core/hungOrchestratorDetector.ts` — the liveness model.
-5. `adws/providers/forgeProviders.ts` together with `adws/providers/types.ts` — the provider abstraction; `adws/core/launchGitContext.ts` calls `forgeProviders()` to assemble the same provider triple at the launch boundary, bound to the same identity as the GitContext.
+5. `@paysdoc/devplatform/providers` (`forgeProviders()`) together with `@paysdoc/devplatform`'s port types — the provider abstraction, now supplied by the library rather than in-tree; `adws/core/launchGitContext.ts` calls `forgeProviders()` to assemble the same provider triple at the launch boundary, bound to the same identity as the GitContext.
 6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
 7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
 
@@ -466,7 +466,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 templates/              # ADW framework-level templates
 ├── claude-settings-starter.json  # Canonical deny-list source for the guardrails `--settings` injection; also copied into target repos by `/adw_init`
 └── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
-adws/                   # ADW workflow system
+adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
 │   ├── adwMerge.test.ts
 │   ├── adwUpgrade.test.ts
@@ -659,37 +659,6 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsBase.ts  # isAdwRunningForIssue(issueNumber, tracker) — GitHub-specific workflow comment utilities over an injected IssueTracker
 │   ├── workflowCommentsIssue.ts  # Issue workflow comment formatting and posting functions (WorkflowContext, formatWorkflowComment, formatResumingComment, formatHumanGatedComment)
 │   └── workflowCommentsPR.ts  # PR review workflow comment formatting functions (PRReviewWorkflowContext, formatPRReviewWorkflowComment)
-├── gitContext/         # Repo-context authority deep module (GitContext)
-│   ├── __tests__/      # Vitest unit tests
-│   │   ├── bootstrapIdentity.test.ts
-│   │   ├── claimOps.test.ts
-│   │   ├── commitOps.test.ts
-│   │   ├── gitContext.test.ts
-│   │   ├── gitContextOperations.test.ts
-│   │   ├── gitReadOps.test.ts
-│   │   ├── remoteOps.test.ts
-│   │   ├── repoApiCwd.test.ts
-│   │   ├── repoWorkspace.test.ts
-│   │   ├── workingDirectoryGuard.test.ts
-│   │   └── worktreeLogger.test.ts
-│   ├── bootstrapIdentity.ts  # Pre-context GENERIC git reads only (git remote get-url origin, GIT_AUTHOR_*/GIT_COMMITTER_* env, git config user.name/email) — permanent exception absorbed into package (#700); GitHub remote parsing, App bot-identity derivation and gh auth token moved to the GitHub forge adapter (#793)
-│   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
-│   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
-│   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
-│   ├── consoleLogger.ts  # Default Logger port implementation — every level to stdout (#793)
-│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, public forge-neutral exec() executor (#790) with the #run classifier resolving credentials through the TokenProvider port per command (#791), no cwd fallback; worktree-op logging through an injected Logger port defaulting to consoleLogger (#793); its 35-method gh semantic surface (fetchIssue/commentOnIssue/createPR/moveIssueToStatus/… and #runRepoApi) has been deleted — every caller now reaches those operations through adws/providers/github/ghRepoApi.ts, built on this package's exec()/ghCommandRunner (#797)
-│   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
-│   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge
-│   ├── index.ts        # Public surface (GitContext class + exec()/ExecOptions/ExecWorkingDirectory executor types + GitIdentity/GitContextOptions types + TokenProvider port types + Logger/LogLevel port types + generic bootstrap primitives); the GitHub TokenProvider implementation, command builders, App auth, token resolution, GitHub remote-URL parsing, bot-identity derivation, clone-URL construction and gh auth token live in the GitHub forge adapter (adws/providers/github/, #792/#793)
-│   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
-│   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth; clones exactly the clone URL it is handed, no rewriting (#793)
-│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, GitContextDeps, ExecWorkingDirectory, ExecOptions, TokenProvider, CredentialRequest, CredentialPurpose, Logger, and LogLevel interfaces/types (#791/#793)
-│   ├── workingDirectoryGuard.ts  # Rewraps a spawn-into-a-missing-cwd ENOENT into an error naming the path and repo identity (exec()'s catch block); pure, no fs/spawn
-│   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore) — reports through an injected Logger port (#793)
-│   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)
-│   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
-│   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue) — reports through an injected Logger port (#793)
-│   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
@@ -809,85 +778,6 @@ adws/                   # ADW workflow system
 │   ├── issueRouting.ts  # Issue routing type definitions
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
-├── providers/          # Provider interfaces and implementations
-│   ├── __tests__/      # Vitest unit tests
-│   │   ├── boardManager.test.ts
-│   │   ├── forgeProviders.deps.test.ts  # forgeProviders() dependency-wiring coverage
-│   │   ├── forgeProviders.selection.test.ts  # forgeProviders() forge-name selection coverage
-│   │   ├── forgeProviders.test.ts  # The critical suite (#823) — one identity in, every member bound to it; mismatched context/unknown forge name refused before construction; GitLab/Jira selection; the board-manager omission
-│   │   ├── forgeProvidersFixture.ts  # Shared forgeProviders() test fixture
-│   │   ├── refusalStubs.test.ts  # Asserts GitLab/Jira named-refusal-stub methods reject rather than silently no-op
-│   │   └── workspaceValidation.test.ts  # parseOwnerRepoFromUrl + validateWorkingDirectory, relocated from repoContext.test.ts (#823)
-│   ├── github/         # GitHub forge adapter — the only package (besides the git core) exempt from the git/gh CLI guard; its gh call sites feed command strings into the core's executor, never spawning a process itself (#792)
-│   │   ├── __tests__/  # Vitest unit tests
-│   │   │   ├── appAuth.test.ts
-│   │   │   ├── cloneUrl.test.ts
-│   │   │   ├── ghCommandRunner.test.ts
-│   │   │   ├── ghIssueParsers.test.ts
-│   │   │   ├── ghPrParsers.test.ts
-│   │   │   ├── ghRepoApi.test.ts  # GhRepoApi assembly coverage — the relocated gh semantic surface (#797)
-│   │   │   ├── ghRepoApiCwd.test.ts  # Framework-root cwd invariance for GhRepoApi commands (#797)
-│   │   │   ├── gitContextFixture.ts  # Shared fake-GitContext test fixture
-│   │   │   ├── githubBoardManager.test.ts
-│   │   │   ├── githubCodeHost.test.ts  # GithubCodeHost delegation coverage (#796)
-│   │   │   ├── githubIdentity.test.ts
-│   │   │   ├── githubIssueTracker.test.ts  # GithubIssueTracker delegation coverage (#796)
-│   │   │   ├── githubIssueTrackerLabelPolicy.test.ts  # addLabel/applyLabel/ensureLabel fail-open vs lazy-create-and-rethrow policy coverage
-│   │   │   ├── githubTokenProvider.test.ts
-│   │   │   └── tokenResolver.test.ts
-│   │   ├── commands/   # Pure command-string builders (no I/O) — one file per concern
-│   │   │   ├── __tests__/  # Vitest unit tests
-│   │   │   │   └── issueCommands.test.ts
-│   │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
-│   │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
-│   │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
-│   │   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
-│   │   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
-│   │   ├── domain/      # GitHub-specific domain types
-│   │   │   ├── issue.ts
-│   │   │   └── pullRequest.ts
-│   │   ├── appAuth.ts  # GitHub App JWT dance and installation-token exchange — configuration is injected (GitHubAppConfig), never read from process.env (#792)
-│   │   ├── cloneUrl.ts  # GitHub clone-URL construction (convertToSshUrl) — the HTTPS→SSH rewrite moved out of the git core (#793)
-│   │   ├── ghAuthToken.ts  # `gh auth token` — moved out of the git core; the pre-context credential read only this adapter may issue (#793)
-│   │   ├── ghCommandRunner.ts  # The adapter's sole route to a child process — turns a built command string into an executed one via GitContext.exec, framework-root cwd, per-command TokenProvider credential (#792)
-│   │   ├── contextBinding.ts  # assertContextBoundTo — case-insensitive owner/repo cross-check the three port factories run before binding (#819)
-│   │   ├── ghIssueApi.ts  # The 14 issue operations relocated from GitContext's deleted semantic surface, one-to-one onto a GhCommandRunner bound to one owner/repo; deep-import only, assembled into GhRepoApi (#797)
-│   │   ├── ghIssueParsers.ts  # Pure gh issue … payload parsers absorbed from adws/github/issueApi.ts/issueListApi.ts — the tracker's canonical parsing (#819)
-│   │   ├── ghPrApi.ts  # The 13 PR operations relocated from GitContext's deleted semantic surface, one-to-one onto a GhCommandRunner bound to one owner/repo; deep-import only, assembled into GhRepoApi (#797)
-│   │   ├── ghPrParsers.ts  # Pure gh pr …/gh api payload parsers absorbed from adws/github/prApi.ts — the code host's canonical parsing (#819)
-│   │   ├── ghRepoApi.ts  # Composes ghIssueApi + ghPrApi with the repo/label/secret/board remainder into one GhRepoApi view over a GitContext the caller already holds — the relocation target of GitContext's former semantic surface (#797)
-│   │   ├── githubBoardManager.ts  # GitHub Projects V2 board management — binds a GhCommandRunner once over the caller's GitContext, logs through the injected Logger port (#819)
-│   │   ├── githubCodeHost.ts  # Binds createGhRepoApi(ctx) once over the caller's GitContext; absorbed adws/github/prApi.ts's parsing/error policy/logging verbatim, logs through the injected Logger port (#819)
-│   │   ├── githubIdentity.ts  # GitHub remote-URL parsing (parseGitHubRemoteUrl, readLocalRepoInfo) and App bot-identity derivation (resolveBootstrapGitIdentity) — moved out of the git core, composing its generic readers (#793)
-│   │   ├── githubIssueTracker.ts  # Binds createGhRepoApi(ctx) once over the caller's GitContext; absorbed adws/github/issueApi.ts/labelManager.ts/projectBoardApi.ts's parsing/error policy/logging verbatim; onStatusMoved/resolveLabelDefinition deps seams carry ADW's Slack ping and label catalogue out of the library (#819)
-│   │   ├── githubTokenProvider.ts  # TokenProvider port's GitHub implementation (createGitHubTokenProvider) — wraps tokenResolver's resolveContextToken unchanged, owns the PAT-vs-installation-token decision for 'alternateIdentity' requests (#791/#792)
-│   │   ├── index.ts
-│   │   ├── mappers.ts
-│   │   └── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700/#792)
-│   ├── gitlab/         # GitLab provider
-│   │   ├── __tests__/  # Vitest unit tests — fake config in, curl argv out (#818)
-│   │   │   ├── gitlabApiClient.test.ts
-│   │   │   └── gitlabCodeHost.test.ts
-│   │   ├── gitlabApiClient.ts  # Synchronous curl client — injected GitLabConfig, Logger port, runCurl seam (#818)
-│   │   ├── gitlabBoardManager.ts  # Stub (not implemented)
-│   │   ├── gitlabCodeHost.ts  # findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret are named refusal stubs, not new GitLab capability (#796); factory takes injected { token, instanceUrl } — no environment reads (#818)
-│   │   ├── gitlabTypes.ts
-│   │   ├── index.ts
-│   │   └── mappers.ts
-│   ├── jira/           # Jira provider
-│   │   ├── __tests__/  # Vitest unit tests — fake config in, fetch call out (#818)
-│   │   │   ├── jiraApiClient.test.ts
-│   │   │   └── jiraIssueTracker.test.ts
-│   │   ├── adfConverter.ts
-│   │   ├── index.ts
-│   │   ├── jiraApiClient.ts  # fetch-based client — injected auth, Logger port, fetchFn seam (#818)
-│   │   ├── jiraBoardManager.ts  # Stub (not implemented)
-│   │   ├── jiraIssueTracker.ts  # fetchLabels/addLabel/applyLabel/ensureLabel/createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue are named refusal stubs, not new Jira capability (#796); reachable from a boundary since #823 — `.adw/providers.md`'s `## Issue Tracker jira` selects it; factory takes injected { instanceUrl, projectKey, auth } (#818)
-│   │   └── jiraTypes.ts
-│   ├── forgeProviders.ts  # forgeProviders() (#823) — the library's one public assembly function; one identity in, every returned provider bound to it; refuses an unknown/wrong-port forge name or a mismatched gitContext before constructing anything; no board manager (never a stub) for a non-GitHub code host
-│   ├── index.ts
-│   ├── workspaceValidation.ts  # validateWorkingDirectory/parseOwnerRepoFromUrl, moved out of repoContext.ts to keep it under the 300-line cap (#818); consumed directly by adws/core/workspaceBinding.ts since repoContext.ts was deleted (#823)
-│   └── types.ts  # IssueTracker/CodeHost ports — widened (#796) with label ops (fetchLabels/addLabel/applyLabel/ensureLabel — two label methods on purpose, fail-open vs lazy-create-and-rethrow), createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue, findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret, and the IssueSummary/PullRequestSummary/ForgeActionResult projections they return
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
@@ -988,15 +878,11 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
-├── guard/              # Git/GH CLI Guard rule modules (#795)
-│   ├── __tests__/      # Vitest unit tests
-│   │   ├── extractionRule.integration.test.ts
-│   │   └── extractionRule.test.ts
+├── guard/              # Git/GH CLI Guard rule modules (#795) — the extraction-readiness rule (extractionRule.ts) and its tests were retired along with adws/gitContext/adws/providers (#840)
 │   ├── violationTypes.ts    # Shared ViolationRule ('git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction') / Violation types
-│   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823)
-│   ├── extractionRule.ts    # Extraction-boundary guard rule — EXTRACTION_SCOPE == EXTRACTABLE_SET since #823 (ten entries, the whole of adws/gitContext + adws/providers)
+│   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823) — the flagged names are now imported from `@paysdoc/devplatform` (#840)
 │   ├── guardReport.ts       # Formats collected violations into a guard report
-│   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside the two-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts, adws/providers/forgeProviders.ts — zero sunset entries since #823)
+│   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside a one-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts only; the library's own forgeProviders.ts is no longer a second in-repo site to sanction since #840)
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)

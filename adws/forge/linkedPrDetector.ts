@@ -8,7 +8,7 @@
  */
 
 import { log } from '../core/logger';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 import { bodyLinksIssue } from './issueLinkMarker';
 
 export interface LinkedPRRef {

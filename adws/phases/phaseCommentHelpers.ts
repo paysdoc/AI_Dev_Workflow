@@ -9,7 +9,7 @@
 import { type WorkflowStage, type PRReviewWorkflowStage, log } from '../core';
 import { formatWorkflowComment, type WorkflowContext } from '../forge/workflowCommentsIssue';
 import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
-import type { RepoContext } from '../providers/types';
+import type { RepoContext } from '@paysdoc/devplatform';
 
 /**
  * Formats a denial-count notice for run reporting (issue #762): a bad deny

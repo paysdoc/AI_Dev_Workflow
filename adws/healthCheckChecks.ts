@@ -9,8 +9,8 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
-import type { GitContext } from './gitContext';
-import type { CodeHost, IssueTracker } from './providers/types';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { CodeHost, IssueTracker } from '@paysdoc/devplatform';
 
 /**
  * Individual check result.

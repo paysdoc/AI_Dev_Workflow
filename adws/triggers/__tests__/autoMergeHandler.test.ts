@@ -11,10 +11,9 @@ vi.mock('../../agents', () => ({
 
 import { runClaudeAgentWithCommand } from '../../agents';
 import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeHandler';
-import { GitContext } from '../../gitContext/gitContext';
-import type { ExecFn } from '../../gitContext/types';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
-import type { CodeHost, ForgeActionResult } from '../../providers/types';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { ExecFn } from '@paysdoc/devplatform/git';
+import type { CodeHost, ForgeActionResult } from '@paysdoc/devplatform';
 
 const HEAD_BRANCH = 'feature-issue-42';
 const BASE_BRANCH = 'main';

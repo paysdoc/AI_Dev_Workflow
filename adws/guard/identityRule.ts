@@ -22,6 +22,10 @@
  * `CWD_DERIVED_IDENTITY_FNS` alongside the two names above: introducing a new
  * cwd-derived identity reader without registering its name here would let the
  * composite it exists to catch go quietly unflagged rather than red.
+ *
+ * Known, unchanged limitation (#840): matching is by identifier text, so an
+ * aliased import (`import { GitContext as GC }`, `forgeProviders as fp`)
+ * evades both this rule and `constructionRule.ts`.
  */
 
 import * as ts from 'typescript';

@@ -1,13 +1,13 @@
 /**
- * Shared exec-fake fixture for the GitHub adapter's behaviour tests (#819):
- * a real `GitContext` over a spy `exec`, plus a capturing logger. Extracted
- * from `ghRepoApi.test.ts`'s `validOptions`/`makeSpyExec` pattern so the
- * rewritten port-class suites don't each redeclare it.
+ * ADW-owned since the `@paysdoc/devplatform` switchover (#840): the exec-fake
+ * fixture for tests that need a real `GitContext` over a spy `exec`, plus a
+ * capturing logger. Lives under `test/` because that directory is in the
+ * guard's `EXEMPT_DIR_NAMES`, so the `new GitContext` inside it is never
+ * walked by the construction rule.
  */
 
-import { GitContext } from '../../../gitContext';
-import type { GitContextOptions, ExecFn, Logger, LogLevel } from '../../../gitContext';
-import { createLiteralTokenProvider } from '../githubTokenProvider';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { GitContextOptions, ExecFn, Logger, LogLevel } from '@paysdoc/devplatform/git';
 
 export const FRAMEWORK_ROOT = '/srv/adw/framework';
 export const TARGET_REPOS_DIR = '/srv/adw/repos';

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildUnaddressedCommentReads, hasUnaddressedComments } from '../prCommentDetector';
-import type { CodeHost, PullRequest, ReviewComment } from '../../providers/types';
-import type { GitContext } from '../../gitContext';
+import type { CodeHost, PullRequest, ReviewComment } from '@paysdoc/devplatform';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core/launchGitContext';
 
 function makeBoundary(overrides: {

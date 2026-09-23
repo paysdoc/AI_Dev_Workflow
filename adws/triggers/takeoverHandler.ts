@@ -38,7 +38,7 @@ import { formatHumanGatedComment } from '../forge/workflowCommentsIssue';
 import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
 import { probeWorktree, clearOrphanedIndexLock, buildDefaultProbeDeps } from '../vcs/worktreeProbe';
 import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
-import type { RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 

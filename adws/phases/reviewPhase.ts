@@ -21,7 +21,7 @@ import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';

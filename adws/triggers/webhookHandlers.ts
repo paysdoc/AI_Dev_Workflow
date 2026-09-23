@@ -7,7 +7,7 @@
  */
 
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS, generateAdwId } from '../core';
-import type { BoundProviders, IssueTracker } from '../providers/types';
+import type { BoundProviders, IssueTracker } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../core';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';

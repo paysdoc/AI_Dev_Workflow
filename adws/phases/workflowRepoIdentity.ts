@@ -9,8 +9,8 @@
  * this throws rather than falling back to the ambient local git remote.
  */
 
-import { Platform, type RepoIdentifier } from '../providers/types';
-import type { GitContext } from '../gitContext';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { WorkflowConfig } from './workflowInit';
 
 export function resolveWorkflowRepoId(config: Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>): RepoIdentifier {

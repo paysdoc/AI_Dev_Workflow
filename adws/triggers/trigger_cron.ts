@@ -10,9 +10,9 @@
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
-import type { BoundProviders } from '../providers/types';
+import type { BoundProviders } from '@paysdoc/devplatform';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';

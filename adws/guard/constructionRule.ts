@@ -20,11 +20,12 @@
  * (`deps.gitContextForRepo(…)`, `d.gitContextForRepo(…)`) are an injected
  * seam, exactly the pattern this PRD wants, and are deliberately unflagged.
  *
- * `adws/providers/github/**` (and `adws/gitContext/**`) never reach this
- * rule at all: `visitDir`'s `isExemptPackage` prunes both directories from
- * the whole-repo walk before any file is handed to `scanFiles`, so the
- * adapter package that DEFINES the provider factories needs no allowlist
- * entry of its own.
+ * The flagged callees (`createGitHub*`, `createGitLab*`, `createJira*`,
+ * `forgeProviders`, `new GitContext`) are no longer declared in this repo at
+ * all (issue #840): they are names IMPORTED from `@paysdoc/devplatform/providers`
+ * and `@paysdoc/devplatform/git`, matched here by identifier text, exactly as
+ * before the library extraction. The launch boundary
+ * (`adws/core/launchGitContext.ts`) is the only place they may be called.
  *
  * ONE SHAPE IS NOT THIS RULE'S TO JUDGE (#844): a context constructor whose
  * identity argument is a direct identity read —
@@ -82,26 +83,20 @@ export const GIT_CONTEXT_CLASS_NAME = 'GitContext';
 
 /**
  * The file-scoped allowlist of sites permitted to construct a provider or a
- * context — exactly two PERMANENT entries (no `owner`), the launch boundary
- * and the assembly module it calls. Nothing will ever remove these, and
- * NOTHING MAY EVER BE ADDED TO THIS LIST — a new construction site must call
- * `buildLaunchBoundary`, not join it.
+ * context — exactly one PERMANENT entry (no `owner`), the launch boundary.
+ * Nothing will ever remove it, and NOTHING MAY EVER BE ADDED TO THIS LIST —
+ * a new construction site must call `buildLaunchBoundary`, not join it.
  *
- * #823 took the SUNSET half to zero: `adws/providers/repoContext.ts` (the
- * mint implementation) and `adws/github/gitContextFactory.ts` (the last
- * `gitContextFor*`/`GitContext` factory definition) are both deleted, their
- * construction role absorbed into `adws/providers/forgeProviders.ts`. Before
- * that, #822 had already retired every #796-migration-wave transitional
- * entry — the worktree-owning phases, `orchestratorLib`, `healthCheck`,
- * `worktreeOperations`, and the five trigger files that used to call
- * `gitContextForSync`/`gitContextForRepo` directly all take a threaded
- * GitContext now — and #821 deleted the legacy `adws/github/*` free-function
- * layer outright, so no entry in this list is owned by #821, #822 or #797
- * any longer.
+ * Since #840, the assembly module (`forgeProviders.ts`) and every adapter
+ * factory it used to call live in `@paysdoc/devplatform`, outside this repo
+ * entirely — there is no second in-repo site left to sanction. The SUNSET
+ * half has been zero since #823: `adws/providers/repoContext.ts` and
+ * `adws/github/gitContextFactory.ts` were deleted then, their construction
+ * role absorbed into the library. No entry in this list is owned by any
+ * migration wave any longer.
  */
 export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/core/launchGitContext.ts', reason: 'the launch boundary: constructs the one GitContext and calls forgeProviders (PRD story 6)' },
-  { file: 'adws/providers/forgeProviders.ts', reason: 'the assembly module: the only site that calls the adapter factories' },
 ] as const;
 
 /** True when `relPath` exactly matches a sanctioned site. Exact path match only — a directory prefix is never sanctioned. */

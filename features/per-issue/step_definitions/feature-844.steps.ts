@@ -41,7 +41,7 @@ import { world796, splitRepo } from './feature-796.steps.ts';
 import { resetGuardFixtureTree } from './feature-816.steps.ts';
 
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
-import type { Issue } from '../../../adws/providers/types.ts';
+import type { Issue } from '@paysdoc/devplatform';
 import { fetchIssueRecord } from '../../../adws/core/issueRecord.ts';
 import { formatIssueContextAsArgs } from '../../../adws/agents/planAgent.ts';
 import { readAdwLabelNames, issueTypeToAdwLabel } from '../../../adws/core/adwLabels.ts';
@@ -49,9 +49,7 @@ import { buildNotifierDeps, notifyReviewTransition, notifyBlockedTransition } fr
 import { checkGitHubCLI, checkIssueNumber, type CheckResult } from '../../../adws/healthCheckChecks.ts';
 import { readLocalRepoIdentity } from '../../../adws/core/localRepoIdentity.ts';
 import { convertToSshUrl } from '../../../adws/core/sshCloneUrl.ts';
-import { ensureRepoWorkspace } from '../../../adws/gitContext/index.ts';
-import { commitOps } from '../../../adws/gitContext/commitOps.ts';
-import { branchOps } from '../../../adws/gitContext/branchOps.ts';
+import { ensureRepoWorkspace, commitOps, branchOps } from '@paysdoc/devplatform/git';
 
 const REPO_ROOT = process.cwd();
 const ORIGINAL_SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;

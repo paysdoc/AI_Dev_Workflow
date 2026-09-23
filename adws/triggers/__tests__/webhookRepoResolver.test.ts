@@ -12,10 +12,9 @@ import { resolveWebhookRepo } from '../webhookRepoResolver';
 import type { WebhookRepoResolution } from '../webhookRepoResolver';
 import { buildLaunchGitContext } from '../../core/launchGitContext';
 import type { LaunchGitContextDeps } from '../../core/launchGitContext';
-import { GitContext } from '../../gitContext';
-import type { ExecFn } from '../../gitContext/types';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
-import { Platform } from '../../providers/types';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { ExecFn } from '@paysdoc/devplatform/git';
+import { Platform } from '@paysdoc/devplatform';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';

@@ -19,7 +19,7 @@ import {
   type PausedWorkflow,
 } from '../core/pauseQueue';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
-import { Platform, type RepoIdentifier } from '../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
