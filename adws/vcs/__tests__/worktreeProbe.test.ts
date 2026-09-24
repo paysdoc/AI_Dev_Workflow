@@ -21,8 +21,6 @@ function makeDeps(overrides: Partial<ProbeDeps> = {}): ProbeDeps {
 
 const INPUT = { worktreePath: WT_PATH, expectedBranch: BRANCH };
 
-// ─── index.lock signal ────────────────────────────────────────────────────────
-
 describe('indexLock signal', () => {
   it('lock absent → absent', () => {
     const deps = makeDeps({ existsSync: vi.fn().mockReturnValue(false) });
@@ -57,8 +55,6 @@ describe('indexLock signal', () => {
   });
 });
 
-// ─── liveOwner signal ─────────────────────────────────────────────────────────
-
 describe('liveOwner signal', () => {
   it('pid + startedAt + isProcessLive → true', () => {
     const deps = makeDeps({ isProcessLive: vi.fn().mockReturnValue(true) });
@@ -86,8 +82,6 @@ describe('liveOwner signal', () => {
     expect(deps.isProcessLive).not.toHaveBeenCalled();
   });
 });
-
-// ─── interruptedOp signal ─────────────────────────────────────────────────────
 
 describe('interruptedOp signal', () => {
   it('rebase-merge dir present → rebase', () => {
@@ -148,8 +142,6 @@ describe('interruptedOp signal', () => {
   });
 });
 
-// ─── headOnExpectedBranch signal ─────────────────────────────────────────────
-
 describe('headOnExpectedBranch signal', () => {
   it('currentBranch === expectedBranch → true', () => {
     const deps = makeDeps({ currentBranch: vi.fn().mockReturnValue(BRANCH) });
@@ -170,8 +162,6 @@ describe('headOnExpectedBranch signal', () => {
   });
 });
 
-// ─── resolveGitDir null → missing + no throw ─────────────────────────────────
-
 describe('resolveGitDir null', () => {
   it('returns registration:missing and does not throw', () => {
     const deps = makeDeps({ resolveGitDir: vi.fn().mockReturnValue(null) });
@@ -180,8 +170,6 @@ describe('resolveGitDir null', () => {
     expect(probe!.registration).toBe('missing');
   });
 });
-
-// ─── clearOrphanedIndexLock ───────────────────────────────────────────────────
 
 describe('clearOrphanedIndexLock', () => {
   it('removes the lock when present', () => {

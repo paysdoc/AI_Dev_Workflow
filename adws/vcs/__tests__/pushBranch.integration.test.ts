@@ -1,7 +1,7 @@
 /**
- * Real-git integration tests for GitContext.pushBranch() — re-homed from
- * vcs/commitOperations (#662). Proves the three behavioral acceptance criteria
- * end-to-end against a local bare remote (no network).
+ * Real-git integration tests for GitContext.pushBranch(). Proves the three
+ * behavioral acceptance criteria end-to-end against a local bare remote (no
+ * network).
  *
  * A: append-only push still works
  * B: a rewritten branch (amend) pushes successfully (the core bug fix)

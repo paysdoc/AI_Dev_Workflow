@@ -1,9 +1,8 @@
 /**
- * HITL board-event notifier — owns PR/issue lookup, message building, and Slack delivery.
  * No-throw at boundary. Nothing here constructs a provider: every reader is
  * injected via `NotifierDeps`, and the one production reader set
  * (`buildNotifierDeps`) reads through the launch boundary's `IssueTracker`/
- * `CodeHost` ports (#844) rather than a bound `createGhRepoApi(ctx)` view.
+ * `CodeHost` ports rather than a bound `createGhRepoApi(ctx)` view.
  *
  * `buildNotifierDeps` takes a THUNK resolving to the ports, not the ports
  * themselves: `forgeWiring.ts` builds these deps while `forgeProviders` is
@@ -20,10 +19,6 @@ import { log } from '../core';
 import { postSlack } from '../core/slackNotifier';
 import { bodyLinksIssue } from './issueLinkMarker';
 import type { CodeHost, IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 /** The two forge reads a notification needs — a `Pick` both `BoundProviders` and `RepoContext` satisfy. */
 export interface NotifierPorts {
@@ -44,7 +39,6 @@ interface HitlPREntry {
   readonly updatedAt: string;
 }
 
-/** Injected readers — the two forge reads a notification needs. */
 export interface NotifierDeps {
   readIssue: (issueNumber: number, repoInfo: RepoIdentifier) => Promise<HitlIssueInfo | null>;
   listOpenPRs: (repoInfo: RepoIdentifier) => HitlPREntry[] | null;
@@ -61,11 +55,6 @@ export interface NotifyBlockedArgs {
   source: 'discarded' | 'review_error';
   errorMessage?: string;
 }
-
-// ---------------------------------------------------------------------------
-// The one production reader set — reads through the boundary's ports,
-// resolved lazily via `resolvePorts` at notification time.
-// ---------------------------------------------------------------------------
 
 // `repoId` is unused here — kept on the signature only so callers passing
 // `(resolvePorts, repoId)` compile unchanged; the ports themselves are
@@ -92,10 +81,6 @@ export function buildNotifierDeps(resolvePorts: () => NotifierPorts, _repoId: Re
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
 
 async function readIssueTitleAndHitl(
   issueNumber: number,
@@ -134,10 +119,6 @@ function findReviewPr(
 function buildSnippet(errorMessage: string | undefined): string {
   return (errorMessage ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export async function notifyReviewTransition(
   args: NotifyReviewArgs,

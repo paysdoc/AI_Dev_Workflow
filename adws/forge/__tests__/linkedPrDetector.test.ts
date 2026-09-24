@@ -24,7 +24,7 @@ describe('hasLinkedMergedOrClosedPR', () => {
     expect(hasLinkedMergedOrClosedPR(42, prs)).toBe(true);
   });
 
-  // #592 regression: the SDLC PR template emits the repo-qualified `Closes` form.
+  // The SDLC PR template emits the repo-qualified `Closes` form.
   it('returns true for a merged PR with a repo-qualified `Closes owner/repo#N` body', () => {
     const prs = [makePR({ number: 30, body: 'Closes paysdoc/AI_Dev_Workflow#42', mergedAt: '2024-01-01T00:00:00Z' })];
     expect(hasLinkedMergedOrClosedPR(42, prs)).toBe(true);
@@ -52,13 +52,11 @@ describe('hasLinkedMergedOrClosedPR', () => {
     expect(hasLinkedMergedOrClosedPR(42, [])).toBe(false);
   });
 
-  // Digit-boundary: Implements #1 must not match issue #12
   it('does not match Implements #1 when checking issue #12', () => {
     const prs = [makePR({ number: 20, body: 'Implements #1', mergedAt: '2024-01-01T00:00:00Z' })];
     expect(hasLinkedMergedOrClosedPR(12, prs)).toBe(false);
   });
 
-  // Digit-boundary: Implements #12 must not match issue #1
   it('does not match Implements #12 when checking issue #1', () => {
     const prs = [makePR({ number: 21, body: 'Implements #12', mergedAt: '2024-01-01T00:00:00Z' })];
     expect(hasLinkedMergedOrClosedPR(1, prs)).toBe(false);

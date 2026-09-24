@@ -1,11 +1,9 @@
-/** Worker environment bindings. */
 export interface Env {
   readonly DB: D1Database;
   readonly COST_API_TOKEN: string;
   readonly ALLOWED_ORIGINS?: string;
 }
 
-/** A single cost record within an ingest payload. */
 export interface IngestRecord {
   readonly workflow_id?: string;
   readonly issue_number: number;
@@ -26,7 +24,6 @@ export interface IngestRecord {
   readonly migrated?: boolean;
 }
 
-/** Top-level ingest request body. */
 export interface IngestPayload {
   /** Project slug — used to resolve or auto-create the project row. */
   readonly project: string;
@@ -42,7 +39,6 @@ export interface SuccessResponse {
   readonly inserted: number;
 }
 
-/** 400 / 401 / 500 error response body. */
 export interface ErrorResponse {
   readonly error: string;
 }

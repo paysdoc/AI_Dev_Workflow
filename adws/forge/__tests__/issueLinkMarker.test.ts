@@ -10,7 +10,7 @@ describe('bodyLinksIssue', () => {
     expect(bodyLinksIssue('Closes #42', 42)).toBe(true);
   });
 
-  // Regression guard for the #592 incident: the SDLC PR template emits the
+  // Regression guard: the SDLC PR template emits the
   // repo-qualified `Closes owner/repo#N` form, which the pre-fix regexes
   // (`(Closes|Implements) #N`) silently failed to match.
   it('matches the repo-qualified `Closes owner/repo#N` form the template emits', () => {

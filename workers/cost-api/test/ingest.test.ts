@@ -13,10 +13,6 @@ declare module 'cloudflare:test' {
 const TEST_TOKEN = 'test-secret-token';
 const BASE_URL = 'http://localhost';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 async function applySchema(): Promise<void> {
   // Re-apply schema before each test so every case starts with a clean DB shape.
   await applyD1Migrations(env.DB, JSON.parse(env.TEST_MIGRATIONS));
@@ -26,7 +22,7 @@ function post(
   body: unknown,
   token: string | null = TEST_TOKEN,
 ): Promise<Response> {
-  // Shared request helper for the ingest endpoint. Passing null omits auth entirely.
+  // Passing null omits auth entirely.
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token !== null) headers['Authorization'] = `Bearer ${token}`;
   return SELF.fetch(`${BASE_URL}/api/cost`, {
@@ -45,13 +41,8 @@ const minimalRecord = {
 } as const;
 
 beforeEach(async () => {
-  // Keep tests independent by ensuring the latest migrations are applied per run.
   await applySchema();
 });
-
-// ---------------------------------------------------------------------------
-// Auth
-// ---------------------------------------------------------------------------
 
 describe('auth', () => {
   it('returns 401 when Authorization header is missing', async () => {
@@ -75,10 +66,6 @@ describe('auth', () => {
     expect(res.status).toBe(401);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Payload validation
-// ---------------------------------------------------------------------------
 
 describe('payload validation', () => {
   it('returns 400 when project field is missing', async () => {
@@ -145,10 +132,6 @@ describe('payload validation', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Successful insert
-// ---------------------------------------------------------------------------
-
 describe('successful insert', () => {
   it('returns 201 with inserted count', async () => {
     const res = await post({ project: 'AI_Dev_Workflow', records: [minimalRecord] });
@@ -159,7 +142,6 @@ describe('successful insert', () => {
 
   it('inserts the cost_record row into D1', async () => {
     await post({ project: 'test-project', records: [minimalRecord] });
-    // Verify persistence and default enrichment performed by the ingest handler.
     const row = await env.DB
       .prepare('SELECT * FROM cost_records WHERE issue_number = 42')
       .first<Record<string, unknown>>();
@@ -203,10 +185,6 @@ describe('successful insert', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Project auto-creation
-// ---------------------------------------------------------------------------
-
 describe('project auto-creation', () => {
   it('auto-creates project row with slug as name when name is not provided', async () => {
     await post({ project: 'new-project', records: [minimalRecord] });
@@ -238,7 +216,6 @@ describe('project auto-creation', () => {
     await post({ project: 'dup-project', records: [minimalRecord] });
     await post({ project: 'dup-project', records: [minimalRecord] });
 
-    // Both inserts should point at exactly one project row for that slug.
     const { results } = await env.DB
       .prepare('SELECT DISTINCT project_id FROM cost_records')
       .all<{ project_id: number }>();
@@ -252,10 +229,6 @@ describe('project auto-creation', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Token usage fan-out
-// ---------------------------------------------------------------------------
-
 describe('token_usage fan-out', () => {
   it('creates one token_usage row per token type', async () => {
     await post({
@@ -268,7 +241,6 @@ describe('token_usage fan-out', () => {
     const { results } = await env.DB
       .prepare('SELECT token_type, count FROM token_usage ORDER BY token_type')
       .all<{ token_type: string; count: number }>();
-    // Token map keys should fan out into separate rows.
     expect(results).toHaveLength(4);
     expect(results.map(r => r.token_type)).toEqual(['cache_read', 'cache_write', 'input', 'output']);
     expect(results.find(r => r.token_type === 'input')?.count).toBe(100);
@@ -294,14 +266,9 @@ describe('token_usage fan-out', () => {
     const { results } = await env.DB
       .prepare('SELECT cost_record_id FROM token_usage')
       .all<{ cost_record_id: number }>();
-    // Every token_usage entry should reference the same inserted parent record.
     expect(results.every(r => r.cost_record_id === costRecord?.id)).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Batch insert
-// ---------------------------------------------------------------------------
 
 describe('batch insert', () => {
   it('inserts all records in a single request and returns correct count', async () => {
@@ -336,10 +303,6 @@ describe('batch insert', () => {
     expect(results).toHaveLength(5);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Routing
-// ---------------------------------------------------------------------------
 
 describe('routing', () => {
   it('returns 404 for unknown routes', async () => {
