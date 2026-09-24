@@ -8,8 +8,6 @@ import {
 } from '../regionOverlap';
 import type { RegionSignal } from '../regionOverlap';
 
-// ── normalizePath ─────────────────────────────────────────────────────────────
-
 describe('normalizePath', () => {
   it('trims whitespace', () => {
     expect(normalizePath('  adws/foo.ts  ')).toBe('adws/foo.ts');
@@ -37,8 +35,6 @@ describe('normalizePath', () => {
     expect(normalizePath(normalizePath(p))).toBe(normalizePath(p));
   });
 });
-
-// ── parseRelevantFilesSection ─────────────────────────────────────────────────
 
 describe('parseRelevantFilesSection', () => {
   it('returns empty array when section is absent', () => {
@@ -82,8 +78,6 @@ describe('parseRelevantFilesSection', () => {
     expect(result.some(p => p.includes('explanation'))).toBe(false);
   });
 });
-
-// ── pathsOverlap ──────────────────────────────────────────────────────────────
 
 describe('pathsOverlap', () => {
   it('returns overlap=true for identical single files', () => {
@@ -135,8 +129,6 @@ describe('pathsOverlap', () => {
     expect(pathsOverlap([], []).overlap).toBe(false);
   });
 });
-
-// ── decideSerialization ───────────────────────────────────────────────────────
 
 function sig(issueNumber: number, paths: string[], inFlight = false): RegionSignal {
   return { issueNumber, paths, inFlight };
@@ -242,8 +234,6 @@ describe('decideSerialization', () => {
     expect(decisionC.blockedBy).toBe(10);
   });
 });
-
-// ── scanPostPlanOverlaps ──────────────────────────────────────────────────────
 
 describe('scanPostPlanOverlaps', () => {
   it('surfaces a recommendation for two in-flight issues sharing a file', () => {

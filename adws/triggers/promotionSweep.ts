@@ -10,14 +10,14 @@
  *
  *  - `originate` — a fresh, qualifying candidate: stamps
  *    `@promotion-suggested-<date>` on the file via a commit SCOPED to that
- *    one path (never `git add -A`) and files exactly one #734-shaped
+ *    one path (never `git add -A`) and files exactly one
  *    promotion issue carrying a `Promotes: feature-{N}` back-link.
  *  - `decline` — an in-flight candidate whose tracker closed unmerged or
  *    carries `adw:blocked`: writes the terminal `@promotion-declined` marker
  *    to the source file (same scoped-commit seam; resumes TTL) and files no
  *    issue. A blocked tracking issue is left exactly as-is.
  *  - `redrive` — an in-flight candidate whose tracker is missing (crash-
- *    stranded) but still qualifying: re-files exactly one #734-shaped issue.
+ *    stranded) but still qualifying: re-files exactly one issue.
  *  - `withdraw` — the same stranded state but no longer qualifying: strips
  *    the tag back to `none` (resumes TTL) and files no issue.
  *
@@ -71,8 +71,6 @@ export interface PromotionSweepReport {
   left: string[];
 }
 
-// ── Pure helpers ──────────────────────────────────────────────────────────────
-
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -85,8 +83,6 @@ function bestScore(scenarios: readonly Scenario[], registry: VocabularyRegistry)
 function dedupedPhrases(scenarios: readonly Scenario[]): string[] {
   return [...new Set(scenarios.flatMap(s => s.steps.map(step => step.text)))];
 }
-
-// ── Per-candidate processing ─────────────────────────────────────────────────
 
 interface SweepContext {
   now: () => Date;
@@ -126,7 +122,6 @@ function attemptTagWrite(
   }
 }
 
-/** Builds the #734-shaped issue spec and files it via the injected seam. */
 function fileIssueFor(filePath: string, featureNumber: number, scenarios: readonly Scenario[], ctx: SweepContext): void {
   const spec = buildPromotionIssue({
     featureNumber,
@@ -140,7 +135,7 @@ function fileIssueFor(filePath: string, featureNumber: number, scenarios: readon
   ctx.fileIssue(spec);
 }
 
-/** Writes the marker, builds the #734-shaped issue, and files it. Never throws — swallows and logs. */
+/** Never throws — swallows and logs. */
 function attemptOriginate(
   filePath: string,
   featureNumber: number,
@@ -163,7 +158,7 @@ function attemptOriginate(
   }
 }
 
-/** Re-files the #734-shaped issue for a stranded (no-tracker) but still-qualifying candidate. Never throws — swallows and logs. */
+/** Never throws — swallows and logs. */
 function attemptRedrive(filePath: string, featureNumber: number, scenarios: readonly Scenario[], ctx: SweepContext): boolean {
   try {
     fileIssueFor(filePath, featureNumber, scenarios, ctx);
@@ -231,8 +226,6 @@ function processCandidate(
   return originated ? { kind: 'originated', featureNumber } : { kind: 'action-failed' };
 }
 
-// ── Shell entry point ────────────────────────────────────────────────────────
-
 export async function runPromotionSweep(deps: PromotionSweepDeps): Promise<PromotionSweepReport> {
   const now = deps.now ?? (() => new Date());
   const logger = deps.log ?? log;
@@ -273,7 +266,6 @@ export async function runPromotionSweep(deps: PromotionSweepDeps): Promise<Promo
   return report;
 }
 
-// ── CLI entry point ──────────────────────────────────────────────────────────
 // Guard mirrors trigger_cron.ts: `import.meta.main` is Bun-only and does not fire
 // under this repo's documented `bunx tsx <script>` invocation (verified: tsx runs
 // under Node, where import.meta.main is undefined), so this checks argv instead.

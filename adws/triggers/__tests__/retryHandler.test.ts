@@ -22,8 +22,6 @@ function makeDeps(state: AgentState | null = makeState()) {
 
 const ADW_COMMENT = { body: '**ADW ID:** `test-adw-id`' };
 
-// ── handleRetryDirective ──────────────────────────────────────────────────────
-
 describe('handleRetryDirective', () => {
   it('resets merge_blocked → awaiting_merge and clears retry counter, returns true', () => {
     const deps = makeDeps(makeState({ workflowStage: 'merge_blocked', mergeRetryCount: 2 }));

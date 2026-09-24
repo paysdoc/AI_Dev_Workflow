@@ -1,10 +1,3 @@
-/**
- * Pure routing decision + DI orchestration for the `issues.opened` label-routing path.
- *
- * Mirrors the `cronIssueFilter.ts` "testable logic extracted from a trigger" pattern:
- * pure functions carry the decision logic; a DI wrapper owns the side effects.
- */
-
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import type { AdwLabelReading } from '../core/adwLabels';
 import type { EligibilityResult } from './issueEligibility';
@@ -16,22 +9,16 @@ import { log } from '../core';
 import type { LogLevel } from '../core';
 import { logDeferral } from './webhookGatekeeper';
 
-// ── Route type ────────────────────────────────────────────────────────────────
-
 export type IssueOpenedRoute =
   | { kind: 'opt_out' }
   | { kind: 'conflict' }
   | { kind: 'classified'; classification: IssueClassSlashCommand }
   | { kind: 'infer' };
 
-// ── Outcome type ──────────────────────────────────────────────────────────────
-
 export type IssueOpenedOutcome = {
   status: 'opted_out' | 'refused_multi_label' | 'deferred' | 'spawned_classified' | 'spawned_inferred';
   reason?: string;
 };
-
-// ── Refusal comment ───────────────────────────────────────────────────────────
 
 export const MULTI_LABEL_REFUSAL_COMMENT =
   '**Multiple conflicting ADW labels detected — please clean up before ADW can process this issue.**\n\n' +
@@ -40,11 +27,7 @@ export const MULTI_LABEL_REFUSAL_COMMENT =
   'Please remove all but one `adw:` classification label. Once only one `adw:<type>` label remains, ' +
   'the CRON recovery layer will pick this issue up automatically.';
 
-// ── Pure decision ─────────────────────────────────────────────────────────────
-
-/**
- * Pure routing decision from a label reading. opt-out takes unconditional precedence.
- */
+/** opt-out takes unconditional precedence. */
 export function decideIssueOpenedRoute(reading: AdwLabelReading): IssueOpenedRoute {
   if (reading.optOut) return { kind: 'opt_out' };
   if (reading.conflict) return { kind: 'conflict' };
@@ -52,12 +35,7 @@ export function decideIssueOpenedRoute(reading: AdwLabelReading): IssueOpenedRou
   return { kind: 'infer' };
 }
 
-// ── Defensive payload extraction ──────────────────────────────────────────────
-
-/**
- * Defensively extracts label name strings from the raw webhook issue object.
- * Accepts only array entries that are objects with a string `name`.
- */
+/** Accepts only array entries that are objects with a string `name`. */
 export function extractPayloadLabelNames(issue: Record<string, unknown> | undefined): string[] {
   const labels = issue?.labels;
   if (!Array.isArray(labels)) return [];
@@ -69,8 +47,6 @@ export function extractPayloadLabelNames(issue: Record<string, unknown> | undefi
   }
   return names;
 }
-
-// ── DI interface ──────────────────────────────────────────────────────────────
 
 export interface IssueOpenedRouterDeps {
   checkEligibility: (issueNumber: number, issueBody: string) => Promise<EligibilityResult>;
@@ -91,8 +67,6 @@ export function buildDefaultIssueOpenedRouterDeps(boundary: LaunchBoundary): Iss
     logger: log,
   };
 }
-
-// ── DI orchestration ──────────────────────────────────────────────────────────
 
 export async function routeIssueOpened(
   params: {

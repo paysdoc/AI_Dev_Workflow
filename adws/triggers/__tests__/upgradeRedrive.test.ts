@@ -14,8 +14,6 @@ const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'target', platform: Pla
 const UPGRADE_LABEL = { name: 'adw:upgrade' };
 const BLOCKED_LABEL = { name: 'adw:blocked' };
 
-// ── parseClaimBranch ──────────────────────────────────────────────────────────
-
 describe('parseClaimBranch', () => {
   it('extracts the claim branch from a realistic #UPG body (as built by runUpgradeGate)', () => {
     const body = [
@@ -39,8 +37,6 @@ describe('parseClaimBranch', () => {
     expect(parseClaimBranch('Claim branch: ``')).toBeNull();
   });
 });
-
-// ── decideUpgradeRedrive truth table ──────────────────────────────────────────
 
 function signals(overrides: Partial<UpgradeRedriveSignals> = {}): UpgradeRedriveSignals {
   return {
@@ -82,8 +78,6 @@ describe('decideUpgradeRedrive', () => {
     expect(decideUpgradeRedrive(signals({ spawnLockHeldByLiveProcess: false }))).toEqual({ redrive: true, reason: 'stranded' });
   });
 });
-
-// ── findRedrivableUpgrades / runUpgradeRedriveScan (composing) ───────────────
 
 function makeDeps(overrides: Partial<UpgradeRedriveDeps> = {}): UpgradeRedriveDeps {
   return {
