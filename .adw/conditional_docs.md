@@ -653,3 +653,11 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+
+- app_docs/feature-m363ky-comment-only-guard.md
+  - Owns:
+    - adws/checkCommentOnly.ts
+  - Conditions:
+    - When working on the comment-only guard (`bun run lint:comment-only`) that proves a set of files differs from a base ref only in comments, JSDoc, and whitespace
+    - When working on `checkCommentOnly.ts`'s TS token-stream normalization, feature-file DocString handling, or its `CommentOnlyViolation` reporting
+    - When troubleshooting a comment de-bloat sweep batch's guard pass/fail, or why a file was reported `code-changed`/`absent-at-base`/`absent-in-working-tree`/`unsupported-file-kind`
