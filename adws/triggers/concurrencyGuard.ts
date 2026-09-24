@@ -8,7 +8,7 @@
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import { isAdwComment } from '../core/workflowCommentParsing';
 import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../forge/linkedPrDetector';
-import type { BoundProviders, IssueListEntry } from '../providers/types';
+import type { BoundProviders, IssueListEntry } from '@paysdoc/devplatform';
 
 type ConcurrencyProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 

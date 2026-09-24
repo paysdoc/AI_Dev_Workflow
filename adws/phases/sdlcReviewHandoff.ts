@@ -11,7 +11,7 @@
 import { AgentStateManager, log } from '../core';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
-import type { RepoContext } from '../providers/types';
+import type { RepoContext } from '@paysdoc/devplatform';
 
 export interface SdlcReviewFailedConfig {
   adwId: string;

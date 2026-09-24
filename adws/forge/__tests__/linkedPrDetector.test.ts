@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { hasLinkedMergedOrClosedPR, fetchLinkedPRs } from '../linkedPrDetector';
 import type { LinkedPRRef } from '../linkedPrDetector';
-import type { CodeHost, PullRequestRecord } from '../../providers/types';
+import type { CodeHost, PullRequestRecord } from '@paysdoc/devplatform';
 
 vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 
@@ -77,7 +77,7 @@ describe('hasLinkedMergedOrClosedPR', () => {
 
 describe('fetchLinkedPRs', () => {
   it('returns the code host\'s records unchanged', () => {
-    const records: PullRequestRecord[] = [{ number: 1, body: 'Implements #42', state: 'MERGED', mergedAt: '2024-01-01T00:00:00Z' }];
+    const records: PullRequestRecord[] = [{ number: 1, body: 'Implements #42', state: 'MERGED', mergedAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z', url: 'https://github.com/acme/widget/pull/1' }];
     const codeHost: Pick<CodeHost, 'listPullRequests'> = { listPullRequests: () => records };
     expect(fetchLinkedPRs(codeHost)).toEqual(records);
   });

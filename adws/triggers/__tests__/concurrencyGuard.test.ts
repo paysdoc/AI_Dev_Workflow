@@ -16,8 +16,8 @@ vi.mock('../../core/workflowCommentParsing', () => ({
 
 import { isConcurrencyLimitReached } from '../concurrencyGuard';
 import { hasLinkedMergedOrClosedPR } from '../../forge/linkedPrDetector';
-import { Platform } from '../../providers/types';
-import type { BoundProviders, IssueListEntry } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
+import type { BoundProviders, IssueListEntry } from '@paysdoc/devplatform';
 
 const REPO_INFO = { owner: 'acme', repo: 'webapp', platform: Platform.GitHub };
 

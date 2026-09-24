@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VALID_ISSUE_TYPES } from '../../types/issueTypes';
-import type { GitHubIssue } from '../../providers/github/domain/issue';
 
 vi.mock('../../agents/claudeAgent', async () => {
   const { AuthRequiredError: ARE, RateLimitError: RLE } = await import('../../types/agentTypes');
@@ -16,23 +15,6 @@ import { classifyGitHubIssue, classifyIssueForTrigger } from '../issueClassifier
 import type { ClassifyIssueForTriggerDeps, ClassifiableIssue } from '../issueClassifier';
 
 const mockRunAgent = vi.mocked(runClaudeAgentWithCommand);
-
-function makeIssue(overrides?: Partial<GitHubIssue>): GitHubIssue {
-  return {
-    number: 576,
-    title: 'durable unit-test gate for adw.yml',
-    body: 'Issue about ADW configuration — adw.yml bootstrap and unit-test coverage.',
-    state: 'open',
-    author: { login: 'paysdoc', isBot: false },
-    assignees: [],
-    labels: [],
-    comments: [],
-    createdAt: '2026-06-15T12:00:00Z',
-    updatedAt: '2026-06-15T12:00:00Z',
-    url: 'https://github.com/paysdoc/AI_Dev_Workflow/issues/576',
-    ...overrides,
-  };
-}
 
 function makeClassifiableIssue(overrides?: Partial<ClassifiableIssue>): ClassifiableIssue {
   return {
@@ -112,7 +94,7 @@ describe('classifyGitHubIssue — /adw_init safety', () => {
       success: true,
       output: '/adw_init',
     });
-    const result = await classifyGitHubIssue(makeIssue());
+    const result = await classifyGitHubIssue(makeClassifiableIssue());
     expect(result.issueType).toBe('/feature');
     expect(result.issueType).not.toBe('/adw_init');
   });
@@ -123,7 +105,7 @@ describe('classifyGitHubIssue — /adw_init safety', () => {
       success: true,
       output: 'this looks like /bug, not /adw_init',
     });
-    const result = await classifyGitHubIssue(makeIssue());
+    const result = await classifyGitHubIssue(makeClassifiableIssue());
     expect(result.issueType).toBe('/bug');
   });
 });

@@ -13,9 +13,8 @@ import { execSync } from 'child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GitContext } from '../../gitContext';
-import type { GitContextOptions } from '../../gitContext/types';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { GitContextOptions } from '@paysdoc/devplatform/git';
 
 const BRANCH = 'feature-test-648';
 

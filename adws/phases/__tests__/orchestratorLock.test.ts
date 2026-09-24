@@ -14,8 +14,8 @@ import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../../triggers/spa
 import { startHeartbeat, stopHeartbeat } from '../../core/heartbeat';
 import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from '../orchestratorLock';
 import type { WorkflowConfig } from '../workflowInit';
-import type { RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 const mockAcquire = vi.mocked(acquireIssueSpawnLock);
 const mockRelease = vi.mocked(releaseIssueSpawnLock);

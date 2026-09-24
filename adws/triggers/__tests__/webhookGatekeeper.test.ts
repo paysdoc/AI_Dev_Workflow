@@ -40,9 +40,9 @@ vi.mock('../../core/agentState', () => ({
 
 import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
 import { parseDependencies } from '../issueDependencies';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
-import type { IssueTracker } from '../../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];

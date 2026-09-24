@@ -19,8 +19,7 @@ import {
   decideStarterSettingsCopy,
   copyStarterSettingsToWorktree,
 } from '../worktreeSetup.ts';
-import { GitContext } from '../../gitContext/index.ts';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');

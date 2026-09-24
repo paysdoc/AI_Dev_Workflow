@@ -6,8 +6,8 @@ import {
   buildDefaultUpgradeClaimDeps,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import type { PullRequestSummary } from '../../providers/types';
-import type { GitContext } from '../../gitContext';
+import type { PullRequestSummary } from '@paysdoc/devplatform';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

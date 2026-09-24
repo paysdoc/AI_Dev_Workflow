@@ -7,9 +7,9 @@
 
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand } from '../agents';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
 

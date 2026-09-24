@@ -15,10 +15,15 @@ The root of the ADW repository (`ai-dev-workflow`) is a TypeScript/Bun monorepo 
 - The `features/` directory holds regression and per-issue BDD scenarios.
 - The `specs/` directory holds implementation plans and PRDs.
 - The `app_docs/` directory holds living module reference documents (this file among them).
+- `.github/` holds repo-level automation config: CI workflows (`workflows/`), the ADW policy file (`adw.yml`), and the Dependabot config (`dependabot.yml`).
 
 ## Configuration
 
 TypeScript configuration is in `tsconfig.json` at the root. ESLint configuration is in `eslint.config.js`. Bun is the primary runtime (`bunx tsx` for scripts). Vitest for unit tests. Docker for isolated BDD test runs (`test/Dockerfile`, `test/docker-run.sh`).
+
+- `.github/adw.yml`: opt-in/opt-out ADW policy switches (e.g. `unitTests`, `hitl`). Lives outside `.adw/` so `/adw_init` regeneration never overwrites it.
+- `.github/dependabot.yml`: version-update config, restricted (via `allow: dependency-name`) to `@paysdoc/devplatform`, the published npm package providing ADW's git core and forge adapters. Runs weekly against `dev`, labels PRs `dependencies`, and uses `package-ecosystem: "bun"` (resolves from npm but also regenerates the repo's `bun.lock`, since there is no `package-lock.json`). Bump PRs are merged by hand — they carry no backing issue, so they sit outside the issue-keyed ADW pipeline; see `adws/README.md` ("Dependabot bump PRs (outside the pipeline)") for how ADW's triggers ignore them and the rules against labelling them `adw:*` or posting ADW directive comments on them.
+- `.github/workflows/`: CI workflows, including `git-cli-guard.yml` (guards direct git/gh CLI usage) and `regression.yml`.
 
 ## Gotchas
 

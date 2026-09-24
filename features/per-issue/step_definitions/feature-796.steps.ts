@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import type { ForgeProvidersOptions } from '../../../adws/providers/forgeProviders.ts';
+import type { ForgeProvidersOptions } from '@paysdoc/devplatform/providers';
 import type {
   BoundProviders,
   RepoIdentifier,
@@ -46,10 +46,9 @@ import type {
   PullRequestSummary,
   PullRequestRecord,
   ReviewComment,
-} from '../../../adws/providers/types.ts';
-import { Platform } from '../../../adws/providers/types.ts';
-import { GitHubCodeHost } from '../../../adws/providers/github/githubCodeHost.ts';
-import { GitHubIssueTracker } from '../../../adws/providers/github/githubIssueTracker.ts';
+} from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
+import { GitHubCodeHost, GitHubIssueTracker } from '@paysdoc/devplatform/providers';
 
 import { executeMerge, buildDefaultDeps } from '../../../adws/adwMerge.tsx';
 import type { MergeDeps, MergeRunResult } from '../../../adws/adwMerge.tsx';
@@ -65,7 +64,7 @@ import { computeFrameworkHash } from '../../../adws/core/hashComputer.ts';
 import { buildClaimBranchName } from '../../../adws/core/upgradeClaim.ts';
 import { UPGRADE_FAILURE_SIGNATURE } from '../../../adws/core/upgradeFailureCap.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
-import type { GitContext, GitIdentity } from '../../../adws/gitContext/index.ts';
+import type { GitContext, GitIdentity } from '@paysdoc/devplatform/git';
 
 // ── The fixture repo's real filesystem home (never on disk as a git repo) ─────
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -96,6 +95,22 @@ export interface Fixture {
   undefinedLabels: Set<string>;
   /** #821: every PR of the repository (open, closed, merged) — CodeHost.listPullRequests()'s backing store. */
   allPRs: PullRequestRecord[];
+  /** #844: per-issue Issue field overrides for fetchIssue — default '' (today's behaviour) when unset. */
+  issueUrls: Map<number, string>;
+  issueCreatedAts: Map<number, string>;
+  issueAuthors: Map<number, string>;
+  issueStates: Map<number, string>;
+  /** #844: issue numbers whose fetchIssue should reject, as the real tracker does on a forge refusal. */
+  refuseIssueFetch: Set<number>;
+  /** #844: codeHost refusal flags for the two "refuses by name" health-check rows. */
+  refuseListPullRequests: boolean;
+  refuseAuthenticatedUser: boolean;
+  /** #848: when true, approvePullRequest records the call but reports { success: false }. */
+  approveFails: boolean;
+  /** #848: when true, canApprovePullRequests records the call then refuses by name (throws). */
+  refuseCanApprove: boolean;
+  /** #848: when true, every recorded approval also flips prApproval for that PR — as GitHub does with ADW's PAT-served approval. */
+  approvalsCountAsReviews: boolean;
 }
 
 export interface World796 {
@@ -250,6 +265,16 @@ export function makeFixture(): Fixture {
     prLinkedIssue: new Map(),
     undefinedLabels: new Set(),
     allPRs: [],
+    issueUrls: new Map(),
+    issueCreatedAts: new Map(),
+    issueAuthors: new Map(),
+    issueStates: new Map(),
+    refuseIssueFetch: new Set(),
+    refuseListPullRequests: false,
+    refuseAuthenticatedUser: false,
+    approveFails: false,
+    refuseCanApprove: false,
+    approvalsCountAsReviews: false,
   };
 }
 
@@ -296,9 +321,16 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
   return {
     async fetchIssue(issueNumber) {
       record(callLog, 'fetchIssue', issueNumber);
+      if (fixture.refuseIssueFetch.has(issueNumber)) {
+        // Mirrors the real GitHub tracker's wrap exactly — fetchIssueRecord (#844) no
+        // longer wraps it a second time, so this IS the message the caller sees.
+        throw new Error(`Failed to fetch issue #${issueNumber}: recording tracker configured to refuse`);
+      }
       return {
-        id: String(issueNumber), number: issueNumber, title: '', body: '', state: 'open',
-        author: '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        id: String(issueNumber), number: issueNumber, title: fixture.issueTitles.get(issueNumber) ?? '', body: '',
+        state: fixture.issueStates.get(issueNumber) ?? 'open',
+        author: fixture.issueAuthors.get(issueNumber) ?? '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        createdAt: fixture.issueCreatedAts.get(issueNumber) ?? '', url: fixture.issueUrls.get(issueNumber) ?? '',
       };
     },
     commentOnIssue(issueNumber, body) {
@@ -415,7 +447,8 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     approvePullRequest(prNumber) {
       record(callLog, 'approvePullRequest', prNumber);
-      return { success: true };
+      if (fixture.approvalsCountAsReviews) fixture.prApproval.set(prNumber, true);
+      return fixture.approveFails ? { success: false, error: 'simulated approval failure' } : { success: true };
     },
     mergePullRequest(prNumber) {
       record(callLog, 'mergePullRequest', prNumber);
@@ -426,10 +459,16 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     getAuthenticatedUser() {
       record(callLog, 'getAuthenticatedUser');
+      if (fixture.refuseAuthenticatedUser) {
+        throw new Error('CodeHost.getAuthenticatedUser is not implemented');
+      }
       return fixture.authenticatedUser;
     },
     canApprovePullRequests() {
       record(callLog, 'canApprovePullRequests');
+      if (fixture.refuseCanApprove) {
+        throw new Error('CodeHost.canApprovePullRequests is not implemented');
+      }
       return fixture.canApprove;
     },
     listMergedPullRequests(limit) {
@@ -438,6 +477,9 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     listPullRequests() {
       record(callLog, 'listPullRequests');
+      if (fixture.refuseListPullRequests) {
+        throw new Error('recording code host configured to refuse listing pull requests');
+      }
       return fixture.allPRs;
     },
   };

@@ -9,7 +9,7 @@
  * handleIssueClosedDependencyUnblock) then ride the existing declared-dependency
  * path — no new enforcement code.
  */
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 import { log } from '../core';
 import type { OverlapDeferral } from './cronIssueFilter';
 

@@ -6,7 +6,7 @@ on:
 
 jobs:
   guard:
-    name: Fail on direct git/gh shell-outs, ad-hoc construction, or framework imports inside the extractable packages
+    name: Fail on direct git/gh shell-outs, cwd-derived identity, or ad-hoc construction
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run Git/GH CLI guard (4 rules incl. extraction-readiness)
+      - name: Run Git/GH CLI guard (3 rules)
         run: bun run lint:git-guard
 
   docs-index:

@@ -22,10 +22,10 @@ vi.mock('../../forge/issueLinkMarker', () => ({
 
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { readFileSync } from 'fs';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
-import type { CodeHost, RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 const UNTAGGED_CONTENT = 'Feature: plain\n';
 

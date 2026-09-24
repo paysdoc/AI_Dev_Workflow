@@ -10,9 +10,9 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 - `adws/core/**` - Configuration, state management, cost tracking, token management.
 - `adws/agents/**` - Claude Code CLI agent runners (plan, build, test, review, etc.).
 - `adws/phases/**` - Workflow phase implementations.
-- `adws/github/**` - GitHub API, issue/PR operations, workflow comments.
+- `adws/forge/**` - ADW-application helpers built on top of the forge provider ports (comment formatting, HITL notifications, label provisioning).
 - `adws/vcs/**` - VCS-agnostic git and worktree operations (branch, commit, worktree management).
-- `adws/providers/**` - Pluggable IssueTracker and CodeHost backends.
+- `@paysdoc/devplatform` (npm dependency) - The git core (`GitContext`) and the pluggable IssueTracker/CodeHost forge adapters; consumed via its `.`, `./providers`, and `./git` entry points, not an in-repo directory.
 - `adws/triggers/**` - Cron and webhook automation triggers.
 - `adws/types/**` - Shared TypeScript types.
 - `adws/r2/**` - Cloudflare R2 upload module (R2 client, bucket management, upload service).

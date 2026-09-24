@@ -6,9 +6,9 @@
  */
 
 import { log } from '../core/logger';
-import type { Logger } from '../gitContext';
+import type { Logger } from '@paysdoc/devplatform/git';
 import { ADW_LABEL_DEFINITIONS } from '../core/adwLabels';
-import type { IssueTracker, RepoIdentifier } from '../providers/types';
+import type { IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 
 /**
  * Idempotently ensures all six adw:* labels exist on the target repo.

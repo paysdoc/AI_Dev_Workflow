@@ -161,8 +161,12 @@ export {
 // GitHub-App environment wrapper (moved from adws/github/githubAppAuth.ts, #820)
 export { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 
-// Issue record — the full forge-shaped issue read over the boundary's GitContext
+// Issue record — the port's Issue, read through the boundary's IssueTracker
 export { fetchIssueRecord } from './issueRecord';
+
+// Local repo identity — ADW-owned, host-neutral replacement for readLocalRepoInfo (#844)
+export { readLocalRepoIdentity } from './localRepoIdentity';
+export type { LocalRepoIdentityDeps } from './localRepoIdentity';
 
 // Unaddressed PR-review comment filter
 export { readUnaddressedComments, getLastAdwCommitTimestamp } from './unaddressedComments';
@@ -192,10 +196,12 @@ export {
   isRepoCloned,
   cloneTargetRepo,
   ensureTargetRepoWorkspace,
+  ensureWorkspaceTrusted,
 } from './targetRepoManager';
+export type { WorkspaceTrustDeps, WorkspaceTrustResult } from './workspaceTrust';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary } from './launchGitContext';
 export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
 
 // Workspace binding over the caller's own context (moved out of launchGitContext.ts, #823)

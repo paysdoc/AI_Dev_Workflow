@@ -6,7 +6,6 @@
  */
 
 import { SANCTIONED_CONSTRUCTION_SITES } from './constructionRule';
-import { EXTRACTION_SCOPE } from './extractionRule';
 
 /** Prints the sanctioned-construction-sites block. Must never contain the substring "allowlisted" — see the (0 allowlisted) capstone regex this guard's stdout must preserve. */
 export function printSanctionedConstructionSites(): void {
@@ -21,17 +20,6 @@ export function printSanctionedConstructionSites(): void {
   }
   for (const site of sunset) {
     console.log(`    ${site.file} — ${site.reason}`);
-  }
-  console.log('');
-}
-
-/** Prints the extraction-readiness scope block. Must never contain the substring "allowlisted" — see the (0 allowlisted) capstone regex this guard's stdout must preserve. */
-export function printExtractionScope(scannedCount: number): void {
-  console.log(
-    `  Extraction-readiness scope — ${EXTRACTION_SCOPE.length} entries, widen only (#816), ${scannedCount} files scanned:`,
-  );
-  for (const { path: entryPath, reason, since } of EXTRACTION_SCOPE) {
-    console.log(`    ${entryPath} — ${reason} (since ${since})`);
   }
   console.log('');
 }

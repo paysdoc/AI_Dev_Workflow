@@ -29,7 +29,7 @@ import type { WorkflowConfig } from './workflowInit';
 
 export interface PromotionRotAdvisoryContext {
   prNumber: number;
-  labels: readonly { name: string }[];
+  labels: readonly string[];
   /** The promoted feature id (e.g. "feature-665") whose phrases are analysed. */
   feature: string;
 }

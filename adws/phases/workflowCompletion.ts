@@ -14,7 +14,7 @@ import { type PhaseCostRecord } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
-import { BoardStatus, Platform } from '../providers/types';
+import { BoardStatus, Platform } from '@paysdoc/devplatform';
 import { appendToPauseQueue } from '../core/pauseQueue';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';
@@ -230,12 +230,8 @@ export async function handleWorkflowDiscarded(
     postIssueStageComment(repoContext, issueNumber, 'discarded', ctx);
     repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Blocked).catch(() => {});
     if (repoContext.repoId.platform === Platform.GitHub) {
-      const deps = notifierDeps ?? (config.gitContext ? buildNotifierDeps(config.gitContext, repoContext.repoId) : undefined);
-      if (deps) {
-        await notifyBlockedTransition({ issueNumber, repoInfo: repoContext.repoId, source: 'discarded' }, deps);
-      } else {
-        log('hitlBoardNotifier: no GitContext on this workflow config — skipping HITL Slack notification', 'warn');
-      }
+      const deps = notifierDeps ?? buildNotifierDeps(() => repoContext, repoContext.repoId);
+      await notifyBlockedTransition({ issueNumber, repoInfo: repoContext.repoId, source: 'discarded' }, deps);
     }
   }
 

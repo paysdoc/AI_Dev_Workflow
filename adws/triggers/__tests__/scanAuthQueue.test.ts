@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scanAuthQueue } from '../scanAuthQueue';
 import type { ScanAuthQueueDeps } from '../scanAuthQueue';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { AgentState } from '../../types/agentTypes';
 import type { LaunchBoundary } from '../../core';
 

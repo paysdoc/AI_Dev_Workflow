@@ -51,10 +51,10 @@ import {
   ADW_BLOCKED_LABEL,
   hasWontFixLabelName,
 } from './core';
-import type { GitContext } from './gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import { runClaudeAgentWithCommand } from './agents';
-import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from './providers/types';
-import { BoardStatus } from './providers/types';
+import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from '@paysdoc/devplatform';
+import { BoardStatus } from '@paysdoc/devplatform';
 import {
   copyAdwInitCommandToWorktree,
   verifyAdwRegen,

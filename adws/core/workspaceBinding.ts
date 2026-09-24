@@ -7,10 +7,10 @@
  * boundary's already-minted providers; it never mints a second set.
  */
 
-import type { GitContext } from '../gitContext';
-import type { RepoContext, RepoIdentifier } from '../providers/types';
-import { validateRepoIdentifier } from '../providers/types';
-import { validateWorkingDirectory, parseOwnerRepoFromUrl } from '../providers/workspaceValidation';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { RepoContext, RepoIdentifier } from '@paysdoc/devplatform';
+import { validateRepoIdentifier } from '@paysdoc/devplatform';
+import { validateWorkingDirectory, parseOwnerRepoFromUrl } from '@paysdoc/devplatform/providers';
 import { sameRepoIdentity } from './repoIdentityCrossCheck';
 import type { LaunchBoundary } from './launchGitContext';
 

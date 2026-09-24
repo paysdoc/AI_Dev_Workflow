@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveCronRepo, buildCronTargetRepoArgs } from '../cronRepoResolver';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 
 describe('resolveCronRepo', () => {
   it('returns target repo when --target-repo is provided', () => {

@@ -6,7 +6,7 @@ vi.mock('../../core', () => ({
 
 import { isAdwRunningForIssue } from '../workflowCommentsBase';
 import { AgentStateManager } from '../../core';
-import type { Issue, IssueComment, IssueTracker } from '../../providers/types';
+import type { Issue, IssueComment, IssueTracker } from '@paysdoc/devplatform';
 
 const isAgentProcessRunning = vi.mocked(AgentStateManager.isAgentProcessRunning);
 
@@ -16,7 +16,7 @@ function comment(body: string, createdAt: string): IssueComment {
 
 function makeTracker(comments: IssueComment[]): Pick<IssueTracker, 'fetchIssue'> {
   return {
-    fetchIssue: async () => ({ id: '1', number: 1, title: '', body: '', state: 'open', author: '', labels: [], comments } as Issue),
+    fetchIssue: async () => ({ id: '1', number: 1, title: '', body: '', state: 'open', author: '', labels: [], comments, createdAt: '', url: '' } as Issue),
   };
 }
 

@@ -27,7 +27,7 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**

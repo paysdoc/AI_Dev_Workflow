@@ -1,17 +1,12 @@
 /**
- * Boundary-constructor adapter — builds exactly one GitContext at a process launch boundary.
+ * ADW's wiring layer over `@paysdoc/devplatform` — the one place identity is
+ * resolved, credentials are minted (`createForgeCredentials`) and the one
+ * `GitContext` plus its bound provider triple are constructed. This is the
+ * only sanctioned construction site (see `adws/guard/constructionRule.ts`).
  *
- * Lives in adws/core/ (not adws/gitContext/) so the gitContext package stays free of
- * ADW-global dependencies. The gitContext package is a pure, dependency-injectable
- * deep module; this adapter is the ADW-specific wiring layer.
- *
- * All raw git/gh has been absorbed into the `adws/gitContext/` package (issue #700).
- * `resolveLaunchToken` delegates to `resolveContextToken` with no ambient-global
- * fallback — the GH_TOKEN-bleed root fix. Since #791, the built context is handed
- * a TokenProvider — the QUESTION, not a resolved answer — so a GitHub App
- * installation token minted at launch is never replayed, stale, hours into a
- * long-running orchestrator; `resolveLaunchToken` documents the resolution order
- * but is no longer itself the construction path.
+ * Since #791, the built context is handed a TokenProvider — the QUESTION,
+ * not a resolved answer — so a GitHub App installation token minted at
+ * launch is never replayed, stale, hours into a long-running orchestrator.
  *
  * Since #794, the boundary also mints the forge provider triple (IssueTracker /
  * CodeHost / BoardManager) bound to the SAME identity the GitContext receives, in
@@ -22,21 +17,24 @@
  * seams) lives in `forgeWiring.ts`; workspace binding lives in `workspaceBinding.ts`.
  */
 
-import { GitContext } from '../gitContext';
-import type { GitIdentity, TokenProvider } from '../gitContext';
+import { GitContext } from '@paysdoc/devplatform/git';
+import type { GitIdentity, TokenProvider } from '@paysdoc/devplatform/git';
 import type { TargetRepoInfo } from '../types/issueTypes';
-import { readLocalRepoInfo, resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
-import { ghAuthToken } from '../providers/github/ghAuthToken';
-import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
-import { resolveContextToken } from '../providers/github/tokenResolver';
-import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
-// Deep imports only — never the `../providers` barrel, which re-exports the
-// GitHub adapter and closes an import cycle back through `../../core` (#792).
-import { forgeProviders, type ForgeProvidersOptions, type ForgeProviderDeps } from '../providers/forgeProviders';
+import { readLocalRepoIdentity } from './localRepoIdentity';
+import { readGitHubAppConfig } from './githubAppAuth';
+import {
+  createForgeCredentials,
+  forgeProviders,
+  type ForgeCredentials,
+  type ForgeCredentialsOptions,
+  type ForgeSelection,
+  type ForgeProviderDeps,
+  type ForgeProvidersOptions,
+} from '@paysdoc/devplatform/providers';
 import { buildAdwForgeDeps } from './forgeWiring';
 import { loadProviderConfig, type ProviderConfig } from './providerConfig';
-import type { BoundProviders, RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
+import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 import { log } from './utils';
 
@@ -45,18 +43,17 @@ import { log } from './utils';
  * production defaults are applied if omitted.
  */
 export interface LaunchGitContextDeps {
-  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoInfo(). */
+  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoIdentity(). */
   getRepoInfo?: (cwd?: string) => RepoIdentifier;
   /**
    * Returns a non-empty GitHub token for the given owner/repo. Adapted into a
    * TokenProvider when `tokenProvider` is not supplied — so injecting this
-   * still yields per-command resolution, one call per command. Defaults to
-   * `createLaunchTokenProvider()` when neither is supplied.
+   * still yields per-command resolution, one call per command.
    */
   resolveToken?: (owner: string, repo: string) => string;
   /** The supported credential path. Takes precedence over `resolveToken` when both are supplied. */
   tokenProvider?: TokenProvider;
-  /** Returns a complete git identity. Defaults to resolveLaunchGitIdentity(). */
+  /** Returns a complete git identity. */
   resolveGitIdentity?: () => GitIdentity;
   /** Absolute path to the ADW framework repo root. Defaults to REPO_ROOT. */
   frameworkRepoRoot?: string;
@@ -68,60 +65,73 @@ export interface LaunchGitContextDeps {
   loadProviderConfig?: (dir: string) => ProviderConfig;
   /** Assembles the bound provider triple. Defaults to the library's forgeProviders(). Deliberately a property-access seam, unflagged by the construction rule. */
   forgeProviders?: (options: ForgeProvidersOptions) => BoundProviders;
-  /** Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. */
-  forgeDeps?: (config: ProviderConfig, repoId: RepoIdentifier, ctx: GitContext) => ForgeProviderDeps;
+  /**
+   * Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the
+   * selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. The third
+   * argument is a thunk resolving to the boundary's own memoised `BoundProviders` —
+   * invoked only at notification time (a status move), never during assembly, since
+   * this function itself runs inside the lazy mint, before the providers it resolves
+   * to exist.
+   */
+  forgeDeps?: (config: ProviderConfig, repoId: RepoIdentifier, resolveProviders: () => BoundProviders) => ForgeProviderDeps;
+  /**
+   * Mints the launch `TokenProvider` and bootstrap `GitIdentity` for whatever
+   * the seams above did not supply. Defaults to the library's
+   * `createForgeCredentials()`. Deliberately a property-access seam,
+   * unflagged by the construction rule.
+   */
+  forgeCredentials?: (options: ForgeCredentialsOptions) => ForgeCredentials;
 }
 
-/**
- * Resolves a GitHub token for the given owner/repo via the veracious resolver.
- * No ambient-global (process.env.GH_TOKEN) fallback — that was the GH_TOKEN-bleed
- * vector (issue #700, PRD story 2). Throws loudly if no bound token is resolvable.
- *
- * Documents the resolution order; no longer itself the construction path — see
- * `createLaunchTokenProvider`.
- */
-export function resolveLaunchToken(owner: string, repo: string): string {
-  return resolveContextToken({
-    owner,
-    repo,
-    pat: GITHUB_PAT,
-    isAppConfigured: isGitHubAppConfigured,
-    mintInstallationToken: getInstallationToken,
-    ghAuthToken,
-  });
-}
+/** ADW's launch credentials are GitHub-keyed by convention — the same convention `readLocalRepoIdentity` uses for `platform: Platform.GitHub`. Provider forge selection still comes from `.adw/providers.md` at first `.providers` access (deferred, unchanged). */
+const LAUNCH_CREDENTIAL_FORGE: ForgeSelection = { codeHost: 'github', issueTracker: 'github' };
 
-/**
- * Resolves a complete git author/committer identity.
- * Delegates to the absorbed package resolver (issue #700).
- */
-export function resolveLaunchGitIdentity(): GitIdentity {
-  return resolveBootstrapGitIdentity();
-}
-
-/**
- * The production TokenProvider for the launch boundary — the GitHub
- * implementation of the port, resolved afresh on every command. Since #819
- * the providers minted at this boundary run the adapter's `'alternateIdentity'`
- * operations (PR approval — GitHub forbids bot self-approval — and every
- * Projects V2 write) over this context, so it serves `GITHUB_PAT` to those
- * requests exactly as `gitContextForRepo`'s provider did; `'default'`
- * requests are unchanged.
- */
-export function createLaunchTokenProvider(): TokenProvider {
-  return createGitHubTokenProvider({
-    pat: GITHUB_PAT,
-    alternateIdentityPat: GITHUB_PAT,
-    isAppConfigured: isGitHubAppConfigured,
-    mintInstallationToken: getInstallationToken,
-    ghAuthToken,
-  });
+/** The one place ADW's environment reaches the library's credential factory. `alternateIdentityPat = GITHUB_PAT` preserves #819 parity: `'alternateIdentity'` requests get the PAT, `'default'` requests resolve App token → PAT → `gh auth token`. */
+export function launchCredentialsOptions(identity: RepoIdentifier): ForgeCredentialsOptions {
+  return {
+    forge: LAUNCH_CREDENTIAL_FORGE,
+    identity,
+    deps: {
+      github: {
+        appConfig: readGitHubAppConfig(),
+        pat: GITHUB_PAT,
+        alternateIdentityPat: GITHUB_PAT,
+      },
+    },
+  };
 }
 
 /** Adapts the `resolveToken` injection seam into a TokenProvider — one resolution per command, exactly as a native provider. */
 function tokenProviderFromResolver(resolveToken: (owner: string, repo: string) => string): TokenProvider {
   return {
     credentialEnv: ({ owner, repo }) => ({ GH_TOKEN: resolveToken(owner, repo) }),
+  };
+}
+
+/**
+ * Resolves the launch `TokenProvider` and bootstrap `GitIdentity`. When both
+ * `deps.tokenProvider`/`deps.resolveToken` AND `deps.resolveGitIdentity` are
+ * injected, returns them directly — no environment or `git config` read, so
+ * every existing `baseDeps()` test stays hermetic. Otherwise mints whichever
+ * is missing via `deps.forgeCredentials` (defaults to `createForgeCredentials`).
+ */
+function resolveLaunchCredentials(
+  repoId: RepoIdentifier,
+  deps: LaunchGitContextDeps,
+): { tokenProvider: TokenProvider; gitIdentity: GitIdentity } {
+  const injectedProvider = deps.tokenProvider
+    ?? (deps.resolveToken ? tokenProviderFromResolver(deps.resolveToken) : undefined);
+  const injectedIdentity = deps.resolveGitIdentity?.();
+
+  if (injectedProvider && injectedIdentity) {
+    return { tokenProvider: injectedProvider, gitIdentity: injectedIdentity };
+  }
+
+  const mint = deps.forgeCredentials ?? createForgeCredentials;
+  const minted = mint(launchCredentialsOptions(repoId));
+  return {
+    tokenProvider: injectedProvider ?? minted.tokenProvider,
+    gitIdentity: injectedIdentity ?? minted.gitIdentity,
   };
 }
 
@@ -170,8 +180,7 @@ function freezeBoundary(gitContext: GitContext, repoId: RepoIdentifier, mint: ()
  * `deps.getRepoInfo()`.
  *
  * Hands the context a TokenProvider, never a resolved credential string —
- * `deps.tokenProvider` takes precedence, then `deps.resolveToken` adapted into
- * a provider, then the production `createLaunchTokenProvider()`. The only
+ * see `resolveLaunchCredentials` for the injection/mint order. The only
  * resolution on the clock while this function runs is the context's own
  * construction-time validating probe — its answer is discarded, and every
  * command the returned context runs resolves a fresh credential.
@@ -192,12 +201,9 @@ export function buildLaunchBoundary(
   targetRepo: TargetRepoInfo | null,
   deps: LaunchGitContextDeps = {},
 ): LaunchBoundary {
-  const getInfo = deps.getRepoInfo ?? readLocalRepoInfo;
-  const resolveIdentity = deps.resolveGitIdentity ?? resolveLaunchGitIdentity;
+  const getInfo = deps.getRepoInfo ?? readLocalRepoIdentity;
   const frameworkRepoRoot = deps.frameworkRepoRoot ?? REPO_ROOT;
   const targetReposDir = deps.targetReposDir ?? TARGET_REPOS_DIR;
-  const tokenProvider = deps.tokenProvider
-    ?? (deps.resolveToken ? tokenProviderFromResolver(deps.resolveToken) : createLaunchTokenProvider());
   const loadConfig = deps.loadProviderConfig ?? loadProviderConfig;
   const assemble = deps.forgeProviders ?? forgeProviders;
   const buildForgeDeps = deps.forgeDeps ?? buildAdwForgeDeps;
@@ -205,18 +211,26 @@ export function buildLaunchBoundary(
 
   const selfHost = targetRepo === null;
   const { owner, repo } = targetRepo ?? getInfo();
+  const repoId: RepoIdentifier = { owner, repo, platform };
+
+  const { tokenProvider, gitIdentity } = resolveLaunchCredentials(repoId, deps);
 
   const gitContext = new GitContext({
     owner,
     repo,
     selfHost,
     tokenProvider,
-    gitIdentity: resolveIdentity(),
+    gitIdentity,
     frameworkRepoRoot,
     targetReposDir,
   }, { logger: log });
-  const repoId: RepoIdentifier = { owner, repo, platform };
 
+  // assembleProviders closes over a thunk (`() => boundary.providers`) that
+  // resolves only once minting has completed — the notifier deps built by
+  // buildForgeDeps need to read through the very providers this function is
+  // still assembling. Safe: the closure is only invoked later (at
+  // notification time), long after the `const boundary` below has
+  // initialized.
   const assembleProviders = (): BoundProviders => {
     const config = loadConfig(gitContext.basePath);
     return assemble({
@@ -224,11 +238,12 @@ export function buildLaunchBoundary(
       identity: repoId,
       tokenProvider,
       gitContext,
-      deps: buildForgeDeps(config, repoId, gitContext),
+      deps: buildForgeDeps(config, repoId, () => boundary.providers),
     });
   };
 
-  return freezeBoundary(gitContext, repoId, assembleProviders);
+  const boundary = freezeBoundary(gitContext, repoId, assembleProviders);
+  return boundary;
 }
 
 /**

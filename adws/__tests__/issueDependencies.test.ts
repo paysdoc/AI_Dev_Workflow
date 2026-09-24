@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { findOpenDependencies } from '../triggers/issueDependencies';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 vi.mock('../agents/dependencyExtractionAgent', () => ({
   runDependencyExtractionAgent: vi.fn().mockResolvedValue({ success: false, dependencies: [] }),

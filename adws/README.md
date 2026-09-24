@@ -448,6 +448,22 @@ bunx tsx adws/triggers/trigger_webhook.ts
 - When `GITHUB_WEBHOOK_SECRET` is set: validates GitHub `x-hub-signature-256` HMAC-SHA256 signatures, rejects invalid/missing signatures with HTTP 401
 - When `GITHUB_WEBHOOK_SECRET` is not set: all requests pass through without validation (backward compatible)
 
+#### Dependabot bump PRs (outside the pipeline)
+
+**What:** [`.github/dependabot.yml`](../.github/dependabot.yml) watches the npm registry for `@paysdoc/devplatform` only, weekly, against `dev`. PRs are labelled `dependencies` and come from branches like `dependabot/bun/paysdoc/devplatform-<version>`.
+
+**Merged by hand:** a human reviews the bump (check the library changelog, run `bun install`, `bun run test`, `bun run test:unit`, `bun run lint:git-guard`) and merges it. ADW never reviews or auto-merges these PRs.
+
+**Why ADW ignores them:** every ADW trigger is keyed by an issue, and bot PRs have none.
+- The webhook handles `pull_request` only for `closed`, and resolves the issue from an `issue-N` pattern in the head branch. Dependabot branches don't match, so there is no abandonment handling.
+- `pull_request_review` / `pull_request_review_comment` events and cron's PR review-comment poll resolve the PR's linked issue from the same branch pattern and skip issue-less PRs.
+- Cron's issue poll lists issues only, never PRs.
+
+**Rules:**
+- Do **not** add any `adw:*` label to a Dependabot PR.
+- Do **not** post ADW directives (`## Continue`, `## Cancel`, `## Retry`) as comments on it. PR conversation comments reach the webhook as `issue_comment` events keyed by the PR number and would go through the issue-comment path.
+- Use Dependabot's own commands (`@dependabot rebase`, `@dependabot recreate`) instead.
+
 ## How ADW Works
 
 1. **Issue Classification**: Analyzes GitHub issue and determines type:
@@ -687,7 +703,7 @@ app_docs/                         # Generated documentation
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
 
-`adws/github/` was deleted in #823. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary now constructs its `GitContext` directly and assembles providers through `adws/providers/forgeProviders.ts`.
+`adws/github/` was deleted in #823. Since issue #840, `adws/gitContext/` and `adws/providers/` are gone too: `GitContext` and the forge provider layer (GitHub/GitLab/Jira adapters, `forgeProviders()`) now come from the `@paysdoc/devplatform` npm package rather than living in this repo. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary (`adws/core/launchGitContext.ts`) constructs its `GitContext` directly and assembles providers by calling the library's `forgeProviders()`.
 
 **VCS** (`vcs/`):
 - `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)

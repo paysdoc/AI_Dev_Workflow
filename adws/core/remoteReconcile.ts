@@ -17,8 +17,8 @@ import { log } from './utils';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { LaunchBoundary } from './launchGitContext';
-import type { PullRequestSummary } from '../providers/types';
-import type { GitContext } from '../gitContext';
+import type { PullRequestSummary } from '@paysdoc/devplatform';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
 

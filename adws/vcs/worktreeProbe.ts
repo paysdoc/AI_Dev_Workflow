@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { isProcessLive } from '../core/processLiveness';
 import type { WorktreeProbe } from './worktreeReuseGate';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 export interface ProbeInput {
   readonly worktreePath: string;

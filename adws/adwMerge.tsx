@@ -35,7 +35,7 @@ import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNot
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
-import { Platform, type PullRequestSummary, type RepoIdentifier } from './providers/types';
+import { Platform, type PullRequestSummary, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from './core/launchGitContext';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
@@ -249,7 +249,7 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     getPlanFilePath,
     planFileExists,
     notifyBlockedTransition: repoId.platform === Platform.GitHub
-      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(gitCtx, repoId))
+      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(() => providers, repoId))
       : async () => undefined,
   };
 }

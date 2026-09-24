@@ -132,7 +132,7 @@ async function main(): Promise<void> {
       error,
       tracker.totalCostUsd,
       tracker.totalModelUsage,
-      buildNotifierDeps(boundary.gitContext, boundary.repoId),
+      buildNotifierDeps(() => boundary.providers, boundary.repoId),
     );
   }
 }

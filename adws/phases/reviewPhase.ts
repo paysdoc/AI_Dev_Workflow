@@ -21,7 +21,7 @@ import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost, IssueTracker, RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -41,6 +41,47 @@ function canApprove(codeHost: CodeHost): boolean {
   } catch {
     return false;
   }
+}
+
+/** The issue label a human applies to hold a merge for review — read live, never from the workflow-start snapshot. */
+const HITL_LABEL = 'hitl';
+
+/**
+ * True when the issue currently carries `hitl`. A tracker that refuses the
+ * label read by name answers `true`: a gate that cannot be consulted is a
+ * gate that holds, so the review never approves past a human it cannot see.
+ */
+function issueHasHitlLabel(issueTracker: IssueTracker, issueNumber: number): boolean {
+  try {
+    return issueTracker.fetchLabels(issueNumber).includes(HITL_LABEL);
+  } catch (error) {
+    log(`Could not read labels on issue #${issueNumber} (non-fatal to review); not approving: ${error}`, 'warn');
+    return true;
+  }
+}
+
+/**
+ * Approves the pull request after a review pass unless a human has signalled
+ * `hitl` on the issue. Mirrors adwChore's pre-approval: the label is read live
+ * from the tracker at approval time. Approval failure is non-fatal — the review
+ * still counts as passed — and so is a refused capability probe (a forge that
+ * cannot express approval cannot approve).
+ */
+function approvePullRequestAfterReviewPass(repoContext: RepoContext, issueNumber: number, prUrl: string): void {
+  if (!canApprove(repoContext.codeHost)) return;
+  const prNumber = extractPrNumber(prUrl);
+  if (!prNumber) return;
+  if (issueHasHitlLabel(repoContext.issueTracker, issueNumber)) {
+    log(`Review: skipping approval of PR #${prNumber} — issue #${issueNumber} has hitl label`, 'info');
+    return;
+  }
+  log('Approving PR after review pass...', 'info');
+  const approveResult = repoContext.codeHost.approvePullRequest(prNumber);
+  if (!approveResult.success) {
+    log(`PR approval failed (non-fatal to review): ${approveResult.error}`, 'warn');
+    return;
+  }
+  log(`PR #${prNumber} approved`, 'success');
 }
 
 /**
@@ -114,20 +155,8 @@ export async function executeReviewPhase(
       postIssueStageComment(repoContext, issueNumber, 'review_passed', ctx);
     }
 
-    // Approve the PR when the code host reports it can. Approval failure is
-    // non-fatal — the review still counts as passed — and so is a refused
-    // capability probe (a forge that cannot express approval cannot approve).
-    if (ctx.prUrl && repoContext && canApprove(repoContext.codeHost)) {
-      const prNumber = extractPrNumber(ctx.prUrl);
-      if (prNumber) {
-        log('Approving PR after review pass...', 'info');
-        const approveResult = repoContext.codeHost.approvePullRequest(prNumber);
-        if (!approveResult.success) {
-          log(`PR approval failed (non-fatal to review): ${approveResult.error}`, 'warn');
-        } else {
-          log(`PR #${prNumber} approved`, 'success');
-        }
-      }
+    if (ctx.prUrl && repoContext) {
+      approvePullRequestAfterReviewPass(repoContext, issueNumber, ctx.prUrl);
     }
   } else {
     const blockerCount = reviewAgentResult.blockerIssues.length;

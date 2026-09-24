@@ -10,8 +10,8 @@ import {
   type UpgradeRunResult,
 } from '../adwUpgrade';
 import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from '../core';
-import type { CreatePROptions } from '../providers/types';
-import { Platform } from '../providers/types';
+import type { CreatePROptions } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

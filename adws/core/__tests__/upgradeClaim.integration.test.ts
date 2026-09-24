@@ -23,8 +23,7 @@ import {
   defaultPushClaimBranch,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import { GitContext } from '../../gitContext';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 
 const HASH = 'integ1234';
 const CLAIM_BRANCH = buildClaimBranchName(HASH);

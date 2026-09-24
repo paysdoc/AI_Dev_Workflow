@@ -71,7 +71,7 @@ The ~20 modules calling forge semantics directly on GitContext migrate to the pr
 
 ## Out of Scope
 
-- **Phase B — extraction itself:** repository creation, history extraction (git filter-repo with path renames for files absorbed in the pre-refactor consolidation), npm publishing (`@paysdoc/gitcontext`, MIT), release automation, and registering the library repo as an ADW target.
+- **Phase B — extraction itself:** repository creation, history extraction (git filter-repo with path renames for files absorbed in the pre-refactor consolidation), npm publishing (`@paysdoc/gitcontext`, MIT — renamed `@paysdoc/devplatform` on 2026-09-10, see the Phase B PRD), release automation, and registering the library repo as an ADW target.
 - **Phase 2 — providers moving into the library:** the provider interfaces and adapters stay in ADW for this refactor; their relocation is a separate later effort (not gated on Pi_Dev_Workflow).
 - **Dependency-bump automation:** Dependabot/Renovate configuration and the hand-merge policy for bump PRs belong to Phase B.
 - **Pi_Dev_Workflow** itself.

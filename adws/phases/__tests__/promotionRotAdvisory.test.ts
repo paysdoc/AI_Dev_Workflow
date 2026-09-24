@@ -4,8 +4,8 @@ vi.mock('../../core', () => ({
   log: vi.fn(),
   emptyModelUsageMap: vi.fn(() => ({})),
   mergeModelUsageMaps: vi.fn((a: object, b: object) => ({ ...a, ...b })),
-  hasRegressionPromotionLabel: (labels: readonly { name: string }[]) =>
-    labels.some(l => l.name === 'regression-promotion'),
+  hasRegressionPromotionLabel: (labels: readonly string[]) =>
+    labels.includes('regression-promotion'),
 }));
 
 vi.mock('../../cost', () => ({
@@ -34,7 +34,7 @@ describe('runPromotionRotAdvisory (injectable core)', () => {
     const analyze = vi.fn(async () => sampleVerdicts);
     const postComment = vi.fn();
     await runPromotionRotAdvisory(
-      { prNumber: 900, labels: [{ name: 'enhancement' }], feature: 'feature-665' },
+      { prNumber: 900, labels: ['enhancement'], feature: 'feature-665' },
       { analyze, postComment, log: vi.fn() },
     );
     expect(analyze).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ describe('runPromotionRotAdvisory (injectable core)', () => {
     const analyze = vi.fn(async () => sampleVerdicts);
     const postComment = vi.fn();
     await runPromotionRotAdvisory(
-      { prNumber: 900, labels: [{ name: 'regression-promotion' }], feature: 'feature-665' },
+      { prNumber: 900, labels: ['regression-promotion'], feature: 'feature-665' },
       { analyze, postComment, log: vi.fn() },
     );
     expect(analyze).toHaveBeenCalledTimes(1);
@@ -61,7 +61,7 @@ describe('runPromotionRotAdvisory (injectable core)', () => {
     const postComment = vi.fn();
     await expect(
       runPromotionRotAdvisory(
-        { prNumber: 900, labels: [{ name: 'regression-promotion' }], feature: 'feature-665' },
+        { prNumber: 900, labels: ['regression-promotion'], feature: 'feature-665' },
         { analyze, postComment, log: vi.fn() },
       ),
     ).resolves.toBeUndefined();
@@ -73,7 +73,7 @@ describe('runPromotionRotAdvisory (injectable core)', () => {
     const postComment = vi.fn(() => { throw new Error('transient gh error'); });
     await expect(
       runPromotionRotAdvisory(
-        { prNumber: 900, labels: [{ name: 'regression-promotion' }], feature: 'feature-665' },
+        { prNumber: 900, labels: ['regression-promotion'], feature: 'feature-665' },
         { analyze, postComment, log: vi.fn() },
       ),
     ).resolves.toBeUndefined();
@@ -91,18 +91,17 @@ const okAgentResult = {
   parsed: sampleVerdicts,
 };
 
-function makeIssue(labels: { id: string; name: string; color: string }[]) {
+function makeIssue(labels: string[]) {
   return {
+    id: '665',
     number: 665,
     title: 'Promote scenario',
     body: 'Promotes: feature-665\n',
     state: 'OPEN',
-    author: { login: 'test', isBot: false },
-    assignees: [],
+    author: 'test',
     labels,
     comments: [],
     createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-01-01T00:00:00Z',
     url: 'https://github.com/test/test/issues/665',
   };
 }
@@ -111,7 +110,7 @@ function makeWorkflowConfig(overrides: Record<string, unknown> = {}) {
   return {
     adwId: 'test-adw',
     issueNumber: 665,
-    issue: makeIssue([{ id: '1', name: 'regression-promotion', color: 'c5def5' }]),
+    issue: makeIssue(['regression-promotion']),
     ctx: { prNumber: 900 },
     logsDir: '/tmp/logs',
     worktreePath: '/tmp/worktree',
@@ -129,7 +128,7 @@ describe('executePromotionRotAdvisory (WorkflowConfig adapter)', () => {
   });
 
   it('label absent → commentOnPullRequest not called, resolves', async () => {
-    const config = makeWorkflowConfig({ issue: makeIssue([{ id: '1', name: 'enhancement', color: 'fff' }]) });
+    const config = makeWorkflowConfig({ issue: makeIssue(['enhancement']) });
     const result = await executePromotionRotAdvisory(config);
     expect(config.repoContext.codeHost.commentOnPullRequest).not.toHaveBeenCalled();
     expect(mockRunRotAnalysisAgent).not.toHaveBeenCalled();

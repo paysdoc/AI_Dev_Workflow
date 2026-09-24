@@ -8,7 +8,7 @@ import {
   type UpgradeRedriveSignals,
   type UpgradeRedriveIssue,
 } from '../upgradeRedrive';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 
 const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const UPGRADE_LABEL = { name: 'adw:upgrade' };

@@ -25,8 +25,8 @@ vi.mock('../cronRepoResolver', () => ({
   buildCronTargetRepoArgs: vi.fn(() => []),
 }));
 
-vi.mock('../../providers/github/githubIdentity', () => ({
-  readLocalRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
+vi.mock('../../core/localRepoIdentity', () => ({
+  readLocalRepoIdentity: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo', platform: 'github' })),
 }));
 
 vi.mock('../../forge/linkedPrDetector', () => ({

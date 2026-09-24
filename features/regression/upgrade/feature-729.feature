@@ -21,7 +21,7 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
   `commitChanges` uses the SAME pathspec but silently omits the ignored path, so the
   status check passes and the failure surfaces only at the `git add` line.
 
-  THE FIX (`adws/gitContext/commitOps.ts`): before building the exclude pathspec,
+  THE FIX (`commitOps` in `@paysdoc/devplatform/git` — `src/git/commitOps.ts` in the library repo): before building the exclude pathspec,
   filter out any `excludePaths` entry that is already gitignored in `cwd` (probe with
   `git check-ignore`; when it reports the path ignored, drop it — `git add -A` skips
   ignored files anyway). Where the excluded path is TRACKED (the self-host case, where
@@ -33,7 +33,7 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
     Both scenarios below assert against a GIT ARTEFACT produced by the system under
     test — the tree of the commit that `commitChanges` records over a REAL temporary
     git repository (registry observability surface #3). No step reads
-    `adws/gitContext/commitOps.ts`, `adws/phases/worktreeSetup.ts`, or `adws/adwUpgrade.tsx`
+    the library's `commitOps` (`@paysdoc/devplatform/git`), `adws/phases/worktreeSetup.ts`, or `adws/adwUpgrade.tsx`
     as text, substring-matches its contents, or parses it as JSON/AST. In particular the
     scenarios do NOT assert the exact `git add` pathspec string the implementer emits, nor
     file-on-disk existence — they assert WHICH paths land in the recorded commit and
@@ -78,7 +78,7 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
       test called for by the issue's Tests §1 — that the emitted `git add` command OMITS
       the `:(exclude)` token for an ignored path and RETAINS it otherwise — is an
       implementation-level assertion on the command string and is owned by the build
-      agent under `adws/gitContext/__tests__/`, not by a scenario here (asserting the
+      agent in `paysdoc/devplatform`'s own suite, not by a scenario here (asserting the
       pathspec string would couple the scenario to the implementation, exactly as #685 §D
       declined to do).
     • The @regression maintenance sweep is SKIPPED for this issue: `.adw/scenarios.md`

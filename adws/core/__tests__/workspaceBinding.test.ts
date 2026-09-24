@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { validateGitRemote, bindWorkspaceContext } from '../workspaceBinding';
-import { Platform, type RepoIdentifier, type BoundProviders } from '../../providers/types';
+import { Platform, type RepoIdentifier, type BoundProviders } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../launchGitContext';
 
 function repoId(overrides: Partial<RepoIdentifier> = {}): RepoIdentifier {

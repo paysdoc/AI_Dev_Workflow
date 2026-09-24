@@ -7,7 +7,7 @@
 
 import type { TargetRepoInfo } from '../types/issueTypes';
 import { parseTargetRepoArgs } from '../core/orchestratorCli';
-import { Platform, type RepoIdentifier } from '../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 
 export interface CronRepoResolution {
   repoInfo: RepoIdentifier;

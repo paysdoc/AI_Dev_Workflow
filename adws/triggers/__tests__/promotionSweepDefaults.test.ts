@@ -21,10 +21,10 @@ vi.mock('../../core', async (importOriginal) => {
 import { makeDefaultDeps } from '../promotionSweepDefaults';
 import { log, loadProjectConfig } from '../../core';
 import { readFileSync, writeFileSync } from 'fs';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
-import type { IssueTracker, CodeHost, RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import type { IssueTracker, CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 const PER_ISSUE_DIR = 'features/per-issue';
 const STEP_DEF_DIR = 'features/per-issue/step_definitions';

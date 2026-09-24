@@ -22,7 +22,7 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 
 /**
  * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.

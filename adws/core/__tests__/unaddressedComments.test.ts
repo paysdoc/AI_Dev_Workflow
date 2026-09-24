@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readUnaddressedComments, getLastAdwCommitTimestamp, type UnaddressedCommentReads, type UnaddressedCommentCandidate } from '../unaddressedComments';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 type TestComment = UnaddressedCommentCandidate;
 

@@ -26,7 +26,7 @@ import { isProcessLive } from '../core/processLiveness';
 import { spawnDetached } from './webhookGatekeeper';
 import { log, type LogLevel } from '../core';
 import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../core/adwLabels';
-import type { CodeHost, RepoIdentifier } from '../providers/types';
+import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
 
 // ── Pure claim-branch parser ──────────────────────────────────────────────────
 

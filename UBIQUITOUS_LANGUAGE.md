@@ -72,7 +72,7 @@
 
 | Term | Definition | Aliases to avoid |
 |------|-----------|-----------------|
-| **GitContext** | The single deep module (`adws/gitContext/`) that is the sole authority for all git and `gh` I/O; constructed once at each process's Launch Boundary from a mandatory identity (`owner`, `repo`, `selfHost`, token, `GitIdentity`); resolves Base Path in its constructor and injects auth per spawned-command environment (new) | git context, repo context (when meaning this specific class) |
+| **GitContext** | The single deep module (`@paysdoc/devplatform/git`) that is the sole authority for all git and `gh` I/O; constructed once at each process's Launch Boundary from a mandatory identity (`owner`, `repo`, `selfHost`, token, `GitIdentity`); resolves Base Path in its constructor and injects auth per spawned-command environment (new) | git context, repo context (when meaning this specific class) |
 | **GitIdentity** | The author and committer name/email fields injected into every git command's environment by a `GitContext`; never resolved lazily at command time (new) | git author, committer identity |
 | **Base Path** | The absolute filesystem root under which a `GitContext` creates and finds worktrees; resolved once in the constructor: self-host → framework repo root; target → `join(targetReposDir, owner, repo)` (new) | cwd, working directory, base repo path |
 | **Launch Boundary** | The entry point of a process (cron module scope, `adwMerge.main()`, `initializeWorkflow`) where exactly one `GitContext` is constructed from authoritative launch identity and threaded downward; no downstream code reconstructs it (new) | startup, process entry, initialization |
@@ -85,6 +85,7 @@
 | Term | Definition | Aliases to avoid |
 |------|-----------|-----------------|
 | **Platform** | A code hosting service: `github`, `gitlab`, or `bitbucket` | Host, service, provider |
+| **Forge** | A development platform such as GitHub, GitLab, or Jira, seen through the Issue Tracker, Code Host, and Board Manager ports. A forge name selects which adapters `forgeProviders()` assembles; the library that ships them is `@paysdoc/devplatform` | Platform (when the port view is meant), vendor, backend |
 | **Code Host** | The platform-agnostic interface for repository and Pull Request operations | VCS provider, git host |
 | **Issue Tracker** | The platform-agnostic interface for Issue retrieval, commenting, and status transitions | Ticket system, project tracker |
 | **Repo Context** | An immutable bundle of Issue Tracker, Code Host, working directory, and Repo Identifier passed through the Workflow | Provider context, platform context |
