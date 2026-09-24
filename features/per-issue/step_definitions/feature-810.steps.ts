@@ -1,13 +1,6 @@
 /**
- * Step definitions for feature-810.feature
- *
- * Organised into the same seven sections as the feature file. Self-contained
- * module-private `ctx` per the codebase's per-feature convention — does NOT
+ * Self-contained module-private `ctx` per the codebase's per-feature convention — does NOT
  * reach into any other feature's step defs or ctx.
- *
- * Registered phrases reused (not redefined here):
- *  - Given  'the ADW codebase is checked out'       → ensureCronOnEveryEventSteps.ts (G18)
- *  - Then   'the ADW TypeScript type-check passes'  → feature-504.steps.ts (T22)
  */
 
 import { Given, When, Then, After } from '@cucumber/cucumber';
@@ -38,8 +31,6 @@ import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { cronLaunchContextCtx, resetCronLaunchContext } from './cron-launch-context-ctx.ts';
 
 const REPO_ROOT = process.cwd();
-
-// ══════ §1 fixtures — the pure health module over throwaway fixture registries ══════
 
 interface FixtureCtx {
   entries: ConditionalDocEntry[];
@@ -73,8 +64,6 @@ function fixtureViolations() {
   assert.ok(fixtureCtx.assessment, 'Expected the docs index health check to have run');
   return fixtureCtx.assessment!.violations;
 }
-
-// ── Given ────────────────────────────────────────────────────────────────────
 
 Given('a docs index fixture holding an entry {string} whose doc file is absent', function (docPath: string) {
   ensureFixtureEntry(docPath);
@@ -170,15 +159,11 @@ Given(/^a docs index fixture holding (.+) healthy entries$/, function (sizing: s
   }
 });
 
-// ── When ─────────────────────────────────────────────────────────────────────
-
 When('the docs index health check runs over the fixture', function () {
   const registry: ConditionalDocsRegistry = { preamble: '# Conditional Documentation\n', entries: fixtureCtx.entries };
   const content = serializeConditionalDocs(registry);
   fixtureCtx.assessment = assessDocsIndexHealth({ content, files: [...fixtureCtx.files] });
 });
-
-// ── Then ─────────────────────────────────────────────────────────────────────
 
 Then('the health check reports a drop repair for {string}', function (docPath: string) {
   const found = fixtureRepairs().some((r) => r.kind === 'drop-dangling-entry' && r.docPath === docPath);
@@ -235,8 +220,6 @@ Then('the health check reports no repairs', function () {
 Then('the health check reports no violations', function () {
   assert.strictEqual(fixtureViolations().length, 0, `Expected no violations. Got: ${JSON.stringify(fixtureViolations())}`);
 });
-
-// ══════ §5 / §6 — the gate spawned as a command, and run over the ADW checkout ══════
 
 interface GateCtx {
   dir: string | null;
@@ -317,8 +300,6 @@ function spawnGate(dir: string, stripCredentials: boolean): { exitCode: number; 
   }
 }
 
-// ── Given ────────────────────────────────────────────────────────────────────
-
 Given('a fixture checkout whose docs index is healthy', function () {
   gateCtx.dir = makeGateFixtureDir();
   writeGateIndex(gateCtx.dir, buildHealthyGateFixture(gateCtx.dir));
@@ -355,8 +336,6 @@ Given('no forge credentials are available to the gate', function () {
   gateCtx.stripCredentials = true;
 });
 
-// ── When ─────────────────────────────────────────────────────────────────────
-
 When('the docs-index gate runs over the fixture checkout', function () {
   assert.ok(gateCtx.dir, 'Expected a fixture checkout to be set up first');
   const result = spawnGate(gateCtx.dir!, gateCtx.stripCredentials);
@@ -385,8 +364,6 @@ When('the docs-index gate is run through its package script entry point', functi
 // "the git\/gh guard is run across the repository" and "the git\/gh guard reports no
 // violations" are reused from feature-691.steps.ts (identical Cucumber text; a second
 // registration would be ambiguous) — not redefined here.
-
-// ── Then ─────────────────────────────────────────────────────────────────────
 
 Then('the docs-index gate exits non-zero', function () {
   assert.notStrictEqual(gateCtx.exitCode, 0, `Expected a non-zero exit. Got stdout:\n${gateCtx.stdout}`);
@@ -433,8 +410,6 @@ Then('the git\\/gh guard reports no stale allowlist entry for the docs-index gat
   assert.ok(!stdout.includes('adws/checkLivingDocsIndex.ts'), `Expected no mention of the docs-index gate. Got:\n${stdout}`);
 });
 
-// ══════ §2 — cadence, launch boundary, and the non-fatal swallow (injected-seam dispatch) ══════
-
 interface DispatchCtx {
   invocationCount: number;
   sweepShouldThrow: boolean;
@@ -466,7 +441,6 @@ After({ tags: '@adw-810' }, function () {
 // the When below reads it to choose the sweep thunk or the `null` that models an absent
 // launch GitContext.
 
-/** Resolves a Gherkin cycle-position phrase to a cycleCount, relative to the imported constant. */
 function resolveDocsIndexCycleCount(cyclePosition: string): number {
   switch (cyclePosition) {
     case 'cadence-eligible':
@@ -482,7 +456,6 @@ function resolveDocsIndexCycleCount(cyclePosition: string): number {
   }
 }
 
-/** Capturing fake sweep: increments the invocation counter and resolves (or throws) per ctx.sweepShouldThrow. */
 function fakeDocsIndexSweep(): Promise<unknown> {
   dispatchCtx.invocationCount += 1;
   if (dispatchCtx.sweepShouldThrow) {
@@ -506,16 +479,12 @@ async function captureDispatchStdout(fn: () => Promise<void>): Promise<void> {
   }
 }
 
-// ── Given ────────────────────────────────────────────────────────────────────
-//
 // "the cron holds no launch context" is deliberately NOT registered here — it arrives
 // through the shared cron-launch-context-ctx.ts flag described above.
 
 Given('the injected docs-index sweep is configured to throw a transient error', function () {
   dispatchCtx.sweepShouldThrow = true;
 });
-
-// ── When ─────────────────────────────────────────────────────────────────────
 
 When('the cron docs-index-sweep dispatch runs for a {string} cron cycle', async function (cyclePosition: string) {
   const cycleCount = resolveDocsIndexCycleCount(cyclePosition);
@@ -529,8 +498,6 @@ When('the cron docs-index-sweep dispatch runs for a {string} cron cycle', async 
     }
   });
 });
-
-// ── Then ─────────────────────────────────────────────────────────────────────
 
 Then('the docs-index sweep is dispatched exactly once', function () {
   assert.strictEqual(dispatchCtx.invocationCount, 1, `Expected the injected sweep to be invoked exactly once, got ${dispatchCtx.invocationCount}`);
@@ -559,13 +526,9 @@ Then('the cron logs the docs-index sweep failure as an error', function () {
   );
 });
 
-// ══════ §3 / §4 — the real sweep over a throwaway origin/host repository pair, forge faked ══════
-//
-// Mirrors feature-758.steps.ts (real worktree/commit/push against a real bare remote) and
-// feature-769.steps.ts (target/framework two-checkout world, recording GitContext). Only the
-// forge (issueTracker/codeHost) is faked; every git operation is real, so the GREEN signal comes
-// from the real threaded production code (prepareSweepBase / persistCommitViaPr / the sweep
-// shell), never a hand-mirrored stand-in.
+// Only the forge (issueTracker/codeHost) is faked; every git operation is real, so the GREEN
+// signal comes from the real threaded production code (prepareSweepBase / persistCommitViaPr /
+// the sweep shell), never a hand-mirrored stand-in.
 //
 // A handful of Given/Then phrases here are DELIBERATELY DISTINCT from feature-758's / feature-769's
 // near-identical wording ("the cron host's local default branch is behind origin's docs index by a
@@ -720,7 +683,6 @@ interface SweepCtx {
   issueCountAtScenarioStart: number | null;
   sweepThrew: boolean;
   capturedStdout: string;
-  // two-checkout world
   targetReposDir: string | null;
   target: RepoFixture | null;
   targetStore: FakeForgeStore | null;
@@ -883,8 +845,6 @@ async function captureSweepStdout(fn: () => Promise<void>): Promise<void> {
   }
 }
 
-// ── Given — single-repo fixture ─────────────────────────────────────────────
-
 Given("a docs index on origin's default branch carrying an entry whose doc file is not tracked", function () {
   sweepCtx.entries.push({ docPath: 'app_docs/feature-ghost.md', ownedGlobs: [], conditions: ['When a ghost entry is present'] });
   materializeSweepFixture('seed a dangling entry');
@@ -988,8 +948,6 @@ Given("the index on origin's default branch holds an entry count inside the band
   materializeSweepFixture('pad entry count inside the band');
 });
 
-// ── Given — two-checkout world ───────────────────────────────────────────────
-
 Given('a target repository checkout whose docs index carries a dangling entry', function () {
   sweepCtx.targetReposDir = makeSweepWorkdir('adw-810-target-root-');
   const workdir = join(sweepCtx.targetReposDir, 'adw-fixture', 'target-fixture');
@@ -1049,8 +1007,6 @@ Given('the cron holds a docs-index-sweep launch context for the target repositor
   };
 });
 
-// ── When ─────────────────────────────────────────────────────────────────────
-
 async function runOneSweep(): Promise<void> {
   assert.ok(sweepCtx.boundary, 'Expected a launch context to be set up first');
   if (sweepCtx.fixture) {
@@ -1074,8 +1030,6 @@ async function runOneSweep(): Promise<void> {
 
 When('the cron cycle runs the docs-index sweep', runOneSweep);
 When('the cron cycle runs the docs-index sweep again', runOneSweep);
-
-// ── Then — single-repo persistence (§3) ─────────────────────────────────────
 
 Then('origin carries a docs-index sweep branch whose index omits the dangling entry', function () {
   assert.ok(sweepCtx.lastSweepBranchContent, 'Expected the sweep branch content to have been snapshotted at merge time');
@@ -1174,8 +1128,6 @@ Then('a later docs-index sweep re-attempts the repair', async function () {
   assert.ok(!content.includes('app_docs/feature-ghost.md'), `Expected the retried sweep to land the repair. Got:\n${content}`);
 });
 
-// ── Then — reporting (§4) ────────────────────────────────────────────────────
-
 Then('the docs-index sweep files exactly one issue', function () {
   const activeStore = sweepCtx.targetStore ?? sweepCtx.store;
   const filedThisRun = activeStore.issues.length - sweepCtx.issueCountBeforeThisSweep;
@@ -1231,8 +1183,6 @@ Then('the docs-index sweep files no issue', function () {
   const activeStore = sweepCtx.targetStore ?? sweepCtx.store;
   assert.strictEqual(activeStore.issues.length, 0, `Expected no issue filed. Got: ${JSON.stringify(activeStore.issues)}`);
 });
-
-// ── Then — target/framework isolation (§3 / §4) ─────────────────────────────
 
 Then('the sweep repairs the docs index of the target repository', function () {
   assert.ok(sweepCtx.target, 'Expected a target fixture');

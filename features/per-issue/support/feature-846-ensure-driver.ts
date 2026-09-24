@@ -1,6 +1,4 @@
 /**
- * Child-process driver for feature-846.feature.
- *
  * `TARGET_REPOS_DIR` (adws/core/environment.ts) is bound at import time, so
  * driving `ensureTargetRepoWorkspace` in-process from the step definitions
  * would clone into the real `~/.adw/repos` on the host running the suite

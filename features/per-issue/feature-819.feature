@@ -4,7 +4,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
   Issue #819 is the fourth slice of the GitContext library extraction (`specs/prd/gitcontext-library-extraction.md`,
   Solution → de-tangling wave, second bullet; Implementation Decisions → De-tangling wave; Testing
   Decisions → *GitHub adapter absorption*; user stories 8 and 10), landing on the guard #816 built and
-  #817/#818 widened. After it, every import in `adws/providers/github/**` resolves to the executor
   (`adws/gitContext`), the ports (`adws/providers/types.ts`) or the adapter's own domain model (#817).
 
   Nine lines of source are the entire remaining entanglement, and #817's feature file already named
@@ -100,7 +99,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
   TRAP 4 — `moveToStatus` IS NOT A BOARD MOVE; IT IS A BOARD MOVE PLUS A SLACK POST.
   `adws/github/projectBoardApi.ts:31-35` awaits `notifyReviewTransition` whenever the move succeeded
   AND the target status is `Review` — the HITL notification, and the awaited-not-void-dispatched form
-  #647 fixed so the orchestrator cannot exit before the POST settles. `moveToStatus` is called from
   ten phases; `prPhase.ts:99` and `prReviewPhase.ts:348` are the two that pass `BoardStatus.Review`.
   Re-pointing the adapter at `createGhRepoApi(ctx).moveIssueToStatus(...)` deletes the notification
   for every HITL issue, and nothing anywhere reports an error — the operator simply stops being told
@@ -179,14 +177,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1 THE PORT FACTORIES TAKE THE CALLER'S CONTEXT (AC2; story 8) ─────────────────────
-  #
-  # The headline, and the direction that proves the new signature does something rather than merely
-  # accepting an argument it ignores. Today `githubBoardManager.ts:83` and `githubCodeHost.ts:55,86,
-  # 136,141` mint a context per call from ambient ADW identity; after this slice the context arrives
-  # and the adapter selects nothing. The recording executor belongs to the context that was handed
-  # in, so "reached the recording seam" is only true of an adapter that used it.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: An issue-tracker read runs on the context the factory was given
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -216,12 +206,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | set-secret             | gh secret set                                     |                |
       | list-merged-requests   | gh pr list --repo acme/widget --state merged      | []             |
 
-  # `getDefaultBranch` is the odd one out today: it is the only operation built on
-  # `gitContextForSync({ selfHost: false })` rather than `gitContextForRepo`, so the two paths carry
-  # different token providers and different self-host resolution. After this slice there is one
-  # context, and the asymmetry is gone — which is a behaviour change the issue wants and this row
-  # makes visible rather than incidental.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: The board manager runs its project lookup on the context the factory was given
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -232,11 +216,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     When the board manager operation "find-board" is driven over the recording gh seam
     Then every command the driven operation issued reached the recording gh seam
     And the driven operation returned "PVT_board1"
-
-  # AC2's second half. `mintBoundProviders` is documented as performing no filesystem, git or network
-  # work — it must THREAD the context it is given, never build one, or the boundary's guarantee that
-  # one identity is resolved exactly once (#794) is quietly broken and the mint gains an I/O failure
-  # mode before a workspace exists.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: The mint hands the caller's context to all three providers it returns
@@ -255,12 +234,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then every command the minted providers issued reached the recording gh seam
     And the minted providers issued no command outside the repository "acme/widget"
 
-  # ── §2 THE ABSORBED PARSING AND ERROR POLICIES (AC1, AC5; story 8) ─────────────────────
-  #
-  # TRAP 1 and TRAP 2. Each scenario below is a mapping or a policy that lives in a free function the
-  # adapter stops importing. All of them are green on `tsc` if dropped, and all of them are visible
-  # to an operator when they are.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A fetched issue arrives as a mapped port Issue, not as the raw gh payload
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -273,11 +246,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     And the driven operation returned the field "author" as "octocat"
     And the driven operation returned the field "labels" as "hitl,adw:feature"
     And the driven operation returned the field "comments.0.author" as "reviewer"
-
-  # The defaulting half of `transformIssueResponse`. GitHub omits `author` for a deleted account and
-  # omits `body` for an empty one; `mapGitHubIssueToIssue` reads `issue.author.login` unguarded, so
-  # a re-plumb that parses straight into the mapper throws a TypeError on a payload GitHub really
-  # sends.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: An issue payload missing its optional fields is defaulted, not fatal
@@ -299,10 +267,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     When the issue tracker operation "fetch-issue" is driven over the recording gh seam
     Then the driven operation failed with an error naming "#42"
 
-  # The REST shape, not the GraphQL shape. `fetchIssueCommentsRest` reads `user.login` and
-  # `created_at`; the GraphQL comment mapper reads `author.login` and `createdAt`. Feeding one to the
-  # other yields `undefined` authors and `undefined` timestamps with no error anywhere.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: Issue comments come back through the REST mapping, with their numeric ids stringified
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -314,9 +278,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation returned the field "0.id" as "90210"
     And the driven operation returned the field "0.author" as "octocat"
     And the driven operation returned the field "0.createdAt" as "2026-01-04T00:00:00Z"
-
-  # `closeIssue` is a read-then-write with an early return, not a single command. The already-closed
-  # short-circuit is what keeps a re-run of a completed workflow from re-closing and re-commenting.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: Closing an already-closed issue issues no close command and reports no close
@@ -341,8 +302,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation returned "true"
     And the driven operation issued a command matching "gh issue comment 42" before a command matching "gh issue close 42"
 
-  # TRAP 2, both directions, in the shape the existing relocated suite already asserts.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A rejected add-label is swallowed
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -356,14 +315,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     And the recording gh seam refuses commands matching "gh issue edit 42 --repo acme/widget --add-label" with the message "gh api error: 500"
     When the issue tracker operation "apply-label" is driven over the recording gh seam
     Then the driven operation failed with an error naming "gh api error: 500"
-
-  # The lazy-create retry, and the colour that must survive it. `adw:blocked` is `b60205` in
-  # `ADW_LABEL_DEFINITIONS`; a generic `ededed` fallback for every label is the tsc-green wrong answer
-  # TRAP 2 describes, and only the created label's colour makes it visible. AC1 forbids the adapter
-  # importing `adws/github/labelManager`, so the canonical colour cannot come from inside the package
-  # — it has to arrive as injected data from ADW's wiring. That is why this scenario drives the
-  # MINTED tracker rather than a bare factory: a bare adapter is entitled to its grey default, and
-  # asserting `b60205` against it would be asserting a rule AC1 makes unimplementable.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: An apply-label onto a repository missing the label creates it with its canonical colour and retries once
@@ -390,10 +341,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | search-open-issues        | gh issue list --repo acme/widget --state open      |          |
       | find-open-upgrade-issue   | --label 'adw:upgrade'                              | null     |
 
-  # The one read that deliberately does NOT swallow — `issueListApi.listIssues` throws so its callers
-  # own the swallow policy. Folding it into the fail-open group is a one-word change and it turns an
-  # empty cron poll into an indistinguishable "no eligible issues".
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A failed issue listing throws rather than answering with an empty list
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -414,9 +361,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     And the recording gh seam answers commands matching "gh issue create --repo acme/widget" with "created something"
     When the issue tracker operation "create-issue" is driven over the recording gh seam
     Then the driven operation failed with an error naming "created something"
-
-  # TRAP 1, the PR half. `linkedIssueNumber` is the field the auto-merge and PR-review lanes route on;
-  # it exists only because `fetchPRDetails` reads `Implements #N` out of the body.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A fetched pull request carries the issue number its body implements
@@ -439,10 +383,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     When the code host operation "fetch-pull-request" is driven over the recording gh seam
     Then the driven operation returned the field "linkedIssueNumber" as "42"
 
-  # Two calls concatenated, and the filter between them. A review with an empty body and state
-  # CHANGES_REQUESTED must survive as `[Review submitted: CHANGES_REQUESTED]`; a PENDING one must not
-  # survive at all.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: Review comments merge the line comments with the review bodies, filtering the pending ones
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -458,12 +398,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation returned 2 items
     And the driven operation returned the field "0.path" as "src/a.ts"
     And the driven operation returned the field "1.body" as "[Review submitted: CHANGES_REQUESTED]"
-
-  # The Examples columns are a shorthand the step definition expands into the `gh pr view --json
-  # reviewDecision,reviews` payload: `(none)` is a JSON null decision, `(empty)` the empty string the
-  # gh CLI returns on a repository without branch protection, and each review is
-  # `<login>:<state>@<day>`. Spelling the payload out in the table would put double quotes inside a
-  # `{string}` parameter, where Gherkin's capture stops at the first one.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: The approval state falls back to per-reviewer aggregation when the forge reports no decision
@@ -481,9 +415,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | (none)            | a:APPROVED@1,a:CHANGES_REQUESTED@2 | false    |
       | (none)            | a:APPROVED@1,b:APPROVED@2          | true     |
       | (none)            |                                    | false    |
-
-  # #508. `prs[0]` is the wrong answer whenever a branch has both a stale closed PR and a live open
-  # one, and the wrong answer is the one auto-merge acts on.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A branch carrying a closed and an open pull request resolves to the open one
@@ -504,10 +435,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation completed without throwing
     And the driven operation returned "null"
 
-  # The pre-flight reuse check in `createPullRequest` — the only place the adapter already calls
-  # `createGhRepoApi` directly today, and the one whose swallow-on-failure fall-through must survive
-  # the re-plumbing or every re-run of the PR phase opens a duplicate PR.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: Creating a pull request on a branch that already has an open one reuses it instead of opening a second
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -527,12 +454,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation completed without throwing
     And the driven operation returned the field "success" as "false"
     And the driven operation returned the field "error" as "Pull request is not mergeable"
-
-  # ── §3 THE ELEVATED IDENTITY SURVIVES THE PORT HOP (AC5; TRAP 3) ───────────────────────
-  #
-  # `purpose: 'alternateIdentity'` is set inside `ghPrApi`/`ghRepoOps`/`githubBoardManager`, and its
-  # only observable trace is the credential the executed command carried. See the ADW-WARNING above
-  # for the half of this trap that lives at the boundary and is NOT covered here.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: Approving a pull request presents the elevated credential the context serves
@@ -570,14 +491,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | create-board   |
       | ensure-columns |
 
-  # ── §4 THE REVIEW-TRANSITION NOTIFICATION SURVIVES (AC5; TRAP 4) ───────────────────────
-  #
-  # The single most likely silent regression in this slice: `projectBoardApi.moveIssueToStatus` is a
-  # board move PLUS an awaited HITL Slack post on a successful `Review` transition (#647), and
-  # `createGhRepoApi(ctx).moveIssueToStatus(...)` is only the board move. Where the decoration lives
-  # after this slice is the implementer's call — the adapter may not import the notifier — but it must
-  # run on the caller's context, so its reads are visible on the same recording seam as the move.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A successful move to Review still performs the review-transition notification lookup
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -606,15 +519,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the driven operation completed without throwing
     And the driven operation returned "false"
 
-  # ── §5 THE ADAPTER LOGS ONLY THROUGH THE Logger PORT (AC3; story 10) ───────────────────
-  #
-  # `githubBoardManager.ts` logs at six sites and `githubCodeHost.ts` at one, all through
-  # `adws/core`'s `log`. The port (`adws/gitContext/types.ts`) is the same `(message, level?)` shape,
-  # so swapping the import is a one-line change — and a one-line change that is invisible unless the
-  # injected logger is asserted to RECEIVE the message and ADW's decorated line is asserted NOT to
-  # appear. `consoleLogger` prints the bare message; `adws/core`'s `log` prints a timestamped,
-  # emoji-prefixed one, which is what makes the two distinguishable on the same stream.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A failed board lookup reports through the injected logger
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -637,11 +541,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     Then the capturing logger recorded a message naming "#9"
     And no ADW-decorated log line was written to standard output
 
-  # The control. `Logger` is an optional injection with `consoleLogger` as the port's documented
-  # default (#818 established the same pair for GitLab and Jira); an adapter that made the logger
-  # mandatory would break every existing construction site, and one that kept `adws/core`'s `log` as
-  # its fallback would still be importing the framework.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: With no logger injected the board manager falls back to the port's console default
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -649,14 +548,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     And the GitHub board manager is built with no logger
     When the board manager operation "find-board" is driven over the recording gh seam
     Then an undecorated log line naming "acme/widget" was written to standard output
-
-  # ── §6 THE WIDENED GUARD SCOPE (AC1, AC4; TRAP 5) ──────────────────────────────────────
-  #
-  # The machine-checkable half of the slice, and the part that keeps it from being undone. Each row
-  # in the first outline is a file that reaches the framework at a line that exists today; after this
-  # issue every one of them must fail the build. Until the scope widens they all pass, which is why
-  # this outline is the pivot: an implementation that removes the imports but forgets the scope entry
-  # leaves AC1 unenforced and this scenario red.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: A framework import from a named adapter module fails the guard by name
@@ -680,11 +571,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | adws/providers/github/githubBoardManager.ts | ../../github/gitContextFactory |
       | adws/providers/github/githubBoardManager.ts | ../../core                   |
 
-  # TRAP 5, too-narrow edge. None of these appear in the issue's file list, because none of them is
-  # entangled today — which is precisely why the scope entry has to be the DIRECTORY. Three file
-  # entries pass the outline above only by leaving these unguarded, and the first re-entanglement
-  # lands silently.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: A framework import from an unnamed sibling in the adapter package fails the guard too
     Given a guard fixture tree holding the file "<path>":
@@ -707,9 +593,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | adws/providers/github/appAuth.ts                | ../../github/githubAppAuth |
       | adws/providers/github/commands/issueCommands.ts | ../../../core             |
 
-  # The adapter is not the only file the widening reaches. AC4's scope is `adws/providers/**` minus
-  # `repoContext.ts`, so the two files that sit beside it must come in with it.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: A framework import from the providers files outside the adapter directories fails the guard too
     Given a guard fixture tree holding the file "<path>":
@@ -726,21 +609,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | path                                  | specifier         |
       | adws/providers/workspaceValidation.ts | ../core           |
       | adws/providers/index.ts               | ../github/prApi   |
-
-  # TRAP 5, too-wide edge. This section used to pin `repoContext.ts` — the file this whole wave parked
-  # ADW's wiring in — as "still not checked" while it carried a framework import by design. #823
-  # retired that row: it replaced `repoContext.ts` with `forgeProviders()` and widened
-  # EXTRACTION_SCOPE to the whole `adws/providers` directory, so the identical fixture now FAILS the
-  # guard instead of passing it — see #823's "The last unchecked provider file is now in scope and
-  # fails on a framework import" outline, this row's exact inversion.
-
-  # The other direction, and the exact shape the de-tangled adapter takes: the executor and the
-  # `Logger` port from `adws/gitContext/`, the ports from `adws/providers/types.ts`, the raw shapes
-  # from its own `domain/` sibling. All of them resolve inside the extractable set — the two
-  # directories move together — so an implementation that satisfied the guard by inlining a private
-  # logger type instead of importing the port would be passing a test it did not need to pass, while
-  # a rule that flagged any specifier leaving the file's own directory would fail the build on the
-  # very files this issue rewrites.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: The de-tangled adapter reaching the executor, the logger port, the provider ports and its own siblings passes the guard
@@ -774,11 +642,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # TRAP 6's neighbour. AC5 puts the relocated tests inside the directory this section just put in
-  # scope, and they will import `vitest` and — for the delegation assertions — very likely framework
-  # paths on purpose. `isScannable` already excludes both shapes; this pins the exclusion where it now
-  # matters, rather than discovering it as a red build on the tests AC5 requires.
-
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: The adapter's own test files are excluded from the widened scope
     Given a guard fixture tree holding the file "<path>":
@@ -796,11 +659,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | adws/providers/github/__tests__/githubIssueTracker.test.ts    |
       | adws/providers/github/__tests__/githubCodeHost.test.ts        |
       | adws/providers/github/commands/__tests__/issueCommands.test.ts |
-
-  # The ratchet. WIDEN ONLY, NEVER NARROW is a property of a list, and the only way a test can see it
-  # is by re-running what the earlier slices pinned. Every entry #816, #817 and #818 added must still
-  # fire after #819's widening — including the two #817 entries the directory widening subsumes,
-  # which must keep failing whether or not their list rows survive.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario Outline: The scope entries the earlier slices seeded still fail on a framework import
@@ -822,12 +680,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | adws/providers/github/domain/issueShapes.ts | ../../../types/issueTypes |
       | adws/providers/gitlab/gitlabApiClient.ts    | ../../core                |
       | adws/providers/jira/jiraApiClient.ts        | ../../core                |
-
-  # The anti-relabel row #816 introduced and every slice since has re-run, re-run again because #819
-  # is the fourth slice to change EXTRACTION_SCOPE and the first to bring a whole EXEMPT_PACKAGE into
-  # it: a widening applied to collection rather than to the extraction rule alone relabels or swallows
-  # this, and a widening that stopped pruning `adws/providers/github` from the WHOLE-REPO walk would
-  # start flagging the adapter's sanctioned `gh` command strings under the shell-out rule instead.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: A framework shell-out still fails under the shell-out rule, not the extraction rule
@@ -853,8 +705,6 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       """
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
-
-  # ── §7 THE RATCHET (AC4, AC5) ──────────────────────────────────────────────────────────
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: The guard passes across the whole repository with the adapter package fully in scope

@@ -1,11 +1,4 @@
 /**
- * BDD step definitions for feature-817.feature
- *
- * Domain model consolidation into the provider package (#817): raw GitHub
- * payload shapes become adapter-owned, the old framework repo-identity type
- * collapses into RepoIdentifier without losing the platform discriminator,
- * and the extraction guard's scope widens to hold the result.
- *
  * §1 and §5 reuse the guard fixture-tree Given/When/Then from
  * feature-816.steps.ts verbatim — no redefinitions here. Because this file's
  * scenarios carry @adw-817, not @adw-816, feature-816.steps.ts's own
@@ -25,10 +18,6 @@
  * against ITS module-private world, via the small setter/accessor seam it
  * exports for this purpose (`setDeclaredPlatform`, `getBuiltBoundary`) — no
  * `@adw-794` phrase text changes.
- *
- * §6 reuses `the git/gh guard runs across the whole ADW repository` / `the
- * guard run reports no violations` (feature-769.steps.ts) and `the ADW
- * TypeScript type-check passes` (feature-504.steps.ts) — no redefinitions.
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -41,10 +30,6 @@ import { setDeclaredPlatform, getBuiltBoundary } from './feature-794.steps.ts';
 import type { Platform } from '@paysdoc/devplatform';
 
 const REPO_ROOT = process.cwd();
-
-// ---------------------------------------------------------------------------
-// Type-probe harness state
-// ---------------------------------------------------------------------------
 
 let probeDir: string | null = null;
 let probeTsconfigPath: string | null = null;
@@ -64,10 +49,6 @@ function cleanupProbe(): void {
   probeExitCode = 0;
 }
 
-// ---------------------------------------------------------------------------
-// Before / After hooks — scoped to @adw-817
-// ---------------------------------------------------------------------------
-
 Before({ tags: '@adw-817' }, function () {
   cleanupProbe();
   resetGuardFixtureTree();
@@ -79,10 +60,6 @@ After({ tags: '@adw-817' }, function () {
   resetGuardFixtureTree();
   setDeclaredPlatform(undefined);
 });
-
-// ---------------------------------------------------------------------------
-// §2/§3/§4 — the type-probe harness
-// ---------------------------------------------------------------------------
 
 Given('a type probe module that reads:', function (source: string) {
   probeDir = fs.mkdtempSync(path.join(REPO_ROOT, 'adws', 'zzProbe817-'));
@@ -152,10 +129,6 @@ Then('the type probe fails to compile reporting the missing property {string}', 
   );
 });
 
-// ---------------------------------------------------------------------------
-// §4 — the platform discriminator, driven through feature-794.steps.ts's seam
-// ---------------------------------------------------------------------------
-
 Given('the launch boundary declares the platform {string}', function (platformName: string) {
   setDeclaredPlatform(platformName as Platform);
 });
@@ -166,10 +139,6 @@ Then('the boundary\'s repo identity declares the platform {string}', function (p
   assert.strictEqual(boundary.repoId.platform, platformName);
 });
 
-// ---------------------------------------------------------------------------
-// §5 — the parameterised rule citation, reading feature-816.steps.ts's last stdout
-// ---------------------------------------------------------------------------
-
 Then('the guard failure over the guard fixture tree cites the {string} rule', function (ruleName: string) {
   const stdout = getGuardStdout();
   assert.ok(
@@ -178,19 +147,14 @@ Then('the guard failure over the guard fixture tree cites the {string} rule', fu
   );
 });
 
-// ---------------------------------------------------------------------------
-// Cross-file seam (#823): feature-823.steps.ts reuses this file's type-probe
-// harness (never redefining its Given/When/Then phrases) and needs its own
-// accessor/reset, since this file's own Before/After (tag-scoped to @adw-817)
-// never run for @adw-823 scenarios.
-// ---------------------------------------------------------------------------
+// feature-823.steps.ts reuses this file's type-probe harness and needs its
+// own accessor/reset, since this file's own Before/After (tag-scoped to
+// @adw-817) never run for @adw-823 scenarios.
 
-/** The last type-probe compile's exit code and captured stdout (+ stderr on failure). */
 export function getTypeProbeResult(): { exitCode: number; stdout: string } {
   return { exitCode: probeExitCode, stdout: probeStdout };
 }
 
-/** Removes the current probe directory/tsconfig (if any) and clears run state — mirrors this file's own `cleanupProbe`. */
 export function resetTypeProbe(): void {
   cleanupProbe();
 }

@@ -1,30 +1,14 @@
 /**
- * Step definitions for feature-797.feature
- *
- * §1  the core package stands alone (a real `cp -R` copy-and-import, and a
- *     runtime member-shape probe over `gitContextSharedWorld.ts`'s `W`)
- * §2  the cron's open-issue listing is served by the issue tracker
- * §3  the sweeps ask questions the open-only ports cannot answer
- * §4  the stage readers must still see pull requests that are not open
- * §5  comment handling keeps its exact words and its exact order
- * §6  a repository that has never been cloned
- * §7  same commands, same repos, same place they run from (the recording
- *     `exec` seam, via `gitContextSharedWorld.ts`)
- * §8  the structural backstops → feature-691.steps.ts (guard),
- *     feature-504.steps.ts (type-check), plus one new stale-entry check here
- *
  * §2-§6 share ONE "world": `bw` (boundary world). Its Given —
  * "the repository {string} is launched with recording providers" — builds a
  * REAL `LaunchBoundary` via the production `buildLaunchBoundary`, injecting
  * `forgeProviders` so `.providers` resolves to this file's own recording
  * `IssueTracker`/`CodeHost` stand-ins (a fixture-backed fake, never a hand-typed
- * deps bag) and wrapping `.gitContext` in a forge-semantic-access watcher
- * (this file's own copy of feature-796's Proxy pattern, one step further:
- * membership, not just calls, for §1's second scenario). Deliberately does
- * NOT reuse feature-796.steps.ts's near-identical "a launch boundary … whose
- * providers record every call" — that Given's stand-ins log calls but answer
- * none of the listings, merged-PR lookups, or default-branch reads §2-§6
- * depend on.
+ * deps bag) and wrapping `.gitContext` in a forge-semantic-access watcher.
+ * Deliberately does NOT reuse feature-796.steps.ts's near-identical "a launch
+ * boundary … whose providers record every call" — that Given's stand-ins log
+ * calls but answer none of the listings, merged-PR lookups, or default-branch
+ * reads §2-§6 depend on.
  *
  * The boundary's `GitContext` targets a REAL git repository (bare origin +
  * clone, seeded once per scenario) at `targetReposDir/adw-fixture/void-797`,
@@ -38,14 +22,6 @@
  * (`makeSpyExec`/`makeFullOptions`), reused verbatim from the shared module
  * feature-659.steps.ts/feature-691.steps.ts already share (that file's
  * untagged `After` hook resets `W`, so this file adds none of its own).
- *
- * Every scenario targets the deliberately non-existent "adw-fixture/void-797".
- *
- * Registered phrases reused (not redefined here):
- *  - Given 'the ADW codebase is checked out'            → ensureCronOnEveryEventSteps.ts
- *  - When  'the git/gh guard is run across the repository' → feature-691.steps.ts
- *  - Then  'the git/gh guard reports no violations'      → feature-691.steps.ts
- *  - Then  'the ADW TypeScript type-check passes'        → feature-504.steps.ts
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -97,8 +73,6 @@ import * as ts from 'typescript';
 
 import { W, makeSpyExec, makeFullOptions, makeNoOpFsDeps } from './gitContextSharedWorld.ts';
 
-// ── Shared constants ─────────────────────────────────────────────────────────
-
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const GITCONTEXT_SRC = path.join(REPO_ROOT, 'adws', 'gitContext');
 
@@ -109,7 +83,6 @@ const FIXED_IDENTITY = {
 
 const SENTINEL_TOKEN = 'sentinel-797-token-xyz';
 
-/** The exact forge-semantic member set AC1 removes from GitContext (gitContext.ts's former ~lines 333-788). */
 const FORGE_SEMANTIC_METHODS = new Set([
   'defaultBranch', 'fetchIssue', 'commentOnIssue', 'issueState', 'closeIssue', 'issueTitle',
   'fetchIssueComments', 'issueHasLabel', 'issueLabels', 'addIssueLabel', 'createIssue', 'updateIssueBody',
@@ -146,8 +119,6 @@ function watchGitContext(real: GitContext, log: string[]): GitContext {
   }) as unknown as GitContext;
 }
 
-// ── §1.1 — package isolation world ───────────────────────────────────────────
-
 interface Wcopy {
   tempDir: string | null;
   importError: Error | null;
@@ -172,8 +143,6 @@ function copyDirExcluding(src: string, dest: string, excludeDirNames: ReadonlySe
     copyDirEntry(entry, src, dest, excludeDirNames);
   }
 }
-
-// ── §2-§6 — the recording-providers boundary world ───────────────────────────
 
 interface CallRecord { op: string; args: unknown[] }
 
@@ -381,7 +350,6 @@ interface Wboundary {
   usedAdwIds: Set<string>;
   tempDirs: string[];
 
-  // Per-scenario result slots
   cronListingResult: RawIssue[] | null;
   promotionReport: PromotionSweepReport | null;
   fakeFeaturePath: string | null;
@@ -489,14 +457,10 @@ function requireBoundary(): LaunchBoundary {
   return bw.boundary;
 }
 
-// ── §7 — the recording-exec world (gitContextSharedWorld.ts's W) ────────────
-
 interface W7 { result: string | null }
 const w7: W7 = { result: null };
 
 const CRON_ISSUE_FIELDS = ['number', 'title', 'body', 'comments', 'createdAt', 'updatedAt', 'labels'] as const;
-
-// ── Before / After ────────────────────────────────────────────────────────────
 
 Before({ tags: '@adw-797' }, function () {
   resetBw();
@@ -519,8 +483,6 @@ After({ tags: '@adw-797' }, function () {
   wc.tempDir = null; wc.importError = null; wc.imported = false;
   w7.result = null;
 });
-
-// ── §1.1 — package isolation ──────────────────────────────────────────────────
 
 Given('the git context package is copied on its own into an empty directory', function () {
   const parent = mkdtempSync(path.join(tmpdir(), 'adw-797-isolated-'));
@@ -559,8 +521,6 @@ Then('the copied package resolved no module outside its own directory', function
   );
 });
 
-// ── §1.2 — the member-shape probe ─────────────────────────────────────────────
-
 Given('a git context constructed over a recording command executor', function () {
   const { exec, calls } = makeSpyExec(new Map());
   W.ctx = new GitContext(
@@ -582,8 +542,6 @@ Then('the git context still exposes its git, worktree, workspace and executor op
   assert.deepStrictEqual(missing, [], `Expected these to remain functions: ${missing.join(', ')}`);
 });
 
-// ── §2-§6 — the recording-providers boundary ──────────────────────────────────
-
 Given('the repository {string} is launched with recording providers', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
   buildRecordingBoundary(owner, repo);
@@ -595,8 +553,6 @@ Then('the git context was asked for no forge-semantic operation', function () {
     `Expected no forge-semantic access on the boundary's git context, got: ${bw.gitContextLog.join(', ')}`,
   );
 });
-
-// ── §2 — cron open-issue listing ──────────────────────────────────────────────
 
 Given('the recording issue tracker holds an open issue {int}', function (issueNumber: number) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
@@ -655,8 +611,6 @@ Then('the listed issue {int} carries its body, its comments, its labels and its 
   assert.ok(issue.createdAt, 'Expected a createdAt timestamp');
   assert.ok(issue.updatedAt, 'Expected an updatedAt timestamp');
 });
-
-// ── §3 — the sweeps ────────────────────────────────────────────────────────────
 
 Given('a per-issue scenario file for issue {int} tagged as promotion-suggested', function (issueNumber: number) {
   bw.fakeFeaturePath = `features/per-issue/feature-${issueNumber}.feature`;
@@ -759,8 +713,6 @@ Then('the recording code host was asked for the default branch', function () {
   assert.ok(bw.callLog.some((c) => c.op === 'getDefaultBranch'), 'Expected a getDefaultBranch call to have been recorded');
 });
 
-// ── §4 — remote reconcile ──────────────────────────────────────────────────────
-
 Given('a state file for adw id {string} recording branch {string}', function (adwId: string, branchName: string) {
   AgentStateManager.writeTopLevelState(adwId, { branchName });
   bw.usedAdwIds.add(adwId);
@@ -774,7 +726,6 @@ Given('the recording code host holds a pull request {int} on branch {string} in 
   bw.fixture.prByBranch.set(branchName, {
     number: prNumber, state, sourceBranch: branchName, targetBranch: bw.fixture.defaultBranch, labels: [],
   });
-  // Real ls-remote target: push a same-tip branch to the real bare origin.
   git(`git push origin main:refs/heads/${branchName}`, bw.boundaryWorkdir);
 });
 
@@ -794,8 +745,6 @@ Then('the recording code host was asked for the pull request on branch {string} 
   const count = bw.callLog.filter((c) => c.op === 'findPullRequestByBranch' && c.args[0] === branchName).length;
   assert.ok(count >= minTimes, `Expected at least ${minTimes} findPullRequestByBranch("${branchName}") calls, got ${count}`);
 });
-
-// ── §5 — comment handling ──────────────────────────────────────────────────────
 
 When('the workflow stage comment for stage {string} is posted for issue {int} from that boundary', function (
   stage: string, issueNumber: number,
@@ -859,8 +808,6 @@ Then('the resolved adw id is {string}', function (adwId: string) {
   assert.strictEqual(bw.resolvedAdwId, adwId);
 });
 
-// ── §6 — a repository that has never been cloned ─────────────────────────────
-
 Given('the workspace directory for {string} is already cloned', function (repoStr: string) {
   assert.ok(bw.ensureTargetReposDir, 'Expected a boundary to have been built first');
   const { owner, repo } = splitRepo(repoStr);
@@ -874,7 +821,6 @@ Given('the workspace directory for {string} does not exist', function (repoStr: 
   assert.ok(!existsSync(p), `Expected ${p} not to exist`);
 });
 
-/** `ensureRepoWorkspace`'s `getDefaultBranch` dep: resolves through the boundary's code host and records the result on `bw` for the Then step to inspect. */
 function resolveAndRecordDefaultBranch(boundary: LaunchBoundary): string {
   const branch = boundary.providers.codeHost.getDefaultBranch();
   bw.resolvedDefaultBranchFromEnsure = branch;
@@ -917,8 +863,6 @@ Then('the recording code host was not asked for the default branch', function ()
 Then('no provider configuration was read from the workspace directory that does not exist', function () {
   assert.strictEqual(bw.mintCallCount, 0, 'Expected the boundary\'s provider mint to never have been triggered');
 });
-
-// ── §7 — same commands, same repos, same place they run from ─────────────────
 
 Given('the forge operations for {string} run through a git context whose executor records every command', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
@@ -965,8 +909,6 @@ Then('the recorded command carried its credential in the child environment', fun
 Then('no credential was written into the ambient process environment', function () {
   assert.notStrictEqual(process.env.GH_TOKEN, SENTINEL_TOKEN);
 });
-
-// ── §8 — structural backstops ──────────────────────────────────────────────────
 
 Then('the guard reports no stale transitional entry in the sanctioned-construction allowlist', function () {
   const repoRoot = process.cwd();

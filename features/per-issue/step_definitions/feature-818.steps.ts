@@ -1,8 +1,6 @@
 /**
- * BDD step definitions for feature-818.feature
- *
  * GitLab and Jira adapters take injected configuration and the Logger port —
- * no environment reads, no `adws/core` imports (#818).
+ * no environment reads, no `adws/core` imports.
  *
  * §1-§5 stand a real HTTP recorder on 127.0.0.1, hand its address to the
  * adapter AS THE INJECTED instanceUrl, and drive each adapter in a CHILD
@@ -19,10 +17,6 @@
  * scenarios carry @adw-818, not @adw-816, feature-816.steps.ts's own
  * Before/After (tag-scoped to @adw-816) never run for them; this file forces
  * fixture-tree isolation from its own hooks, as feature-817.steps.ts does.
- *
- * §7 reuses `the git/gh guard runs across the whole ADW repository` / `the
- * guard run reports no violations` (feature-769.steps.ts) and `the ADW
- * TypeScript type-check passes` (feature-504.steps.ts) — no redefinitions.
  */
 
 import { Given, When, Then, Before, After, AfterAll } from '@cucumber/cucumber';
@@ -40,12 +34,6 @@ const execFileAsync = promisify(execFile);
 const REPO_ROOT = process.cwd();
 const FORGE_ENV_VAR_NAMES = ['GITLAB_TOKEN', 'GITLAB_INSTANCE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN', 'JIRA_PAT'];
 const ADW_LOG_DECORATION_RE = /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;
-
-// ---------------------------------------------------------------------------
-// Driver scripts — generated once, written to os.tmpdir() (never under adws/,
-// or the whole-repo guard scenario in §7 would trip over them), imported by
-// ABSOLUTE path so they run identically regardless of cwd.
-// ---------------------------------------------------------------------------
 
 function buildGitLabDriverSource(repoRoot: string): string {
   const codeHostPath = JSON.stringify(path.join(repoRoot, 'adws/providers/gitlab/gitlabCodeHost'));
@@ -180,10 +168,6 @@ AfterAll(function () {
   fs.rmSync(WORK_DIR, { recursive: true, force: true });
 });
 
-// ---------------------------------------------------------------------------
-// Recording forge endpoint — a real loopback HTTP server, not a spy.
-// ---------------------------------------------------------------------------
-
 type RecordedRequest = { method: string; url: string; headers: Record<string, string>; body: string };
 type ResponseMode = 'default' | 'unauthorized' | 'rateLimited';
 
@@ -263,10 +247,6 @@ function stopRecorder(): Promise<void> {
   return new Promise((resolve) => performRecorderShutdown(resolve));
 }
 
-// ---------------------------------------------------------------------------
-// Scenario state
-// ---------------------------------------------------------------------------
-
 type GitLabConfigState = { owner: string; repo: string; hasToken: boolean; token: string; instanceUrl: string };
 type JiraAuthState = { email: string; apiToken: string } | { pat: string };
 type JiraConfigState = { projectKey: string; auth: JiraAuthState; instanceUrl: string };
@@ -279,7 +259,7 @@ let useCapturingLoggerGitLab = false;
 let useCapturingLoggerJira = false;
 let lastResult: DriverOutput | null = null;
 
-/** Resets this file's module-private recorder/driver state (mirrors this file's own `Before` body); exported for #823's own hooks, since this file's `Before`/`After` are tag-scoped to `@adw-818`. */
+/** Resets this file's module-private recorder/driver state (mirrors this file's own `Before` body); exported since this file's `Before`/`After` are tag-scoped to `@adw-818`. */
 async function resetRecorderState(): Promise<void> {
   await stopRecorder();
   recordedRequests = [];
@@ -303,19 +283,14 @@ After({ tags: '@adw-818' }, async function () {
   resetGuardFixtureTree();
 });
 
-/** Stops the recording forge endpoint — exported for #823's own hooks. */
 export function stopRecordingForgeEndpoint(): Promise<void> {
   return stopRecorder();
 }
 
-/** Resets this file's recorder/driver state without touching the guard fixture tree — exported for #823's own hooks. */
+/** Resets this file's recorder/driver state without touching the guard fixture tree. */
 export function resetRecorder(): Promise<void> {
   return resetRecorderState();
 }
-
-// ---------------------------------------------------------------------------
-// Driving the adapters in a child process
-// ---------------------------------------------------------------------------
 
 function forcedForgeEnv(): Record<string, string> {
   return {
@@ -394,10 +369,6 @@ async function runJiraDriver(overrides: { mode: 'direct' | 'wiring'; issueNumber
   lastResult = await driveChild(JIRA_DRIVER_PATH, spec);
 }
 
-// ---------------------------------------------------------------------------
-// Given — the recording endpoint
-// ---------------------------------------------------------------------------
-
 Given('a recording forge endpoint is listening', async function () {
   await startRecorder();
 });
@@ -409,10 +380,6 @@ Given('the recording endpoint replies to every request with an unauthorized erro
 Given('the recording endpoint replies to every request with a rate-limit status', function () {
   responseMode = 'rateLimited';
 });
-
-// ---------------------------------------------------------------------------
-// Given — GitLab / Jira configuration
-// ---------------------------------------------------------------------------
 
 Given('GitLab code-host configuration for {string} with token {string} pointing at the recording endpoint', function (ownerRepo: string, token: string) {
   const [owner, repo] = ownerRepo.split('/');
@@ -445,10 +412,6 @@ Given('Jira issue-tracker configuration with project key {string} and no auth po
   jiraConfig = { projectKey, auth: { email: '', apiToken: '' }, instanceUrl: recorderBaseUrl() };
 });
 
-// ---------------------------------------------------------------------------
-// Given — poisoned / real environment for the child process
-// ---------------------------------------------------------------------------
-
 Given('the adapter runs with {string} set to {string} in its environment', function (varName: string, value: string) {
   poisonEnv[varName] = value;
 });
@@ -456,10 +419,6 @@ Given('the adapter runs with {string} set to {string} in its environment', funct
 Given('the adapter runs with {string} pointing at the recording endpoint', function (varName: string) {
   poisonEnv[varName] = recorderBaseUrl();
 });
-
-// ---------------------------------------------------------------------------
-// Given — logger injection
-// ---------------------------------------------------------------------------
 
 Given('a capturing logger is injected into the GitLab code host', function () {
   useCapturingLoggerGitLab = true;
@@ -476,10 +435,6 @@ Given('no logger is injected into the Jira issue tracker', function () {
 Given('no logger is injected into the GitLab code host', function () {
   useCapturingLoggerGitLab = false;
 });
-
-// ---------------------------------------------------------------------------
-// When — drive the adapters
-// ---------------------------------------------------------------------------
 
 When('the GitLab code host opens a merge request from {string} to {string} titled {string}', async function (sourceBranch: string, targetBranch: string, title: string) {
   await runGitLabDriver({ mode: 'direct', operation: 'create pull request', createPrOptions: { sourceBranch, targetBranch, title, body: '' } });
@@ -501,10 +456,6 @@ When('the Jira issue tracker comments {string} on issue {int}', async function (
 When("ADW's provider wiring resolves Jira credentials and the issue tracker comments on issue 42 at the recording endpoint with project key {string}", async function (projectKey: string) {
   await runJiraDriver({ mode: 'wiring', issueNumber: 42, commentBody: 'Build green', projectKey, instanceUrl: recorderBaseUrl() });
 });
-
-// ---------------------------------------------------------------------------
-// Then — request-shape assertions
-// ---------------------------------------------------------------------------
 
 Then('the recording endpoint received a {string} request to {string}', function (method: string, urlPath: string) {
   const idx = recordedRequests.findIndex((r) => r.method === method && r.url === urlPath);
@@ -561,10 +512,6 @@ Then('no recorded request carried the value {string}', function (value: string) 
   }
 });
 
-// ---------------------------------------------------------------------------
-// Then — refusal assertions
-// ---------------------------------------------------------------------------
-
 Then('the adapter refuses with an error', function () {
   assert.ok(lastResult, 'Expected a prior When to have driven the adapter');
   assert.strictEqual(lastResult.success, false, `Expected the adapter to refuse. Got: ${JSON.stringify(lastResult)}`);
@@ -586,10 +533,6 @@ Then('the adapter refuses with an error naming {string}', function (name: string
     `Expected refusal naming "${name}". Got: ${lastResult.errorMessage}`,
   );
 });
-
-// ---------------------------------------------------------------------------
-// Then — logger / stdout assertions
-// ---------------------------------------------------------------------------
 
 Then('the injected logger recorded a message containing {string} at level {string}', function (text: string, level: string) {
   const messages = lastResult?.loggerMessages ?? [];
