@@ -1,14 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * Health Check Script for ADW System
- *
  * Usage: bunx tsx adws/healthCheck.tsx <issueNumber>
- *
- * Performs comprehensive health checks:
- * 1. Validates all required environment variables
- * 2. Checks git repository configuration
- * 3. Tests Claude Code CLI functionality
- * 4. Returns structured results as HealthCheckResult
  */
 
 import * as fs from 'fs';
@@ -25,7 +17,6 @@ import {
   checkIssueNumber,
 } from './healthCheckChecks';
 
-// Re-export for any external consumers
 export type { CheckResult } from './healthCheckChecks';
 export {
   checkEnvironmentVariables,
@@ -38,9 +29,6 @@ export {
   execCommand,
 } from './healthCheckChecks';
 
-/**
- * Structure for health check results.
- */
 export interface HealthCheckResult {
   success: boolean;
   timestamp: string;
@@ -49,9 +37,6 @@ export interface HealthCheckResult {
   errors: string[];
 }
 
-/**
- * Prints usage information and exits.
- */
 function printUsageAndExit(): never {
   console.error('Usage: bunx tsx adws/healthCheck.tsx <issueNumber>');
   console.error('');
@@ -70,9 +55,6 @@ function printUsageAndExit(): never {
   process.exit(1);
 }
 
-/**
- * Parses command line arguments.
- */
 function parseArguments(args: string[]): { issueNumber: number } {
   if (args.length < 1) {
     printUsageAndExit();
@@ -87,9 +69,6 @@ function parseArguments(args: string[]): { issueNumber: number } {
   return { issueNumber };
 }
 
-/**
- * Main health check runner.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { issueNumber } = parseArguments(args);
@@ -134,7 +113,6 @@ async function main(): Promise<void> {
     result.success = false;
   }
 
-  // Run all checks
   log('Checking environment variables...', 'info');
   result.checks.environmentVariables = checkEnvironmentVariables();
 
@@ -159,7 +137,6 @@ async function main(): Promise<void> {
     result.checks.issueAccessibility = await checkIssueNumber(issueNumber, providers.issueTracker);
   }
 
-  // Collect warnings and errors
   for (const [checkName, checkResult] of Object.entries(result.checks)) {
     if (checkResult.error) {
       result.errors.push(`${checkName}: ${checkResult.error}`);
@@ -172,12 +149,10 @@ async function main(): Promise<void> {
     }
   }
 
-  // Output results in human-readable format
   console.log('\n' + '='.repeat(60));
   console.log('ADW Health Check Results');
   console.log('='.repeat(60) + '\n');
 
-  // Environment Variables
   const envCheck = result.checks.environmentVariables;
   console.log(`${envCheck.success ? '✅' : '❌'} Environment Variables`);
   if (envCheck.success) {
@@ -190,7 +165,6 @@ async function main(): Promise<void> {
     console.log(`   Error: ${envCheck.error}`);
   }
 
-  // Git Repository
   if (result.checks.gitRepository) {
     const gitCheck = result.checks.gitRepository;
     console.log(`${gitCheck.success ? '✅' : '❌'} Git Repository`);
@@ -209,7 +183,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Claude Code CLI
   const claudeCheck = result.checks.claudeCodeCLI;
   console.log(`${claudeCheck.success ? '✅' : '❌'} Claude Code CLI`);
   if (claudeCheck.success) {
@@ -221,7 +194,6 @@ async function main(): Promise<void> {
     console.log(`   Error: ${claudeCheck.error}`);
   }
 
-  // GitHub CLI
   if (result.checks.gitHubCLI) {
     const ghCheck = result.checks.gitHubCLI;
     console.log(`${ghCheck.success ? '✅' : '❌'} GitHub CLI`);
@@ -238,7 +210,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Directory Structure
   const dirCheck = result.checks.directoryStructure;
   console.log(`${dirCheck.success ? '✅' : '❌'} Directory Structure`);
   if (dirCheck.success) {
@@ -254,7 +225,6 @@ async function main(): Promise<void> {
     console.log(`   Error: ${dirCheck.error}`);
   }
 
-  // Issue Accessibility
   if (result.checks.issueAccessibility) {
     const issueCheck = result.checks.issueAccessibility;
     console.log(`${issueCheck.success ? '✅' : '❌'} Issue #${issueNumber}`);
@@ -270,7 +240,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // Summary
   console.log('\n' + '-'.repeat(60));
   if (result.success) {
     console.log('✅ All health checks passed!');
@@ -280,7 +249,6 @@ async function main(): Promise<void> {
   }
   console.log('-'.repeat(60) + '\n');
 
-  // Also write to a JSONL file for programmatic consumption
   const outputFile = path.join(process.cwd(), 'healthCheck.jsonl');
   fs.writeFileSync(outputFile, JSON.stringify(result) + '\n');
   log(`Results written to: ${outputFile}`, 'info');

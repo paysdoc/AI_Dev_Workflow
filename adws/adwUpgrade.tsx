@@ -1,28 +1,11 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Upgrade Orchestrator — Performs framework regeneration for the versioned auto-(re)init system.
- *
  * Usage: bunx tsx adws/adwUpgrade.tsx <issueNumber> [adw-id] [--target-repo owner/repo] [--clone-url <url>]
  *
- * Workflow:
- * 1. Compute framework hash at runtime (not pinned to branch-name token)
- * 2. Derive claim branch name: adw-upgrade-<hash>
- * 3. Check out the existing remote claim branch (carrying the empty claim commit)
- * 4. Run /adw_init via the Claude CLI in the target worktree
- * 5. Write the runtime hash to .adw-version
- * 6. Commit the regenerated .adw/ + .adw-version as a single regen commit
- * 7. Push and open a PR linking the tracking issue
- * 8. Read .github/adw.yml from the worktree; if hitl: true, leave the PR open for human review;
- *    otherwise auto-merge the PR (best-effort — merge failure is non-fatal, PR is left open).
- *
  * On LLM failure: posts a non-workflow comment to the tracking issue and exits 0 (handled failure).
- * On success: opens and (by default) auto-merges the PR. If .github/adw.yml sets hitl: true,
- * the PR is left open for a human to review; the tracking issue auto-closes on merge via the
- * `Closes #<N>` keyword in the PR body. The .github/adw.yml file lives outside .adw/ so /adw_init
- * regeneration cannot clobber the opt-in signal.
+ * The .github/adw.yml file lives outside .adw/ so /adw_init regeneration cannot clobber the opt-in signal.
  *
  * Does NOT call initializeWorkflow() — joins the adwMerge.tsx exception list.
- * Uses runWithRawOrchestratorLifecycle (lock → heartbeat → run → cleanup).
  */
 
 import * as path from 'path';
@@ -62,9 +45,6 @@ import {
   type StarterSettingsResult,
 } from './phases/worktreeSetup';
 
-// ── Result type ───────────────────────────────────────────────────────────────
-
-/** Outcome of executeUpgrade. */
 export interface UpgradeRunResult {
   readonly outcome: 'completed' | 'failed' | 'escalated';
   readonly reason: string;
@@ -73,9 +53,6 @@ export interface UpgradeRunResult {
 
 const TERMINAL_LABEL = ADW_BLOCKED_LABEL;
 
-// ── Deps interface ────────────────────────────────────────────────────────────
-
-/** Parameters passed to the runInitCommand dep. */
 export interface RunInitCommandParams {
   readonly worktreePath: string;
   readonly logPath: string;
@@ -85,7 +62,7 @@ export interface RunInitCommandParams {
   readonly frameworkRepoRoot: string;
   /**
    * Launch-boundary GitContext threaded into the spawned agent's launchContext
-   * so ADW_MAIN_REPO_PATH keeps resolving (#822). Optional: the call site in
+   * so ADW_MAIN_REPO_PATH keeps resolving. Optional: the call site in
    * executeUpgrade only has `deps`, not the raw context — buildDefaultUpgradeDeps
    * supplies it via a closure over its own `gitCtx`.
    */
@@ -99,8 +76,7 @@ export interface UpgradeDeps {
   /**
    * Reconciles the (possibly reused) upgrade worktree to the live remote claim tip
    * before regen: git fetch origin <branch> + git reset --hard origin/<branch>.
-   * Fixes the stale-worktree non-fast-forward that #627 only parks. Hard reset is
-   * safe — the upgrade worktree is a throwaway regen target with no un-pushed work.
+   * Hard reset is safe — the upgrade worktree is a throwaway regen target with no un-pushed work.
    */
   readonly reconcileWorktreeToRemote: (worktreePath: string, branch: string) => void;
   readonly getDefaultBranch: () => string;
@@ -108,7 +84,7 @@ export interface UpgradeDeps {
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
   readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
-  /** Copies the starter guardrails `settings.json` into the worktree, skipping if one already exists (#763). */
+  /** Copies the starter guardrails `settings.json` into the worktree, skipping if one already exists. */
   readonly copyStarterSettings: (worktreePath: string, frameworkRepoRoot: string) => StarterSettingsResult;
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string, opts?: { excludePaths?: readonly string[] }) => boolean;
@@ -130,15 +106,11 @@ export interface UpgradeDeps {
   readonly maxFailures: number;
 }
 
-// ── Pure helpers ──────────────────────────────────────────────────────────────
-
-/** Builds the upgrade PR title. */
 export function buildUpgradePrTitle(hash: string): string {
   return `chore: upgrade ADW framework config (${hash.slice(0, 12)})`;
 }
 
 /**
- * Builds the upgrade PR body.
  * - `Closes #<issueNumber>` — GitHub closing keyword; auto-closes the tracking issue on merge
  *   to the default branch and creates the linked-PR relationship Projects V2 renders.
  * - `Implements #<issueNumber>` — retained as the `linkedPrDetector` (`hasLinkedMergedOrClosedPR`)
@@ -157,11 +129,9 @@ export function buildUpgradePrBody(issueNumber: number, hash: string): string {
 }
 
 /**
- * Builds the LLM-failure comment body.
- *
  * MUST NOT start any line with `## :emoji_name: ` and MUST NOT contain
  * `<!-- adw-bot -->`, so that isAdwComment() returns false and concurrencyGuard
- * does not count the failed upgrade as an in-progress issue (User Story 22).
+ * does not count the failed upgrade as an in-progress issue.
  */
 export function buildUpgradeFailureComment(reason: string, adwId: string, issueNumber: number): string {
   return [
@@ -176,8 +146,6 @@ export function buildUpgradeFailureComment(reason: string, adwId: string, issueN
 }
 
 /**
- * Builds the HITL-deferred comment body (non-workflow, non-ADW).
- *
  * MUST NOT start any line with `## :emoji_name: ` and MUST NOT contain
  * `<!-- adw-bot -->` — same contract as buildUpgradeFailureComment.
  */
@@ -190,8 +158,6 @@ export function buildUpgradeHitlComment(prNumber: number, adwId: string): string
 }
 
 /**
- * Builds the merge-failed comment body (non-workflow, non-ADW).
- *
  * MUST NOT start any line with `## :emoji_name: ` and MUST NOT contain
  * `<!-- adw-bot -->` — same contract as buildUpgradeFailureComment.
  */
@@ -207,7 +173,6 @@ export function buildUpgradeMergeFailedComment(prNumber: number, reason: string,
 }
 
 /**
- * Builds the escalation comment body (non-workflow, non-ADW, non-failure-signature).
  * First line deliberately differs from UPGRADE_FAILURE_SIGNATURE so it cannot self-inflate
  * the failure count.
  */
@@ -225,14 +190,9 @@ export function buildUpgradeEscalationComment(adwId: string, issueNumber: number
   ].join('\n');
 }
 
-/**
- * Builds the escalation Slack alert.
- */
 export function buildUpgradeEscalationSlack(repoInfo: RepoIdentifier, issueNumber: number, failureCount: number, maxFailures: number): string {
   return `:rotating_light: ADW upgrade escalated: *${repoInfo.owner}/${repoInfo.repo}* issue #${issueNumber} reached failure cap (${failureCount}/${maxFailures}). Remove \`adw:blocked\` label to re-arm.`;
 }
-
-// ── Core orchestration ────────────────────────────────────────────────────────
 
 /**
  * Core upgrade orchestration logic — exported for unit testing.
@@ -254,7 +214,7 @@ export async function executeUpgrade(
     return { outcome: 'escalated', reason: 'already_escalated' };
   }
 
-  // 1. Compute runtime framework hash (single source of truth for branch name + .adw-version)
+  // Compute runtime framework hash (single source of truth for branch name + .adw-version)
   let hash: string;
   try {
     hash = deps.computeFrameworkHash(frameworkRepoRoot);
@@ -267,7 +227,6 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'hash_error' };
   }
 
-  // 2. Derive the claim branch name
   const branch = buildClaimBranchName(hash);
 
   // Idempotency guard: a claim branch that already has a PR (any state) has already reached
@@ -309,12 +268,11 @@ export async function executeUpgrade(
 
   const defaultBranch = deps.getDefaultBranch();
 
-  // 3. Check out the existing remote claim branch, then reconcile it to the live
-  //    remote claim tip. A reused worktree may sit on a superseded claim commit
-  //    (a prior claim cycle re-created the branch with a new nonce); regenerating
-  //    on that stale base produces a push that can never fast-forward (#627 then
-  //    parks it). Resetting to origin/<claim-branch> makes the regen fast-forwardable.
-  //    Hard reset is safe: the upgrade worktree is a throwaway regen target.
+  // A reused worktree may sit on a superseded claim commit (a prior claim cycle
+  // re-created the branch with a new nonce); regenerating on that stale base
+  // produces a push that can never fast-forward. Resetting to origin/<claim-branch>
+  // makes the regen fast-forwardable. Hard reset is safe: the upgrade worktree is a
+  // throwaway regen target.
   let worktreePath: string;
   try {
     worktreePath = deps.ensureWorktree(branch, defaultBranch);
@@ -327,8 +285,8 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'worktree_error' };
   }
 
-  // 4. Copy adw_init.md into the worktree so the /adw_init slash command resolves,
-  //    then run it. The copy is gitignored so it stays out of the upgrade PR.
+  // Copy adw_init.md into the worktree so the /adw_init slash command resolves,
+  // then run it. The copy is gitignored so it stays out of the upgrade PR.
   deps.copyInitCommandToWorktree(worktreePath, frameworkRepoRoot);
 
   const logsDir = deps.ensureLogsDirectory(adwId);
@@ -343,7 +301,6 @@ export async function executeUpgrade(
     frameworkRepoRoot,
   });
 
-  // 5. LLM failure — post non-workflow comment; no PR, no .adw-version write
   if (!initResult.success) {
     deps.commentOnIssue(
       issueNumber,
@@ -352,11 +309,9 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'llm_failed' };
   }
 
-  // 5b. Validity gate: verify that the six canonical .adw/ files are present and
-  //     non-empty, and that features/regression/vocabulary.md exists.
-  //     A legitimate no-op (byte-identical .adw/ regen) passes — the validity gate
-  //     does not check authorship. No stamp + no PR = the next cron tick re-dispatches
-  //     cleanly (idempotency guard sees no PR on the claim branch and re-runs regen).
+  // A legitimate no-op (byte-identical .adw/ regen) passes — the validity gate
+  // does not check authorship. No stamp + no PR = the next cron tick re-dispatches
+  // cleanly (idempotency guard sees no PR on the claim branch and re-runs regen).
   const verify = deps.verifyAdwRegen(worktreePath);
   if (!verify.ok) {
     deps.commentOnIssue(
@@ -370,17 +325,16 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'regen_incomplete' };
   }
 
-  // 5c. Copy the starter guardrails settings.json into the worktree (skip if the target
-  //     repo already has one) so it rides into the same regen commit as everything else.
+  // Copy the starter guardrails settings.json into the worktree (skip if the target
+  // repo already has one) so it rides into the same regen commit as everything else.
   const starter = deps.copyStarterSettings(worktreePath, frameworkRepoRoot);
   deps.log(`adwUpgrade: starter guardrails settings ${starter.action} (${starter.destPath})`, 'info');
 
-  // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
   try {
     deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath, { excludePaths: ['.claude/commands/adw_init.md'] });
   } catch (error) {
-    // A commit failure (e.g. the #729 gitignored-exclude class, or any other git error)
+    // A commit failure (e.g. the gitignored-exclude class, or any other git error)
     // must not crash the orchestrator mid-run — that stops the heartbeat and leaves no
     // trace. Degrade to a handled, counted failure instead: the next cron redrive pass
     // re-invokes this same idempotency-guarded path.
@@ -416,7 +370,7 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'push_error' };
   }
 
-  // 7. Open PR — no workflow comment; the PR is the success signal
+  // Open PR — no workflow comment; the PR is the success signal
   const pr = deps.createPullRequest({
     title: buildUpgradePrTitle(hash),
     body: buildUpgradePrBody(issueNumber, hash),
@@ -427,9 +381,7 @@ export async function executeUpgrade(
 
   deps.log(`adwUpgrade: PR opened at ${pr.url}`, 'success');
 
-  // 8. Gated merge: read .github/adw.yml from the worktree to decide whether to auto-merge.
-  //    hitl: true  → leave the PR open for human review.
-  //    hitl: false (default, absent, or malformed) → auto-merge (best-effort, non-fatal).
+  // hitl: false (default, absent, or malformed) → auto-merge (best-effort, non-fatal).
   const cfg = deps.readAdwYmlConfig(worktreePath);
 
   if (cfg.hitl === true) {
@@ -448,8 +400,6 @@ export async function executeUpgrade(
   deps.commentOnIssue(issueNumber, buildUpgradeMergeFailedComment(pr.number, merge.error ?? 'unknown', adwId));
   return { outcome: 'completed', reason: 'merge_failed', prUrl: pr.url };
 }
-
-// ── Default deps factory ──────────────────────────────────────────────────────
 
 async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ success: boolean; error?: string }> {
   const result = await runClaudeAgentWithCommand(
@@ -511,9 +461,6 @@ export function buildDefaultUpgradeDeps(providers: BoundProviders, gitCtx: GitCo
   };
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
-
-/** Main entry point. */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);

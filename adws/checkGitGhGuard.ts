@@ -1,19 +1,9 @@
 /**
- * checkGitGhGuard.ts — CI guard: fail on direct git/gh shell-outs outside the
- * (empty) exempt set, on cwd-derived repo identity feeding a GitContext
- * construction, and on ad-hoc provider/context construction outside the
- * launch-boundary allowlist.
- *
  * Three independent rules:
  *
  *  - 'git-gh-shellout' — implemented in this file (`walkNode`/`extractGitGhCommand`).
- *  - 'cwd-derived-identity' (#769) — `adws/guard/identityRule.ts`.
- *  - 'unsanctioned-construction' (#795) — `adws/guard/constructionRule.ts`.
- *
- * The git core and the GitHub forge adapter now live in
- * `@paysdoc/devplatform` (issue #840) — EXEMPT_PACKAGES is deliberately
- * empty, and NOTHING MAY EVER BE ADDED BACK TO IT: no in-repo package may
- * shell out to git or gh. Any violation exits 1 (build fail).
+ *  - 'cwd-derived-identity' — `adws/guard/identityRule.ts`.
+ *  - 'unsanctioned-construction' — `adws/guard/constructionRule.ts`.
  *
  * Run via: bunx tsx adws/checkGitGhGuard.ts
  * Exits 0 if no violations found, 1 if any violations are detected.
@@ -29,11 +19,6 @@ import { printSanctionedConstructionSites } from './guard/guardReport';
 
 export type { Violation, ViolationRule };
 
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
-
-/** Directory basenames never descended into — covers deps, build output, worktrees, and config. */
 const EXEMPT_DIR_NAMES = new Set([
   'node_modules', 'dist', '.worktrees', '.claude',
   'features', // BDD step definitions legitimately use git/gh for fixture-repo setup
@@ -42,30 +27,20 @@ const EXEMPT_DIR_NAMES = new Set([
 
 /**
  * The closed, CI-enforced set of packages permitted to shell out —
- * deliberately empty (issue #840): the git core and the GitHub forge adapter
+ * deliberately empty: the git core and the GitHub forge adapter
  * now live in `@paysdoc/devplatform`, outside this repo entirely. NOTHING
  * MAY EVER BE ADDED BACK TO THIS LIST; every git/gh interaction routes
  * through `GitContext` (`@paysdoc/devplatform/git`) or the forge ports.
  */
 export const EXEMPT_PACKAGES: ReadonlyArray<{ readonly dir: string; readonly role: string }> = [];
 
-/** True when `relPath` is one of EXEMPT_PACKAGES' directories, or a path beneath one. Always false while the set is empty. */
 export function isExemptPackage(relPath: string): boolean {
   return EXEMPT_PACKAGES.some(({ dir }) => relPath === dir || relPath.startsWith(`${dir}/`));
 }
 
-/** Matches a git or gh command string: starts with 'git '/'gh ' or is exactly 'git'/'gh'. */
 const GIT_GH_RE = /^(git|gh)(\s|$)/;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type ScanResult = { violations: Violation[]; scannedCount: number };
-
-// ---------------------------------------------------------------------------
-// I/O boundary — filesystem reads isolated here
-// ---------------------------------------------------------------------------
 
 /** Exported for tests: walks `startDir`, honouring EXEMPT_DIR_NAMES and the EXEMPT_PACKAGES exemption exactly as the CLI entry point does. */
 export function collectTsFiles(startDir: string, repoRoot: string): string[] {
@@ -104,12 +79,7 @@ function isScannable(name: string, relPath: string): boolean {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Pure scan core — no I/O
-// ---------------------------------------------------------------------------
-
 /**
- * Scans collected source files for direct git/gh shell-out calls.
  * Reads each file from disk, parses with the TypeScript compiler API (AST-based, so
  * comments are never false-positives), and returns all violations found.
  */
@@ -137,8 +107,6 @@ function scanSource(filePath: string, source: string): Violation[] {
   return violations;
 }
 
-// ── Rule: git-gh-shellout ────────────────────────────────────────────────────
-
 function walkNode(node: ts.Node, sourceFile: ts.SourceFile, violations: Violation[]): void {
   if (ts.isCallExpression(node) && node.arguments.length > 0) {
     const cmd = extractGitGhCommand(node.arguments[0]);
@@ -158,10 +126,6 @@ function extractGitGhCommand(node: ts.Node): string | null {
   }
   return null;
 }
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 
 /** I/O: re-reads and re-parses every scanned file to test `hasGuardedConstruction`, kept separate from `scanFiles` so its `(relPaths, repoRoot)` signature never changes. */
 function collectConstructionSeenFiles(relPaths: readonly string[], repoRoot: string): Set<string> {

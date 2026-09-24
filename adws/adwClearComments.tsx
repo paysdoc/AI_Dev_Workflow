@@ -1,8 +1,5 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Clear Comments Script
- *
- * Removes all comments from a GitHub issue.
  * Useful for resetting an issue when a workflow has gone wrong.
  *
  * Usage: bunx tsx adws/adwClearComments.tsx <issueNumber>
@@ -22,9 +19,6 @@ interface ClearCommentsResult {
 /** The tracker surface `clearIssueComments` needs — a bound provider, no repository parameter to get wrong. */
 export type CommentClearingTracker = Pick<IssueTracker, 'fetchComments' | 'getIssueTitle' | 'deleteComment'>;
 
-/**
- * Prints usage information and exits.
- */
 function printUsageAndExit(): never {
   console.error('Usage: bunx tsx adws/adwClearComments.tsx <issueNumber> [--repo owner/repo]');
   console.error('');
@@ -36,9 +30,6 @@ function printUsageAndExit(): never {
   process.exit(1);
 }
 
-/**
- * Parses and validates the issue number and optional repo from CLI arguments.
- */
 function parseArguments(args: string[]): { issueNumber: number; targetRepo: TargetRepoInfo | null } {
   if (args.length < 1) {
     printUsageAndExit();
@@ -64,12 +55,7 @@ function parseArguments(args: string[]): { issueNumber: number; targetRepo: Targ
   return { issueNumber, targetRepo };
 }
 
-/**
- * Fetches all comments on an issue and deletes them sequentially.
- * Continues deleting even if individual deletions fail.
- * @param issueNumber - The issue number to clear comments from
- * @param tracker - The bound issue tracker to clear comments through
- */
+/** Continues deleting even if individual deletions fail. */
 export function clearIssueComments(issueNumber: number, tracker: CommentClearingTracker): ClearCommentsResult {
   const comments = tracker.fetchComments(issueNumber);
   const issueTitle = tracker.getIssueTitle(issueNumber);
@@ -98,9 +84,6 @@ export function clearIssueComments(issueNumber: number, tracker: CommentClearing
   return { total: comments.length, deleted, failed, issueTitle };
 }
 
-/**
- * Main entry point.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { issueNumber, targetRepo } = parseArguments(args);

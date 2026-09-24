@@ -1,13 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Document - AI Developer Workflow Documentation Phase
- *
  * Usage: bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
- *
- * Workflow:
- * 1. Run the /document skill to generate feature documentation
- * 2. Documentation is created in the app_docs/ directory
- * 3. Conditional docs are updated automatically
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -29,9 +22,6 @@ import { runDocumentAgent } from './agents';
 import { AuthRequiredError } from './types/agentTypes';
 import { writeAuthGate } from './core/authGate';
 
-/**
- * Parses and validates command line arguments.
- */
 function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
   if (args.includes('--help') || args.includes('-h')) {
     printUsageAndExit('adwDocument.tsx', '[adw-id] [--cwd <path>]', [
@@ -45,9 +35,6 @@ function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
   return { adwId, cwd };
 }
 
-/**
- * Main document workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { adwId, cwd } = parseArguments(args);
@@ -75,7 +62,7 @@ async function main(): Promise<void> {
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting ADW Document workflow');
 
   try {
-    // selfHost pinned to true = the un-threaded default this call had before #822; only gitContext is new, so the guardrails decision is unchanged.
+    // selfHost pinned to true = the un-threaded default this call had; only gitContext is new, so the guardrails decision is unchanged.
     const boundary = buildLaunchBoundary(null);
     const result = await runDocumentAgent(
       adwId,

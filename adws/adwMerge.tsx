@@ -1,18 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Merge Orchestrator - Thin merge orchestrator for `awaiting_merge` handoff.
- *
  * Usage: bunx tsx adws/adwMerge.tsx <issueNumber> <adw-id> [--target-repo owner/repo] [--clone-url <url>]
- *
- * Workflow:
- * 1. Read top-level state file for the given adw-id
- * 2. Find the orchestrator state to get the branch name
- * 3. Look up the PR by branch via GitHub CLI
- * 4. If already merged: write `completed` to state, post comment, exit 0
- * 5. If closed (not merged): write `abandoned` to state, exit 0
- * 6. If open: resolve merge conflicts if any, then merge the PR
- * 7. On success: write `completed` to state, post completion comment
- * 8. On failure: post failure comment on PR, write `abandoned` to state
  *
  * Does NOT use initializeWorkflow() — reads state directly, no worktree setup at startup.
  */
@@ -28,7 +16,6 @@ import {
   ensureTargetRepoWorkspace,
 } from './core';
 
-// Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNotifier';
@@ -39,7 +26,6 @@ import { Platform, type PullRequestSummary, type RepoIdentifier } from '@paysdoc
 import type { LaunchBoundary } from './core/launchGitContext';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
-/** Outcome of executeMerge. */
 export interface MergeRunResult {
   readonly outcome: 'completed' | 'abandoned';
   readonly reason: string;
@@ -71,7 +57,6 @@ export interface MergeDeps {
   readonly notifyBlockedTransition: (args: Parameters<typeof notifyBlockedTransition>[0]) => Promise<void>;
 }
 
-/** Builds the explanatory issue comment posted when the merge escalates to merge_blocked. */
 function buildMergeBlockedComment(cause: string, adwId: string): string {
   return [
     '## ADW Merge Blocked',
@@ -95,7 +80,6 @@ export async function executeMerge(
   baseRepoPath: string,
   deps: MergeDeps,
 ): Promise<MergeRunResult> {
-  // 1. Read and validate top-level state
   const topLevelState = deps.readTopLevelState(adwId);
   if (!topLevelState) {
     log(`adwMerge: no top-level state found for adwId=${adwId}`, 'error');
@@ -107,8 +91,8 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: `unexpected_stage:${topLevelState.workflowStage}` };
   }
 
-  // 2. Resolve branch name — top-level state is the canonical persistence target (#524/#530);
-  //    orchestrator state is the fallback for older runs / defense-in-depth.
+  // Top-level state is the canonical persistence target;
+  // orchestrator state is the fallback for older runs / defense-in-depth.
   let branchName = topLevelState.branchName;
   if (!branchName) {
     const orchestratorStatePath = deps.findOrchestratorStatePath(adwId);
@@ -125,7 +109,6 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'no_branch_name' };
   }
 
-  // 3. Find the PR by branch name (bounded retry — #527)
   const pr = deps.findPRByBranch(branchName);
   if (!pr) {
     const attemptCount = (topLevelState.mergeRetryCount ?? 0) + 1;
@@ -149,7 +132,6 @@ export async function executeMerge(
   const { number: prNumber, state: prState, targetBranch: baseBranch } = pr;
   log(`adwMerge: PR #${prNumber} state=${prState} branch=${branchName} base=${baseBranch}`, 'info');
 
-  // 4. Already merged — idempotent completion
   if (prState === 'MERGED') {
     log(`adwMerge: PR #${prNumber} already merged, writing completed`, 'success');
     deps.writeTopLevelState(adwId, { workflowStage: 'completed', mergeRetryCount: 0 });
@@ -160,7 +142,7 @@ export async function executeMerge(
     return { outcome: 'completed', reason: 'already_merged' };
   }
 
-  // 5. Closed without merge — discard (terminal, operator intent)
+  // Closed without merge — discard (terminal, operator intent)
   if (prState === 'CLOSED') {
     log(`adwMerge: PR #${prNumber} is closed without merge`, 'warn');
     deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
@@ -168,9 +150,8 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'pr_closed' };
   }
 
-  // 5b. Unified gate — defer when hitl is on the issue AND the PR is not approved.
-  //     Stateless: every cron tick re-evaluates the current label state and PR approval.
-  //     No state write, no comment, log only — avoids flooding the issue while waiting.
+  // Stateless: every cron tick re-evaluates the current label state and PR approval.
+  // No state write, no comment, log only — avoids flooding the issue while waiting.
   const hitlOnIssue = deps.issueHasLabel(issueNumber, 'hitl');
   const isApproved = deps.fetchPRApprovalState(prNumber);
   if (hitlOnIssue && !isApproved) {
@@ -178,7 +159,6 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'hitl_blocked_unapproved' };
   }
 
-  // 6. PR is open — ensure worktree and merge
   let worktreePath: string;
   try {
     worktreePath = deps.ensureWorktree(branchName, baseBranch);
@@ -213,11 +193,9 @@ export async function executeMerge(
     return { outcome: 'completed', reason: 'merged' };
   }
 
-  // Merge failed after retries.
-  // Conscious reversal of #460: merge_failed now escalates to the human-recoverable
-  // merge_blocked instead of terminal discarded (#460). Anti-loop intent preserved:
-  // merge_blocked recovers only via explicit ## Retry, never automatically.
-  // pr_closed remains discarded.
+  // merge_failed escalates to the human-recoverable merge_blocked instead of terminal
+  // discarded. Anti-loop intent preserved: merge_blocked recovers only via explicit
+  // ## Retry, never automatically. pr_closed remains discarded.
   const lastError = mergeOutcome.error ?? '';
   log(`adwMerge: merge failed after retries: ${lastError}`, 'error');
   deps.writeTopLevelState(adwId, { workflowStage: 'merge_blocked' });
@@ -254,7 +232,6 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
   };
 }
 
-/** Main entry point. */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
