@@ -64,7 +64,6 @@ function inferLanguage(text: string): StackLanguage | null {
 export function stackCoherenceCheck(input: StackCoherenceInput): StackCoherenceResult {
   const warnings: StackCoherenceWarning[] = [];
 
-  // Gherkin-mandate check
   if (input.bddFramework.trim() !== '' && !isGherkinFramework(input.bddFramework)) {
     warnings.push({
       code: 'non-gherkin-bdd',
@@ -72,7 +71,6 @@ export function stackCoherenceCheck(input: StackCoherenceInput): StackCoherenceR
     });
   }
 
-  // Language-coherence check
   const signals: Array<{ name: string; value: string }> = [
     { name: 'testFramework', value: input.testFramework },
     { name: 'bddFramework', value: input.bddFramework },

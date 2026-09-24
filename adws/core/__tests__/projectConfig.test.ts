@@ -169,7 +169,6 @@ describe('getDefaultCommandsConfig — testDirectory and testFramework', () => {
 
 describe('loadProjectConfig — healthCheckPath integration', () => {
   it('returns healthCheckPath from .adw/commands.md when present', () => {
-    // Create a temporary directory simulating a target repository
     const tmpDir = mkdtempSync(join(tmpdir(), 'adw-test-'));
     const adwDir = join(tmpDir, '.adw');
     mkdirSync(adwDir);

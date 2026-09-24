@@ -1,8 +1,5 @@
 /**
- * ADW-owned local repo identity reader (#844) — replaces `readLocalRepoInfo`
- * (`adws/providers/github/githubIdentity.ts`) so the only production import
- * into `adws/providers/github` left is the launch boundary itself. Composes
- * the git core's `readOriginRemoteUrl` with the host-neutral
+ * Composes the git core's `readOriginRemoteUrl` with the host-neutral
  * `parseOwnerRepoFromUrl` (`adws/providers/workspaceValidation.ts`).
  *
  * `parseOwnerRepoFromUrl` is not a drop-in replacement for
@@ -24,7 +21,6 @@ import { parseOwnerRepoFromUrl } from '@paysdoc/devplatform/providers';
 import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 
 export interface LocalRepoIdentityDeps {
-  /** Defaults to the git core's `readOriginRemoteUrl`. */
   readRemoteUrl?: (cwd?: string) => string;
 }
 
@@ -44,7 +40,7 @@ function normalizeSshScheme(remoteUrl: string): string {
  * host-neutral, unlike the GitHub-only `readLocalRepoInfo` it replaces. One
  * `try/catch` spans both the read and the parse, so a failure at either step
  * surfaces as `Failed to get repo info: …` — the same message
- * `readLocalRepoInfo` used, which `@adw-779`/`@adw-844` both assert on.
+ * `readLocalRepoInfo` used.
  */
 export function readLocalRepoIdentity(cwd?: string, deps: LocalRepoIdentityDeps = {}): RepoIdentifier {
   const readRemoteUrl = deps.readRemoteUrl ?? readOriginRemoteUrl;

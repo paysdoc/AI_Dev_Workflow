@@ -883,6 +883,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823) — the flagged names are now imported from `@paysdoc/devplatform` (#840)
 │   ├── guardReport.ts       # Formats collected violations into a guard report
 │   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside a one-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts only; the library's own forgeProviders.ts is no longer a second in-repo site to sanction since #840)
+├── checkCommentOnly.ts  # CI guard entry point: flags changed files that are comment/whitespace-only diffs against TS/Gherkin source (`bun run lint:comment-only`)
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── checkCommentOnly.ts  # Comment-discipline guard: proves a batch of files differs from a base ref only in comments/JSDoc/whitespace (`bun run lint:comment-only`), backing comment de-bloat sweep batches
@@ -973,6 +974,7 @@ test/                   # Integration test infrastructure
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── gitContextFixture.ts    # Test GitContext factory fixture
 │   ├── git-remote-mock.ts      # Git remote mock
+│   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
 │   ├── test-harness.ts         # Test harness orchestrating all mocks

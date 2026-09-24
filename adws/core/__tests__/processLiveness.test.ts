@@ -61,8 +61,6 @@ function mockKillThrows(): void {
   }) as unknown as typeof process.kill;
 }
 
-// ─── Linux branch ────────────────────────────────────────────────────────────
-
 describe('Linux branch', () => {
   beforeEach(() => setPlatform('linux'));
 
@@ -109,8 +107,6 @@ describe('Linux branch', () => {
   });
 });
 
-// ─── macOS branch ────────────────────────────────────────────────────────────
-
 describe('macOS branch', () => {
   beforeEach(() => setPlatform('darwin'));
 
@@ -147,13 +143,10 @@ describe('macOS branch', () => {
   });
 });
 
-// ─── Windows — explicitly unsupported ────────────────────────────────────────
-
 describe('Windows (win32) branch', () => {
   beforeEach(() => setPlatform('win32'));
 
   it('getProcessStartTime returns null without throwing', () => {
-    // deps should not be called on windows
     const deps: ProcessLivenessDeps = {
       readFile: () => { throw new Error('should not call readFile on windows'); },
       execPs: () => { throw new Error('should not call execPs on windows'); },
@@ -172,8 +165,6 @@ describe('Windows (win32) branch', () => {
     expect(isProcessLive(123, 'anything', deps)).toBe(false);
   });
 });
-
-// ─── Non-existent PID (platform-independent) ─────────────────────────────────
 
 describe('non-existent PID', () => {
   it('isProcessLive returns false cleanly (does not throw)', () => {

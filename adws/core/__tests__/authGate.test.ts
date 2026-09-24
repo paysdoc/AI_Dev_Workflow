@@ -48,7 +48,6 @@ describe('writeAuthGate', () => {
     expect(typeof record.lastDetectedAt).toBe('string');
     expect(typeof record.host).toBe('string');
 
-    // File should be parseable on disk
     const onDisk = JSON.parse(fs.readFileSync('agents/.auth_gate', 'utf-8'));
     expect(onDisk.lastSlackNotifiedAt).toBeNull();
     expect(onDisk.lastDetectedBy.adwId).toBe('adw-abc');
@@ -56,14 +55,12 @@ describe('writeAuthGate', () => {
 
   it('preserves firstDetectedAt on second write but updates lastDetectedAt and lastDetectedBy', async () => {
     const first = writeAuthGate({ adwId: 'adw-1', issueNumber: 10, agentName: 'orchestrator' });
-    // Small delay to ensure timestamps differ
     await new Promise(r => setTimeout(r, 5));
     const second = writeAuthGate({ adwId: 'adw-2', issueNumber: 20, agentName: 'build-agent' });
 
     expect(second.firstDetectedAt).toBe(first.firstDetectedAt);
     expect(second.lastDetectedBy.adwId).toBe('adw-2');
     expect(second.lastDetectedBy.issueNumber).toBe(20);
-    // lastDetectedAt should be >= firstDetectedAt
     expect(new Date(second.lastDetectedAt).getTime()).toBeGreaterThanOrEqual(new Date(second.firstDetectedAt).getTime());
   });
 
@@ -73,7 +70,6 @@ describe('writeAuthGate', () => {
     const updated = readAuthGate();
     expect(updated?.lastSlackNotifiedAt).toBe('2026-01-01T12:00:00.000Z');
 
-    // Second writeAuthGate should preserve the existing lastSlackNotifiedAt
     const second = writeAuthGate({ adwId: 'adw-2', issueNumber: 20, agentName: 'build-agent' });
     expect(second.lastSlackNotifiedAt).toBe('2026-01-01T12:00:00.000Z');
   });
@@ -90,7 +86,6 @@ describe('markGateSlackNotified', () => {
   });
 
   it('is a no-op when gate file is absent', () => {
-    // Should not throw
     expect(() => markGateSlackNotified(new Date())).not.toThrow();
     expect(readAuthGate()).toBeNull();
   });
@@ -112,7 +107,6 @@ describe('shouldSendDetectionSlack', () => {
   it('returns false when within the cooldown window', () => {
     const notifiedAt = new Date('2026-05-13T10:00:00Z');
     const record = { ...baseRecord, lastSlackNotifiedAt: notifiedAt.toISOString() };
-    // 1 minute after notification — well within the 2-hour cooldown
     const now = new Date(notifiedAt.getTime() + 60_000);
     expect(shouldSendDetectionSlack(record, now)).toBe(false);
   });
@@ -120,7 +114,6 @@ describe('shouldSendDetectionSlack', () => {
   it('returns true when past the cooldown window', () => {
     const notifiedAt = new Date('2026-05-13T10:00:00Z');
     const record = { ...baseRecord, lastSlackNotifiedAt: notifiedAt.toISOString() };
-    // Exactly at cooldown boundary
     const now = new Date(notifiedAt.getTime() + SLACK_DETECTION_COOLDOWN_MS);
     expect(shouldSendDetectionSlack(record, now)).toBe(true);
   });

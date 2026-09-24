@@ -1,5 +1,4 @@
 /**
- * Contract tests for the heartbeat module.
  * Uses fake timers so no real wall-clock time is consumed.
  * Uses real AgentStateManager.writeTopLevelState for filesystem assertions.
  */
