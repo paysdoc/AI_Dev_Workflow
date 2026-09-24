@@ -39,8 +39,6 @@ function makeDeps(overrides: Partial<DependencyUnblockDeps> = {}): DependencyUnb
   };
 }
 
-// ── selectDependents (pure) ───────────────────────────────────────────────────
-
 describe('selectDependents', () => {
   it('returns issues whose deps include the closed issue number', () => {
     const issues: IssueWithDeps[] = [
@@ -55,8 +53,6 @@ describe('selectDependents', () => {
     expect(selectDependents(issues, 28)).toEqual([]);
   });
 });
-
-// ── handleIssueClosedDependencyUnblock — prose parity (AC1, the headline fix) ──
 
 describe('handleIssueClosedDependencyUnblock — prose parity (AC1)', () => {
   it('selects and spawns a prose "- blocked by #N" dependent (RED→green: no DI seam existed pre-fix)', async () => {
@@ -93,8 +89,6 @@ describe('handleIssueClosedDependencyUnblock — prose parity (AC1)', () => {
   });
 });
 
-// ── heading no-regression (AC2) ────────────────────────────────────────────────
-
 describe('handleIssueClosedDependencyUnblock — heading no-regression (AC2)', () => {
   it('still spawns a dependent declared under a "## Blocked by" heading', async () => {
     const deps = makeDeps({
@@ -107,8 +101,6 @@ describe('handleIssueClosedDependencyUnblock — heading no-regression (AC2)', (
     expect(deps.spawn).toHaveBeenCalledWith(2911, TARGET_ARGS);
   });
 });
-
-// ── still-blocked gating (AC1's "re-evaluated / spawned" clause) ───────────────
 
 describe('handleIssueClosedDependencyUnblock — still-blocked gating', () => {
   it('re-evaluates eligibility but does not spawn when the dependent is still ineligible', async () => {
@@ -125,8 +117,6 @@ describe('handleIssueClosedDependencyUnblock — still-blocked gating', () => {
   });
 });
 
-// ── no dependents ───────────────────────────────────────────────────────────────
-
 describe('handleIssueClosedDependencyUnblock — no dependents', () => {
   it('does not spawn anything when no open issue depends on the closed issue', async () => {
     const deps = makeDeps({
@@ -140,8 +130,6 @@ describe('handleIssueClosedDependencyUnblock — no dependents', () => {
     expect(deps.checkEligibility).not.toHaveBeenCalled();
   });
 });
-
-// ── buildDefaultDependencyUnblockDeps — routes through the boundary's tracker ──
 
 describe('buildDefaultDependencyUnblockDeps — issue tracker routing', () => {
   beforeEach(() => {
@@ -158,8 +146,6 @@ describe('buildDefaultDependencyUnblockDeps — issue tracker routing', () => {
     expect(result).toEqual([{ number: 10, body: 'Blocked by #5' }]);
   });
 });
-
-// ── no-throw on lister error ────────────────────────────────────────────────────
 
 describe('handleIssueClosedDependencyUnblock — no-throw on lister error', () => {
   it('does not throw when listOpenIssues throws; logs the error instead', async () => {

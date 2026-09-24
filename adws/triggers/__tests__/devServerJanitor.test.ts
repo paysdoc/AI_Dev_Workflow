@@ -14,12 +14,8 @@ import {
 } from '../devServerJanitor';
 import type { AgentState } from '../../types/agentTypes';
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
 const YOUNG = JANITOR_GRACE_PERIOD_MS / 2;    // 15 min — within grace period
 const OLD   = JANITOR_GRACE_PERIOD_MS * 2;    // 60 min — outside grace period
-
-// ── extractIssueNumberFromDirName ────────────────────────────────────────────
 
 describe('extractIssueNumberFromDirName', () => {
   it('extracts the issue number from a real feature branch name', () => {
@@ -52,8 +48,6 @@ describe('extractIssueNumberFromDirName', () => {
     expect(extractIssueNumberFromDirName('feature-issue-55')).toBeNull();
   });
 });
-
-// ── findActiveAdwIdForIssue ──────────────────────────────────────────────────
 
 describe('findActiveAdwIdForIssue', () => {
   function makeLookupDeps(states: Record<string, Partial<AgentState> | null>): Pick<JanitorDeps, 'listAdwStateDirs' | 'readTopLevelStateRaw'> {
@@ -117,8 +111,6 @@ describe('findActiveAdwIdForIssue', () => {
   });
 });
 
-// ── shouldCleanWorktree — decision matrix ────────────────────────────────────
-
 describe('shouldCleanWorktree', () => {
   describe('non-terminal stage', () => {
     it('non-terminal + PID alive + old worktree → skip (active workflow)', () => {
@@ -165,8 +157,6 @@ describe('shouldCleanWorktree', () => {
   });
 });
 
-// ── discoverTargetRepoWorktrees ──────────────────────────────────────────────
-
 function makeDeps(overrides: Partial<JanitorDeps> = {}): JanitorDeps {
   return {
     readdirTargetRepos: vi.fn().mockReturnValue([]),
@@ -178,7 +168,7 @@ function makeDeps(overrides: Partial<JanitorDeps> = {}): JanitorDeps {
     listAdwStateDirs: vi.fn().mockReturnValue([]),
     isAgentProcessRunning: vi.fn().mockReturnValue(false),
     getWorktreeAgeMs: vi.fn().mockReturnValue(OLD),
-    hasProcessesInDirectory: vi.fn().mockReturnValue(true),  // default: processes exist
+    hasProcessesInDirectory: vi.fn().mockReturnValue(true),
     killProcessesInDirectory: vi.fn(),
     log: vi.fn(),
     ...overrides,
@@ -246,8 +236,6 @@ describe('discoverTargetRepoWorktrees', () => {
     });
     expect(discoverTargetRepoWorktrees(deps)).toEqual([]);
   });
-
-  // ── .adw marker gate + per-repo fault isolation (#812) ─────────────────────
 
   it('skips a git repo without an .adw marker — listWorktrees is never called', () => {
     const deps = makeDeps({
@@ -326,8 +314,6 @@ describe('discoverTargetRepoWorktrees', () => {
   });
 });
 
-// ── runJanitorPass — kill decision integration ───────────────────────────────
-
 describe('runJanitorPass', () => {
   it('does not call killProcessesInDirectory when no worktrees found', async () => {
     const deps = makeDeps({ readdirTargetRepos: vi.fn().mockReturnValue([]) });
@@ -343,7 +329,7 @@ describe('runJanitorPass', () => {
         .mockReturnValueOnce(['repo']),
       isGitRepo: vi.fn().mockReturnValue(true),
       listWorktrees: vi.fn().mockReturnValue([wtPath]),
-      hasProcessesInDirectory: vi.fn().mockReturnValue(false),  // no processes
+      hasProcessesInDirectory: vi.fn().mockReturnValue(false),
       listAdwStateDirs: vi.fn().mockReturnValue(['abc123-some-slug']),
       readTopLevelStateRaw: vi.fn().mockReturnValue({ issueNumber: 1, workflowStage: 'completed' }),
       readTopLevelState: vi.fn().mockReturnValue({ workflowStage: 'completed' }),
@@ -351,7 +337,6 @@ describe('runJanitorPass', () => {
       getWorktreeAgeMs: vi.fn().mockReturnValue(OLD),
     });
     await runJanitorPass(deps);
-    // No kill, and kill decision deps should not even be consulted
     expect(deps.killProcessesInDirectory).not.toHaveBeenCalled();
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.isAgentProcessRunning).not.toHaveBeenCalled();
@@ -484,7 +469,7 @@ describe('runJanitorPass', () => {
         .mockReturnValueOnce(['repo']),
       isGitRepo: vi.fn().mockReturnValue(true),
       listWorktrees: vi.fn().mockReturnValue([wtPath]),
-      listAdwStateDirs: vi.fn().mockReturnValue([]),  // no matching state files
+      listAdwStateDirs: vi.fn().mockReturnValue([]),
       readTopLevelStateRaw: vi.fn().mockReturnValue(null),
       readTopLevelState: vi.fn().mockReturnValue(null),
       isAgentProcessRunning: vi.fn().mockReturnValue(false),
@@ -494,7 +479,6 @@ describe('runJanitorPass', () => {
     expect(deps.killProcessesInDirectory).toHaveBeenCalledWith(wtPath);
   });
 
-  // Regression: bug #499 — live build agent on real-format branch must not be reaped
   it('does NOT kill live build agent on a real-format branch (build_running + PID alive + old)', async () => {
     const wtPath = '/repos/owner/repo/.worktrees/feature-issue-55-scraper-visual-asset-capture';
     const adwId = 'ra4jwa-scraper-visual';
@@ -587,11 +571,8 @@ describe('runJanitorPass', () => {
         .mockReturnValueOnce(OLD),
     });
     await runJanitorPass(deps);
-    // errorWt threw during processing, cleanWt should still be killed
     expect(deps.killProcessesInDirectory).toHaveBeenCalledWith(cleanWt);
   });
-
-  // ── .adw marker gate + per-repo fault isolation (#812) ─────────────────────
 
   it('still probes and cleans the remaining repos\' worktrees when one repo\'s worktree listing throws', async () => {
     const healthyWt = '/repos/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-1-some-slug';
@@ -651,11 +632,8 @@ describe('runJanitorPass', () => {
   });
 });
 
-// ── SIGTERM/SIGKILL escalation — verified via worktreeCleanup.ts ─────────────
 // The actual SIGTERM → wait → SIGKILL logic lives in killProcessesInDirectory.
-// The janitor delegates to that function, so signal escalation tests verify:
-// 1. killProcessesInDirectory is called by runJanitorPass for eligible worktrees
-// 2. killProcessesInDirectory in worktreeCleanup.ts sends SIGTERM then SIGKILL
+// The janitor delegates to that function.
 
 describe('kill escalation: SIGTERM then SIGKILL', () => {
   it('runJanitorPass calls killProcessesInDirectory which handles SIGTERM/SIGKILL', async () => {
@@ -679,8 +657,6 @@ describe('kill escalation: SIGTERM then SIGKILL', () => {
   });
 
 });
-
-// ── JANITOR_GRACE_PERIOD_MS constant ────────────────────────────────────────
 
 describe('JANITOR_GRACE_PERIOD_MS', () => {
   it('is 30 minutes in milliseconds', () => {

@@ -29,8 +29,6 @@ const STEP_DEF_DIR = 'features/per-issue/step_definitions';
 const FEATURE_FILENAME_RE = /^feature-(\d+)\.feature$/;
 
 /**
- * Pure staleness predicate.
- *
  * `filePath` is included in the signature so callers can log it alongside the
  * result without juggling tuples — it is not consulted by the predicate itself.
  */
@@ -74,9 +72,7 @@ function defaultListFeatures(base: SweepBase): string[] {
 }
 
 /**
- * Finds the merge date of the most recent merged PR that closes `issueNum`,
- * by scanning the code host's recent merged PRs and matching the canonical
- * "Closes owner/repo#N" body marker. Returns null if no merged PR links the
+ * Returns null if no merged PR links the
  * issue, or on any lookup failure.
  */
 export function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promise<Date | null> {
@@ -103,7 +99,7 @@ function defaultListStepDefSiblings(base: SweepBase, issueNum: number): string[]
   }
 }
 
-/** Reads a stale candidate's content from the synced sweep worktree to check its promotion tag state. Fail-safe: null on any error. */
+/** Fail-safe: null on any error. */
 function defaultReadFeatureContent(base: SweepBase, filePath: string): string | null {
   try {
     return fs.readFileSync(path.join(base.worktreePath, filePath), 'utf-8');

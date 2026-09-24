@@ -1,18 +1,12 @@
 #!/usr/bin/env bunx tsx
 
-/**
- * Webhook trigger for ADW (AI Developer Workflow).
- *
- * Acts as a real-time gatekeeper: evaluates incoming issues against
- * dependency and concurrency checks before admitting them for processing.
- * Start with: bunx tsx adws/triggers/trigger_webhook.ts
- */
+/** Start with: bunx tsx adws/triggers/trigger_webhook.ts */
 
 // Load .env explicitly at the entrypoint so secrets (SLACK_WEBHOOK_URL, …) are
 // present regardless of runtime (node vs bun) or import ordering. Note: `.env`
 // is already loaded transitively via the `../core` import below
 // (config.ts → environment.ts → dotenv.config()); this line codifies that
-// implicit contract at the entrypoint (issue #647, fix #3 — defensive only).
+// implicit contract at the entrypoint.
 import '../core/environment';
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict } from '../core';
@@ -88,7 +82,6 @@ const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     (async () => {
       const result: HealthCheckResult = { success: true, timestamp: new Date().toISOString(), checks: {}, warnings: [], errors: [] };
-      // Construct a self-host boundary for git and forge probes; degrade gracefully on failure.
       const boundary = selfHostBoundary();
       const healthCtx = boundary?.gitContext;
       let codeHost: import('@paysdoc/devplatform').CodeHost | undefined;
@@ -205,7 +198,7 @@ export function dispatchWebhookEvent(
     log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
     if (!commentBoundary) {
       // A repository was named but its boundary could not be minted — report it
-      // rather than silently redirecting to the self-host identity (Finding 1/2).
+      // rather than silently redirecting to the self-host identity.
       jsonResponse(res, 200, { status: 'ignored', reason: 'boundary_unavailable' });
       return;
     }
@@ -323,7 +316,7 @@ export function dispatchWebhookEvent(
 /**
  * Contains a synchronous per-event dispatch failure: reports it, then answers 500
  * so GitHub's delivery log shows a real failure instead of a dropped connection.
- * Never throws — a throw here would kill the server, which is the bug (#776).
+ * Never throws — a throw here would kill the server, which is the bug.
  */
 function containEventFailure(error: unknown, res: http.ServerResponse, rawBody: Buffer, event: string | undefined): void {
   const context = describeWebhookEvent(event, safeParseWebhookBody(rawBody));

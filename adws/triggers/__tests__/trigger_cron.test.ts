@@ -1,21 +1,11 @@
 /**
- * Cron-integration tests for the hung-orchestrator sweep block.
- *
- * Tests that checkAndTrigger / runHungDetectorSweep:
- * - calls process.kill(pid, 'SIGKILL') for each hung entry returned by findHungOrchestrators
- * - calls AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'abandoned' }) for each entry
- * - isolates per-entry failures (SIGKILL error does not skip state rewrite or siblings)
- * - is a no-op when findHungOrchestrators returns []
- *
  * Module-level side effects in trigger_cron.ts (resolveCronRepo, activateGitHubAppAuth,
  * registerAndGuard, setInterval) are stubbed via vi.mock so the import is stable.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ---------------------------------------------------------------------------
 // Mock all module-level side-effect dependencies BEFORE any import of trigger_cron
-// ---------------------------------------------------------------------------
 
 vi.mock('../cronRepoResolver', () => ({
   resolveCronRepo: vi.fn(() => ({
@@ -95,19 +85,11 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-// ---------------------------------------------------------------------------
-// Now import the module under test (side effects are all stubbed)
-// ---------------------------------------------------------------------------
-
 import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../../core/agentState';
 import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeEntry(overrides: Partial<HungOrchestrator> = {}): HungOrchestrator {
   return {
@@ -120,10 +102,6 @@ function makeEntry(overrides: Partial<HungOrchestrator> = {}): HungOrchestrator 
     ...overrides,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe('runHungDetectorSweep', () => {
   let killSpy: ReturnType<typeof vi.spyOn>;
@@ -190,9 +168,7 @@ describe('runHungDetectorSweep', () => {
 
     runHungDetectorSweep(Date.now());
 
-    // State rewrite for sweep-c still happens despite SIGKILL failure
     expect(writeStateMock).toHaveBeenCalledWith('sweep-c', { workflowStage: 'abandoned' });
-    // Sibling sweep-d is fully processed
     expect(killSpy).toHaveBeenCalledWith(5002, 'SIGKILL');
     expect(writeStateMock).toHaveBeenCalledWith('sweep-d', { workflowStage: 'abandoned' });
   });
@@ -205,10 +181,8 @@ describe('runHungDetectorSweep', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Tick seams (#769) — both dispatch an injected, nullable bound thunk rather
+// Tick seams — both dispatch an injected, nullable bound thunk rather
 // than falling back to a cwd-derived identity when no launch context exists.
-// ---------------------------------------------------------------------------
 
 describe('runPerIssueScenarioSweepTick', () => {
   beforeEach(() => {

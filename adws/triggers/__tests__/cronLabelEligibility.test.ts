@@ -4,8 +4,6 @@ import type { LabelRecoveryIssue } from '../cronLabelEligibility';
 import type { AdwLabelReading } from '../../core/adwLabels';
 import type { LinkedPRRef } from '../../forge/linkedPrDetector';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
 function reading(overrides: Partial<AdwLabelReading> = {}): AdwLabelReading {
   return { optOut: false, classification: null, conflict: false, ...overrides };
 }
@@ -27,8 +25,6 @@ function makeIssue(
 function makePR(body: string, state: string, mergedAt: string | null): LinkedPRRef {
   return { number: 10, body, state, mergedAt };
 }
-
-// ── decideLabelRecovery ─────────────────────────────────────────────────────
 
 describe('decideLabelRecovery — precedence order', () => {
   it('opt_out wins over a classification label', () => {
@@ -111,8 +107,6 @@ describe('decideLabelRecovery — precedence order', () => {
     expect(result.reason).toBe('opt_out');
   });
 });
-
-// ── evaluateLabelRecovery ───────────────────────────────────────────────────
 
 describe('evaluateLabelRecovery — composition', () => {
   it('fresh single-adw:feature issue with no comment and empty PR list is eligible', () => {

@@ -30,8 +30,6 @@ const GRACE_PERIOD_MS = 60_000;
 const NOW = new Date('2024-06-01T12:00:00Z').getTime();
 const OLD_DATE = new Date('2024-01-01T00:00:00Z').toISOString();
 
-// ── evaluateIssue — merge_blocked skip-terminal ────────────────────────────────
-
 describe('evaluateIssue — merge_blocked skip-terminal', () => {
   it('returns ineligible with reason merge_blocked for a merge_blocked issue', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
@@ -67,8 +65,6 @@ describe('evaluateIssue — merge_blocked skip-terminal', () => {
   });
 });
 
-// ── evaluateIssue — review_failed skip-terminal (money-fire pin) ──────────────
-
 describe('evaluateIssue — review_failed skip-terminal', () => {
   it('returns ineligible with reason review_failed for a review_failed issue', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
@@ -103,8 +99,6 @@ describe('evaluateIssue — review_failed skip-terminal', () => {
     expect(result.reason).toBe('review_failed');
   });
 });
-
-// ── filterEligibleIssues — merge_blocked annotation ───────────────────────────
 
 describe('filterEligibleIssues — merge_blocked annotation', () => {
   it('annotates merge_blocked issue in filteredAnnotations', () => {
@@ -144,9 +138,6 @@ describe('filterEligibleIssues — merge_blocked annotation', () => {
   });
 });
 
-// ── label-recovery gate ────────────────────────────────────────────────────────
-
-// Resolution helper that always produces a fresh, adwId-null result
 function freshResolution(): StageResolution {
   return { stage: null, adwId: null, lastActivityMs: null };
 }
@@ -212,8 +203,6 @@ describe('evaluateIssue — label-recovery gate', () => {
   });
 });
 
-// ── phase_timeout eligibility ──────────────────────────────────────────────────
-
 describe('evaluateIssue — phase_timeout eligibility', () => {
   it('returns eligible:true with action:spawn for a phase_timeout stage past the grace period', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
@@ -274,8 +263,6 @@ describe('filterEligibleIssues — label-recovery gate annotations', () => {
   });
 });
 
-// ── filterEligibleIssues — region-overlap default resolver wiring ─────────────
-
 describe('filterEligibleIssues — region-overlap default resolver wiring', () => {
   it('serializes two issues whose bodies declare the same touched file when no resolver is injected', () => {
     const sharedPath = 'adws/triggers/takeoverHandler.ts';
@@ -316,8 +303,6 @@ describe('filterEligibleIssues — region-overlap default resolver wiring', () =
   });
 });
 
-// ── evaluateIssue — human_gated skip-terminal ─────────────────────────────────
-
 describe('evaluateIssue — human_gated skip-terminal', () => {
   it('returns ineligible with reason human_gated for a human_gated issue', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
@@ -341,8 +326,6 @@ describe('evaluateIssue — human_gated skip-terminal', () => {
     expect(result.reason).toBe('human_gated');
   });
 });
-
-// ── filterEligibleIssues — human_gated annotation ────────────────────────────
 
 describe('filterEligibleIssues — human_gated annotation', () => {
   it('annotates human_gated issue in filteredAnnotations', () => {
@@ -381,8 +364,6 @@ describe('filterEligibleIssues — human_gated annotation', () => {
     expect(eligible.map(e => e.issue.number)).toEqual([11]);
   });
 });
-
-// ── evaluateIssue — processedSpawns must not block recovery (#653) ───────────
 
 describe('evaluateIssue — processedSpawns must not block recovery (#653)', () => {
   it('abandoned issue already in processedSpawns stays eligible for takeover (#653)', () => {

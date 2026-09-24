@@ -1,10 +1,3 @@
-/**
- * Auto-merge utilities for ADW.
- *
- * Provides mergeWithConflictResolution() and its supporting functions,
- * used by adwMerge.tsx to merge PRs with conflict resolution support.
- */
-
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
 import type { CodeHost } from '@paysdoc/devplatform';
@@ -13,10 +6,7 @@ import type { GitContext } from '@paysdoc/devplatform/git';
 
 const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
 
-/**
- * Performs a dry-run merge to detect conflicts without modifying the working tree.
- * Returns true if conflicts are detected, false if the merge would succeed cleanly.
- */
+/** Performs a dry-run merge to detect conflicts without modifying the working tree. */
 function checkMergeConflicts(baseBranch: string, cwd: string, ctx: GitContext): boolean {
   try {
     ctx.fetchRemote(baseBranch, cwd);
@@ -31,16 +21,12 @@ function checkMergeConflicts(baseBranch: string, cwd: string, ctx: GitContext): 
     ctx.abortMerge(cwd);
     return false;
   } catch {
-    // Merge failed — conflicts detected; abort to clean up
     ctx.abortMerge(cwd);
     return true;
   }
 }
 
-/**
- * Initiates a real merge (with conflict markers) then invokes the /resolve_conflict agent.
- * Returns true if the agent resolved conflicts and committed successfully.
- */
+/** Initiates a real merge (with conflict markers) then invokes the /resolve_conflict agent. */
 async function resolveConflictsViaAgent(
   adwId: string,
   specPath: string,
@@ -49,11 +35,9 @@ async function resolveConflictsViaAgent(
   cwd: string,
   ctx: GitContext,
 ): Promise<boolean> {
-  // Start the actual merge so conflict markers appear in working tree
   try {
     ctx.fetchRemote(baseBranch, cwd);
     ctx.mergeBranch(`origin/${baseBranch}`, cwd, { noEdit: true });
-    // If no conflict, the merge succeeded without needing agent resolution
     log(`Merge from origin/${baseBranch} succeeded cleanly — no agent resolution needed`, 'info');
     return true;
   } catch {
@@ -88,10 +72,6 @@ async function resolveConflictsViaAgent(
   return result.success;
 }
 
-/**
- * Pushes the current branch to origin.
- * Returns true on success, false on failure.
- */
 function pushBranchChanges(branchName: string, cwd: string, ctx: GitContext): boolean {
   try {
     ctx.pushBranch(branchName, cwd);
@@ -103,10 +83,6 @@ function pushBranchChanges(branchName: string, cwd: string, ctx: GitContext): bo
   }
 }
 
-/**
- * Returns true when the merge error indicates a conflict (race condition).
- * Checks for known GitHub CLI / git conflict-related error strings.
- */
 export function isMergeConflictError(error: string): boolean {
   const lower = error.toLowerCase();
   return (
@@ -132,14 +108,7 @@ function syncWorktreeToOriginHead(headBranch: string, cwd: string, ctx: GitConte
   }
 }
 
-/**
- * Core retry loop: resolve conflicts → push → merge.
- * Extracted so it can be reused by both the webhook auto-merge handler and the
- * in-process autoMergePhase.
- *
- * @returns `{ success: true }` on successful merge, or `{ success: false, error }` after
- *          exhausting retries or encountering a non-conflict failure.
- */
+/** Core retry loop: resolve conflicts → push → merge. */
 export async function mergeWithConflictResolution(
   prNumber: number,
   codeHost: Pick<CodeHost, 'mergePullRequest'>,
@@ -154,7 +123,6 @@ export async function mergeWithConflictResolution(
   const ctx = gitContext;
   let lastMergeError = '';
 
-  // Pull origin's view of the head branch into the worktree so checkMergeConflicts and resolveConflictsViaAgent reason about the same commit GitHub will merge.
   syncWorktreeToOriginHead(headBranch, worktreePath, ctx);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
