@@ -1,10 +1,4 @@
 /**
- * Shared scenario test→fix loop helper.
- *
- * Replaces the near-identical inline loops in the 5 orchestrators (adwSdlc,
- * adwPlanBuildTest, adwPlanBuildTestReview, adwChore, adwPrReview).
- *
- * Governance added over the old loops:
  *   - Hard-fails on exhaustion instead of silently falling through to review.
  *   - Gherkin freeze enforced inside executeScenarioFixPhase.
  *   - Post-resolve fidelity re-check (scenarios vs issue body) on first green.
@@ -64,7 +58,6 @@ export async function runScenarioTestFixLoop(
         return { scenarioProof, scenarioProofPath, scenarioRetries };
       }
 
-      // Scenarios are green after resolve — run post-resolve fidelity check.
       const regressionTagResult = scenarioProof?.tagResults.find(
         r => r.resolvedTag === '@regression',
       );
@@ -127,7 +120,6 @@ export async function runScenarioTestFixLoop(
       return { scenarioProof, scenarioProofPath, scenarioRetries };
     }
 
-    // Scenarios still failing — derive signals for the verdict.
     const regressionTagResult = scenarioProof.tagResults.find(
       r => r.resolvedTag === '@regression',
     );
@@ -154,7 +146,6 @@ export async function runScenarioTestFixLoop(
       throw new ScenarioHermeticityError(msg);
     }
 
-    // retry: run fix phase and try again.
     scenarioRetries++;
     const fixWrapper = (cfg: WorkflowConfig) =>
       executeScenarioFixPhase(cfg, scenarioProof!);

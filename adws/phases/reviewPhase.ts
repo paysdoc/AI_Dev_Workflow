@@ -1,10 +1,5 @@
 /**
- * Review phase execution — passive judge.
- *
- * Receives the scenarioProofPath from the calling orchestrator (produced by
- * scenarioTestPhase), calls a single review agent to judge the proof against
- * issue requirements, and returns. Does not run tests, start a dev server,
- * navigate the application, or invoke prepare_app.
+ * Does not run tests, start a dev server, navigate the application, or invoke prepare_app.
  *
  * The patch+retest retry loop is orchestrator-level (see executeReviewPatchCycle).
  */
@@ -47,7 +42,7 @@ function canApprove(codeHost: CodeHost): boolean {
 const HITL_LABEL = 'hitl';
 
 /**
- * True when the issue currently carries `hitl`. A tracker that refuses the
+ * A tracker that refuses the
  * label read by name answers `true`: a gate that cannot be consulted is a
  * gate that holds, so the review never approves past a human it cannot see.
  */
@@ -61,8 +56,7 @@ function issueHasHitlLabel(issueTracker: IssueTracker, issueNumber: number): boo
 }
 
 /**
- * Approves the pull request after a review pass unless a human has signalled
- * `hitl` on the issue. Mirrors adwChore's pre-approval: the label is read live
+ * Mirrors adwChore's pre-approval: the label is read live
  * from the tracker at approval time. Approval failure is non-fatal — the review
  * still counts as passed — and so is a refused capability probe (a forge that
  * cannot express approval cannot approve).
@@ -85,13 +79,8 @@ function approvePullRequestAfterReviewPass(repoContext: RepoContext, issueNumber
 }
 
 /**
- * Executes the Review phase as a passive judge.
+ * Returns immediately — retries are handled by the calling orchestrator via executeReviewPatchCycle.
  *
- * Calls a single review agent that reads the scenario proof file and judges
- * the implementation against the issue spec. Returns immediately — retries
- * are handled by the calling orchestrator via executeReviewPatchCycle.
- *
- * @param config - Workflow configuration
  * @param scenarioProofPath - Path to the scenario_proof.md file from scenarioTestPhase.
  *   When empty, the review agent falls through to Strategy B or code-diff review.
  */
@@ -192,13 +181,9 @@ export async function executeReviewPhase(
 }
 
 /**
- * Executes one review patch cycle: patch each blocker → build → commit → push.
- *
  * Called by the orchestrator-level review retry loop when a review returns
  * blockers. After this returns, the orchestrator re-runs scenarioTestPhase
  * then re-runs executeReviewPhase.
- *
- * Follows the same compositional pattern as scenarioFixPhase.ts.
  */
 export async function executeReviewPatchCycle(
   config: WorkflowConfig,
@@ -256,7 +241,6 @@ export async function executeReviewPatchCycle(
     modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
   }
 
-  // Commit and push all patch+refactor changes in one commit
   await runCommitAgent(
     'review-patch-agent',
     issueType,

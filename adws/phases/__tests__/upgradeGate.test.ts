@@ -8,8 +8,6 @@ import {
 } from '../upgradeGate';
 import { BoardStatus } from '@paysdoc/devplatform';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const CURRENT_HASH = 'deadbeef1234';
 const STORED_HASH = 'oldcafe5678';
 const BRANCH = `adw-upgrade-${CURRENT_HASH}`;
@@ -43,8 +41,6 @@ function makeDeps(overrides: Partial<UpgradeGateDeps> = {}): UpgradeGateDeps {
   };
 }
 
-// ── shouldTriggerUpgrade — pure ───────────────────────────────────────────────
-
 describe('shouldTriggerUpgrade', () => {
   it('returns true when storedVersion is null (first bootstrap)', () => {
     expect(shouldTriggerUpgrade(CURRENT_HASH, null)).toBe(true);
@@ -58,8 +54,6 @@ describe('shouldTriggerUpgrade', () => {
     expect(shouldTriggerUpgrade(CURRENT_HASH, STORED_HASH)).toBe(true);
   });
 });
-
-// ── addDependencyToBody — pure ────────────────────────────────────────────────
 
 describe('addDependencyToBody', () => {
   it('appends a new ## Blocked by section when body has none', () => {
@@ -98,8 +92,6 @@ describe('addDependencyToBody', () => {
   });
 });
 
-// ── runUpgradeGate — orchestration ────────────────────────────────────────────
-
 describe('runUpgradeGate — proceed (hash match)', () => {
   it('returns proceed and does not call claimUpgrade', async () => {
     const deps = makeDeps({ readAdwVersion: vi.fn().mockReturnValue(CURRENT_HASH) });
@@ -116,11 +108,10 @@ describe('runUpgradeGate — proceed (hash match)', () => {
   });
 
   it('stale local worktree but remote default branch matches current hash → proceed', async () => {
-    // Simulates issue #712: a reused worktree has old .adw-version locally, but the
+    // a reused worktree has old .adw-version locally, but the
     // remote default branch is already up to date. The gate reads from the remote so
     // it sees a match and returns proceed without triggering a false upgrade.
     const deps = makeDeps({
-      // readAdwVersion returns CURRENT_HASH — simulating "remote branch is current"
       readAdwVersion: vi.fn().mockReturnValue(CURRENT_HASH),
     });
     const outcome = await runUpgradeGate(makeParams(), deps);

@@ -1,7 +1,5 @@
 /**
- * Replaces every `?? getRepoInfo()` wrong-repo-fallback idiom in the phases
- * with a single precedence over the identity a `WorkflowConfig` already
- * carries (#820). `repoContext.repoId` → `gitContext` → `targetRepo`: all
+ * `repoContext.repoId` → `gitContext` → `targetRepo`: all
  * three sources agree by construction (`bindWorkspaceContext` refuses a
  * mismatch), so precedence only decides which object is read, never which
  * repository is addressed. A config carrying none of the three is a
@@ -23,7 +21,6 @@ export function resolveWorkflowRepoId(config: Pick<WorkflowConfig, 'repoContext'
 }
 
 /**
- * Returns the launch-boundary GitContext a WorkflowConfig carries, or throws.
  * `gitContext` is optional only for phase-test fixtures — every production
  * config comes from initializeWorkflow or initializePRReviewWorkflow, both of
  * which always set one.

@@ -1,9 +1,5 @@
 /**
- * Promotion rot/reuse advisory.
- *
- * On a `regression-promotion` PR, runs the promote-regression-vocabulary
- * analysis over the promoted scenario's phrases and posts the per-phrase
- * reuse/rot verdicts as a single PR comment. Advisory only — it never
+ * Advisory only — it never
  * blocks, gates, or crashes the workflow; any failure degrades to a logged
  * warning.
  *
@@ -35,18 +31,12 @@ export interface PromotionRotAdvisoryContext {
 }
 
 export interface PromotionRotAdvisoryDeps {
-  /** Runs the (fallible) reuse/rot analysis over the promoted feature's phrases. */
   analyze: (feature: string) => Promise<RotVerdict[]>;
-  /** Posts the single advisory comment to the PR. */
   postComment: (prNumber: number, body: string) => void | Promise<void>;
   log?: (message: string, level?: LogLevel) => void;
 }
 
 /**
- * Runs the promotion rot/reuse advisory over the given context: gated on the
- * `regression-promotion` label, runs the injected analysis, formats one
- * comment, and posts it.
- *
  * Never throws. The label gate short-circuits before the analysis runs (an
  * ordinary PR incurs neither the comment nor the analysis cost). Any failure
  * once gated (analysis throw, comment-post error) degrades to a logged
@@ -72,12 +62,7 @@ export async function runPromotionRotAdvisory(
   }
 }
 
-/**
- * Executes the promotion rot/reuse advisory as a WorkflowConfig phase: on a
- * `regression-promotion` PR, runs the analysis and posts one PR comment.
- * Catch-total — always returns a valid zero/low-cost phase result and never
- * rejects, regardless of outcome.
- */
+/** Catch-total — always returns a valid zero/low-cost phase result and never rejects, regardless of outcome. */
 export async function executePromotionRotAdvisory(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {

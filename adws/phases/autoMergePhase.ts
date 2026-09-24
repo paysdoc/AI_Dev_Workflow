@@ -1,14 +1,4 @@
 /**
- * Auto-merge phase for review orchestrators.
- *
- * After the review phase passes and the PR has been created, this phase:
- * 1. Silently skips if the issue has the `hitl` label (no comment on re-entry).
- * 2. Reads approval state from GitHub (`gh pr view --json reviews`).
- *    - If no APPROVED review exists: applies `hitl` label, posts a one-time comment, exits.
- *    - If an APPROVED review exists: proceeds to merge.
- * 3. Merges the PR via `gh pr merge`, resolving conflicts with the /resolve_conflict agent
- *    if needed (up to MAX_AUTO_MERGE_ATTEMPTS attempts).
- *
  * Failure is non-fatal: if the merge cannot complete, a comment is posted on the PR and the
  * workflow continues to its completion comment.
  */
@@ -25,10 +15,7 @@ import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 
-/**
- * Extracts the PR number from a GitHub PR URL (e.g. https://github.com/owner/repo/pull/42).
- * Returns 0 if the URL is absent or unparseable.
- */
+/** Returns 0 if the URL is absent or unparseable. */
 function extractPrNumber(prUrl: string | undefined): number {
   if (!prUrl) return 0;
   const parts = prUrl.split('/pull/');
@@ -38,7 +25,6 @@ function extractPrNumber(prUrl: string | undefined): number {
 }
 
 /**
- * Executes the auto-merge phase: read approval state then merge the PR.
  * Always returns successfully — merge failures are logged and commented but do not
  * propagate as thrown errors.
  */
@@ -75,7 +61,6 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   const headBranch = ctx.branchName || branchName;
   const baseBranch = defaultBranch;
 
-  // Gate: require at least one APPROVED review on the PR (GitHub is source of truth).
   const hasApproval = repoContext.codeHost.isPullRequestApproved(prNumber);
   if (!hasApproval) {
     log(`No APPROVED review found on PR #${prNumber}, applying hitl label and posting comment`, 'info');
@@ -87,14 +72,12 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  // Resolve spec path for the /resolve_conflict agent (best-effort)
   let specPath = '';
   const candidate = getPlanFilePath(issueNumber, worktreePath);
   if (planFileExists(issueNumber, worktreePath)) {
     specPath = candidate;
   }
 
-  // Merge with conflict resolution retry loop, over the phase's own bound code host.
   const mergeOutcome = await mergeWithConflictResolution(
     prNumber,
     repoContext.codeHost,

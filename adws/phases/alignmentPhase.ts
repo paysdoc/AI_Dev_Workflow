@@ -1,12 +1,3 @@
-/**
- * Single-pass alignment phase execution for workflows.
- *
- * Replaces the multi-round plan validation loop with a single agent invocation
- * that reads both the plan and BDD scenarios, resolves conflicts using the GitHub
- * issue as the sole source of truth, and flags unresolvable conflicts as inline
- * warnings in the plan rather than halting the workflow.
- */
-
 import {
   log,
   AgentStateManager,
@@ -28,12 +19,7 @@ import { scenarioAuthoringSkipReason } from "../core";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
 
-/**
- * Executes the single-pass Alignment phase: reads both plan and BDD scenarios,
- * resolves conflicts using the GitHub issue as truth, and flags unresolvable
- * conflicts as inline warnings in the plan. Never throws — unresolvable conflicts
- * are warnings, not errors.
- */
+/** Never throws — unresolvable conflicts are warnings, not errors. */
 export async function executeAlignmentPhase(
   config: WorkflowConfig
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
@@ -59,7 +45,7 @@ export async function executeAlignmentPhase(
 
   // Issues that skip scenario authoring have no @adw-N scenarios, so the alignment pass has
   // nothing to align. Explicit gate (defense-in-depth on top of the "no scenario files" skip
-  // below), keyed on the same pure label read. See PRD user story 11.
+  // below), keyed on the same pure label read.
   const skipReason = scenarioAuthoringSkipReason(issue.labels);
   if (skipReason) {
     log(`Skipping alignment phase: ${skipReason} label present (no scenario authoring)`, 'info');
@@ -73,7 +59,6 @@ export async function executeAlignmentPhase(
   log("Phase: Single-Pass Alignment", "info");
   AgentStateManager.appendLog(orchestratorStatePath, "Starting single-pass alignment phase");
 
-  // Step 1: Verify plan file exists
   const planContent = readPlanFile(issueNumber, worktreePath);
   if (!planContent) {
     const planPath = getPlanFilePath(issueNumber, worktreePath);
@@ -94,7 +79,6 @@ export async function executeAlignmentPhase(
 
   const planFilePath = getPlanFilePath(issueNumber, worktreePath);
 
-  // Step 2: Discover scenario files
   const scenarioPaths = findScenarioFiles(issueNumber, worktreePath);
   if (scenarioPaths.length === 0) {
     log(`No BDD scenario files tagged @adw-${issueNumber} found. Skipping alignment.`, "info");
@@ -113,12 +97,10 @@ export async function executeAlignmentPhase(
   }
   log(`Found ${scenarioPaths.length} scenario file(s) for alignment`, "info");
 
-  // Step 3: Post plan_aligning stage comment
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, "plan_aligning", ctx);
   }
 
-  // Step 4: Run alignment agent (single pass)
   const alignmentAgentStatePath = AgentStateManager.initializeState(adwId, "alignment-agent", orchestratorStatePath);
   AgentStateManager.writeState(alignmentAgentStatePath, {
     adwId,
@@ -179,7 +161,6 @@ export async function executeAlignmentPhase(
     });
   }
 
-  // Step 5: Log results
   const { aligned, warnings, changes, summary } = alignmentResultData;
 
   if (changes.length > 0) {
@@ -195,12 +176,10 @@ export async function executeAlignmentPhase(
   AgentStateManager.appendLog(orchestratorStatePath, `Alignment summary: ${summary}`);
   log(`Alignment complete: aligned=${aligned}, changes=${changes.length}, warnings=${warnings.length}`, "success");
 
-  // Step 6: Post plan_aligned stage comment
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, "plan_aligned", ctx);
   }
 
-  // Step 7: Commit updated artifacts if changes were made
   if (changes.length > 0) {
     log("Committing updated plan/scenario artifacts...", "info");
     await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
