@@ -1,5 +1,4 @@
 /**
- * Shared world state for GitContext BDD step definitions.
  * Imported by feature-659.steps.ts and feature-662.steps.ts so both share
  * a single W object and makeSpyExec factory — no duplicate step definitions.
  */
@@ -53,7 +52,7 @@ export const W: SharedWorld = {
 };
 
 /**
- * Spy factory. The spy reads `responseMap` at call time (by reference) so
+ * The spy reads `responseMap` at call time (by reference) so
  * Givens that run AFTER spy creation can still configure responses.
  * Falls back to `defaultStdout` when no pattern matches.
  */
@@ -104,7 +103,7 @@ export function parseAuthor(authorStr: string): { name: string; email: string } 
   return { name: match[1].trim(), email: match[2].trim() };
 }
 
-/** No-op fs spy for BDD tests — all paths are imaginary, so fs operations are stubbed out. */
+/** All paths are imaginary, so fs operations are stubbed out. */
 export function makeNoOpFsDeps(): FsDeps {
   return {
     existsSync: () => false,

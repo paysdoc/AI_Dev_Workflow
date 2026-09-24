@@ -3,10 +3,6 @@ import assert from 'assert';
 import { readInvocations } from './feature-533.steps.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
-// ---------------------------------------------------------------------------
-// Then — claude-cli-stub invocation recording assertions
-// ---------------------------------------------------------------------------
-
 Then(
   'the claude-cli-stub recorded a {string} agent invocation for adwId {string}',
   function (this: RegressionWorld, command: string, adwId: string) {

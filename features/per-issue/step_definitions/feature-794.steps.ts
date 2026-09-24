@@ -1,24 +1,7 @@
 /**
- * BDD step definitions for feature-794.feature
- *
- * Launch boundary mints forge providers bound to the context's identity.
- *
- * §1   the boundary hands back providers at all
- * §2   every minted provider carries the context's identity (Scenario Outline)
- * §3   the uninjected path is the one that ships (anti-vacuity)
- * §4   one identity read, not several
- * §5   the target argument wins, the remote is never consulted
- * §6   the three named consumers (Scenario Outline: cron / merge / workflow init)
- * §7   providers are minted before the workspace exists
- * §8   selection stays config-driven and GitHub-defaulted
- * §9   the context half is unchanged (regression net)
- * §10  the result cannot be re-pointed after the fact
- * §11  downstream receives the boundary's providers rather than building its own
- * §12  type-check backstop → feature-504.steps.ts (T22); G18 → ensureCronOnEveryEventSteps.ts
- *
- * Driven through the boundary's existing injection seams (LaunchGitContextDeps),
- * exactly as feature-660/feature-700/feature-791 drive it — no framework source
- * file is read as text; every assertion targets an object the system produces.
+ * Driven through the boundary's existing injection seams (LaunchGitContextDeps) —
+ * no framework source file is read as text; every assertion targets an object
+ * the system produces.
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -38,8 +21,6 @@ import { Platform } from '@paysdoc/devplatform';
 import { resolveCronRepo } from '../../../adws/triggers/cronRepoResolver.ts';
 import { parseTargetRepoArgs } from '../../../adws/core/orchestratorCli.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
-
-// ── World state ──────────────────────────────────────────────────────────────
 
 interface MintedRecord {
   kind: 'issue tracker' | 'code host' | 'board manager';
@@ -64,7 +45,7 @@ interface World794 {
   repoContextError: Error | null;
   envs: NodeJS.ProcessEnv[];
   tempDirs: string[];
-  /** #817 seam: the boundary's declared platform, folded into LaunchGitContextDeps.platform by makeDeps(). Undeclared -> deps.platform is omitted, so the boundary defaults to Platform.GitHub. */
+  /** The boundary's declared platform. Undeclared -> deps.platform is omitted, so the boundary defaults to Platform.GitHub. */
   declaredPlatform: Platform | undefined;
 }
 
@@ -110,13 +91,6 @@ function resetWorld(): void {
   w.declaredPlatform = undefined;
 }
 
-// §11's workspace-remote read now runs through validateGitRemote(boundary.gitContext, …)
-// (adws/core/workspaceBinding.ts, #823) — the caller's OWN context, never a second,
-// differently-credentialed one built for the check. No fresh credential is resolved for
-// the fixture identities ("acme/webapp", "octo/infra") any more, so the App-mint 404
-// workaround this file used to need (clearing GITHUB_APP_ID for the scenario's duration)
-// is dead and has been removed.
-
 Before({ tags: '@adw-794' }, function () {
   resetWorld();
 });
@@ -127,8 +101,6 @@ After({ tags: '@adw-794' }, function () {
   }
   w.tempDirs = [];
 });
-
-// ── Shared helpers ───────────────────────────────────────────────────────────
 
 const FIXED_IDENTITY = {
   authorName: 'ADW Test Bot',
@@ -170,7 +142,7 @@ function makeDeps(): LaunchGitContextDeps {
     deps.platform = w.declaredPlatform;
   }
   if (w.recordMinting) {
-    // Records AND delegates to the real assembly — recording alone would blind #823's
+    // Records AND delegates to the real assembly — recording alone would blind the
     // "no board manager for a gitlab code host" row to the library's actual shape.
     deps.forgeProviders = (options: ForgeProvidersOptions): BoundProviders => {
       const set = forgeProviders(options);
@@ -203,7 +175,6 @@ function realGit(): string {
   return process.env['REAL_GIT_PATH'] ?? 'git';
 }
 
-/** Initialises a throwaway git repo whose `origin` remote points at the given owner/repo. */
 function initFixtureWorkspace(dir: string, repoFullName: string): void {
   const git = realGit();
   execSync(`"${git}" init`, { cwd: dir, stdio: 'pipe' });
@@ -213,21 +184,15 @@ function initFixtureWorkspace(dir: string, repoFullName: string): void {
   execSync(`"${git}" commit --allow-empty -m "init"`, { cwd: dir, stdio: 'pipe' });
 }
 
-// ── §1 setup — throwaway roots ────────────────────────────────────────────────
-
 Given('a launch boundary rooted in throwaway framework and target-repos directories', function () {
   w.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-794-framework-'));
   w.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-794-target-repos-'));
   w.tempDirs.push(w.frameworkRoot, w.targetReposDir);
 });
 
-// ── §2/§4/§5/§6/§7 setup — the recording mintProviders seam ───────────────────
-
 Given('every provider the boundary mints is recorded with the identity it was minted from', function () {
   w.recordMinting = true;
 });
-
-// ── Remote-reader setup (§3b, §4, §5, §6, §9) ─────────────────────────────────
 
 Given('the local git remote at the launch boundary answers {string}', function (repoStr: string) {
   w.remoteAnswers = [splitRepo(repoStr)];
@@ -244,8 +209,6 @@ Given(
   },
 );
 
-// ── §1/§2/§3/§4/§5 — asking the boundary ──────────────────────────────────────
-
 When('the launch boundary is asked for the repository {string}', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
   w.boundary = buildLaunchBoundary(makeTargetRepo(owner, repo), makeDeps());
@@ -254,8 +217,6 @@ When('the launch boundary is asked for the repository {string}', function (repoS
 When('the launch boundary is asked with no target repository', function () {
   w.boundary = buildLaunchBoundary(null, makeDeps());
 });
-
-// ── §1/§7/§8 — the boundary hands back all three providers ───────────────────
 
 Then(
   'the boundary result carries a git context, an issue tracker, a code host and a board manager',
@@ -268,8 +229,6 @@ Then(
     assert.ok(providers.boardManager, 'Expected a board manager');
   },
 );
-
-// ── §2/§3/§4/§5/§6/§10 — identity assertions ──────────────────────────────────
 
 Then('the boundary\'s git context names the repository {string}', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
@@ -298,8 +257,6 @@ Then('the boundary\'s board manager was minted for the repository {string}', fun
   assertMintedFor('board manager', repoStr);
 });
 
-// ── §4/§5 — remote-read counting ──────────────────────────────────────────────
-
 Then('the launch boundary read the local git remote at most once', function () {
   assert.ok(w.remoteCallCount <= 1, `Expected at most one read of the local git remote, got ${w.remoteCallCount}`);
 });
@@ -307,8 +264,6 @@ Then('the launch boundary read the local git remote at most once', function () {
 Then('the launch boundary never read the local git remote', function () {
   assert.strictEqual(w.remoteCallCount, 0, `Expected zero reads of the local git remote, got ${w.remoteCallCount}`);
 });
-
-// ── §6 — the three named consumers' own launch-argument resolvers ────────────
 
 When(
   'the {string} consumer resolves the launch arguments {string} and asks the boundary',
@@ -326,15 +281,11 @@ When(
   },
 );
 
-// ── §7 — workspace not yet cloned ─────────────────────────────────────────────
-
 Given('the workspace for the repository {string} has not been cloned', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
   const dir = path.join(w.targetReposDir, owner, repo);
   assert.ok(!fs.existsSync(dir), `Expected the workspace at ${dir} not to exist yet`);
 });
-
-// ── §8 — provider configuration fixtures ──────────────────────────────────────
 
 Given('the workspace for the repository {string} carries no provider configuration', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
@@ -378,8 +329,6 @@ Then('the boundary handed back no providers', function () {
   assert.strictEqual(w.capturedProviders, null, 'Expected no providers to have been captured');
 });
 
-// ── §9 — the context half is unchanged ────────────────────────────────────────
-
 Then(
   'the boundary\'s git context works from the target-repos root path for {string}',
   function (repoStr: string) {
@@ -409,8 +358,6 @@ Then('the two commands carried different credentials', function () {
   assert.notStrictEqual(w.envs[0].GH_TOKEN, w.envs[1].GH_TOKEN);
 });
 
-// ── §10 — the result cannot be re-pointed ─────────────────────────────────────
-
 When('the boundary result is re-pointed at the repository {string}', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
   assert.ok(w.boundary !== null, 'Expected a launch boundary to have been built');
@@ -426,8 +373,6 @@ When('the boundary result is re-pointed at the repository {string}', function (r
     // Same — swallow and verify.
   }
 });
-
-// ── §11 — downstream receives, it does not construct ──────────────────────────
 
 Given('a cloned workspace whose origin remote names the repository {string}', function (repoStr: string) {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-794-fixture-'));
@@ -476,45 +421,34 @@ Then('building the repo context failed naming the repository the remote actually
   );
 });
 
-// §12 reuses "the ADW codebase is checked out" (G18) and "the ADW TypeScript
-// type-check passes" (T22) — no new step definitions.
-
-// ---------------------------------------------------------------------------
-// Cross-file seam (#817): feature-817.steps.ts drives the platform-declaration
+// Cross-file seam: feature-817.steps.ts drives the platform-declaration
 // scenarios through the REUSED Given/When steps above, against this file's
-// module-private world — whose makeDeps() never set deps.platform before now.
-// Adding new Given/Then phrases for "declares the platform" here would be an
-// AmbiguousStepDefinition once feature-817.steps.ts also matched them, so the
-// declaration is a setter (folded into makeDeps() above) and the read is an
-// accessor, both exported instead. Resets to `undefined` per scenario are the
-// caller's responsibility (feature-817.steps.ts's own Before/After), so the
-// undeclared-platform row still exercises `deps.platform ?? Platform.GitHub`.
-// No `@adw-794` phrase text changes.
-// ---------------------------------------------------------------------------
+// module-private world. Adding new Given/Then phrases for "declares the
+// platform" here would be an AmbiguousStepDefinition once feature-817.steps.ts
+// also matched them, so the declaration is a setter (folded into makeDeps()
+// above) and the read is an accessor, both exported instead. Resets to
+// `undefined` per scenario are the caller's responsibility (feature-817.
+// steps.ts's own Before/After), so the undeclared-platform row still
+// exercises `deps.platform ?? Platform.GitHub`.
 
-/** Sets (or clears, with `undefined`) the boundary's declared platform for the next `makeDeps()` call. */
 export function setDeclaredPlatform(platform: Platform | undefined): void {
   w.declaredPlatform = platform;
 }
 
-/** The most recently built launch boundary, or null if none has been built yet this scenario. */
 export function getBuiltBoundary(): LaunchBoundary | null {
   return w.boundary;
 }
 
-// ---------------------------------------------------------------------------
-// Cross-file seam (#823): feature-823.steps.ts reuses this file's launch-
-// boundary world (never redefining its Given/When phrases) and needs its own
+// Cross-file seam: feature-823.steps.ts reuses this file's launch-boundary
+// world (never redefining its Given/When phrases) and needs its own
 // reset/accessor, since this file's own Before/After (tag-scoped to @adw-794)
 // never run for @adw-823 scenarios.
-// ---------------------------------------------------------------------------
 
-/** Resets this file's module-private world (mirrors this file's own `Before` body) for reuse from another file's hooks. */
+/** Mirrors this file's own `Before` body. */
 export function resetBoundaryWorld(): void {
   resetWorld();
 }
 
-/** The most recently captured provider set (via "the boundary's providers are requested … and any failure is captured"), or null if none has been captured yet this scenario. */
 export function getCapturedProviders(): BoundProviders | null {
   return w.capturedProviders;
 }

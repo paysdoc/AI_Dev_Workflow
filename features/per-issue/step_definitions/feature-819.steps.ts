@@ -1,20 +1,10 @@
 /**
- * BDD step definitions for feature-819.feature
- *
- * GitHub forge adapter reaches only the executor, the ports, and the domain
- * model — the legacy free functions stop being an import, their parsing and
- * error policies move into the adapter, and the port factories take the
- * context the caller already holds.
- *
  * §1-§5 drive a real `GitContext` over a recording `exec` (pattern-matched,
  * never call-order-matched) and a `createLiteralTokenProvider(ordinary,
- * elevated)` — never a fake adapter. §6-§7 reuse the guard fixture-tree
- * family and the whole-repo guard/type-check steps verbatim (feature-816.
- * steps.ts, feature-769.steps.ts, feature-504.steps.ts) — no redefinitions.
- * Because this file's scenarios carry @adw-819, not @adw-816, feature-816.
- * steps.ts's own Before/After (tag-scoped to @adw-816) never run for them;
- * this file forces fixture-tree isolation from its own hooks, as feature-817/
- * 818.steps.ts do.
+ * elevated)` — never a fake adapter. Because this file's scenarios carry
+ * @adw-819, not @adw-816, feature-816.steps.ts's own Before/After (tag-scoped
+ * to @adw-816) never run for them; this file forces fixture-tree isolation
+ * from its own hooks.
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -37,10 +27,6 @@ import {
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
 const ADW_DECORATION_RE = /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;
-
-// ---------------------------------------------------------------------------
-// The recording gh seam: a real GitContext over a pattern-scripted exec
-// ---------------------------------------------------------------------------
 
 interface ScriptedRule {
   pattern: string;
@@ -126,10 +112,6 @@ function getBoardManager(): BoardManager {
   return boardManager;
 }
 
-// ---------------------------------------------------------------------------
-// Before / After — scoped to @adw-819
-// ---------------------------------------------------------------------------
-
 Before({ tags: '@adw-819' }, function () {
   resetGuardFixtureTree();
   repoId = null;
@@ -151,10 +133,6 @@ Before({ tags: '@adw-819' }, function () {
 After({ tags: '@adw-819' }, function () {
   resetGuardFixtureTree();
 });
-
-// ---------------------------------------------------------------------------
-// Given — the recording gh seam and its scripted responses
-// ---------------------------------------------------------------------------
 
 Given(
   'a recording gh seam for the repository {string} serving the ordinary credential {string} and the elevated credential {string}',
@@ -249,10 +227,6 @@ Given('the recording gh seam is configured for a successful board move of issue 
   rules.push({ pattern: `gh pr list --repo ${owner}/${repo}`, kind: 'answer', payload: '[]', consumed: false });
 });
 
-// ---------------------------------------------------------------------------
-// Given — the mint, and logger injection
-// ---------------------------------------------------------------------------
-
 Given('the GitHub providers are minted over the recording gh seam', function () {
   const forge = { codeHost: 'github' as const, issueTracker: 'github' as const };
   const providers: ReturnType<typeof forgeProviders> = forgeProviders({
@@ -283,10 +257,6 @@ Given('the GitHub code host is built with a capturing logger', function () {
 Given('the GitHub board manager is built with no logger', function () {
   boardManager = createGitHubBoardManager(requireCtx(), requireRepoId());
 });
-
-// ---------------------------------------------------------------------------
-// Operation dispatch tables
-// ---------------------------------------------------------------------------
 
 function issueTrackerOperation(tracker: IssueTracker, op: string): unknown {
   switch (op) {
@@ -331,10 +301,6 @@ function boardManagerOperation(bm: BoardManager, op: string): unknown {
     default: throw new Error(`Unknown board manager operation: ${op}`);
   }
 }
-
-// ---------------------------------------------------------------------------
-// When — driving an operation, capturing stdout around it
-// ---------------------------------------------------------------------------
 
 async function captureStdoutDuring(fn: () => unknown): Promise<void> {
   const original = process.stdout.write.bind(process.stdout);
@@ -383,10 +349,6 @@ When('the minted issue tracker moves issue {int} to the board status {string}', 
   assert.ok(mintedProviders, 'Expected "the GitHub providers are minted ..." to have run first');
   await captureStdoutDuring(() => mintedProviders!.issueTracker.moveToStatus(issueNumber, status as BoardStatus));
 });
-
-// ---------------------------------------------------------------------------
-// Then — command / result / error / credential assertions
-// ---------------------------------------------------------------------------
 
 Then('every command the driven operation issued reached the recording gh seam', function () {
   assert.ok(calls.length > 0, 'Expected at least one command to have reached the recording seam');
@@ -483,10 +445,6 @@ Then('the minted providers issued no command outside the repository {string}', f
   );
 });
 
-// ---------------------------------------------------------------------------
-// Then — logger / stdout assertions
-// ---------------------------------------------------------------------------
-
 Then('the capturing logger recorded a message naming {string}', function (needle: string) {
   const found = capturingLoggerLogs.find((l) => l.message.includes(needle));
   assert.ok(found, `Expected a captured log message naming "${needle}". Got: ${JSON.stringify(capturingLoggerLogs)}`);
@@ -503,24 +461,21 @@ Then('no ADW-decorated log line was written to standard output', function () {
   assert.deepStrictEqual(decorated, [], `Expected no ADW-decorated stdout lines. Got: ${JSON.stringify(capturedStdoutLines)}`);
 });
 
-// ---------------------------------------------------------------------------
-// Cross-file seam (#823): feature-823.steps.ts reuses this file's recording
+// Cross-file seam: feature-823.steps.ts reuses this file's recording
 // gh seam (never redefining its Given/When/Then phrases) and needs its own
 // accessors, since this file's own Before/After (tag-scoped to @adw-819)
 // never run for @adw-823 scenarios.
-// ---------------------------------------------------------------------------
 
-/** The recording gh seam's current context, repoId, tokenProvider and recorded calls. Throws if no seam has been set up yet this scenario. */
+/** Throws if no seam has been set up yet this scenario. */
 export function getRecordingSeam(): { ctx: GitContext; repoId: RepoIdentifier; tokenProvider: TokenProvider; calls: SpyCall[] } {
   return { ctx: requireCtx(), repoId: requireRepoId(), tokenProvider: requireTokenProvider(), calls };
 }
 
-/** The most recently minted provider set, or null if none has been minted yet this scenario. */
 export function getMintedProviders(): BoundProviders | null {
   return mintedProviders;
 }
 
-/** Resets this file's module-private recording-seam state (mirrors this file's own `Before` body) for reuse from another file's hooks. */
+/** Mirrors this file's own `Before` body. */
 export function resetRecordingSeam(): void {
   repoId = null;
   ctx = null;
