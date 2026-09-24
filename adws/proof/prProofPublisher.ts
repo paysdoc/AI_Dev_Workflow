@@ -1,6 +1,4 @@
 /**
- * PR proof publisher.
- *
  * Pure half: formatPrProofComment — composes JUnit summary + inline screenshots.
  * Impure half: publishPrProof — harvests → uploads → formats → posts.
  *
@@ -15,8 +13,6 @@ import { uploadToR2 } from '../r2/uploadService';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
 import { harvestProofArtifacts } from './proofArtifactHarvester';
 import type { ProofCommentInput, PublishDeps, TagProofResultLike, UploadedArtifact } from './types';
-
-// ── Content-type helper ───────────────────────────────────────────────────────
 
 const CONTENT_TYPE_MAP: Record<string, string> = {
   '.png': 'image/png',
@@ -34,8 +30,6 @@ function leadingSegment(relPath: string): string {
   const parts = relPath.split('/');
   return parts.length > 1 ? parts[0] : 'Screenshots';
 }
-
-// ── Pure formatter helpers ────────────────────────────────────────────────────
 
 function formatImageEmbed(fileName: string, url: string): string {
   return `[![${fileName}](${url})](${url})\n${url}`;
@@ -81,13 +75,7 @@ function hasBlockerFailure(tagResults: readonly TagProofResultLike[]): boolean {
   return tagResults.some(r => r.severity === 'blocker' && !r.passed && !r.skipped);
 }
 
-// ── Pure formatter ────────────────────────────────────────────────────────────
-
-/**
- * Composes a PR proof comment from JUnit summary data and uploaded screenshot URLs.
- *
- * Pure — no I/O, no footer. Caller appends ADW_SIGNATURE.
- */
+/** Pure — no I/O, no footer. Caller appends ADW_SIGNATURE. */
 export function formatPrProofComment(input: ProofCommentInput): string {
   const { tagResults, uploaded, r2Configured } = input;
 
@@ -124,16 +112,11 @@ export function formatPrProofComment(input: ProofCommentInput): string {
   return sections.join('\n\n');
 }
 
-// ── Impure publisher ──────────────────────────────────────────────────────────
-
 function isR2Configured(): boolean {
   return Boolean(CLOUDFLARE_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
 }
 
-/**
- * Harvests proof artifacts, uploads them to R2, composes the proof comment,
- * and posts it to the PR. Non-fatal — any error is caught and logged.
- */
+/** Non-fatal — any error is caught and logged. */
 export async function publishPrProof(deps: PublishDeps): Promise<void> {
   const {
     artifactsDir,

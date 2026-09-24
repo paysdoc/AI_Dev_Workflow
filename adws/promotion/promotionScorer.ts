@@ -26,7 +26,6 @@ function matchPhrase(stepText: string, phrases: string[]): string | null {
 function isWhenOrAfterWhen(steps: Scenario['steps'], index: number): boolean {
   if (steps[index].keyword === 'When') return true;
   if (steps[index].keyword !== 'And') return false;
-  // Walk back to find the governing keyword
   for (let i = index - 1; i >= 0; i--) {
     const kw = steps[i].keyword;
     if (kw === 'When') return true;
@@ -42,7 +41,6 @@ export function score(
 ): ScoreResult {
   const phrases = [...registry.entries.keys()];
 
-  // Collect matched entries for all steps
   const matchedTargets: string[] = [];
   const whenPatterns = new Set<string>();
   let anyUnmatched = false;
@@ -78,7 +76,6 @@ export function score(
     executionPattern = PHASE_IMPORT_WEIGHT;
   }
 
-  // phaseCount: count When + And-after-When steps
   const whenStepCount = scenario.steps.filter((_, i) => isWhenOrAfterWhen(scenario.steps, i)).length;
   const phaseCount = whenStepCount >= 2 ? (whenStepCount - 1) * EXTRA_PHASE_WEIGHT : 0;
 

@@ -1,11 +1,3 @@
-/**
- * checkGitGhGuard.test.ts — #701 scanFiles behavioural assertions.
- *
- * Drives the exported scanFiles() over in-memory fixture paths + sources,
- * proving that a raw git/gh call in a non-package file is a violation,
- * and that there is no allowlist parameter or skip remaining.
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -66,8 +58,6 @@ describe('scanFiles — ALLOWLIST removed (#701)', () => {
   });
 
   it('scanFiles signature accepts no allowlist parameter — only relPaths and repoRoot', () => {
-    // The function should accept exactly (relPaths, repoRoot).
-    // TypeScript enforces this at compile-time; this assertion documents the contract.
     expect(scanFiles.length).toBe(2);
   });
 });
@@ -78,7 +68,7 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       "const ctx = gitContextForRepo(getRepoInfo());\nctx.lsFiles(ctx.basePath);\n",
     );
 
-    // A sanctioned path is used deliberately so the new #795 unsanctioned-construction
+    // A sanctioned path is used deliberately so the unsanctioned-construction
     // rule (which flags every bare gitContextForRepo(...) call outside the allowlist)
     // does not also fire here — this test isolates cwd-derived-identity in particular.
     const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
@@ -131,7 +121,7 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
     );
 
     // Sanctioned path — see comment on the first cwd-derived-identity test above. The bare
-    // gitContextForRepo(r) call here would otherwise also trip #795's unsanctioned-construction
+    // gitContextForRepo(r) call here would otherwise also trip the unsanctioned-construction
     // rule, which (unlike this rule) does not care whether the argument is cwd-derived.
     const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
@@ -605,7 +595,7 @@ describe('guarded factory names still exist (#795 / AC3, #840)', () => {
   // themselves are never imported directly, since they pull in core/environment and
   // would run env/dotenv side effects under a mocked fs. Instead, obtain the real fs
   // module and read each owning declaration file as plain text, matching its export.
-  // Since #840 every guarded name but `readLocalRepoIdentity` is declared in the
+  // Every guarded name but `readLocalRepoIdentity` is declared in the
   // published library, not in this repo — the table reads its `.d.ts` files.
   it.each(cases)('$name is still declared in $file', async ({ name, file, declPattern }) => {
     const realFs = await vi.importActual<typeof import('fs')>('fs');

@@ -9,8 +9,7 @@ function getWebhookSource(): string {
 }
 
 /**
- * Walks braces from an opening `{` to its matching closing `}`, inclusive.
- * Indentation-independent — survives the dispatch extraction (#776) reshuffling
+ * Indentation-independent — survives the dispatch extraction reshuffling
  * nesting depth, unlike a hard-coded whitespace marker.
  */
 function extractBraceBlock(source: string, openBraceIndex: number): string {

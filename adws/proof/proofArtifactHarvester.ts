@@ -1,8 +1,5 @@
 /**
- * Pure proof artifact harvester.
- *
- * Recursively walks a proof directory and returns all image files found,
- * with their paths relative to the harvest root. No I/O side effects beyond
+ * No I/O side effects beyond
  * the directory read; no uploads, no logging.
  */
 
@@ -13,8 +10,6 @@ import type { ProofArtifact } from './types';
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 
 /**
- * Recursively harvests image artifacts from a proof directory.
- *
  * @param dir - Absolute path to the proof directory (ADW_PROOF_DIR).
  * @returns Sorted list of image artifacts found, or [] when dir is absent/empty.
  */

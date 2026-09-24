@@ -1,9 +1,4 @@
 #!/usr/bin/env bunx tsx
-/**
- * Post-tool-use hook for Claude Code.
- * Logs tool usage to session-specific JSON files.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { ensureSessionLogDir } from './utils/constants';
@@ -15,21 +10,17 @@ interface HookInput {
 
 async function main(): Promise<void> {
   try {
-    // Read JSON input from stdin
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) {
       chunks.push(chunk);
     }
     const inputData: HookInput = JSON.parse(Buffer.concat(chunks).toString());
 
-    // Extract session_id
     const sessionId = inputData.session_id || 'unknown';
 
-    // Ensure session log directory exists
     const logDir = ensureSessionLogDir(sessionId);
     const logPath = path.join(logDir, 'post_tool_use.json');
 
-    // Read existing log data or initialize empty list
     let logData: unknown[] = [];
     if (fs.existsSync(logPath)) {
       try {
@@ -40,15 +31,12 @@ async function main(): Promise<void> {
       }
     }
 
-    // Append new data
     logData.push(inputData);
 
-    // Write back to file with formatting
     fs.writeFileSync(logPath, JSON.stringify(logData, null, 2));
 
     process.exit(0);
   } catch {
-    // Handle any errors gracefully
     process.exit(0);
   }
 }
