@@ -18,19 +18,11 @@ afterEach(() => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function writeManifest(dir: string, name: string, content: string): string {
   const path = join(dir, name);
   writeFileSync(path, content, 'utf-8');
   return path;
 }
-
-// ---------------------------------------------------------------------------
-// Case 1: Well-formed manifest with two distinct edits
-// ---------------------------------------------------------------------------
 
 describe('applyManifest — well-formed manifest', () => {
   it('applies two edits, returns resolved paths and jsonlPath', () => {
@@ -59,10 +51,6 @@ describe('applyManifest — well-formed manifest', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Case 2: Malformed manifest (invalid JSON)
-// ---------------------------------------------------------------------------
-
 describe('applyManifest — malformed manifest', () => {
   it('throws with manifestInterpreter: prefix when manifest JSON is invalid', () => {
     const worktree = makeTempWorktree();
@@ -86,10 +74,6 @@ describe('applyManifest — malformed manifest', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Case 3: No-op manifest (empty edits array)
-// ---------------------------------------------------------------------------
-
 describe('applyManifest — no-op manifest', () => {
   it('returns empty editsApplied and resolved jsonlPath without writing files', () => {
     const worktree = makeTempWorktree();
@@ -107,15 +91,10 @@ describe('applyManifest — no-op manifest', () => {
     expect(result.jsonlPath).toBe(
       resolve(worktree, 'test/fixtures/jsonl/payloads/plan-agent.json'),
     );
-    // Confirm no stray files were written into the worktree
     const worktreeSrc = join(worktree, 'src');
     expect(existsSync(worktreeSrc)).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Case 4: Conflicting edits (duplicate path)
-// ---------------------------------------------------------------------------
 
 describe('applyManifest — conflicting edits', () => {
   it('throws with conflicting edits message and leaves worktree unchanged', () => {

@@ -1,9 +1,3 @@
-/**
- * Comment formatter for PhaseCostRecord data.
- * Renders cost tables, divergence warnings, and estimate-vs-actual comparisons
- * as markdown for GitHub issue and PR comments.
- */
-
 import type { PhaseCostRecord } from '../types.ts';
 import { checkDivergence } from '../computation.ts';
 import { fetchExchangeRates, CURRENCY_SYMBOLS } from '../exchangeRates.ts';
@@ -12,10 +6,7 @@ import { SHOW_COST_IN_COMMENTS, COST_REPORT_CURRENCIES } from '../../core/config
 /** Fixed superset of token columns always present in every CSV, in display order. */
 const FIXED_TOKEN_COLUMNS = ['input', 'output', 'cache_read', 'cache_write', 'reasoning'] as const;
 
-/**
- * Collects all token type keys across all records.
- * Returns FIXED_TOKEN_COLUMNS first, then any unknown types appended alphabetically.
- */
+/** Returns FIXED_TOKEN_COLUMNS first, then any unknown types appended alphabetically. */
 function collectAllTokenTypes(records: readonly PhaseCostRecord[]): string[] {
   const known = new Set<string>(FIXED_TOKEN_COLUMNS);
   const extras = new Set<string>();
@@ -31,21 +22,15 @@ function collectAllTokenTypes(records: readonly PhaseCostRecord[]): string[] {
   return [...FIXED_TOKEN_COLUMNS, ...[...extras].sort()];
 }
 
-/** Formats a number with commas as thousands separator. */
 function formatTokenCount(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-/** Converts a snake_case token type key to a Title Case column header. */
 function toColumnHeader(tokenType: string): string {
   return tokenType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-/**
- * Renders a per-model cost table with dynamic token type columns.
- * Each row represents one PhaseCostRecord (one model per phase).
- * Includes a totals row at the bottom.
- */
+/** Each row represents one PhaseCostRecord (one model per phase). */
 export function formatCostTable(records: readonly PhaseCostRecord[]): string {
   if (records.length === 0) return '';
 
@@ -68,10 +53,7 @@ export function formatCostTable(records: readonly PhaseCostRecord[]): string {
   return [headerRow, separatorRow, ...dataRows, totalsRow].join('\n');
 }
 
-/**
- * Checks each record for >5% divergence between computed and reported costs.
- * Returns a blockquote warning listing divergent phases/models, or empty string.
- */
+/** Returns a blockquote warning listing divergent phases/models, or empty string. */
 export function formatDivergenceWarning(records: readonly PhaseCostRecord[]): string {
   const divergent = records
     .map(r => ({ record: r, result: checkDivergence(r.computedCostUsd, r.reportedCostUsd) }))
@@ -129,9 +111,6 @@ export function formatEstimateVsActual(records: readonly PhaseCostRecord[]): str
   return ['**Estimate vs Actual Tokens**', '', headerRow, separatorRow, ...rows].join('\n');
 }
 
-/**
- * Renders total cost in USD and any additional currencies using the provided rates.
- */
 export function formatCurrencyTotals(totalUsd: number, rates: Record<string, number>): string {
   const lines = [`**Total Cost:** $${totalUsd.toFixed(4)} USD`];
 
@@ -143,11 +122,7 @@ export function formatCurrencyTotals(totalUsd: number, rates: Record<string, num
   return lines.join('\n');
 }
 
-/**
- * Main entry point. Formats a complete cost section as a `<details>` block.
- * Returns an empty string when `SHOW_COST_IN_COMMENTS` is falsy or records are empty.
- * Fetches live exchange rates for the requested currencies.
- */
+/** Returns an empty string when `SHOW_COST_IN_COMMENTS` is falsy or records are empty. */
 export async function formatCostCommentSection(
   records: readonly PhaseCostRecord[],
   currencies: string[] = [...COST_REPORT_CURRENCIES],

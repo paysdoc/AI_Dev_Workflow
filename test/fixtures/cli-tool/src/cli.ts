@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-/**
- * Fixture CLI entry point for ADW behavioral testing.
- * Parses command-line arguments and prints usage or a greeting.
- */
 
 const args = process.argv.slice(2);
 

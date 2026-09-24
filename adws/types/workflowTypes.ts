@@ -1,6 +1,3 @@
-/**
- * Workflow stages for ADW progress tracking.
- */
 export type WorkflowStage =
   | 'starting'
   | 'resuming'
@@ -18,7 +15,6 @@ export type WorkflowStage =
   | 'pr_created'
   | 'completed'
   | 'error'
-  // Test workflow stages
   | 'test_running'
   | 'test_failed'
   | 'test_resolving'
@@ -26,56 +22,43 @@ export type WorkflowStage =
   | 'unverified'
   // Comment-stage discriminator only — never persisted as workflowStage
   | 'stack_incoherent'
-  // Review workflow stages
   | 'review_running'
   | 'review_passed'
   | 'review_failed'
   | 'review_patching'
-  // Document workflow stages
   | 'document_running'
   | 'document_completed'
   | 'document_failed'
-  // Token limit recovery
   | 'token_limit_recovery'
-  // Context compaction recovery
   | 'compaction_recovery'
-  // Phase-specific compaction recovery
   | 'test_compaction_recovery'
   | 'review_compaction_recovery'
-  // Plan validation stages
   | 'plan_validating'
   | 'plan_validated'
   | 'plan_resolving'
   | 'plan_resolved'
   | 'plan_validation_failed'
-  // Single-pass alignment stages
   | 'plan_aligning'
   | 'plan_aligned'
-  // Install phase stages
   | 'install_running'
   | 'install_completed'
   | 'install_failed'
-  // Pause/resume stages
   | 'paused'
   | 'paused_auth'
   | 'resumed'
-  // Terminal / handoff stages
   | 'abandoned'
   | 'discarded'
   | 'awaiting_merge'
   // Escalation target for exhausted no_pr_found and merge_failed; non-retriable;
   // recoverable only via ## Retry directive.
   | 'merge_blocked'
-  // Escalation target for the bounded resume cap (issue #639); non-retriable;
+  // Escalation target for the bounded resume cap; non-retriable;
   // recoverable only via ## Retry, which re-arms resumeAttempts.
   | 'human_gated'
   // Agent watchdog timeout — phase marked failed; orchestrator exits. Recovered on the next
-  // cron tick via reset-from-remote takeover (resume-in-place is a later slice).
+  // cron tick via reset-from-remote takeover.
   | 'phase_timeout';
 
-/**
- * Workflow stages for PR review progress tracking.
- */
 export type PRReviewWorkflowStage =
   | 'pr_review_starting'
   | 'pr_review_planning'
@@ -91,20 +74,12 @@ export type PRReviewWorkflowStage =
   | 'pr_review_completed'
   | 'pr_review_error';
 
-/**
- * Recovery state for resuming a workflow from a previous run.
- */
 export interface RecoveryState {
-  /** The last successfully completed stage */
   lastCompletedStage: WorkflowStage | null;
   /** The ADW ID from the previous run (extracted from comments) */
   adwId: string | null;
-  /** The branch name from previous run */
   branchName: string | null;
-  /** The plan file path from previous run */
   planPath: string | null;
-  /** The PR URL if already created */
   prUrl: string | null;
-  /** Whether recovery is possible */
   canResume: boolean;
 }

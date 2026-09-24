@@ -1,10 +1,3 @@
-/**
- * Core type definitions for the cost module.
- * Extensible provider-agnostic interfaces for token usage and cost tracking,
- * plus the PhaseCostRecord model for per-phase cost tracking.
- * Also contains legacy camelCase types migrated from types/costTypes.ts.
- */
-
 /** Extensible token count map with provider-specific keys (e.g. input, output, cache_read, cache_write). */
 export type TokenUsageMap = Record<string, number>;
 
@@ -14,11 +7,6 @@ export type PricingMap = Record<string, number>;
 /** Token usage keyed by model identifier (new snake_case format, used by extractors). */
 export type ModelUsageMap = Record<string, TokenUsageMap>;
 
-// ---------------------------------------------------------------------------
-// Legacy camelCase types (migrated from types/costTypes.ts)
-// ---------------------------------------------------------------------------
-
-/** Per-model token usage counts and cost (legacy camelCase format). */
 export interface LegacyModelUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -27,24 +15,20 @@ export interface LegacyModelUsage {
   readonly costUSD: number;
 }
 
-/** Map of model name/ID to its token usage (legacy camelCase format). */
 export type LegacyModelUsageMap = Record<string, LegacyModelUsage>;
 
-/** A cost amount in a specific currency. */
 export interface CurrencyAmount {
   readonly currency: string;
   readonly amount: number;
   readonly symbol: string;
 }
 
-/** Complete cost breakdown for a workflow run. */
 export interface CostBreakdown {
   readonly totalCostUsd: number;
   readonly modelUsage: LegacyModelUsageMap;
   readonly currencies: readonly CurrencyAmount[];
 }
 
-/** Creates a zero-valued LegacyModelUsage. */
 export function emptyLegacyModelUsage(): LegacyModelUsage {
   return {
     inputTokens: 0,
@@ -55,7 +39,6 @@ export function emptyLegacyModelUsage(): LegacyModelUsage {
   };
 }
 
-/** Creates an empty LegacyModelUsageMap. */
 export function emptyLegacyModelUsageMap(): LegacyModelUsageMap {
   return {};
 }
@@ -64,7 +47,6 @@ export function emptyLegacyModelUsageMap(): LegacyModelUsageMap {
 export interface TokenUsageExtractor {
   /** Feed raw stdout chunks from the CLI. */
   onChunk(chunk: string): void;
-  /** Poll current accumulated usage by model. */
   getCurrentUsage(): ModelUsageMap;
   /** Whether the result message has been received and finalized. */
   isFinalized(): boolean;
@@ -78,7 +60,6 @@ export interface TokenUsageExtractor {
   getEstimatedUsage(): ModelUsageMap;
 }
 
-/** Result of a divergence check between locally computed and CLI-reported costs. */
 export interface DivergenceResult {
   readonly isDivergent: boolean;
   readonly percentDiff: number;
@@ -86,7 +67,6 @@ export interface DivergenceResult {
   readonly reportedCostUsd: number | undefined;
 }
 
-/** Lifecycle status of a phase cost record. */
 export const PhaseCostStatus = {
   Success: 'success',
   Partial: 'partial',
@@ -99,7 +79,6 @@ export type PhaseCostStatus = (typeof PhaseCostStatus)[keyof typeof PhaseCostSta
 export interface PhaseCostRecord {
   /** The ADW workflow run identifier (adwId). */
   readonly workflowId: string;
-  /** The GitHub issue number this workflow is processing. */
   readonly issueNumber: number;
   /** Phase name: 'plan' | 'build' | 'test' | 'pr' | 'review' | 'document' | 'scenario'. */
   readonly phase: string;
@@ -113,13 +92,11 @@ export interface PhaseCostRecord {
   readonly computedCostUsd: number;
   /** Cost as reported by the Claude CLI (undefined if the phase terminated before a result message). */
   readonly reportedCostUsd: number | undefined;
-  /** Phase outcome. */
   readonly status: PhaseCostStatus;
   /** Number of times the phase was retried (e.g. test/review retry loops). */
   readonly retryCount: number;
   /** Number of context resets within this phase (build phase only). */
   readonly contextResetCount: number;
-  /** Wall-clock duration of the phase in milliseconds. */
   readonly durationMs: number;
   /** ISO 8601 timestamp for when the record was created (phase completion time). */
   readonly timestamp: string;
@@ -137,7 +114,7 @@ export interface CreatePhaseCostRecordsOptions {
   readonly retryCount: number;
   readonly contextResetCount: number;
   readonly durationMs: number;
-  readonly modelUsage: LegacyModelUsageMap; // legacy camelCase format from orchestrators
+  readonly modelUsage: LegacyModelUsageMap;
 }
 
 /**

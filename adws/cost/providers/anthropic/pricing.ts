@@ -1,5 +1,4 @@
 /**
- * Anthropic model pricing tables using extensible PricingMap format.
  * Keys use snake_case to match the Anthropic API token type convention.
  * Values are per-token (i.e. per-million price / 1,000,000).
  */
@@ -27,7 +26,6 @@ const HAIKU_PRICING: PricingMap = {
   cache_write: 0.00000125,
 } as const;
 
-/** Pricing per token for known Anthropic Claude models. */
 export const ANTHROPIC_PRICING: Readonly<Record<string, PricingMap>> = {
   'claude-opus-4-6': OPUS_PRICING,
   'opus': OPUS_PRICING,
@@ -37,10 +35,8 @@ export const ANTHROPIC_PRICING: Readonly<Record<string, PricingMap>> = {
   'haiku': HAIKU_PRICING,
 } as const;
 
-/** Fallback pricing when a model identifier is not recognized. */
 export const DEFAULT_ANTHROPIC_PRICING: PricingMap = SONNET_PRICING;
 
-/** Returns pricing for a model, falling back to sonnet pricing for unknown models. */
 export function getAnthropicPricing(model: string): PricingMap {
   return ANTHROPIC_PRICING[model] ?? DEFAULT_ANTHROPIC_PRICING;
 }

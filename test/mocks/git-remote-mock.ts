@@ -1,7 +1,5 @@
 #!/usr/bin/env bun
 /**
- * Git remote mock for ADW behavioral testing.
- *
  * Intercepts network-touching git subcommands (push, fetch, clone, pull,
  * ls-remote) and no-ops them, while delegating all other subcommands to
  * the real git binary. Place this script's directory on PATH before the
@@ -15,10 +13,8 @@
 import { spawnSync } from 'child_process';
 import { execSync } from 'child_process';
 
-/** Subcommands that touch the network and should be intercepted. */
 const REMOTE_COMMANDS = new Set(['push', 'fetch', 'clone', 'pull', 'ls-remote']);
 
-/** Mock stdout messages per intercepted command. */
 const MOCK_OUTPUTS: Record<string, string> = {
   push: 'Everything up-to-date\n',
   fetch: '\n',
@@ -36,7 +32,6 @@ function resolveRealGit(): string {
   try {
     const result = execSync('which -a git', { encoding: 'utf-8' }).trim();
     const paths = result.split('\n').map((p) => p.trim()).filter(Boolean);
-    // Skip the first result if it is this script itself
     const thisScript = process.argv[1] ?? '';
     for (const p of paths) {
       if (p !== thisScript) return p;
@@ -66,7 +61,6 @@ function main(): void {
     process.exit(0);
   }
 
-  // Delegate to the real git binary
   const realGit = resolveRealGit();
   const result = spawnSync(realGit, args, {
     stdio: 'inherit',

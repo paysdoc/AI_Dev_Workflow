@@ -113,10 +113,6 @@ describe('AnthropicTokenUsageExtractor', () => {
     expect(usage2['tampered']).toBeUndefined();
   });
 
-  // ---------------------------------------------------------------------------
-  // Streaming / per-turn assistant message tests
-  // ---------------------------------------------------------------------------
-
   describe('per-turn assistant message streaming', () => {
     const makeAssistantMsg = (opts: {
       id?: string;
@@ -198,13 +194,12 @@ describe('AnthropicTokenUsageExtractor', () => {
 
     it('deduplicates usage by message.id (same ID counted only once)', () => {
       const msg1 = makeAssistantMsg({ id: 'msg_1', input_tokens: 100 });
-      const msg2 = makeAssistantMsg({ id: 'msg_1', input_tokens: 100 }); // same ID
+      const msg2 = makeAssistantMsg({ id: 'msg_1', input_tokens: 100 });
 
       extractor.onChunk(JSON.stringify(msg1) + '\n');
       extractor.onChunk(JSON.stringify(msg2) + '\n');
 
       const usage = extractor.getCurrentUsage();
-      // Input should only be counted once
       expect(usage['claude-sonnet-4-6']!['input']).toBe(100);
     });
 
@@ -227,7 +222,6 @@ describe('AnthropicTokenUsageExtractor', () => {
         type: 'assistant',
         message: {
           id: 'msg_1',
-          // no model field
           usage: { input_tokens: 100 },
           content: [],
         },
@@ -245,7 +239,6 @@ describe('AnthropicTokenUsageExtractor', () => {
       hintExtractor.onChunk(JSON.stringify(msg) + '\n');
 
       const usage = hintExtractor.getCurrentUsage();
-      // message.model takes precedence
       expect(usage['claude-sonnet-4-6']).toBeDefined();
       expect(usage['claude-sonnet-4-6']!['input']).toBe(100);
     });
@@ -257,14 +250,12 @@ describe('AnthropicTokenUsageExtractor', () => {
           id: 'msg_1',
           model: 'claude-sonnet-4-6',
           content: [{ type: 'text', text: '1234' }],
-          // no usage field
         },
       };
       extractor.onChunk(JSON.stringify(msg) + '\n');
 
       expect(extractor.isFinalized()).toBe(false);
       const usage = extractor.getCurrentUsage();
-      // Output estimated from content, input/cache default to 0
       expect(usage['claude-sonnet-4-6']!['output']).toBe(1);
       expect(usage['claude-sonnet-4-6']!['input']).toBe(0);
     });
@@ -276,7 +267,6 @@ describe('AnthropicTokenUsageExtractor', () => {
           id: 'msg_1',
           model: 'claude-sonnet-4-6',
           usage: { input_tokens: 50 },
-          // no content field
         },
       };
       extractor.onChunk(JSON.stringify(msg) + '\n');
@@ -296,22 +286,18 @@ describe('AnthropicTokenUsageExtractor', () => {
     });
 
     it('getEstimatedUsage() returns pre-finalization snapshot after result arrives', () => {
-      // Feed assistant messages first
       const msg1 = makeAssistantMsg({ id: 'msg_1', input_tokens: 300 });
       const msg2 = makeAssistantMsg({ id: 'msg_2', input_tokens: 400 });
       extractor.onChunk(JSON.stringify(msg1) + '\n');
       extractor.onChunk(JSON.stringify(msg2) + '\n');
 
-      // Then finalize with result
       extractor.onChunk(JSON.stringify(RESULT_MESSAGE) + '\n');
 
       expect(extractor.isFinalized()).toBe(true);
 
-      // getCurrentUsage() returns authoritative data from result message
       const actual = extractor.getCurrentUsage();
       expect(actual['claude-sonnet-4-5-20250929']!['input']).toBe(1000);
 
-      // getEstimatedUsage() returns the pre-finalization snapshot
       const estimated = extractor.getEstimatedUsage();
       expect(estimated['claude-sonnet-4-6']!['input']).toBe(700); // 300 + 400
     });
@@ -323,7 +309,6 @@ describe('AnthropicTokenUsageExtractor', () => {
 
       expect(extractor.isFinalized()).toBe(true);
       const usage = extractor.getCurrentUsage();
-      // Actual from result message, not estimated
       expect(usage['claude-sonnet-4-5-20250929']!['input']).toBe(1000);
       expect(usage['claude-sonnet-4-5-20250929']!['output']).toBe(500);
     });
@@ -344,7 +329,6 @@ describe('AnthropicTokenUsageExtractor', () => {
 
       expect(extractor.isFinalized()).toBe(true);
       const estimated = extractor.getEstimatedUsage();
-      // No assistant messages were processed, so estimated usage is empty
       expect(Object.keys(estimated)).toHaveLength(0);
     });
 
