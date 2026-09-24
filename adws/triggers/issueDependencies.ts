@@ -1,9 +1,4 @@
 /**
- * Issue dependency parser and resolver.
- *
- * Parses `## Dependencies` sections from issue bodies, extracts issue references,
- * and resolves their open/closed state via the GitHub API.
- *
  * Extraction order:
  * 1. In-memory cache (keyed by issueNumber + body hash) — instant
  * 2. Keyword proximity parsing (no LLM) — fast
@@ -30,27 +25,18 @@ const DEPENDENCY_KEYWORDS = [
 /** In-memory cache: key = `${issueNumber}:${bodyHash}` → dependency numbers. */
 const dependencyCache = new Map<string, number[]>();
 
-/** Computes a short hash of the issue body for cache keying. */
 function hashBody(body: string): string {
   return createHash('sha1').update(body).digest('hex').slice(0, 12);
 }
 
-/**
- * Parses issue dependency numbers from the `## Dependencies` or `## Blocked by` section.
- * Supports `#N` references and full GitHub issue URLs.
- * Returns a deduplicated array of issue numbers.
- *
- * Used as a fallback when LLM-based extraction fails.
- */
+/** Used as a fallback when LLM-based extraction fails. */
 export function parseDependencies(issueBody: string): number[] {
   if (!issueBody) return [];
 
-  // Find the ## Dependencies, ## Depends on, or ## Blocked by heading (case-insensitive)
   const headingPattern = /^## (?:dependencies|depends on|blocked by)\b/im;
   const headingMatch = issueBody.match(headingPattern);
   if (!headingMatch || headingMatch.index === undefined) return [];
 
-  // Extract the section content until the next ## heading or end of text
   const sectionStart = headingMatch.index + headingMatch[0].length;
   const nextHeadingMatch = issueBody.slice(sectionStart).match(/^## /m);
   const sectionEnd = nextHeadingMatch?.index !== undefined
@@ -61,13 +47,11 @@ export function parseDependencies(issueBody: string): number[] {
 
   const issueNumbers = new Set<number>();
 
-  // Match #N references (must be positive integers)
   for (const match of section.matchAll(/#(\d+)/g)) {
     const num = parseInt(match[1], 10);
     if (num > 0) issueNumbers.add(num);
   }
 
-  // Match full GitHub issue URLs
   for (const match of section.matchAll(/https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)/g)) {
     const num = parseInt(match[1], 10);
     if (num > 0) issueNumbers.add(num);
@@ -77,23 +61,18 @@ export function parseDependencies(issueBody: string): number[] {
 }
 
 /**
- * Parses dependency issue numbers from the entire issue body using keyword proximity.
  * Looks for `#N` references preceded (within 10 words) by a dependency keyword.
  * Also handles the `## Blocked by` heading section.
- *
- * Returns a deduplicated array of issue numbers.
  */
 export function parseKeywordProximityDependencies(issueBody: string): number[] {
   if (!issueBody) return [];
 
   const issueNumbers = new Set<number>();
 
-  // Include heading-based dependencies
   for (const n of parseDependencies(issueBody)) {
     issueNumbers.add(n);
   }
 
-  // Keyword proximity: find all #N references in the full body
   const refPattern = /#(\d+)/g;
   let refMatch: RegExpExecArray | null;
 
@@ -113,20 +92,6 @@ export function parseKeywordProximityDependencies(issueBody: string): number[] {
   return [...issueNumbers];
 }
 
-/**
- * Extracts dependency issue numbers from an issue body.
- *
- * Strategy:
- * 1. Check in-memory cache.
- * 2. Try keyword proximity parsing (no LLM).
- * 3. If proximity found fewer deps than total #N refs in body, fall back to LLM.
- *
- * @param issueBody - Raw issue body text to analyze
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent
- * @param issueNumber - Optional issue number for cache keying
- */
 export async function extractDependencies(
   issueBody: string,
   logsDir: string,
@@ -134,14 +99,12 @@ export async function extractDependencies(
   cwd?: string,
   issueNumber?: number,
 ): Promise<number[]> {
-  // Cache check
   const cacheKey = `${issueNumber ?? '?'}:${hashBody(issueBody)}`;
   const cached = dependencyCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
-  // Fast path: keyword proximity
   const proximityDeps = parseKeywordProximityDependencies(issueBody);
 
   // Count total #N references to decide if LLM fallback is needed
@@ -153,7 +116,6 @@ export async function extractDependencies(
     return proximityDeps;
   }
 
-  // LLM fallback
   try {
     const result = await runDependencyExtractionAgent(issueBody, logsDir, statePath, cwd);
     if (result.success && result.dependencies.length > 0) {
@@ -169,18 +131,7 @@ export async function extractDependencies(
   return proximityDeps;
 }
 
-/**
- * Finds open (blocking) dependencies for an issue.
- * Calls `tracker.getIssueState()` for each dependency to check if it is still open.
- * Does NOT resolve transitive dependencies.
- *
- * @param issueBody - Raw issue body text to analyze
- * @param tracker - The bound issue tracker to check dependency states through
- * @param logsDir - Directory to write agent logs (default: 'logs')
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent
- * @param issueNumber - Optional issue number for cache keying
- */
+/** Does NOT resolve transitive dependencies. */
 export async function findOpenDependencies(
   issueBody: string,
   tracker: Pick<IssueTracker, 'getIssueState'>,

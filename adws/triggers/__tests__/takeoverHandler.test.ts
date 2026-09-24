@@ -72,8 +72,6 @@ beforeEach(() => {
   mockWorktreePathFor.mockReturnValue('/worktrees/feature-branch');
 });
 
-// ─── Branch 1: defer_live_holder ─────────────────────────────────────────────
-
 describe('defer_live_holder', () => {
   it('returns defer_live_holder when the lock is held by a live process', () => {
     const deps = makeDeps({
@@ -99,8 +97,6 @@ describe('defer_live_holder', () => {
   });
 });
 
-// ─── Branch 2: spawn_fresh — no adwId ────────────────────────────────────────
-
 describe('spawn_fresh — no adwId', () => {
   it('returns spawn_fresh when resolveAdwId returns null', () => {
     const deps = makeDeps({ resolveAdwId: vi.fn().mockReturnValue(null) });
@@ -120,8 +116,6 @@ describe('spawn_fresh — no adwId', () => {
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
 });
-
-// ─── Branch 3: skip_terminal — completed / discarded ─────────────────────────
 
 describe('skip_terminal', () => {
   it('returns skip_terminal for completed stage and releases lock', () => {
@@ -156,8 +150,6 @@ describe('skip_terminal', () => {
   });
 });
 
-// ─── Branch 4: paused — no-op (scanPauseQueue sole resumer) ──────────────────
-
 describe('paused no-op', () => {
   it('returns skip_terminal with terminalStage paused and releases lock', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused' })) });
@@ -180,8 +172,6 @@ describe('paused no-op', () => {
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
 });
-
-// ─── Branch 4b: paused_auth — no-op (scanAuthQueue sole resumer) ─────────────
 
 describe('paused_auth no-op', () => {
   it('returns skip_terminal with terminalStage paused_auth and releases lock', () => {
@@ -206,11 +196,7 @@ describe('paused_auth no-op', () => {
   });
 });
 
-// ─── Branch 5: abandoned → take_over_adwId (via reuse gate) ──────────────────
-
 describe('take_over_adwId from abandoned', () => {
-  // ─ healthy probe → reuse in place ─
-
   it('healthy probe → returns take_over_adwId carrying the adwId and derived stage', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
@@ -268,8 +254,6 @@ describe('take_over_adwId from abandoned', () => {
     expect(deps.clearOrphanedIndexLock).not.toHaveBeenCalled();
   });
 
-  // ─ unhealthy probe → reset from remote ─
-
   it('unhealthy probe → resetWorktree called before deriveStageFromRemote', () => {
     const callOrder: string[] = [];
     const deps = makeDeps({
@@ -293,8 +277,6 @@ describe('take_over_adwId from abandoned', () => {
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-whatever', 'feature-issue-104-whatever');
   });
-
-  // ─ no branchName → skip probe and reset ─
 
   it('no branchName → neither probeWorktree nor resetWorktree called; deriveStageFromRemote still called', () => {
     const deps = makeDeps({
@@ -337,8 +319,6 @@ describe('take_over_adwId from abandoned', () => {
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
 });
-
-// ─── Branch 6 & 7: *_running ─────────────────────────────────────────────────
 
 describe('take_over_adwId from *_running with dead PID', () => {
   it('returns take_over_adwId and does not call killProcess when PID is dead', () => {
@@ -453,8 +433,6 @@ describe('take_over_adwId from *_running with live PID not holding lock', () => 
   });
 });
 
-// ─── Branch 8: defensive fallthrough ─────────────────────────────────────────
-
 describe('defensive fallthrough', () => {
   it('returns spawn_fresh for an unknown/unrecognised stage', () => {
     const deps = makeDeps({
@@ -464,8 +442,6 @@ describe('defensive fallthrough', () => {
     expect(decision).toEqual({ kind: 'spawn_fresh' });
   });
 });
-
-// ─── paused — no side effects ─────────────────────────────────────────────────
 
 describe('paused — no side effects', () => {
   it('records no worktreeReset, remoteReconcile, or kill calls', () => {
@@ -480,8 +456,6 @@ describe('paused — no side effects', () => {
   });
 });
 
-// ─── Lock is held on spawn_fresh / take_over (caller keeps for spawn) ─────────
-
 describe('lock handoff semantics', () => {
   it('does not release lock on spawn_fresh (caller keeps lock for spawn)', () => {
     const deps = makeDeps({ resolveAdwId: vi.fn().mockReturnValue(null) });
@@ -490,11 +464,7 @@ describe('lock handoff semantics', () => {
   });
 });
 
-// ─── phase_timeout → take_over_adwId (below cap, via reuse gate) ─────────────
-
 describe('take_over_adwId from phase_timeout', () => {
-  // ─ healthy probe → reuse in place (within cap) ─
-
   it('healthy probe → returns take_over_adwId and increments resumeAttempts (first resume)', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
@@ -554,8 +524,6 @@ describe('take_over_adwId from phase_timeout', () => {
     expect(deps.resetWorktree).not.toHaveBeenCalled();
   });
 
-  // ─ unhealthy probe → reset from remote ─
-
   it('unhealthy probe → resetWorktree called before deriveStageFromRemote', () => {
     const callOrder: string[] = [];
     const deps = makeDeps({
@@ -579,8 +547,6 @@ describe('take_over_adwId from phase_timeout', () => {
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
   });
-
-  // ─ no branchName → skip probe and reset ─
 
   it('no branchName → neither probeWorktree nor resetWorktree called; deriveStageFromRemote still called', () => {
     const deps = makeDeps({
@@ -637,8 +603,6 @@ describe('take_over_adwId from phase_timeout', () => {
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 });
-
-// ─── phase_timeout → escalate_human_gated (at cap) ──────────────────────────
 
 describe('escalate_human_gated from phase_timeout at cap', () => {
   it('returns escalate_human_gated with adwId when resumeAttempts equals MAX_RESUME_ATTEMPTS', () => {
@@ -698,8 +662,6 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
   });
 });
 
-// ─── GitContext-based worktree path resolution (story 10) ─────────────────────
-//
 // When EvaluateCandidateInput carries a GitContext, recovery helpers resolve the
 // worktree path via the context's identity-determined base path — never from
 // ambient cwd (the spawnSync ENOENT incident pin).
@@ -781,8 +743,6 @@ describe('GitContext-based worktree path (phase_timeout)', () => {
   });
 });
 
-// ── buildDefaultTakeoverDeps — resolveAdwId routes through the boundary's issue tracker ──
-
 import { buildDefaultTakeoverDeps } from '../takeoverHandler';
 
 function makeFakeBoundary(fetchComments: (issueNumber: number) => { body: string }[]): LaunchBoundary {
@@ -828,8 +788,6 @@ describe('buildDefaultTakeoverDeps — resolveAdwId', () => {
     expect(result).toBeNull();
   });
 });
-
-// ── buildDefaultTakeoverDeps — deriveStageFromRemote routes through buildDefaultReconcileDeps(boundary) ──
 
 vi.mock('../../core/remoteReconcile', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../core/remoteReconcile')>();

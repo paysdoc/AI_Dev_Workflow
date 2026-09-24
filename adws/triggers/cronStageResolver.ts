@@ -1,13 +1,6 @@
 /**
- * Cron stage resolution from the top-level state file.
- *
  * Extracted from trigger_cron.ts so the logic is testable without
  * triggering the cron's module-level side effects (setInterval, process guard).
- *
- * Replaces comment-header parsing with direct state file reads:
- * - adw-id is extracted from issue comments via regex
- * - workflowStage is read from agents/<adwId>/state.json
- * - Issues with no adw-id or no state file are treated as fresh candidates
  */
 
 import { AgentStateManager } from '../core/agentState';
@@ -17,7 +10,6 @@ export { extractLatestAdwId } from '../core/workflowCommentParsing';
 import { classifyStageString } from '../core/stageClassifier';
 import type { AgentState } from '../types/agentTypes';
 
-/** Resolved workflow stage for a single issue. */
 export interface StageResolution {
   /** workflowStage from the state file, or null if no adw-id / no state file / no stage field. */
   stage: string | null;
@@ -29,7 +21,6 @@ export interface StageResolution {
 
 
 /**
- * Computes the most recent activity timestamp (ms) across all phases in a state file.
  * Considers both startedAt and completedAt for each phase.
  * Returns null if the state has no phases or no valid timestamps.
  */
@@ -71,16 +62,7 @@ export function isActiveStage(stage: string): boolean {
   return false;
 }
 
-/**
- * Resolves the workflow stage for an issue by reading from the top-level state file.
- *
- * 1. Extracts the adw-id from comments (newest-to-oldest)
- * 2. Reads workflowStage and phases from agents/<adwId>/state.json
- * 3. Returns a StageResolution with stage, adwId, and lastActivityMs
- *
- * @param comments  - Issue comment objects with a body string
- * @param readState - Injectable state reader (defaults to AgentStateManager.readTopLevelState)
- */
+/** @param readState - Injectable state reader (defaults to AgentStateManager.readTopLevelState) */
 export function resolveIssueWorkflowStage(
   comments: { body: string }[],
   readState: (adwId: string) => AgentState | null = AgentStateManager.readTopLevelState,

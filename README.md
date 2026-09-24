@@ -971,6 +971,7 @@ test/                   # Integration test infrastructure
 │   │   ├── manifestInterpreter.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
+│   ├── gitContextFixture.ts    # Test GitContext factory fixture
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing

@@ -1,6 +1,4 @@
 /**
- * Webhook per-event repo identity resolution and boundary construction.
- *
  * Extracted from trigger_webhook.ts so the per-event boundary is testable
  * without triggering the webhook server's module-level side effects
  * (HTTP server creation). Mirrors cronRepoResolver.ts.
@@ -10,7 +8,6 @@ import type { TargetRepoInfo } from '../types/issueTypes';
 import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import { log, buildLaunchBoundary, type LaunchBoundary } from '../core';
 
-/** Resolution result for a webhook event payload. */
 export interface WebhookRepoResolution {
   repoInfo: RepoIdentifier;
   targetRepo: TargetRepoInfo;
@@ -18,8 +15,7 @@ export interface WebhookRepoResolution {
 }
 
 /**
- * Parses owner and repo from a GitHub repository full name (e.g., "owner/repo").
- * The one place this parse survives `githubApi.ts`'s deletion (#821) — it runs
+ * The one place this parse survives `githubApi.ts`'s deletion — it runs
  * upstream of any provider, deciding which repository the per-event boundary
  * will be built for, so it cannot itself be migrated onto one.
  */
@@ -32,7 +28,6 @@ function parseRepoFullName(repoFullName: string): RepoIdentifier {
 }
 
 /**
- * Resolves the repo identity from a raw webhook event body.
  * Returns null when the payload carries no usable repository.
  * Pure: no I/O, no env access, no side effects.
  */

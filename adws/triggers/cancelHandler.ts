@@ -1,12 +1,3 @@
-/**
- * Cancel directive handler for ADW (AI Developer Workflow).
- *
- * Implements the full scorched-earth reset sequence triggered by a `## Cancel`
- * comment directive: kills orchestrator processes, removes worktrees, deletes
- * agent state directories, clears GitHub comments, and removes the issue from
- * cron dedup sets.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { log } from '../core/logger';
@@ -22,17 +13,6 @@ export interface MutableProcessedSets {
 }
 
 /**
- * Performs the full cancel sequence for an issue:
- * 1. Extract all adwIds from comments
- * 2. Kill orchestrator processes (SIGTERM → SIGKILL)
- * 3. Remove worktrees and local branches
- * 4. Delete agents/{adwId}/ state directories
- * 5. Clear GitHub comments
- * 6. Remove issue from cron dedup sets (if provided)
- *
- * @param issueNumber - The GitHub issue number to cancel
- * @param comments - All comments on the issue (used to extract adwIds)
- * @param boundary - The launch boundary naming the repository and its providers
  * @param cwd - Working directory for worktree operations (undefined = local repo)
  * @param processedSets - Cron dedup sets to clean; omit on webhook path
  * @returns true on completion (errors are logged but do not throw)
@@ -46,29 +26,25 @@ export function handleCancelDirective(
 ): boolean {
   log(`Cancel directive on issue #${issueNumber}: starting full cleanup sequence`);
 
-  // 1. Extract all adwIds from comments
   const adwIds = comments
     .map(c => extractAdwIdFromComment(c.body))
     .filter((id): id is string => id !== null);
   const uniqueAdwIds = [...new Set(adwIds)];
   log(`Cancel #${issueNumber}: found ${uniqueAdwIds.length} adwId(s): ${uniqueAdwIds.join(', ') || 'none'}`);
 
-  // 2. Kill orchestrator processes
   for (const adwId of uniqueAdwIds) {
     killOrchestratorProcess(adwId, issueNumber);
   }
 
-  // 3. Remove worktrees and local branches
   try {
     log(`Cancel #${issueNumber}: removing worktrees`);
     // boundary.gitContext.selfHost (targetRepo === null) equals today's !cwd: cancelCwd is the
-    // target-repo workspace path when targetRepo is set, undefined otherwise (#822).
+    // target-repo workspace path when targetRepo is set, undefined otherwise.
     boundary.gitContext.removeWorktreesForIssue(issueNumber);
   } catch (error) {
     log(`Cancel #${issueNumber}: worktree removal error (continuing): ${error}`, 'warn');
   }
 
-  // 4. Delete agent state directories
   for (const adwId of uniqueAdwIds) {
     const agentDir = path.join(AGENTS_STATE_DIR, adwId);
     try {
@@ -79,7 +55,6 @@ export function handleCancelDirective(
     }
   }
 
-  // 5. Clear GitHub comments
   try {
     log(`Cancel #${issueNumber}: clearing GitHub comments`);
     const result = clearIssueComments(issueNumber, boundary.providers.issueTracker);
@@ -88,7 +63,7 @@ export function handleCancelDirective(
     log(`Cancel #${issueNumber}: comment clearing error (continuing): ${error}`, 'warn');
   }
 
-  // 6. Remove from cron dedup sets so issue re-spawns next cycle
+  // Remove from cron dedup sets so issue re-spawns next cycle
   if (processedSets !== undefined) {
     processedSets.spawns.delete(issueNumber);
     log(`Cancel #${issueNumber}: removed from processedSets`);
@@ -98,10 +73,6 @@ export function handleCancelDirective(
   return true;
 }
 
-/**
- * Reads the orchestrator PID for an adwId and kills the process with SIGTERM,
- * falling back to SIGKILL if the process is still alive after a short wait.
- */
 function killOrchestratorProcess(adwId: string, issueNumber: number): void {
   const statePath = findOrchestratorStatePath(adwId);
   if (!statePath) {
@@ -138,7 +109,6 @@ function killOrchestratorProcess(adwId: string, issueNumber: number): void {
     return;
   }
 
-  // Brief synchronous wait then SIGKILL if still alive
   const deadline = Date.now() + 500;
   while (Date.now() < deadline) {
     // spin — intentionally short, cancel is a rare manual operation

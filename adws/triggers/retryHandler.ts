@@ -1,6 +1,4 @@
 /**
- * Handles the `## Retry` directive for human-gated issues.
- *
  * Mirrors cancelHandler.ts but is state-only: no process kill, no worktree
  * removal, no comment clearing.
  *
@@ -30,14 +28,7 @@ function defaultDeps(): RetryHandlerDeps {
   };
 }
 
-/**
- * Handles a `## Retry` directive for human-gated issues.
- *
- * merge_blocked → reset to awaiting_merge, clear mergeRetryCount.
- * human_gated  → reset to phase_timeout, clear resumeAttempts (re-arm).
- *
- * No-op for any other stage. Returns true only when a reset was performed.
- */
+/** Returns true only when a reset was performed. */
 export function handleRetryDirective(
   issueNumber: number,
   comments: readonly { body: string }[],
