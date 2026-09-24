@@ -14,8 +14,6 @@ describe('adwYmlConfig', () => {
     }
   });
 
-  // ── readAdwYmlConfig ────────────────────────────────────────────────────────
-
   describe('readAdwYmlConfig', () => {
     it('returns { hitl: false, unitTests: true, guardrails: false } when .github/adw.yml is absent', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
@@ -57,8 +55,6 @@ describe('adwYmlConfig', () => {
       expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: true, unitTests: true, guardrails: false });
     });
   });
-
-  // ── parseAdwYml (pure) ──────────────────────────────────────────────────────
 
   describe('parseAdwYml', () => {
     it('returns { hitl: false, unitTests: true, guardrails: false } for hitl: false', () => {
@@ -113,8 +109,6 @@ describe('adwYmlConfig', () => {
       expect(parseAdwYml('hitl: true\nhitl: false\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
     });
 
-    // ── unitTests parsing ───────────────────────────────────────────────────
-
     it('returns { hitl: false, unitTests: false, guardrails: false } for unitTests: false', () => {
       expect(parseAdwYml('unitTests: false\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
     });
@@ -162,8 +156,6 @@ describe('adwYmlConfig', () => {
     it('malformed hitl does not block unitTests from being parsed', () => {
       expect(parseAdwYml('hitl: maybe\nunitTests: false\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
     });
-
-    // ── guardrails parsing ────────────────────────────────────────────────────
 
     it('returns guardrails: true for guardrails: true', () => {
       expect(parseAdwYml('guardrails: true\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
@@ -214,15 +206,11 @@ describe('adwYmlConfig', () => {
     });
   });
 
-  // ── ADW_YML_TEMPLATE drift guard ────────────────────────────────────────────
-
   describe('ADW_YML_TEMPLATE', () => {
     it('parses to the defaults (all keys commented out)', () => {
       expect(parseAdwYml(ADW_YML_TEMPLATE)).toEqual({ hitl: false, unitTests: true, guardrails: false });
     });
   });
-
-  // ── writeAdwYmlTemplateIfAbsent ─────────────────────────────────────────────
 
   describe('writeAdwYmlTemplateIfAbsent', () => {
     it('creates .github/adw.yml and returns { created: true } when absent', () => {

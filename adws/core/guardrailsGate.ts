@@ -1,6 +1,6 @@
 /**
  * Pure decision module for whether an agent spawn should receive the
- * guardrails `--settings` injection (issue #762). Gated three ways, checked
+ * guardrails `--settings` injection. Gated three ways, checked
  * in strict order so a mistaken deny rule can never wedge the queue: an
  * `ADW_TARGET_GUARDRAILS=off` kill switch, self-host runs (which keep the
  * framework's own project `settings.json`), the `.github/adw.yml` canary
@@ -15,19 +15,16 @@ import { getGuardrailsProbeVerdict, type ProbeVerdict } from './guardrailsProbe'
 import { postSlack } from './slackNotifier';
 import type { AdwYmlConfig } from './adwYmlConfig';
 
-/** The gate's verdict: whether to inject, and — when injecting — the payload to use. */
 export type GuardrailsDecision =
   | { readonly inject: false }
   | { readonly inject: true; readonly settingsJson: string; readonly hookLogDir: string };
 
-/** Launch-boundary facts the gate needs to decide. */
 export interface GuardrailsGateInput {
   readonly selfHost: boolean;
   readonly worktreePath: string;
   readonly adwId: string;
 }
 
-/** Injectable seams — a capturing test double replaces every production side effect. */
 export interface GuardrailsGateDeps {
   readonly probeGuardrails: () => Promise<ProbeVerdict>;
   readonly notifySlack: (text: string) => Promise<void>;
@@ -41,8 +38,7 @@ function buildProbeFailureAlert(verdict: ProbeVerdict): string {
 }
 
 /**
- * Decides whether a spawn should receive the guardrails `--settings`
- * injection. Guard-clause chain, evaluated in order:
+ * Guard-clause chain, evaluated in order:
  *   1. Kill switch (`ADW_TARGET_GUARDRAILS=off`) — beats everything.
  *   2. Self-host — keeps the framework's own project settings.
  *   3. `.github/adw.yml` `guardrails` canary — omitted/false/absent withhold.
@@ -68,10 +64,6 @@ export async function resolveGuardrailsDecision(
   return { inject: true, settingsJson, hookLogDir };
 }
 
-// ---------------------------------------------------------------------------
-// Production dependency wiring
-// ---------------------------------------------------------------------------
-
 let probeFailureAlertSent = false;
 
 /**
@@ -91,7 +83,6 @@ export function resetGuardrailsAlertMemo(): void {
   probeFailureAlertSent = false;
 }
 
-/** Production seam wiring for {@link resolveGuardrailsDecision}. */
 export const productionGuardrailsGateDeps: GuardrailsGateDeps = {
   probeGuardrails: getGuardrailsProbeVerdict,
   notifySlack: notifyProbeFailureOnce,

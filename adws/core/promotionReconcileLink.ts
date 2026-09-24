@@ -24,7 +24,6 @@ export interface PromotionIssueRef {
   body: string;
   /** 'OPEN' | 'CLOSED' from `gh --json state` (uppercase; compared case-insensitively). Absent ⇒ treated as open. */
   state?: string;
-  /** From `gh --json labels`. */
   labels?: readonly { name: string }[];
 }
 

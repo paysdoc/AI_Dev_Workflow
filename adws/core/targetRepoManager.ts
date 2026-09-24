@@ -1,22 +1,11 @@
 /**
- * Target repository workspace management — shim adapter (issue #700).
+ * The core clones exactly the URL it is handed, so this shim is the site that
+ * hands it a ready one: it converts a published HTTPS clone URL to SSH
+ * (`convertToSshUrl`) before calling into the core.
  *
- * Clone/fetch/default-branch logic has been absorbed into the structurally-exempt
- * `adws/gitContext/repoWorkspace.ts`. This file re-exports helpers at the stable
- * import path for trigger_cron, trigger_webhook, workflowInit, and prReviewPhase,
- * and provides `ensureTargetRepoWorkspace` as a thin wrapper that delegates to
- * `ensureRepoWorkspace` with a caller-supplied `getDefaultBranch` thunk (a
- * boundary-minted CodeHost, per #797) — fixing the ambient-auth `gh repo view`
- * crash in the old `fetchLatestRefs`.
- *
- * Since #793 the core clones exactly the URL it is handed, so this shim is
- * the site that hands it a ready one: it converts a published HTTPS clone
- * URL to SSH (`convertToSshUrl`, ADW-owned and host-neutral since #844)
- * before calling into the core.
- *
- * Since #846 it also grants Claude Code workspace trust for the returned
- * path in `~/.claude.json` via `ensureWorkspaceTrusted` (`./workspaceTrust.ts`)
- * — a Claude-Code concern kept out of the git core.
+ * It also grants Claude Code workspace trust for the returned path in
+ * `~/.claude.json` via `ensureWorkspaceTrusted` (`./workspaceTrust.ts`) — a
+ * Claude-Code concern kept out of the git core.
  *
  * Zero raw git/gh strings remain in this file.
  */
@@ -33,16 +22,10 @@ import {
 import { convertToSshUrl } from './sshCloneUrl';
 import { ensureWorkspaceTrusted } from './workspaceTrust';
 
-// ---------------------------------------------------------------------------
-// Path helpers — bind TARGET_REPOS_DIR at the shim boundary
-// ---------------------------------------------------------------------------
-
-/** Returns the workspace path: `TARGET_REPOS_DIR/{owner}/{repo}` */
 export function getTargetRepoWorkspacePath(owner: string, repo: string): string {
   return _getWorkspacePath(owner, repo, TARGET_REPOS_DIR);
 }
 
-// Re-export utilities at the stable paths
 export { isRepoCloned, convertToSshUrl, ensureWorkspaceTrusted };
 export type { WorkspaceTrustDeps, WorkspaceTrustResult } from './workspaceTrust';
 
@@ -56,21 +39,14 @@ export function cloneTargetRepo(cloneUrl: string, workspacePath: string): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// ensureTargetRepoWorkspace
-// ---------------------------------------------------------------------------
-
 /**
- * Ensures a target repository workspace exists and is up-to-date.
- * Clones the repo if not present; fetches + reads default branch if already cloned.
- *
  * `getDefaultBranch` is invoked only on the already-cloned (fetch) branch —
  * never on a first clone, where the workspace does not exist yet. Callers
  * pass a boundary-minted CodeHost's `getDefaultBranch()`, deferred exactly
  * long enough that the boundary's lazy provider mint never runs against a
  * not-yet-cloned workspace.
  *
- * Since #846, also grants Claude Code workspace trust for the returned path
+ * Also grants Claude Code workspace trust for the returned path
  * (`ensureWorkspaceTrusted`) on both branches — clone and fetch converge on
  * this single return point. Trust is a nicety, never a gate: it never throws
  * and its result is not consulted, so a missing/corrupt/unwritable

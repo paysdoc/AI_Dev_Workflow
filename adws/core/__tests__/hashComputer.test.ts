@@ -6,7 +6,6 @@ import type { HashComputerDeps } from '../hashComputer';
 
 const ROOT = '/fake-root';
 
-/** Build an in-memory HashComputerDeps from a map of absolute path → Buffer. */
 function makeMemDeps(files: Map<string, Buffer>): HashComputerDeps {
   return {
     readFile: (filePath: string): Buffer => {
@@ -22,19 +21,15 @@ function makeMemDeps(files: Map<string, Buffer>): HashComputerDeps {
   };
 }
 
-/** Build an adw_init.md content string with the given hashInputs list. */
 function makeAdwInit(hashInputs: string[]): Buffer {
   const list = hashInputs.map((p) => `  - ${p}`).join('\n');
   const content = `---\ntarget: false\nhashInputs:\n${list}\n---\n# content\n`;
   return Buffer.from(content, 'utf-8');
 }
 
-/** Absolute path for a relative path under ROOT. */
 function abs(relPath: string): string {
   return path.join(ROOT, relPath);
 }
-
-// ── §1 Normal path / known digest ─────────────────────────────────────────
 
 describe('normal path', () => {
   it('returns a 64-char lowercase hex SHA256 digest matching independently computed value', () => {
@@ -61,8 +56,6 @@ describe('normal path', () => {
   });
 });
 
-// ── §2 Reorder stability ───────────────────────────────────────────────────
-
 describe('reorder stability', () => {
   it('produces the same digest regardless of hashInputs list order', () => {
     const alphaBytes = Buffer.from('alpha-bytes', 'utf-8');
@@ -85,8 +78,6 @@ describe('reorder stability', () => {
     expect(hashAB).toBe(hashBA);
   });
 });
-
-// ── §3 Byte-change sensitivity ─────────────────────────────────────────────
 
 describe('byte-change sensitivity', () => {
   function baseFiles(): Map<string, Buffer> {
@@ -115,8 +106,6 @@ describe('byte-change sensitivity', () => {
     expect(computeFrameworkHash(ROOT, makeMemDeps(modified))).not.toBe(original);
   });
 });
-
-// ── §4 Missing hashInputs frontmatter ─────────────────────────────────────
 
 describe('missing hashInputs frontmatter', () => {
   it('throws when frontmatter has no hashInputs key', () => {
@@ -147,8 +136,6 @@ describe('missing hashInputs frontmatter', () => {
   });
 });
 
-// ── §5 Missing referenced file ─────────────────────────────────────────────
-
 describe('missing referenced file', () => {
   it('throws naming the missing relative path when a declared file does not resolve', () => {
     const files = new Map<string, Buffer>([
@@ -159,16 +146,12 @@ describe('missing referenced file', () => {
   });
 });
 
-// ── §6 Missing adw_init.md ─────────────────────────────────────────────────
-
 describe('missing adw_init.md', () => {
   it('throws a clear error mentioning adw_init.md when the spec file is absent', () => {
     const files = new Map<string, Buffer>();
     expect(() => computeFrameworkHash(ROOT, makeMemDeps(files))).toThrow('adw_init.md');
   });
 });
-
-// ── §7 Real-repo smoke test ────────────────────────────────────────────────
 
 describe('real-repo smoke test', () => {
   it('returns a stable 64-char hex digest for the live ADW checkout', () => {
