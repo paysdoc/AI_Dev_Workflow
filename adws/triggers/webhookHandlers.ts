@@ -1,11 +1,3 @@
-/**
- * Webhook Event Handlers
- *
- * Contains event handler functions extracted from trigger_webhook.ts:
- * - handlePullRequestEvent: handles abandoned PRs (closed without merge)
- * - handleIssueClosedEvent: cleans up worktrees, branch, and dependencies
- */
-
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS, generateAdwId } from '../core';
 import type { BoundProviders, IssueTracker } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../core';
@@ -18,7 +10,6 @@ import type { AgentState } from '../types/agentTypes';
 import { resolvePrReviewTarget } from '../core/resolvePrReviewTarget';
 
 /**
- * Extracts issue number from a branch name using the "issue-N" pattern.
  * All ADW branches follow the format {prefix}/issue-{number}-{slug}.
  * Returns null if the pattern does not match or input is falsy.
  */
@@ -27,8 +18,6 @@ export function extractIssueNumberFromBranch(branchName: string | null | undefin
   const match = branchName.match(/issue-(\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
-
-// ── Injectable dependencies ────────────────────────────────────────────────
 
 export interface PrClosedDeps {
   fetchIssueComments: (issueNumber: number) => { body: string }[];
@@ -65,7 +54,7 @@ function defaultIssueClosedDeps(boundary: LaunchBoundary | undefined): IssueClos
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
     // Threading boundary.gitContext (rather than the old hardcoded selfHost: false) is a
     // genuine fix: on a self-host issues.closed event this now resolves from REPO_ROOT
-    // instead of a TARGET_REPOS_DIR path that doesn't exist for the framework repo (#822).
+    // instead of a TARGET_REPOS_DIR path that doesn't exist for the framework repo.
     deleteRemoteBranch: boundary
       ? (branchName, cwd) => boundary.gitContext.deleteRemoteBranch(branchName, cwd)
       : () => false,
@@ -74,10 +63,7 @@ function defaultIssueClosedDeps(boundary: LaunchBoundary | undefined): IssueClos
   };
 }
 
-// ── PR close handler ────────────────────────────────────────────────────────
-
 /**
- * Handles pull_request.closed webhook events.
  * - Merged PRs: ignored (cleanup flows through issues.closed via GitHub auto-close).
  * - Closed-without-merge PRs: writes 'discarded' to state (terminal) and closes the linked issue.
  */
@@ -92,13 +78,11 @@ export async function handlePullRequestEvent(
     return { status: 'ignored' };
   }
 
-  // Merged PRs: GitHub auto-close fires issues.closed which handles all cleanup
   if (pull_request.merged) {
     log(`PR #${pull_request.number} was merged — cleanup flows through issues.closed`);
     return { status: 'ignored' };
   }
 
-  // Abandoned PR (closed without merge)
   const headBranch = pull_request.head?.ref;
   const issueNumber = extractIssueNumberFromBranch(headBranch);
   if (issueNumber === null) {
@@ -134,8 +118,6 @@ export async function handlePullRequestEvent(
   return { status: 'abandoned', issue: issueNumber };
 }
 
-// ── Issue close handler ─────────────────────────────────────────────────────
-
 export interface IssueClosedResult {
   status: 'skipped' | 'cleaned';
   reason?: string;
@@ -144,7 +126,6 @@ export interface IssueClosedResult {
 }
 
 /**
- * Handles issues.closed webhook events.
  * - Reads workflow state to detect abandoned vs. normal closure.
  * - Grace period guard: skips cleanup when orchestrator is still actively running.
  * - Cleans up worktrees and deletes the remote branch.
@@ -163,7 +144,6 @@ export async function handleIssueClosedEvent(
   let workflowStage: string | undefined;
   let state: AgentState | null = null;
 
-  // Fetch comments and resolve adw-id + state (requires a boundary)
   if (boundary) {
     try {
       const comments = d.fetchIssueComments(issueNumber);
@@ -177,7 +157,6 @@ export async function handleIssueClosedEvent(
     state = d.readTopLevelState(adwId);
     workflowStage = state?.workflowStage;
 
-    // Grace period guard: skip cleanup when orchestrator is actively in progress
     if (state && workflowStage && isActiveStage(workflowStage)) {
       const lastActivity = getLastActivityFromState(state);
       if (lastActivity !== null && Date.now() - lastActivity < GRACE_PERIOD_MS) {
@@ -187,11 +166,10 @@ export async function handleIssueClosedEvent(
     }
   }
 
-  // Worktree cleanup
   const worktreesRemoved = d.removeWorktreesForIssue(issueNumber);
   log(`Removed ${worktreesRemoved} worktree(s) for issue #${issueNumber}`, 'success');
 
-  // Remote branch deletion — top-level state is canonical (#524/#530); orchestrator is fallback.
+  // Remote branch deletion — top-level state is canonical; orchestrator is fallback.
   let branchDeleted = false;
   if (adwId && state) {
     let branchName = state.branchName;
@@ -206,7 +184,6 @@ export async function handleIssueClosedEvent(
     }
   }
 
-  // Dependency handling
   if (boundary) {
     // 'abandoned' = transient failure, 'discarded' = deliberate terminal. Both propagate "don't pick up blocked work" to dependents; only 'completed' unblocks them.
     if (workflowStage === 'abandoned' || workflowStage === 'discarded') {
@@ -219,10 +196,7 @@ export async function handleIssueClosedEvent(
   return { status: 'cleaned', worktreesRemoved, branchDeleted };
 }
 
-// ── PR-review spawn delegation ───────────────────────────────────────────────
-
 /**
- * Resolves the PR-review identity for a given PR number.
  * Fetches PR details, runs the pure resolver, seeds state on the fresh path.
  * Returns { issueNumber, adwId } or null when the PR is not issue-linked (skip).
  */

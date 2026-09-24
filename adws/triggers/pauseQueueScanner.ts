@@ -1,7 +1,4 @@
 /**
- * Pause queue scanner — probes paused workflows and resumes them when capacity returns.
- *
- * Called from trigger_cron.ts on every N poll cycles.
  * Runs a cheap `claude --print "ping"` call to check if rate limit has cleared.
  * On success: removes from queue, posts resumed comment, spawns the orchestrator.
  * On repeated unknown failure: removes from queue, posts error comment.
@@ -36,7 +33,6 @@ const RATE_LIMIT_STRINGS = [
   'Invalid authentication credentials',
 ];
 
-/** Returns true if the text contains a known rate-limit indicator. */
 function containsRateLimitText(text: string): boolean {
   return RATE_LIMIT_STRINGS.some(s => text.includes(s));
 }
@@ -46,8 +42,7 @@ function containsRateLimitText(text: string): boolean {
  * extraArgs — the same repo the orchestrator is respawned with. Falls back to the
  * cron's local git remote ONLY when the entry has no target repo (a framework
  * self-hosting workflow, where cwd's remote IS the correct repo). This stops the
- * resume path from pinning the process-global GH_TOKEN to the cron host's own repo
- * (issue #565).
+ * resume path from pinning the process-global GH_TOKEN to the cron host's own repo.
  */
 export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoIdentifier {
   const targetRepo = parseTargetRepoArgs([...(entry.extraArgs ?? [])]);
@@ -65,14 +60,6 @@ function resolveEntryBoundary(entry: PausedWorkflow) {
 /**
  * Posts a best-effort stage comment for a paused-queue entry through a
  * boundary built for the ENTRY's own repo — never the cron host's cwd.
- *
- * Fixes a latent wrong-repo bug: the previous `createRepoContext({ cwd:
- * process.cwd() })` compared the cron host's OWN git remote against the
- * paused entry's repo via `validateGitRemote`, so for any `--target-repo`
- * entry it threw and the surrounding catch silently dropped the "worktree
- * gone" / "claim diverged" / "probe failures" error comments. Building the
- * boundary from the entry's own `--target-repo` args (as `resolveEntryRepoInfo`
- * already does for the spawn/lock flow) fixes that.
  */
 function postEntryStageComment(entry: PausedWorkflow, stage: WorkflowStage, ctx: WorkflowContext): void {
   try {
@@ -83,10 +70,7 @@ function postEntryStageComment(entry: PausedWorkflow, stage: WorkflowStage, ctx:
   }
 }
 
-/**
- * Sends a cheap probe to Claude CLI to test if rate limit has cleared.
- * Returns 'clear' (exit 0, no rate-limit text), 'limited' (rate-limit detected), or 'unknown'.
- */
+/** Returns 'clear' (exit 0, no rate-limit text), 'limited' (rate-limit detected), or 'unknown'. */
 function probeRateLimit(): 'clear' | 'limited' | 'unknown' {
   try {
     const claudePath = resolveClaudeCodePath();
@@ -103,7 +87,6 @@ function probeRateLimit(): 'clear' | 'limited' | 'unknown' {
   }
 }
 
-/** Returns true if the worktree path exists on disk. */
 function worktreeExists(worktreePath: string): boolean {
   return fs.existsSync(worktreePath);
 }
@@ -137,11 +120,9 @@ function awaitChildReadiness(child: ChildProcess, timeoutMs: number): Promise<vo
   });
 }
 
-/** Posts a resumed comment to the GitHub issue and spawns the orchestrator. */
 export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   const repoInfo = resolveEntryRepoInfo(entry);
 
-  // Check worktree still exists
   if (!worktreeExists(entry.worktreePath)) {
     log(`Paused workflow ${entry.adwId}: worktree gone at ${entry.worktreePath} — removing from queue`, 'warn');
     removeFromPauseQueue(entry.adwId);
@@ -183,16 +164,15 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   }
 
   // Release the verification-only lock so the spawned child's acquireOrchestratorLock
-  // can take over the lifetime lock. The brief gap is acceptable per slice #463.
+  // can take over the lifetime lock. The brief gap is acceptable.
   releaseIssueSpawnLock(repoInfo, entry.issueNumber);
 
-  // Open per-resume log file to capture child stdout/stderr
   const resumeLogDir = path.join(AGENTS_STATE_DIR, 'paused_queue_logs');
   fs.mkdirSync(resumeLogDir, { recursive: true });
   const resumeLogPath = path.join(resumeLogDir, `${entry.adwId}.resume.log`);
   const logFd = fs.openSync(resumeLogPath, 'a');
 
-  // Spawn orchestrator detached. Resolve the orchestrator script against
+  // Resolve the orchestrator script against
   // REPO_ROOT so the spawn works even if the cron host's process.cwd() drifts.
   const resolvedScript = path.isAbsolute(entry.orchestratorScript)
     ? entry.orchestratorScript
@@ -219,7 +199,6 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
       child.unref();
       log(`Resumed workflow ${entry.adwId} (pid ${child.pid})`, 'success');
 
-      // Post resumed comment
       postEntryStageComment(entry, 'resumed', {
         issueNumber: entry.issueNumber,
         adwId: entry.adwId,
@@ -238,12 +217,7 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   }
 }
 
-/**
- * Scans the pause queue and probes/resumes paused workflows.
- * Only runs the probe every PROBE_INTERVAL_CYCLES cycles to avoid hammering the API.
- *
- * @param cycleCount - Incrementing cycle counter from the cron trigger.
- */
+/** Only runs the probe every PROBE_INTERVAL_CYCLES cycles to avoid hammering the API. */
 export async function scanPauseQueue(cycleCount: number): Promise<void> {
   if (cycleCount % PROBE_INTERVAL_CYCLES !== 0) return;
 
@@ -262,7 +236,6 @@ export async function scanPauseQueue(cycleCount: number): Promise<void> {
       log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
       updatePauseQueueEntry(entry.adwId, { lastProbeAt: new Date().toISOString() });
     } else {
-      // Unknown error — increment failure count
       const failures = (entry.probeFailures ?? 0) + 1;
       log(`Unknown probe failure for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
       if (failures >= MAX_UNKNOWN_PROBE_FAILURES) {

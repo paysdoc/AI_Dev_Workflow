@@ -1,6 +1,4 @@
 /**
- * CRON trigger for ADW (AI Developer Workflow).
- *
  * Acts as a backlog sweeper: polls for deferred, missed, or newly-eligible
  * issues and processes them oldest-first with grace period, dependency,
  * and concurrency checks.
@@ -57,7 +55,6 @@ const processedSpawns = new Set<number>();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
 
-// Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoIdentity);
 
 // Module-scope launch boundary — built exactly once under the entry-script guard.
@@ -70,7 +67,6 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   cronBoundary = buildLaunchBoundary(targetRepo);
 }
 
-// Context-only view — every existing cronGitContext use is unchanged (#794).
 const cronGitContext: GitContext | null = cronBoundary?.gitContext ?? null;
 
 /** The boundary-minted provider triple, bound to the same identity as `cronGitContext`. Null under the same conditions (module-import guard not fired). */
@@ -78,7 +74,6 @@ export function getCronProviders(): BoundProviders | null {
   return cronBoundary?.providers ?? null;
 }
 
-/** Builds --target-repo args to pass to spawned workflows. */
 function buildTargetRepoArgs(): string[] {
   return buildCronTargetRepoArgs(
     cronRepoInfo,
@@ -226,7 +221,7 @@ export async function runDocsIndexSweepTick(
  * callback); without this guard a single throw anywhere in the tick — e.g. the
  * janitor's discovery constructing a GitContext for a repo the GitHub App is not
  * installed on — became an unhandled rejection and Node killed the whole cron
- * process, which the webhook then respawned every ~5 minutes (#812). The error is
+ * process, which the webhook then respawned every ~5 minutes. The error is
  * logged (with its stack, since this is the catch-all of last resort) and the next
  * tick still runs. Exported with an injectable tick so tests can drive the swallow.
  */
@@ -240,7 +235,6 @@ export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger
 }
 
 /**
- * Handles a single cron tick when the auth gate is set.
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
  */
@@ -306,7 +300,7 @@ async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
   return true;
 }
 
-/** Checks for eligible issues and triggers ADW workflows for each. Boundary defaults to `cronBoundary` (same idiom as `runPerIssueScenarioSweepTick`); exported so tests can drive one tick against a fake boundary. */
+/** Boundary defaults to `cronBoundary` (same idiom as `runPerIssueScenarioSweepTick`); exported so tests can drive one tick against a fake boundary. */
 export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoundary): Promise<void> {
   if (!boundary) {
     log('checkAndTrigger: no launch boundary (module imported, not launched) — skipping tick', 'warn');
@@ -317,33 +311,25 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
 
   if (await handleAuthGateTick(boundary)) return;
 
-  // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
   await scanAuthQueue(boundary, buildTargetRepoArgs());
 
-  // Detect and abandon hung orchestrators every HUNG_DETECTOR_INTERVAL_CYCLES cycles
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
     runHungDetectorSweep(Date.now());
   }
 
-  // Run dev server janitor every JANITOR_INTERVAL_CYCLES cycles
   if (cycleCount % JANITOR_INTERVAL_CYCLES === 0) {
     await runJanitorPass();
   }
 
-  // Delete stale per-issue scenario files every PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES cycles.
   // The cadence gate, the no-launch-context skip, and the non-fatal swallow all live inside
   // runPerIssueScenarioSweepTick.
   await runPerIssueScenarioSweepTick(cycleCount);
 
-  // Run the promotion sweep every PROMOTION_SWEEP_INTERVAL_CYCLES cycles (generous
-  // cadence: git/gh actions must not run every 20s tick). The gate and the
-  // non-fatal swallow both live inside runPromotionSweepTick.
+  // The gate and the non-fatal swallow both live inside runPromotionSweepTick.
   await runPromotionSweepTick(cycleCount);
 
-  // Run the docs-index health sweep every DOCS_INDEX_SWEEP_INTERVAL_CYCLES cycles
-  // (generous cadence, same reasoning as the promotion sweep). The gate and the
-  // non-fatal swallow both live inside runDocsIndexSweepTick.
+  // The gate and the non-fatal swallow both live inside runDocsIndexSweepTick.
   await runDocsIndexSweepTick(cycleCount);
 
   const now = Date.now();
@@ -424,7 +410,6 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
       continue;
     }
 
-    // Standard spawn path: check eligibility (dependencies + concurrency)
     const eligibility = await checkIssueEligibility(issue.number, issue.body || '', boundary.providers);
     if (!eligibility.eligible) {
       if (eligibility.reason === 'open_dependencies') {
@@ -501,7 +486,6 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   }
 }
 
-/** Checks open PRs for actionable review comments and triggers PR review workflows. */
 function checkPRsForReviewComments(): void {
   const boundary = cronBoundary;
   if (!boundary) { log('checkPRsForReviewComments: no launch boundary (module imported, not launched) — skipping poll', 'warn'); return; }

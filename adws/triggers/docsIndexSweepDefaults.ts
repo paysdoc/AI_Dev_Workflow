@@ -1,7 +1,5 @@
 /**
- * Production dependency implementations for `runDocsIndexSweep` — the real
- * worktree/git/forge-backed I/O that `docsIndexSweep.ts`'s deps default to
- * when no override is injected. Split out to keep `docsIndexSweep.ts`'s
+ * Split out to keep `docsIndexSweep.ts`'s
  * orchestration logic under the file-length guideline, mirroring
  * `promotionSweepDefaults.ts`.
  *
@@ -50,9 +48,7 @@ function commitMessageWith(repairs: readonly DocsIndexRepair[]): string {
 }
 
 /**
- * Builds the seven production defaults for `runDocsIndexSweep`, each closing
- * over the launch boundary and the lazily-prepared `SweepBase` (via
- * `getBase()`, called at most once by the caller). `countBand` is
+ * `countBand` is
  * ADW-calibrated and applies only to the self-host (framework) repo — a
  * freshly initialised target repo's entry count is never policed.
  */

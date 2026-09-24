@@ -1,8 +1,4 @@
 /**
- * Sweep persist orchestration — the generic dedicated-worktree /
- * dedicated-branch / immediately-merged-PR path every cron sweep persists
- * through.
- *
  * Persists a batch via a dedicated worktree synced to fresh
  * `origin/<default>`, a dedicated sweep branch, and an immediately-merged PR —
  * never a direct commit/push onto the shared default-branch checkout. Mirrors
@@ -13,10 +9,7 @@
  * `SweepPersistSpec` parameterises the branch name and PR title/body so a
  * sibling sweep (the docs-index sweep) gets its own dedicated branch and PR
  * copy instead of colliding with the per-issue scenario sweep's
- * `chore/scenario-sweep`. `persistRemovalViaPr` — the per-issue sweep's
- * original entry point — is now a one-line wrapper over the generic
- * `persistCommitViaPr`, so its behaviour and log wording it kept are
- * unchanged for existing callers and tests.
+ * `chore/scenario-sweep`.
  *
  * The base is resolved from the passed launch boundary's own repo — never
  * from cwd. This module performs no repo-identity resolution.
@@ -30,20 +23,17 @@ import type { CodeHost } from '@paysdoc/devplatform';
 /** Stable dedicated branch the per-issue sweep's removal is pushed to and PR'd from. */
 export const SWEEP_BRANCH = 'chore/scenario-sweep';
 
-/** Unchanged from the pre-#758 direct-commit message. */
 export const SWEEP_COMMIT_MESSAGE = 'chore: sweep stale per-issue scenarios (>14d post-merge)';
 
 const PR_TITLE = 'chore: sweep stale per-issue scenarios';
 const PR_BODY = 'Automated removal of per-issue scenario files whose linked PR merged more than 14 days ago.';
 
-/** The dedicated branch + PR title/body a sweep persists its change through. */
 export interface SweepPersistSpec {
   readonly branch: string;
   readonly prTitle: string;
   readonly prBody: string;
 }
 
-/** The per-issue scenario sweep's spec — today's `chore/scenario-sweep` branch and PR copy, unchanged. */
 export const PER_ISSUE_SWEEP_SPEC: SweepPersistSpec = {
   branch: SWEEP_BRANCH,
   prTitle: PR_TITLE,
@@ -59,7 +49,6 @@ export interface SweepBase {
   readonly worktreePath: string;
   /** Returns the open sweep PR number for `sweepBranch`, or null if none is open. */
   readonly findOpenSweepPr: (sweepBranch: string) => number | null;
-  /** Opens a PR from `sweepBranch` into `baseBranch`; returns the PR number. */
   readonly openPr: (sweepBranch: string, baseBranch: string) => number;
   readonly mergePr: (prNumber: number) => { success: boolean; error?: string };
   readonly log: (msg: string, level?: LogLevel) => void;
@@ -71,7 +60,7 @@ export interface SweepBase {
  * never reset or mutated. Returns null (logged) on any resolution failure so
  * the sweep degrades to a no-op for this cycle instead of crashing its
  * unwrapped caller in trigger_cron.ts. `spec` defaults to the per-issue
- * sweep's own branch/PR copy so every pre-#810 caller is unaffected.
+ * sweep's own branch/PR copy.
  */
 export function prepareSweepBase(boundary: LaunchBoundary, spec: SweepPersistSpec = PER_ISSUE_SWEEP_SPEC): SweepBase | null {
   try {
@@ -150,10 +139,6 @@ export async function persistCommitViaPr(
   }
 }
 
-/**
- * Persists a removal batch via `persistCommitViaPr`. Unchanged behaviour and
- * log-message prefix for every existing caller/test.
- */
 export async function persistRemovalViaPr(paths: readonly string[], base: SweepBase): Promise<void> {
   if (paths.length === 0) return;
   return persistCommitViaPr((b) => b.ctx.removeAndCommitPaths(paths, SWEEP_COMMIT_MESSAGE, b.worktreePath), base);
