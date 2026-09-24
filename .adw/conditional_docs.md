@@ -340,8 +340,11 @@
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
+  - Owns:
+    - features/per-issue/**
   - Conditions:
     - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
+    - When sweeping comments out of per-issue feature files or step definitions (see `app_docs/feature-m363ky-comment-only-guard.md` for the guard that verifies a sweep touched only comments)
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:
