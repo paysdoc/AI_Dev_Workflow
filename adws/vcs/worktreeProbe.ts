@@ -1,7 +1,4 @@
 /**
- * worktreeProbe — thin I/O shell that gathers Class-A git-operability signals.
- *
- * `probeWorktree(input, deps?)` returns a `WorktreeProbe` for `decideWorktreeReuse`.
  * All I/O is injected via `ProbeDeps`; `buildDefaultProbeDeps()` wires real fs/git.
  * `clearOrphanedIndexLock(worktreePath, deps?)` removes a stale lock before resume.
  */
@@ -48,7 +45,6 @@ function resolveOwnerLiveness(
   return deps.isProcessLive(recordedPid, recordedPidStartedAt);
 }
 
-// Returns a benign probe indicating "missing" when the git dir cannot be resolved.
 function missingProbe(): WorktreeProbe {
   return {
     registration: 'missing',

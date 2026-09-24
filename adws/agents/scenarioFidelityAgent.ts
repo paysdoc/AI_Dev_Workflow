@@ -1,9 +1,4 @@
-/**
- * Scenario Fidelity Agent — compares frozen BDD scenarios against the issue body.
- *
- * Reuses the `validationAgent`'s `ValidationResult`/`validationResultSchema` rail,
- * re-pointed to compare scenarios vs the issue body rather than plan vs scenarios.
- */
+/** Reuses the `validationAgent`'s `ValidationResult`/`validationResultSchema` rail, re-pointed to compare scenarios vs the issue body rather than plan vs scenarios. */
 
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';

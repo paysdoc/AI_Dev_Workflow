@@ -1,7 +1,5 @@
 /**
- * Production dependency implementations for `runPromotionSweep` — the real
- * GitContext/provider-backed I/O that `promotionSweep.ts`'s deps default to
- * when no override is injected. Split out to keep `promotionSweep.ts`'s
+ * Split out to keep `promotionSweep.ts`'s
  * orchestration logic under the file-length guideline.
  *
  * `makeDefaultDeps(boundary)` closes every helper over the single
@@ -51,11 +49,6 @@ export interface PromotionSweepDefaultDeps {
   fileIssue: (spec: PromotionIssueSpec) => void;
 }
 
-/**
- * Builds the nine production defaults for `runPromotionSweep`, each closing
- * over the single passed launch boundary — the cron's (or CLI's). Constructs
- * no additional GitContext and mints no additional providers.
- */
 export function makeDefaultDeps(boundary: LaunchBoundary): PromotionSweepDefaultDeps {
   const ctx = boundary.gitContext;
   const { issueTracker, codeHost } = boundary.providers;
@@ -147,7 +140,6 @@ export function makeDefaultDeps(boundary: LaunchBoundary): PromotionSweepDefault
       if (committed) ctx.pushBranch(branch, ctx.basePath);
     },
 
-    /** Files the issue and applies every label. */
     fileIssue: (spec: PromotionIssueSpec) => {
       const issueNumber = issueTracker.createIssue(spec.title, spec.body);
       for (const label of spec.labels) {

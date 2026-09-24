@@ -1,11 +1,4 @@
-/**
- * Given step definitions for @regression scenarios.
- *
- * Execution pattern: mock-query (state seeding) and subprocess (artefact setup).
- * All steps are side-effect-free with respect to source files in adws/.
- *
- * Vocabulary phrases: G1–G11 (see features/regression/vocabulary.md).
- */
+// All steps are side-effect-free with respect to source files in adws/.
 
 import { Given } from '@cucumber/cucumber';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
@@ -20,38 +13,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
 const PAYLOAD_DIR = join(ROOT, 'test/fixtures/jsonl/payloads');
 
-// ---------------------------------------------------------------------------
-// G1: mock GitHub API configured to accept issue comments
-// ---------------------------------------------------------------------------
-
 Given(
   'the mock GitHub API is configured to accept issue comments',
   async function (this: RegressionWorld) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
     // The mock server already handles POST /repos/.../issues/:n/comments by default.
-    // This step makes the intent explicit — no additional state seeding is needed.
     await this.mockContext.setState({});
     const serverUrl = this.mockContext.serverUrl;
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
-// ---------------------------------------------------------------------------
-// G2: git-mock has a clean worktree at branch {string}
-// ---------------------------------------------------------------------------
-
 Given(
   'the git-mock has a clean worktree at branch {string}',
   function (this: RegressionWorld, branch: string) {
     this.targetBranch = branch;
-    // Git invocation recording is reset between scenarios via the mock harness.
-    // Storing the branch name here makes it available to T4 / T11 assertions.
   },
 );
-
-// ---------------------------------------------------------------------------
-// G3: claude-cli-stub loaded with manifest {string}
-// ---------------------------------------------------------------------------
 
 Given(
   'the claude-cli-stub is loaded with manifest {string}',
@@ -63,10 +41,6 @@ Given(
     };
   },
 );
-
-// ---------------------------------------------------------------------------
-// G4: an issue {int} exists in the mock issue tracker
-// ---------------------------------------------------------------------------
 
 Given(
   'an issue {int} exists in the mock issue tracker',
@@ -89,26 +63,15 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// G5: no spawn lock exists for issue {int}
-// ---------------------------------------------------------------------------
-
 Given(
   'no spawn lock exists for issue {int}',
   function (this: RegressionWorld, issueNumber: number) {
-    // The orchestrator lock artefact is a file written at runtime by the orchestrator
-    // under test. Asserting its absence here ensures the scenario starts clean.
     const lockPath = resolve(ROOT, `.adw/locks/issue-${issueNumber}.lock`);
     if (existsSync(lockPath)) {
       rmSync(lockPath);
     }
-    // Nothing else to do — the orchestrator will create/release the lock during W1.
   },
 );
-
-// ---------------------------------------------------------------------------
-// G6: a state file exists for adwId {string} at stage {string}
-// ---------------------------------------------------------------------------
 
 Given(
   'a state file exists for adwId {string} at stage {string}',
@@ -130,40 +93,26 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// G7: cron sweep configured with empty queue
-// ---------------------------------------------------------------------------
-
 Given(
   'the cron sweep is configured with empty queue',
   async function (this: RegressionWorld) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
-    // An empty issues map means the cron probe will find no eligible issues.
     await this.mockContext.setState({ issues: {} });
     const serverUrl = this.mockContext.serverUrl;
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
-// ---------------------------------------------------------------------------
-// G8: mock GitHub API records all PR-list calls
-// ---------------------------------------------------------------------------
-
 Given(
   'the mock GitHub API records all PR-list calls',
   function (this: RegressionWorld) {
     // Recording is enabled by default on the mock server.
-    // This step is a documentation step that makes the intent explicit.
     if (this.mockContext) {
       const serverUrl = this.mockContext.serverUrl;
       this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
     }
   },
 );
-
-// ---------------------------------------------------------------------------
-// G9: claude-cli-stub loaded with fixture {string}
-// ---------------------------------------------------------------------------
 
 Given(
   'the claude-cli-stub is loaded with fixture {string}',
@@ -175,10 +124,6 @@ Given(
     };
   },
 );
-
-// ---------------------------------------------------------------------------
-// G10: mock GitHub API returns PR {int} as merged
-// ---------------------------------------------------------------------------
 
 Given(
   'the mock GitHub API is configured to return PR {int} as merged',
@@ -199,10 +144,6 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// G12: mock GitHub API configured to accept label applications
-// ---------------------------------------------------------------------------
-
 Given(
   'the mock GitHub API is configured to accept label applications',
   function (this: RegressionWorld) {
@@ -212,13 +153,6 @@ Given(
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
-
-// G13 (a per-issue feature file at {string} is seeded...) is defined in
-// features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
-
-// ---------------------------------------------------------------------------
-// Helpers: tag insertion into feature files
-// ---------------------------------------------------------------------------
 
 function insertTagAtHeader(lines: string[], headerIdx: number, newTag: string): string {
   let nearestTagIdx = -1;
@@ -255,10 +189,6 @@ function insertTagForScenario(content: string, scenarioName: string | null, newT
   return insertTagAtHeader(lines, headerIdx, newTag);
 }
 
-// ---------------------------------------------------------------------------
-// G14: seeded scenario pre-tagged with today's date
-// ---------------------------------------------------------------------------
-
 Given(
   'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
   function (this: RegressionWorld, filePath: string, adwId: string) {
@@ -271,10 +201,6 @@ Given(
     writeFileSync(fullPath, updated, 'utf-8');
   },
 );
-
-// ---------------------------------------------------------------------------
-// G15: seeded scenario pre-tagged N days ago
-// ---------------------------------------------------------------------------
 
 Given(
   'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
@@ -290,10 +216,6 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// G16: named seeded scenario pre-tagged with today's date
-// ---------------------------------------------------------------------------
-
 Given(
   'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
   function (this: RegressionWorld, scenarioName: string, filePath: string, adwId: string) {
@@ -306,10 +228,6 @@ Given(
     writeFileSync(fullPath, updated, 'utf-8');
   },
 );
-
-// ---------------------------------------------------------------------------
-// G17: named seeded scenario pre-tagged N days ago
-// ---------------------------------------------------------------------------
 
 Given(
   'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
@@ -325,10 +243,6 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// G11: worktree for adwId {string} initialised at branch {string}
-// ---------------------------------------------------------------------------
-
 Given(
   'the worktree for adwId {string} is initialised at branch {string}',
   function (this: RegressionWorld, adwId: string, branch: string) {
@@ -336,7 +250,6 @@ Given(
     this.worktreePaths.set(adwId, worktreeBase);
     this.targetBranch = branch;
 
-    // Initialise as a bare git repo so the orchestrator can operate on it.
     const gitBin = process.env['REAL_GIT_PATH'] ?? 'git';
     execSync(`"${gitBin}" init`, { cwd: worktreeBase, stdio: 'pipe' });
     execSync(`"${gitBin}" config user.email "test@adw.local"`, { cwd: worktreeBase, stdio: 'pipe' });

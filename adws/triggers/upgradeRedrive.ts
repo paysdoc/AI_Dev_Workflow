@@ -1,6 +1,4 @@
 /**
- * upgradeRedrive — cron redrive scan for stranded framework-upgrade tracking issues.
- *
  * `adwUpgrade` is spawned exactly once per framework hash, by the claim winner in
  * `upgradeGate.ts`. The claim branch `adw-upgrade-<hash>` is created once and never
  * released on failure, so a workflow that fails after claiming (e.g. a step-6 commit
@@ -9,16 +7,11 @@
  * `#UPG` issues to `adwUpgrade` either: `adw:upgrade` is not an ADW classification
  * label, so it reads as `reserved_label` and is filtered out.
  *
- * This module adds an independent cron pass: a pure eligibility predicate
- * (`decideUpgradeRedrive`) plus a composing scanner (`findRedrivableUpgrades` /
- * `runUpgradeRedriveScan`) that re-spawns `adwUpgrade` for a stranded `#UPG`. The
- * predicate mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn
+ * The predicate mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn
  * lock, so this scan is a cheap pre-filter — `adwUpgrade` remains the correctness
  * authority. Bounding comes from the existing `MAX_FAILURES` cap: each re-spawn that
  * fails posts a counted failure comment (see adwUpgrade.tsx step 6), and once the cap
  * escalates (`adw:blocked` applied), this predicate's `terminal` guard stops the loop.
- *
- * All I/O is injected via UpgradeRedriveDeps for unit testing.
  */
 
 import { readSpawnLockRecord } from './spawnGate';
@@ -28,13 +21,10 @@ import { log, type LogLevel } from '../core';
 import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../core/adwLabels';
 import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
 
-// ── Pure claim-branch parser ──────────────────────────────────────────────────
-
 /** Matches the `Claim branch: \`adw-upgrade-<hash>\`` line written by runUpgradeGate. */
 const CLAIM_BRANCH_PATTERN = /claim branch:\s*`([^`]+)`/i;
 
 /**
- * Extracts the claim branch name from a `#UPG` tracking-issue body.
  * Tolerant of case in the heading; returns null when absent or malformed
  * (e.g. empty backticks).
  */
@@ -44,8 +34,6 @@ export function parseClaimBranch(issueBody: string): string | null {
   const branch = match[1].trim();
   return branch.length > 0 ? branch : null;
 }
-
-// ── Pure redrive-eligibility decision ─────────────────────────────────────────
 
 export interface UpgradeRedriveSignals {
   readonly isOpen: boolean;
@@ -61,7 +49,6 @@ export interface UpgradeRedriveDecision {
 }
 
 /**
- * Pure guard-clause decision: which `#UPG` issues are stranded and safe to redrive.
  * Order matters only for issues that would otherwise match multiple guards; each
  * clause returns eagerly so the first matching reason wins.
  */
@@ -74,8 +61,6 @@ export function decideUpgradeRedrive(signals: UpgradeRedriveSignals): UpgradeRed
   return { redrive: true, reason: 'stranded' };
 }
 
-// ── Composing scanner ──────────────────────────────────────────────────────────
-
 /** Minimal issue shape the redrive scan needs — structurally compatible with
  *  trigger_cron's RawIssue and cronIssueFilter's CronIssue. */
 export interface UpgradeRedriveIssue {
@@ -84,7 +69,6 @@ export interface UpgradeRedriveIssue {
   readonly labels: readonly { readonly name: string }[];
 }
 
-/** Injectable dependencies for the redrive scan — enables unit testing without I/O. */
 export interface UpgradeRedriveDeps {
   readonly findClaimPr: (issueBody: string) => { number: number } | null;
   readonly readSpawnLock: (issueNumber: number) => { pid: number; pidStartedAt: string } | null;
@@ -114,11 +98,6 @@ function deriveSignals(issue: UpgradeRedriveIssue, deps: UpgradeRedriveDeps): Up
   };
 }
 
-/**
- * Evaluates every candidate issue and returns the `#UPG` numbers that are stranded
- * and safe to redrive (open, adw:upgrade, not terminal-labeled, no claim PR, spawn
- * lock free or stale).
- */
 export function findRedrivableUpgrades(
   issues: readonly UpgradeRedriveIssue[],
   repoInfo: RepoIdentifier,
@@ -135,8 +114,7 @@ export function findRedrivableUpgrades(
 }
 
 /**
- * Re-spawns `adwUpgrade` for every stranded `#UPG` found among `issues`. Safe to call
- * every cron tick — non-stranded issues (terminal, PR-present, live-locked, or not an
+ * Safe to call every cron tick — non-stranded issues (terminal, PR-present, live-locked, or not an
  * upgrade issue) are left untouched, and `adwUpgrade`'s own idempotency guard is the
  * correctness backstop if this pre-filter is ever wrong.
  */
@@ -151,8 +129,6 @@ export function runUpgradeRedriveScan(
     deps.spawn(upgNumber, targetRepoArgs);
   }
 }
-
-// ── Default deps factory ──────────────────────────────────────────────────────
 
 export function buildDefaultUpgradeRedriveDeps(repoInfo: RepoIdentifier, codeHost: Pick<CodeHost, 'findPullRequestByBranch'>): UpgradeRedriveDeps {
   return {

@@ -13,9 +13,6 @@ export interface TestVerdictResult {
 }
 
 /**
- * Pure function: maps (enabled, reportPresent, hasFailures, testcaseCount) → verdict.
- * No I/O — directly unit-testable.
- *
  * Branch table (guard-clause order, max depth 2):
  *   !enabled        → pass   (unit tests disabled)
  *   !reportPresent  → warn   (no JUnit report — unverified)

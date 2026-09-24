@@ -1,10 +1,9 @@
 /**
  * The pr-review orchestrator's branch→PR/adwId resolution — lifted out of
- * `adwPrReview.tsx`'s `main()` (#820, FINDING 4) so it can run AFTER the
+ * `adwPrReview.tsx`'s `main()` so it can run AFTER the
  * launch boundary is built (the boundary provides `findPullRequestByBranch`)
  * and be driven from a test. Returns a result instead of calling
- * `process.exit` — the three branches and their message texts are verbatim
- * from the legacy `resolvePrReviewInvocation`.
+ * `process.exit`.
  */
 
 import type { AgentState } from '../types/agentTypes';

@@ -120,7 +120,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
       executor. §7 is written as its survivor and is the one row here that is green today, red only
       if the migration drops the cwd class on the way through.
     • "BOTH GUARD RULES" IS NOW THREE, AND THE THIRD ONE BITES BACK. The issue was written before
-      #795 landed; `checkGitGhGuard.ts` today runs `git-gh-shellout`, `cwd-derived-identity` and
       `unsanctioned-construction`. The third carries a stale-entry ratchet
       (`guard/constructionRule.ts:208`, `checkGitGhGuard.ts:222,251`) that FAILS the build when a
       transitional allowlist entry's file stops constructing anything. The allowlist
@@ -193,14 +192,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1  THE CORE PACKAGE STANDS ALONE (AC2, AC3, PRD story 20) ────────────────────────────
-  #
-  # The keystone, and the only pair of rows that cannot be satisfied by moving call sites around.
-  # `gitContext.ts:81-92` reaches up into `../providers/github/commands/` for the builders its
-  # semantic methods call; those five imports are the package's only outward edges and the literal
-  # subject of AC3. They leave when the methods leave, and the proof is that the package then loads
-  # with nothing else on disk — the Phase B file move, rehearsed.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The git context package copied on its own into an empty directory loads
     Given the git context package is copied on its own into an empty directory
@@ -208,21 +199,11 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the import of the copied package succeeds
     And the copied package resolved no module outside its own directory
 
-  # The other half of AC2, and the guard against a migration that deletes too much. The surviving
-  # public API is named by PRD story 20: git, worktree, workspace, executor, and the ports.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: A constructed git context offers its git, worktree, workspace and executor operations and no forge semantics
     Given a git context constructed over a recording command executor
     Then the git context exposes no forge-semantic operation
     And the git context still exposes its git, worktree, workspace and executor operations
-
-  # ── §2  THE CRON STILL SEES THE ISSUES IT USED TO SEE (AC1, AC5) ──────────────────────────
-  #
-  # `trigger_cron.ts:97` asks for seven fields and hands all of them to `cronIssueFilter`.
-  # `IssueTracker.searchOpenIssues` (`providers/types.ts:139`) returns `{ number, title }`. The
-  # first row proves the listing moved; the second proves it did not lose four fifths of its
-  # payload on the way — the failure that stops the cron spawning anything without erroring once.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The cron's open-issue listing is served by the issue tracker bound to the cron's repository
@@ -240,14 +221,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the cron evaluates issue 42 as eligible
     And the listed issue 42 carries its body, its comments, its labels and its timestamps
 
-  # ── §3  THE SWEEPS ASK QUESTIONS THE OPEN-ONLY PORTS CANNOT ANSWER (AC1, AC5) ─────────────
-  #
-  # `promotionSweepDefaults.ts:126` passes `state: 'all'` deliberately: the promotion decider
-  # distinguishes `decline` (tracker closed unmerged, or `adw:blocked`) from `redrive` (tracker
-  # missing entirely), and it can only tell them apart if closed trackers are visible. Migrated
-  # onto an open-only listing, every closed tracker reads as missing and the sweep re-files an
-  # issue a human deliberately closed — on every cycle.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: A promotion tracker that was closed unmerged is seen by the sweep and declines rather than being re-filed
     Given the repository "adw-fixture/void-797" is launched with recording providers
@@ -257,11 +230,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the promotion sweep decided "decline" for issue 61
     And the recording issue tracker recorded no issue creation
 
-  # `perIssueScenarioSweep.ts:80` needs the merge date of a PR that closed the issue, and says in
-  # its own comment why search cannot supply it. `CodeHost` has no merged-PR listing at all, so a
-  # migration that reaches for `listOpenPullRequests` returns nothing, the retention clock never
-  # starts, and the sweep silently removes nothing forever.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The per-issue sweep still learns when the pull request that closed an issue was merged
     Given the repository "adw-fixture/void-797" is launched with recording providers
@@ -269,10 +237,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     When the per-issue scenario sweep resolves the merge date for issue 61
     Then the resolved merge date is the merge date of pull request 9
     And the git context was asked for no forge-semantic operation
-
-  # The sweep's own persistence path: `perIssueSweepPersist.ts:55` reads the default branch to cut
-  # the sweep worktree and `:74` opens the removal PR. Both are forge semantics on a context that
-  # is otherwise doing legitimate worktree work — the mixed call site this slice has to separate.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The sweep's removal pull request is opened by the code host while its worktree stays on the git context
@@ -282,13 +246,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the recording code host recorded exactly one pull request creation
     And the recording code host was asked for the default branch
     And the git context was asked for no forge-semantic operation
-
-  # ── §4  THE STAGE READERS MUST STILL SEE PULL REQUESTS THAT ARE NOT OPEN (AC1, AC5) ───────
-  #
-  # `remoteReconcile.mapArtifactsToStage` maps MERGED to `completed` and CLOSED to `discarded`.
-  # An open-only lookup returns null for both, `readOnce` yields null, and the function falls back
-  # to the state file it exists to distrust — so a finished run reads as unfinished and the cron
-  # picks it up again. Same trap as #796 §2, different module, and this one is named in the issue.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario Outline: The remote reconcile derives the stage of a pull request that is no longer open
@@ -304,11 +261,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
       | MERGED | completed      |
       | CLOSED | discarded      |
 
-  # The reconcile's whole design is a read followed by a mandatory re-verification read, because
-  # the forge lags its own writes; the two must AGREE before a stage is returned. A provider that
-  # memoises its answer makes the second read return the first read's value and the verification
-  # becomes ceremony. This row fails if the migration introduces caching anywhere on that path.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The reconcile's verification read asks the code host a second time rather than reusing the first answer
     Given the repository "adw-fixture/void-797" is launched with recording providers
@@ -316,17 +268,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     And the recording code host holds a pull request 7 on branch "feature-issue-42-void" in state "MERGED"
     When the remote reconcile derives the stage for adw id "qnr31u-void" from that boundary
     Then the recording code host was asked for the pull request on branch "feature-issue-42-void" at least 2 times
-
-  # ── §5  COMMENT HANDLING KEEPS ITS EXACT WORDS AND ITS EXACT ORDER (AC1, AC5) ─────────────
-  #
-  # `postWorkflowComment` (`github/workflowCommentsIssue.ts:410`) formats a stage comment and hands
-  # it to `commentOnIssue`, which builds its own context — but it has no caller left (only
-  # re-exports), so it leaves with the semantic surface. The live route is `postIssueStageComment`
-  # (`phases/phaseCommentHelpers.ts:33`), which formats through the same `formatWorkflowComment` and
-  # posts through `issueTracker.commentOnIssue`. AC5's "same comments" is the whole point: the body
-  # operators read must not shift by a character when the posting route changes. The stage below is
-  # `plan_building` — a real `WorkflowStage`, so the row exercises a real formatter rather than
-  # `formatWorkflowComment`'s unknown-stage default.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The workflow stage comment is posted by the issue tracker with the body it has today
@@ -337,10 +278,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     And the recorded comment on issue 42 is the body the stage "plan_building" formats today
     And the git context was asked for no forge-semantic operation
 
-  # `takeoverHandler.ts:89` resolves the adw id by reading the raw REST comment list and taking the
-  # LATEST match. Comment ORDER is load-bearing: resolve the wrong adw id and the takeover kills a
-  # live orchestrator's sibling instead of the wedged run it was aiming at.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The takeover handler resolves the most recent adw id from the comments the tracker returns
     Given the repository "adw-fixture/void-797" is launched with recording providers
@@ -348,17 +285,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     When the takeover handler resolves the adw id for issue 42 from that boundary
     Then the resolved adw id is "zzzzzz-new"
     And the git context was asked for no forge-semantic operation
-
-  # ── §6  A REPOSITORY THAT HAS NEVER BEEN CLONED (AC1, AC5, PRD story 16) ──────────────────
-  #
-  # The ordering hazard from the scope notes, as two executable rows. `ensureTargetRepoWorkspace`
-  # routes its default-branch read through the code host, and provider selection is read lazily from
-  # the workspace directory — so the two must not meet on a directory that does not exist yet.
-  # `ensureRepoWorkspace` (`gitContext/repoWorkspace.ts:119-122`) is what keeps them apart: the
-  # thunk is invoked on the already-cloned fetch branch ONLY, never on the clone branch. The first
-  # row pins the read; the second pins the deferral, and fails if a migration hoists the
-  # default-branch read (or an eager provider mint) in front of the clone. Every orchestrator's
-  # first run against a new target repo goes through here.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: A target repository workspace already on disk resolves its default branch through the code host
@@ -377,14 +303,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the recording code host was not asked for the default branch
     And no provider configuration was read from the workspace directory that does not exist
 
-  # ── §7  SAME COMMANDS, SAME REPOS, SAME PLACE THEY RUN FROM (AC5, stories 16 and 19) ──────
-  #
-  # AC5's "same commands" is literally the command strings that reach a process, and after the
-  # deletion the only route to one is the adapter feeding `GitContext.exec`. These two rows are the
-  # survivors of `gitContext/__tests__/repoApiCwd.test.ts`, whose subject this slice removes: the
-  # framework-root cwd class (a cron host acts on repositories it never cloned) and the credential
-  # arriving per command in the child environment rather than in this process's.
-
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The migrated open-issue listing reaches a process as one gh command addressed to the bound repository
     Given the forge operations for "adw-fixture/void-797" run through a git context whose executor records every command
@@ -401,11 +319,6 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
     Then the recorded command ran from the framework root
     And the recorded command carried its credential in the child environment
     And no credential was written into the ambient process environment
-
-  # ── §8  THE STRUCTURAL BACKSTOPS (AC4) ────────────────────────────────────────────────────
-  #
-  # AC4 verbatim, plus the ratchet the issue predates. The type-check is the only thing that proves
-  # AC2 across all 55 call sites at once: with the methods gone, any missed caller fails to compile.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The git/gh guard stays green across the repository after the last callers migrate

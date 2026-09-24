@@ -20,8 +20,6 @@ Feature: Webhook server ensures a cron process on every accepted event
   Background:
     Given the ADW codebase is checked out
 
-  # ── Top-level placement ─────────────────────────────────────────────────────
-
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: ensureCronProcess is called at the request handler top-level, not inside per-event branches
     Given "adws/triggers/trigger_webhook.ts" is read
@@ -42,8 +40,6 @@ Feature: Webhook server ensures a cron process on every accepted event
     Given "adws/triggers/trigger_webhook.ts" is read
     Then "ensureCronProcess" is called exactly once in the trigger_webhook.ts request handler
 
-  # ── Old per-handler call sites are removed ──────────────────────────────────
-
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: ensureCronProcess is no longer called inside the issue_comment handler
     Given "adws/triggers/trigger_webhook.ts" is read
@@ -54,14 +50,10 @@ Feature: Webhook server ensures a cron process on every accepted event
     Given "adws/triggers/trigger_webhook.ts" is read
     Then "ensureCronProcess" is not called inside the issues.opened handler
 
-  # ── Gated on resolving repoInfo ─────────────────────────────────────────────
-
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: ensureCronProcess is only invoked when body.repository.full_name resolves to a RepoInfo
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the top-level "ensureCronProcess" call is gated on a resolved repoInfo from "body.repository.full_name"
-
-  # ── Rejected requests must not spawn a cron ─────────────────────────────────
 
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: Signature-rejected requests do not reach the ensureCronProcess call site
@@ -88,8 +80,6 @@ Feature: Webhook server ensures a cron process on every accepted event
     Given "adws/triggers/trigger_webhook.ts" is read
     Then "ensureCronProcess" is called after the POST method check passes
 
-  # ── Approved-review path now reaches ensureCronProcess (incident fix) ───────
-
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: pull_request_review.submitted with state=approved triggers ensureCronProcess via top-level placement
     Given "adws/triggers/trigger_webhook.ts" is read
@@ -110,8 +100,6 @@ Feature: Webhook server ensures a cron process on every accepted event
   Scenario: issues.closed events reach ensureCronProcess via top-level placement
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the issues handler is reached after the top-level "ensureCronProcess" call
-
-  # ── Type-check ──────────────────────────────────────────────────────────────
 
   @adw-501 @adw-0lhdw4-webhook-call-ensurec @regression
   Scenario: TypeScript type-check passes after the ensureCronProcess top-level relocation

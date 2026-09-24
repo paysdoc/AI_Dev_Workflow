@@ -1,8 +1,3 @@
-/**
- * Barrel exports for the adws/cost module.
- */
-
-// New-format types (snake_case, used internally by extractors)
 export type {
   TokenUsageMap,
   PricingMap,
@@ -13,7 +8,6 @@ export type {
 } from './types.ts';
 export { PhaseCostStatus, createPhaseCostRecords } from './types.ts';
 
-// Legacy camelCase types (migrated from types/costTypes.ts)
 // Exported under their original names for backward-compatible consumers.
 // Note: `ModelUsageMap` here is the legacy Record<string, LegacyModelUsage> format,
 // not the new snake_case Record<string, TokenUsageMap> format in types.ts.
@@ -46,10 +40,8 @@ export {
   formatCostCommentSection,
 } from './reporting/index.ts';
 
-// D1 HTTP client
 export { postCostRecordsToD1 } from './d1Client.ts';
 
-// Cost helpers (migrated from core/costReport.ts and core/tokenManager.ts)
 export type { ModelTokenEntry, TokenTotals } from './costHelpers.ts';
 export {
   mergeModelUsageMaps,

@@ -7,8 +7,6 @@ import {
 } from '../cronStageResolver';
 import type { AgentState } from '../../types/agentTypes';
 
-// ── extractLatestAdwId ──────────────────────────────────────────────────────
-
 describe('extractLatestAdwId', () => {
   it('returns adw-id from the latest comment with an ADW ID', () => {
     const comments = [
@@ -46,8 +44,6 @@ describe('extractLatestAdwId', () => {
     expect(extractLatestAdwId(comments)).toBe('only-id-here');
   });
 });
-
-// ── getLastActivityFromState ────────────────────────────────────────────────
 
 function makeState(phases: AgentState['phases']): AgentState {
   return {
@@ -96,8 +92,6 @@ describe('getLastActivityFromState', () => {
   });
 });
 
-// ── isActiveStage ───────────────────────────────────────────────────────────
-
 describe('isActiveStage', () => {
   it('recognises "starting" as active', () => {
     expect(isActiveStage('starting')).toBe(true);
@@ -137,15 +131,11 @@ describe('isActiveStage', () => {
   });
 });
 
-// ── awaiting_merge is NOT active or retriable ───────────────────────────────
-
 describe('isActiveStage — awaiting_merge', () => {
   it('does NOT classify "awaiting_merge" as active', () => {
     expect(isActiveStage('awaiting_merge')).toBe(false);
   });
 });
-
-// ── resolveIssueWorkflowStage ───────────────────────────────────────────────
 
 describe('resolveIssueWorkflowStage', () => {
   it('returns null stage and null adwId when no comments exist', () => {

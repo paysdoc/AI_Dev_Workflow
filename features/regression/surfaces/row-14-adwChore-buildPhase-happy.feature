@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwChore — buildPhase — happy path
 
-  # Row 14: build phase within chore flow; state advances to awaiting_merge.
   Scenario: chore orchestrator completes build phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1014 exists in the mock issue tracker

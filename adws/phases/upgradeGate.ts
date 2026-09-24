@@ -1,13 +1,4 @@
-/**
- * upgradeGate — hash-check upgrade gate for initializeWorkflow().
- *
- * Compares the framework's current content hash against the target repo's stored
- * `.adw-version`. On mismatch, atomically elects a winner and either creates a
- * tracking issue + spawns adwUpgrade.tsx (winner) or attaches to the existing
- * upgrade (loser). On match, returns immediately with action: 'proceed'.
- *
- * All I/O is injected via UpgradeGateDeps for unit testing.
- */
+/** All I/O is injected via UpgradeGateDeps for unit testing. */
 
 import { computeFrameworkHash } from '../core/hashComputer';
 import { readRemoteAdwVersion } from '../core/adwVersion';
@@ -18,16 +9,13 @@ import { log, type LogLevel } from '../core/utils';
 import type { UpgradeClaimResult } from '../core/upgradeClaim';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface UpgradeGateParams {
   issueNumber: number;
   issueBody: string;
   /** Main target repo clone root (not a feature worktree). Used for the remote version
    *  read and as the base path for the claim push. */
   worktreePath: string;
-  /** Remote default branch name (e.g. "main", "dev"). Used to read
-   *  `origin/<defaultBranch>:.adw-version` as the authoritative stored version. */
+  /** Used to read `origin/<defaultBranch>:.adw-version` as the authoritative stored version. */
   defaultBranch: string;
   frameworkRepoRoot: string;
   targetRepoArgs: string[];
@@ -52,10 +40,7 @@ export type UpgradeGateOutcome =
   | { action: 'proceed' }
   | { action: 'parked'; role: 'winner' | 'loser'; upgradeIssueNumber: number | null; branch: string };
 
-// ── Pure helpers ──────────────────────────────────────────────────────────────
-
 /**
- * Returns true when the stored version differs from the current hash.
  * null (missing .adw-version) always triggers an upgrade — unifying first-bootstrap
  * and out-of-date into a single code path.
  */
@@ -66,8 +51,6 @@ export function shouldTriggerUpgrade(currentHash: string, storedVersion: string 
 /**
  * Idempotently inserts `- #<upgNumber>` into the issue body's dependency section.
  * Recognises ## Dependencies, ## Blocked by, ## Depends on headings (case-insensitive).
- * If the reference already appears, returns body unchanged.
- * If the section exists, appends the bullet to it; otherwise appends a new section.
  */
 export function addDependencyToBody(body: string, upgNumber: number): string {
   const ref = `#${upgNumber}`;
@@ -89,8 +72,6 @@ export function addDependencyToBody(body: string, upgNumber: number): string {
 
   return `${body}\n\n## Blocked by\n\n- ${ref}\n`;
 }
-
-// ── Orchestration ─────────────────────────────────────────────────────────────
 
 async function registerDependencyAndPark(
   params: UpgradeGateParams,
@@ -143,7 +124,6 @@ export async function runUpgradeGate(
     return registerDependencyAndPark(params, deps, upgNumber, 'winner', claim.branch);
   }
 
-  // Loser path
   const upgNumber = claim.existingIssueNumber ?? deps.findOpenUpgradeIssue();
   if (upgNumber === null) {
     deps.log('Upgrade gate: lost claim but no #UPG issue found yet (race) — parking without body edit', 'warn');
@@ -156,8 +136,6 @@ export async function runUpgradeGate(
   }
   return registerDependencyAndPark(params, deps, upgNumber, 'loser', claim.existingBranch);
 }
-
-// ── Default deps factory ──────────────────────────────────────────────────────
 
 export function buildDefaultUpgradeGateDeps(
   providers: BoundProviders,

@@ -1,11 +1,3 @@
-/**
- * Rot/reuse analysis agent for the promotion advisory.
- *
- * Wraps /promote_regression_vocabulary via runCommandAgent — analyses a
- * promoted scenario's Given/When/Then phrases and returns per-phrase reuse
- * and rot verdicts.
- */
-
 import { runCommandAgent } from './commandAgent';
 import type { CommandAgentOptions, ExtractionResult } from './commandAgent';
 
@@ -35,7 +27,6 @@ export const rotAnalysisSchema: Record<string, unknown> = {
 
 const KNOWN_ROT_VALUES = new Set(['VALID', 'ROT', 'UNKNOWN']);
 
-/** Locates the JSON array in raw agent output, tolerating a fenced code block or surrounding prose. */
 function extractJsonArrayText(output: string): string | null {
   const trimmed = output.trim();
   const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -51,7 +42,6 @@ function extractJsonArrayText(output: string): string | null {
   return null;
 }
 
-/** Validates and coerces one raw entry. Returns null when required fields are missing. */
 function coerceVerdict(raw: unknown): RotVerdict | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const rec = raw as Record<string, unknown>;
@@ -69,11 +59,6 @@ function coerceVerdict(raw: unknown): RotVerdict | null {
   return { step, keyword, reuse, rot, note };
 }
 
-/**
- * Extracts a RotVerdict[] from raw agent output. Tolerates fenced code blocks
- * and surrounding prose. Never throws — returns a structured error so the
- * commandAgent retry loop can recover.
- */
 export function extractRotVerdicts(output: string): ExtractionResult<RotVerdict[]> {
   const jsonText = extractJsonArrayText(output);
   if (!jsonText) {
@@ -104,8 +89,6 @@ export function extractRotVerdicts(output: string): ExtractionResult<RotVerdict[
 }
 
 /**
- * Runs the rot/reuse analysis agent over the promoted feature id.
- *
  * @param feature - The promoted feature id (e.g. "feature-665").
  * @param options - Agent options (logsDir, cwd, etc.) — omit `args`, it is set to `feature`.
  */

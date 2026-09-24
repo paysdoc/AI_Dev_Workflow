@@ -1,5 +1,5 @@
 /**
- * GitHub App Authentication — the sole environment-binding shim (issue #840).
+ * GitHub App Authentication — the sole environment-binding shim.
  *
  * The token mint (`getInstallationToken`, `isGitHubAppConfigured`) and all
  * auth primitives live in `@paysdoc/devplatform/providers`, which reads no
@@ -11,13 +11,7 @@
  * spawned webhook server both do — is still seen. The launch boundary
  * (`launchGitContext.ts`) hands `readGitHubAppConfig()`'s result to the
  * library's `createForgeCredentials`; the library itself never reads the
- * host environment (PRD story 9).
- *
- * No `process.env` writes remain here. The subprocess auth that previously
- * relied on `activateGitHubAppAuth` / `refreshTokenIfNeeded` is now sourced
- * per-command from the launch-boundary GitContext via `commandEnv()` overlays
- * in the agent chokepoints (claudeAgent.ts / commandAgent.ts) — the PRD
- * Auth-model contract.
+ * host environment.
  */
 
 import {

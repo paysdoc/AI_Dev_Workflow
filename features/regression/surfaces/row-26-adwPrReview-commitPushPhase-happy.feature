@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwPrReview — commitPushPhase — happy path
 
-  # Row 26: PR-review orchestrator pushes amended commit; git-mock records push.
   Scenario: pr-review orchestrator completes commit-push phase and git-mock records the push
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1026 exists in the mock issue tracker

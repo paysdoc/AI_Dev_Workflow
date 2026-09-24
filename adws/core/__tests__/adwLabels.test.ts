@@ -5,13 +5,9 @@ import {
   issueTypeToAdwLabel,
 } from '../adwLabels';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function makeIssue(...labelNames: string[]): { labels: string[] } {
   return { labels: labelNames };
 }
-
-// ── readAdwLabels — all branches ──────────────────────────────────────────────
 
 describe('readAdwLabels', () => {
   it('zero adw:* labels and no adw:none → no classification, no opt-out, no conflict', () => {
@@ -67,8 +63,6 @@ describe('readAdwLabels', () => {
   });
 });
 
-// ── readAdwLabelNames — parity with readAdwLabels ─────────────────────────────
-
 describe('readAdwLabelNames', () => {
   it('zero labels → no classification, no opt-out, no conflict', () => {
     expect(readAdwLabelNames([])).toEqual({ optOut: false, classification: null, conflict: false });
@@ -102,8 +96,6 @@ describe('readAdwLabelNames', () => {
     expect(readAdwLabelNames(['adw:upgrade'])).toEqual({ optOut: false, classification: null, conflict: false });
   });
 });
-
-// ── issueTypeToAdwLabel ───────────────────────────────────────────────────────
 
 describe('issueTypeToAdwLabel', () => {
   it('/feature → adw:feature', () => {

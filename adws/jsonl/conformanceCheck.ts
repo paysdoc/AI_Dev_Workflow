@@ -1,6 +1,5 @@
 /**
- * CI conformance checker: validates JSONL fixture files against the probed schema
- * and through ADW's parsers. Exits non-zero when drift is detected.
+ * Exits non-zero when drift is detected.
  *
  * Run standalone: bunx tsx adws/jsonl/conformanceCheck.ts
  */
@@ -17,14 +16,7 @@ const __dirname = path.dirname(__filename);
 const DEFAULT_SCHEMA_PATH = path.join(__dirname, 'schema.json');
 const DEFAULT_FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
-// ---------------------------------------------------------------------------
-// Schema comparison helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Recursively finds required schema fields missing from a data object.
- * Returns dot-path strings for each missing required field.
- */
+/** Returns dot-path strings for each missing required field. */
 function findMissingFields(
   data: Record<string, unknown>,
   schemaFields: SchemaField[],
@@ -74,11 +66,6 @@ function findExtraFields(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Per-fixture checks
-// ---------------------------------------------------------------------------
-
-/** Verifies the fixture line feeds through parseJsonlOutput with expected state changes. */
 function runParserCheck(fixtureLine: string, messageType: string): string[] {
   const state: JsonlParserState = {
     lastResult: null,
@@ -113,7 +100,6 @@ function runParserCheck(fixtureLine: string, messageType: string): string[] {
   return errors;
 }
 
-/** Verifies the fixture line feeds through AnthropicTokenUsageExtractor without errors. */
 function runExtractorCheck(fixtureLine: string, messageType: string): string[] {
   const extractor = new AnthropicTokenUsageExtractor();
 
@@ -139,17 +125,6 @@ function runExtractorCheck(fixtureLine: string, messageType: string): string[] {
   return errors;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Validates all .jsonl fixture files against the probed schema and through ADW's parsers.
- *
- * @param schemaPath - Path to schema.json (defaults to adws/jsonl/schema.json).
- * @param fixturesDir - Path to fixtures directory (defaults to adws/jsonl/fixtures/).
- * @returns Array of ConformanceResult, one per fixture file.
- */
 export function checkConformance(
   schemaPath: string = DEFAULT_SCHEMA_PATH,
   fixturesDir: string = DEFAULT_FIXTURES_DIR
@@ -178,7 +153,6 @@ export function checkConformance(
       extractorErrors: [],
     };
 
-    // 1. Parse check
     let parsed: unknown;
     const rawLine = fs.readFileSync(fixturePath, 'utf-8').trim();
     try {
@@ -198,7 +172,6 @@ export function checkConformance(
       return { ...base, passed: false, parseError: 'Fixture is missing a string "type" field.' };
     }
 
-    // 2. Schema check
     const schemaFields = schema.messageTypes[messageType];
     if (!schemaFields) {
       // Unknown message type — warn but don't fail
@@ -210,10 +183,8 @@ export function checkConformance(
     const missingFields = findMissingFields(msg, schemaFields, '');
     const extraFields = findExtraFields(msg, schemaFields, '');
 
-    // 3. Parser check
     const parserErrors = runParserCheck(rawLine, messageType);
 
-    // 4. Extractor check
     const extractorErrors = runExtractorCheck(rawLine, messageType);
 
     const passed = missingFields.length === 0 && parserErrors.length === 0 && extractorErrors.length === 0;
@@ -222,9 +193,6 @@ export function checkConformance(
   });
 }
 
-/**
- * Formats a conformance report as a human-readable string.
- */
 export function formatConformanceReport(results: ConformanceResult[]): string {
   const lines: string[] = ['Conformance check results:'];
 
@@ -254,10 +222,6 @@ export function formatConformanceReport(results: ConformanceResult[]): string {
 
   return lines.join('\n');
 }
-
-// ---------------------------------------------------------------------------
-// Standalone entry point
-// ---------------------------------------------------------------------------
 
 const isMain = path.resolve(process.argv[1] ?? '') === path.resolve(__filename);
 if (isMain) {

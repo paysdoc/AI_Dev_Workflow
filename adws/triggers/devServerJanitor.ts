@@ -1,20 +1,11 @@
 /**
- * Dev server janitor — cron probe for orphaned dev server processes.
- *
  * Scans target repository worktrees for dev server processes left behind by
- * SIGKILL'd or crashed orchestrators. Applies a conservative kill decision:
- * leave alone if (non-terminal stage AND orchestrator PID alive) OR worktree
- * is younger than 30 minutes. Otherwise SIGTERM → SIGKILL survivors.
+ * SIGKILL'd or crashed orchestrators.
  *
  * Structure walked: {targetReposDir}/{owner}/{repo}/, where repo is treated as
  * an ADW target repo only when it carries BOTH a `.git` entry and the `.adw`
  * marker directory written by adw_init — TARGET_REPOS_DIR may be a general
- * projects folder shared with non-ADW repos, not an ADW-only directory (#812).
- * A failure listing one repo's worktrees is logged and isolated to that repo;
- * it never aborts the rest of the pass (#812).
- *
- * Entry point: runJanitorPass()
- * All OS-touching operations are injectable via deps for unit testing.
+ * projects folder shared with non-ADW repos, not an ADW-only directory.
  */
 
 import * as fs from 'fs';
@@ -27,60 +18,34 @@ import { isActiveStage } from './cronStageResolver';
 import { killProcessesInDirectory } from '@paysdoc/devplatform/git';
 import type { AgentState } from '../types/agentTypes';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 /** Grace period: worktrees younger than this are always left alone. */
-export const JANITOR_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+export const JANITOR_GRACE_PERIOD_MS = 30 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** Discovered worktree candidate for janitor evaluation. */
 export interface WorktreeCandidate {
-  /** Absolute path to the worktree directory. */
   worktreePath: string;
-  /** Directory name (basename of worktreePath). */
   dirName: string;
 }
 
-/** Injectable dependencies for unit testing. */
 export interface JanitorDeps {
-  /** Read directory entries from the target repos base directory. */
   readdirTargetRepos: (targetReposDir: string) => string[];
-  /** Check if a path is a git repo (has .git directory). */
   isGitRepo: (repoPath: string) => boolean;
   /** Check if a repo directory carries the `.adw` marker written by adw_init (i.e. is ADW-managed). */
   hasAdwMarker: (repoPath: string) => boolean;
-  /** List worktrees for a repo by owner/repo name. */
   listWorktrees: (owner: string, repo: string) => string[];
-  /** Read top-level workflow state for an adwId. */
   readTopLevelState: (adwId: string) => AgentState | null;
   /** List adwId directories under AGENTS_STATE_DIR (excludes 'cron' and non-directories). */
   listAdwStateDirs: () => string[];
   /** Read top-level workflow state for an adwId (alias for AgentStateManager.readTopLevelState). */
   readTopLevelStateRaw: (adwId: string) => AgentState | null;
-  /** Check if the orchestrator process for an adwId is still alive. */
   isAgentProcessRunning: (adwId: string) => boolean;
-  /** Get the age of a worktree directory in milliseconds. */
   getWorktreeAgeMs: (worktreePath: string) => number;
-  /** Check if any processes are holding files open in the given directory. */
   hasProcessesInDirectory: (directoryPath: string) => boolean;
   /** Kill all processes holding files in the given directory (SIGTERM → SIGKILL). */
   killProcessesInDirectory: (directoryPath: string) => void;
-  /** Log function. */
   log: (msg: string, level?: LogLevel) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Pure decision logic
-// ---------------------------------------------------------------------------
-
 /**
- * Extracts the issue number from a worktree directory name.
- *
  * Branch format is owned by generateBranchName() in adws/vcs/.
  * Example: `feature-issue-55-scraper-visual-asset-capture` → 55.
  *
@@ -94,14 +59,11 @@ export function extractIssueNumberFromDirName(dirName: string): number | null {
 }
 
 /**
- * Finds the most recently active adwId for a given issue number by scanning
- * top-level state files under AGENTS_STATE_DIR.
  *
  * Multiple state files may share an issue number (re-runs, takeovers); the freshest
  * `lastSeenAt` (refreshed by the heartbeat ticker) wins. Entries without `lastSeenAt`
  * are tie-broken by treating their seen time as 0.
  *
- * @returns The adwId of the freshest matching state file, or null if no state file matches.
  */
 export function findActiveAdwIdForIssue(
   issueNumber: number,
@@ -120,16 +82,11 @@ export function findActiveAdwIdForIssue(
 }
 
 /**
- * Pure kill decision function.
  *
  * Returns true (should clean) unless:
  * - The workflow is non-terminal AND the orchestrator PID is still alive (active workflow)
  * - The worktree is younger than the grace period (recently created)
  *
- * @param isNonTerminal  - True if the workflow stage is still active
- * @param orchestratorAlive - True if the orchestrator process is still running
- * @param ageMs - Age of the worktree directory in milliseconds
- * @param gracePeriodMs - Grace period in milliseconds (default: JANITOR_GRACE_PERIOD_MS)
  */
 export function shouldCleanWorktree(
   isNonTerminal: boolean,
@@ -137,16 +94,11 @@ export function shouldCleanWorktree(
   ageMs: number,
   gracePeriodMs: number,
 ): boolean {
-  // Active workflow with live orchestrator: always skip
   if (isNonTerminal && orchestratorAlive) return false;
   // Young worktree: skip (state file may not be written yet); <= is deliberately conservative
   if (ageMs <= gracePeriodMs) return false;
   return true;
 }
-
-// ---------------------------------------------------------------------------
-// Discovery
-// ---------------------------------------------------------------------------
 
 /**
  * Lists the worktrees of one `{owner}/{repo}` directory, or `[]` when it is not an
@@ -156,7 +108,7 @@ export function shouldCleanWorktree(
  * anything else under the target repos root is skipped before any GitContext / token
  * resolution happens. A listing failure (GitHub App not installed → HTTP 404, missing
  * remote, deleted repo, network error) is logged as a warning naming the repo and
- * isolated to that repo so discovery continues with the rest (#812).
+ * isolated to that repo so discovery continues with the rest.
  */
 function discoverRepoWorktrees(owner: string, repo: string, repoPath: string, deps: JanitorDeps): string[] {
   if (!deps.isGitRepo(repoPath)) return [];
@@ -170,13 +122,6 @@ function discoverRepoWorktrees(owner: string, repo: string, repoPath: string, de
   }
 }
 
-/**
- * Walks targetReposDir to find all worktrees across all ADW-managed target repos.
- * Structure: {targetReposDir}/{owner}/{repo}/ where repo carries both a `.git` entry
- * and the `.adw` marker directory (#812).
- *
- * @param targetReposDir - Root directory to walk (defaults to TARGET_REPOS_DIR).
- */
 export function discoverTargetRepoWorktrees(deps: JanitorDeps, targetReposDir: string = TARGET_REPOS_DIR): WorktreeCandidate[] {
   const candidates: WorktreeCandidate[] = [];
 
@@ -205,10 +150,6 @@ export function discoverTargetRepoWorktrees(deps: JanitorDeps, targetReposDir: s
 
   return candidates;
 }
-
-// ---------------------------------------------------------------------------
-// Default dependency implementations
-// ---------------------------------------------------------------------------
 
 function defaultReaddirTargetRepos(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true })
@@ -273,27 +214,9 @@ const defaultDeps: JanitorDeps = {
   log,
 };
 
-/** Production dependencies. Exported frozen so tests and step definitions can spread it and override only the network- and process-touching members. */
+/** Exported frozen so tests and step definitions can spread it and override only the network- and process-touching members. */
 export const DEFAULT_DEPS: JanitorDeps = Object.freeze(defaultDeps);
 
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
-
-/**
- * Runs one janitor pass over all target repository worktrees.
- *
- * For each worktree:
- * 1. Extract adwId from directory name
- * 2. Read workflow stage from state file (if adwId found)
- * 3. Check orchestrator PID liveness
- * 4. Check worktree age
- * 5. Apply kill decision rule
- * 6. SIGTERM → SIGKILL processes in eligible worktrees
- *
- * @param deps - Injectable dependencies (defaults to real OS implementations)
- * @param targetReposDir - Root directory to walk (defaults to TARGET_REPOS_DIR)
- */
 export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS, targetReposDir: string = TARGET_REPOS_DIR): Promise<void> {
   const candidates = discoverTargetRepoWorktrees(deps, targetReposDir);
 
@@ -305,12 +228,10 @@ export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS, targetRep
 
   for (const { worktreePath, dirName } of candidates) {
     try {
-      // Step 1: Probe for processes via lsof — skip entirely if none found
       if (!deps.hasProcessesInDirectory(worktreePath)) {
         continue;
       }
 
-      // Step 2: Apply kill decision rule
       const issueNumber = extractIssueNumberFromDirName(dirName);
       const adwId = issueNumber !== null ? findActiveAdwIdForIssue(issueNumber, deps) : null;
 
@@ -331,7 +252,6 @@ export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS, targetRep
         continue;
       }
 
-      // Step 3: Kill — SIGTERM → wait → SIGKILL survivors
       deps.log(`Janitor: cleaning orphaned processes in ${worktreePath}`, 'info');
       deps.killProcessesInDirectory(worktreePath);
     } catch (err) {

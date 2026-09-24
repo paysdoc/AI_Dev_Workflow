@@ -1,8 +1,3 @@
-/**
- * TypeScript types and interfaces for the R2 upload module.
- */
-
-/** Configuration required to connect to Cloudflare R2 via S3-compatible API. */
 export interface R2Config {
   readonly accountId: string;
   readonly accessKeyId: string;
@@ -11,7 +6,6 @@ export interface R2Config {
   readonly publicBaseUrl: string;
 }
 
-/** Options for uploading a file to R2. */
 export interface UploadOptions {
   /** GitHub owner / organisation name (used to derive the bucket name). */
   readonly owner: string;
@@ -25,17 +19,12 @@ export interface UploadOptions {
   readonly contentType?: string;
 }
 
-/** Result returned after a successful upload. */
 export interface UploadResult {
-  /** Fully-qualified public URL for the uploaded object. */
   readonly url: string;
-  /** R2 bucket name the object was written to. */
   readonly bucket: string;
-  /** Object key within the bucket. */
   readonly key: string;
 }
 
-/** Metadata for an R2 bucket discovered via the S3 API. */
 export interface BucketInfo {
   readonly name: string;
   readonly createdAt: Date | undefined;

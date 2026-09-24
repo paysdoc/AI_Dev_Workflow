@@ -1,10 +1,3 @@
-/**
- * Agent process handler for Claude Code agent output processing.
- *
- * Attaches stdout/stderr/close/error handlers to spawned Claude processes
- * and resolves the returned promise with an AgentResult.
- */
-
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,7 +7,6 @@ import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing, type Mo
 import type { ModelUsageMap as CostModelUsageMap } from '../cost/types';
 import type { AgentResult } from '../types/agentTypes';
 
-/** Computes estimated total cost USD by summing across all models using Anthropic pricing. */
 function computeEstimatedCostUsd(usage: CostModelUsageMap): number {
   return Object.entries(usage).reduce((total, [model, tokens]) => {
     return total + computeCost(tokens, getAnthropicPricing(model));
@@ -40,10 +32,6 @@ function toOldModelUsageMap(usage: CostModelUsageMap): ModelUsageMap {
   );
 }
 
-/**
- * Attaches stdout/stderr/close/error handlers to a spawned Claude process and
- * resolves the returned promise with an {@link AgentResult}.
- */
 export function handleAgentProcess(
   claude: ChildProcess,
   agentName: string,
@@ -79,7 +67,6 @@ export function handleAgentProcess(
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     const outputStream = fs.createWriteStream(outputFile, { flags: 'a' });
 
-    // Wrap onProgress to inject real-time token estimate from the extractor
     const wrappedOnProgress: ProgressCallback | undefined = onProgress
       ? (info: ProgressInfo) => onProgress({ ...info, tokenEstimate: extractor.getCurrentUsage() })
       : undefined;
@@ -90,7 +77,6 @@ export function handleAgentProcess(
       extractor.onChunk(text);
       parseJsonlOutput(text, state, wrappedOnProgress, statePath);
 
-      // Structured JSONL detection: check parser state flags set by parseJsonlOutput()
       if (!authErrorDetected && state.authErrorDetected) {
         authErrorDetected = true;
         log(`${agentName}: Fatal authentication error detected — killing process to avoid hours of futile retries.`, 'error');
@@ -147,7 +133,6 @@ export function handleAgentProcess(
     claude.on('close', (code) => {
       outputStream.end();
 
-      // Log final summary
       log(`${agentName} agent finished:`, 'info');
       log(`  Exit code: ${code}`, 'info');
       log(`  Total turns: ${state.turnCount}`, 'info');
@@ -162,7 +147,6 @@ export function handleAgentProcess(
         });
       }
 
-      // Write final state summary if statePath provided
       if (statePath) {
         AgentStateManager.appendLog(
           statePath,
@@ -170,7 +154,6 @@ export function handleAgentProcess(
         );
       }
 
-      // Build cost fields from extractor
       const extractorFinalized = extractor.isFinalized();
       const extractorUsage = extractor.getCurrentUsage();
       const estimatedUsage = extractor.getEstimatedUsage();
@@ -179,7 +162,6 @@ export function handleAgentProcess(
         ? extractor.getReportedCostUsd()
         : computeEstimatedCostUsd(extractorUsage);
 
-      // Convert extractor usage to old-format ModelUsageMap for orchestrator compatibility.
       const resolvedModelUsage: ModelUsageMap | undefined = Object.keys(extractorUsage).length > 0
         ? toOldModelUsageMap(extractorUsage)
         : undefined;
@@ -309,7 +291,6 @@ export function handleAgentProcess(
     claude.on('error', (error) => {
       outputStream.end();
       log(`${agentName} error: ${error.message}`, 'error');
-      // Log error to state if statePath provided
       if (statePath) {
         AgentStateManager.appendLog(statePath, `Error: ${error.message}`);
       }

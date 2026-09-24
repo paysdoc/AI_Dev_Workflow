@@ -77,10 +77,6 @@ beforeEach(() => {
   mockedAgent.mockResolvedValue({ success: true, output: '' });
 });
 
-// ─────────────────────────────────────────────────────────────────────────
-// isMergeConflictError — keyword contract
-// ─────────────────────────────────────────────────────────────────────────
-
 describe('isMergeConflictError', () => {
   it('returns true for the GitHub "not mergeable: the merge commit cannot be cleanly created" string', () => {
     expect(isMergeConflictError(NOT_MERGEABLE)).toBe(true);
@@ -110,10 +106,6 @@ describe('isMergeConflictError', () => {
     expect(isMergeConflictError('IS NOT MERGEABLE')).toBe(true);
   });
 });
-
-// ─────────────────────────────────────────────────────────────────────────
-// mergeWithConflictResolution — orchestration
-// ─────────────────────────────────────────────────────────────────────────
 
 describe('mergeWithConflictResolution', () => {
   it('invokes resolveConflictsViaAgent when the dry-run reports conflicts', async () => {

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Contract guard for the #592 incident: the SDLC PR template must instruct the
+ * Contract guard: the SDLC PR template must instruct the
  * agent to emit the bare `Implements #<issueNumber>` marker that ADW's
  * linked-PR detectors (hitlBoardNotifier, linkedPrDetector, perIssueScenarioSweep)
  * match on. Dropping it silently disables HITL review notifications and the

@@ -1,17 +1,6 @@
-/**
- * Routing maps for ADW issue dispatch.
- *
- * Extracted from issueTypes.ts — routing logic is separate from type definitions.
- * These maps determine which orchestrator script handles which issue type.
- */
-
 import type { IssueClassSlashCommand } from './issueTypes';
 
-/**
- * Maps issue classification types to their default orchestrator scripts.
- * Used by triggers to determine which ADW workflow to spawn when no
- * explicit ADW command is provided.
- */
+/** Used by triggers to determine which ADW workflow to spawn when no explicit ADW command is provided. */
 export const issueTypeToOrchestratorMap: Partial<Record<IssueClassSlashCommand, string>> = {
   '/bug': 'adws/adwSdlc.tsx',
   '/chore': 'adws/adwChore.tsx',
@@ -19,10 +8,7 @@ export const issueTypeToOrchestratorMap: Partial<Record<IssueClassSlashCommand, 
   '/pr_review': 'adws/adwPlanBuild.tsx',
 };
 
-/**
- * Maps issue classification to commit message prefixes.
- * Following conventional commits specification.
- */
+/** Following conventional commits specification. */
 export const commitPrefixMap: Record<IssueClassSlashCommand, string> = {
   '/feature': 'feat:',
   '/bug': 'fix:',
@@ -31,10 +17,7 @@ export const commitPrefixMap: Record<IssueClassSlashCommand, string> = {
   '/adw_init': 'adwinit:',
 };
 
-/**
- * Maps issue classification to branch name prefixes.
- * Following common Git branching conventions.
- */
+/** Following common Git branching conventions. */
 export const branchPrefixMap: Record<IssueClassSlashCommand, string> = {
   '/feature': 'feature',
   '/bug': 'bugfix',

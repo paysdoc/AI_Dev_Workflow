@@ -1,9 +1,4 @@
-/**
- * Unit tests for the webhook per-event boundary resolver.
- *
- * All I/O is behind injected seams — no real gh/git calls, no network.
- * Mirrors launchGitContext.test.ts + feature-664.feature §1–§5.
- */
+/** All I/O is behind injected seams — no real gh/git calls, no network. */
 
 import * as path from 'path';
 import * as os from 'os';
@@ -85,7 +80,6 @@ function buildContextFromPayload(
     resolveToken: () => token,
   });
   if (execFn) {
-    // Re-construct with the recording exec injected directly
     return new GitContext(
       {
         owner: ctx.owner,
@@ -101,8 +95,6 @@ function buildContextFromPayload(
   }
   return ctx;
 }
-
-// ── Resolver parsing ──────────────────────────────────────────────────────────
 
 describe('resolveWebhookRepo — parsing', () => {
   it('returns null for a payload with no repository', () => {
@@ -145,8 +137,6 @@ describe('resolveWebhookRepo — parsing', () => {
   });
 });
 
-// ── §1: A payload → a context at that repo's target workspace ─────────────────
-
 describe('per-event context resolves to payload repository (§1)', () => {
   it('basePath is join(targetReposDir, owner, repo) for acme/webapp', () => {
     const ctx = buildContextFromPayload(makePayload('acme', 'webapp'));
@@ -174,12 +164,9 @@ describe('per-event context resolves to payload repository (§1)', () => {
   });
 });
 
-// ── §2: Per-event independence ────────────────────────────────────────────────
-
 describe('per-event independence — second construction does not mutate first (§2)', () => {
   it('first context retains its owner/repo/basePath after second is constructed', () => {
     const ctxA = buildContextFromPayload(makePayload('acme', 'webapp'));
-    // Construct second context for a different repo
     buildContextFromPayload(makePayload('octo', 'other'));
 
     expect(ctxA.owner).toBe('acme');
@@ -209,8 +196,6 @@ describe('per-event independence — second construction does not mutate first (
   });
 });
 
-// ── §3a: Per-event command auth + cwd ────────────────────────────────────────
-
 describe('per-event command runs with context own token and cwd (§3a)', () => {
   it('recorded command env.GH_TOKEN equals the context token', async () => {
     const { exec, calls } = recordingExec();
@@ -227,8 +212,6 @@ describe('per-event command runs with context own token and cwd (§3a)', () => {
     expect(calls[0].cwd).toBe(ctx.basePath);
   });
 });
-
-// ── §3b: Mid-flight global-overwrite immunity ─────────────────────────────────
 
 describe('mid-flight process.env.GH_TOKEN overwrite does not bleed into per-event command (§3b)', () => {
   const originalToken = process.env.GH_TOKEN;
@@ -260,13 +243,10 @@ describe('mid-flight process.env.GH_TOKEN overwrite does not bleed into per-even
 
     await ctx.getCurrentBranch();
     expect(calls[0].env.GH_TOKEN).not.toBe('token-octo');
-    // Verify the overwrite token is nowhere in the env values
     const envValues = Object.values(calls[0].env);
     expect(envValues).not.toContain('token-octo');
   });
 });
-
-// ── §4: Interleaved two-repo isolation ───────────────────────────────────────
 
 describe('interleaved events for two repos are isolated (§4)', () => {
   it('each context records its own token in the command env', async () => {
@@ -276,7 +256,6 @@ describe('interleaved events for two repos are isolated (§4)', () => {
     const ctxA = buildContextFromPayload(makePayload('acme', 'alpha', { token: 'token-alpha' }), undefined, recA.exec);
     const ctxB = buildContextFromPayload(makePayload('octo', 'beta', { token: 'token-beta' }), undefined, recB.exec);
 
-    // Interleaved: run op on A, then B
     await ctxA.getCurrentBranch();
     await ctxB.getCurrentBranch();
 
@@ -327,8 +306,6 @@ describe('interleaved events for two repos are isolated (§4)', () => {
   });
 });
 
-// ── §5: Payload-determined worktree path (cwd-independent) ───────────────────
-
 describe('worktreePathFor is payload-determined and cwd-independent (§5)', () => {
   const originalCwd = process.cwd();
 
@@ -352,8 +329,6 @@ describe('worktreePathFor is payload-determined and cwd-independent (§5)', () =
   });
 });
 
-// ── Incomplete identity propagation ──────────────────────────────────────────
-
 describe('incomplete identity surfaces the GitContext construction error', () => {
   it('throws when resolved token is empty', () => {
     const resolution = resolveWebhookRepo(makePayload('acme', 'webapp')) as WebhookRepoResolution;
@@ -363,8 +338,6 @@ describe('incomplete identity surfaces the GitContext construction error', () =>
   });
 });
 
-// ── buildEventBoundary / selfHostBoundary ────────────────────────────────────
-//
 // Each test below re-mocks '../../core' with vi.doMock and deliberately never
 // vi.doUnmock()s it. vitest only queues doMock/doUnmock; the queue is drained on
 // the next import via Promise.all over per-entry async resolveId RPCs, so an

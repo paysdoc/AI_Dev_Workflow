@@ -1,9 +1,3 @@
-/**
- * feature-823.feature step definitions — §1 seam-assembly steps and the
- * §1/§2 assembled-set checks. Entry file: feature-823.steps.ts (state,
- * Before/After hooks, splitRepo).
- */
-
 import { When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 
@@ -12,10 +6,6 @@ import { getRecordingSeam } from './feature-819.steps.ts';
 import { getCapturedProviders } from './feature-794.steps.ts';
 
 import { forgeProviders } from '@paysdoc/devplatform/providers';
-
-// ---------------------------------------------------------------------------
-// §1 — assembling a provider set directly over the recording gh seam
-// ---------------------------------------------------------------------------
 
 When(
   'a provider set is assembled for the identity {string} over that git context and any failure is captured',
@@ -66,10 +56,6 @@ Then('the recording gh seam recorded no command', function () {
     `Expected no recorded commands, got: ${seam.calls.map((c) => c.command).join(' | ')}`,
   );
 });
-
-// ---------------------------------------------------------------------------
-// §1/§2 — the boundary's assembled set, over feature-794's captured providers
-// ---------------------------------------------------------------------------
 
 Then('the assembled set carries no board manager', function () {
   const providers = getCapturedProviders();

@@ -130,14 +130,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1 GITLAB CONFIGURATION ARRIVES INJECTED (AC1, AC2; story 9) ───────────────────────
-  #
-  # The headline for GitLab, and the direction that proves the new signature does something rather
-  # than merely accepting an argument it ignores. `GitLabApiClient` builds
-  # `${instanceUrl}/api/v4/${path}` and sends `PRIVATE-TOKEN: ${token}`; both values must be the
-  # injected ones, on every call path, with the URL-encoded project path derived from the bound
-  # RepoIdentifier rather than from anything ambient.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: The injected token and endpoint are what reach the wire when a merge request is opened
     Given a recording forge endpoint is listening
@@ -148,12 +140,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     And the recorded request body carried "source_branch" set to "feat-818"
     And the recorded request body carried "target_branch" set to "main"
     And the recorded request body carried "title" set to "Inject the config"
-
-  # Every read path, not just the write one. `getDefaultBranch`, `fetchPullRequest`,
-  # `fetchReviewComments` and `listOpenPullRequests` each build their own path through the same
-  # private `request`, and an implementation that threads the injected instance URL into the
-  # constructor but leaves one call site reading a module-level constant is green on the scenario
-  # above and broken here.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: Every GitLab read path builds its request from the injected endpoint and token
@@ -170,24 +156,12 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | fetch review comments | /api/v4/projects/acme%2Fwidget/merge_requests/7/discussions |
       | list open requests    | /api/v4/projects/acme%2Fwidget/merge_requests?state=opened  |
 
-  # The trailing-slash normalisation is a behaviour of the current client
-  # (`instanceUrl.replace(/\/+$/, '')`), not an accident, and it is exactly the kind of line that
-  # evaporates when a constructor argument is replaced by a config object. Without it a
-  # `.adw/providers.md` entry ending in `/` produces `//api/v4/…` and every request 404s.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: A trailing slash on the injected GitLab endpoint is normalised away
     Given a recording forge endpoint is listening
     And GitLab code-host configuration for "acme/widget" with token "glpat-injected-abc" pointing at the recording endpoint with a trailing slash
     When the GitLab code host performs the "default branch" operation
     Then the recording endpoint received a "GET" request to "/api/v4/projects/acme%2Fwidget"
-
-  # The refusal survives the move, but it changes vocabulary. Today the factory throws
-  # "GITLAB_TOKEN environment variable is required …" and tells the caller which dotenv file to edit
-  # — a message that only makes sense to a caller that reads ADW's own configuration. An adapter that
-  # no longer touches the environment must not keep naming the host's environment variables; the
-  # wiring that DOES read them owns that message (§2). What must not change is that an unconfigured
-  # code host refuses loudly rather than issuing an unauthenticated request.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: A GitLab code host configured without a token refuses instead of calling out unauthenticated
@@ -197,13 +171,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     Then the adapter refuses with an error
     And the adapter's refusal names no environment variable
     And the recording endpoint received no request
-
-  # ── §2 THE GITLAB ADAPTER NO LONGER CONSULTS THE ENVIRONMENT (AC1, AC2) ────────────────
-  #
-  # TRAP 1, in both of its shapes. Each scenario below runs the adapter in a child process whose
-  # environment carries a poisoned value, so a `process.env` read at module scope or at call time is
-  # visible in the recorded request. The first pair proves the poison loses to injected
-  # configuration; the third proves it is not a fallback when configuration is absent.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: A poisoned GitLab token in the environment never reaches the wire
@@ -222,10 +189,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the GitLab code host performs the "default branch" operation
     Then the recording endpoint received a "GET" request to "/api/v4/projects/acme%2Fwidget"
 
-  # The `??` fallback, isolated. This is the scenario that fails for an implementation which accepts
-  # the injected config, is green on everything above, and quietly backfills from the environment
-  # when a field is missing — the shape a well-meaning "keep it backwards compatible" edit produces.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: An absent injected token is not backfilled from the environment
     Given a recording forge endpoint is listening
@@ -234,11 +197,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the GitLab code host performs the "default branch" operation
     Then the adapter refuses with an error
     And the recording endpoint received no request
-
-  # The other half of "the reads MOVE": they must still happen, in their new home. `resolveCodeHost`
-  # is the live wiring path — `mintBoundProviders` reaches it for `Platform.GitLab` — so an
-  # implementation that strips the environment out of the adapter and forgets to put it back in
-  # `repoContext.ts` breaks every real GitLab deployment while every scenario above stays green.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: ADW's wiring reads the GitLab environment and hands it to the adapter
@@ -258,13 +216,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     Then the adapter refuses with an error naming "GITLAB_TOKEN"
     And the recording endpoint received no request
 
-  # ── §3 JIRA CONFIGURATION ARRIVES INJECTED (AC1, AC2; story 9) ─────────────────────────
-  #
-  # The same direction for Jira, where the injected `auth` decides the Authorization header outright:
-  # Cloud credentials produce `Basic base64(email:token)`, a personal access token produces
-  # `Bearer <pat>`. The two shapes are the whole reason `JiraAuth` is a union, and the header is the
-  # only place the choice is observable.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: Injected Jira cloud credentials produce basic authentication against the injected endpoint
     Given a recording forge endpoint is listening
@@ -281,11 +232,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the Jira issue tracker comments "Build green" on issue 42
     Then the recording endpoint received a "POST" request to "/rest/api/3/issue/ADW-42/comment"
     And the recorded request carried the header "authorization" with value "Bearer jira-injected-pat"
-
-  # The project key is injected too, and it is not decorative: it composes every issue key the
-  # adapter addresses. A key read from `JIRA_PROJECT_KEY` — which `adws/core` also exports and which
-  # this issue deliberately does not list among the five reads that move — silently addresses the
-  # wrong project.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: The injected project key composes the addressed issue key
@@ -316,15 +262,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     And the adapter's refusal names no environment variable
     And the recording endpoint received no request
 
-  # ── §4 THE JIRA ENVIRONMENT READS AND THE AUTH SELECTION BOTH CHANGE HOMES (AC1, AC2) ──
-  #
-  # TRAP 2. The first two scenarios are the adapter half: whichever `auth` the caller injected is the
-  # one that goes on the wire, even when the environment holds a complete, plausible, contradictory
-  # set of credentials. The PAT row is the load-bearing one — an implementation that keeps
-  # `if (JIRA_EMAIL && JIRA_API_TOKEN)` at the top of the factory and treats the injected `auth` as
-  # the fallback sends `Basic` here, and every naive injection test still passes because none of them
-  # set the environment.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: Injected personal-access-token auth wins over a complete cloud credential pair in the environment
     Given a recording forge endpoint is listening
@@ -343,11 +280,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the Jira issue tracker comments "Build green" on issue 42
     Then the recorded request carried basic authentication for "bot@example.com" and "jira-injected-token"
     And no recorded request carried the value "jira-POISON-pat"
-
-  # The wiring half: the precedence the factory is losing has to reappear intact in
-  # `repoContext.ts`. Row 1 is the regression a Cloud deployment suffers if precedence is dropped
-  # and a stale personal access token lingers in the environment; row 2 is the Data Center path;
-  # row 3 is the Cloud-only path with no token present at all.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: ADW's wiring keeps the documented Jira credential precedence
@@ -373,15 +305,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When ADW's provider wiring resolves Jira credentials and the issue tracker comments on issue 42 at the recording endpoint with project key "ADW"
     Then the adapter refuses with an error naming "JIRA_PAT"
     And the recording endpoint received no request
-
-  # ── §5 BOTH ADAPTERS LOG THROUGH THE INJECTED PORT (AC3; story 10) ─────────────────────
-  #
-  # TRAP 4 first. The logger must reach BOTH layers of each adapter, and the levels must survive.
-  # `GitLabCodeHost` itself never logs — only its API client does — so the GitLab row proves the
-  # factory threads the port down into the client it builds. Jira exercises both layers: the
-  # `success` line comes from `JiraIssueTracker.commentOnIssue`, the `warn` line from
-  # `JiraApiClient.request`'s rate-limit branch. Three of the four levels in use are covered here;
-  # an implementation that drops the level argument is green on the message and red on the level.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: The GitLab API client reports a rejected request through the injected logger
@@ -409,13 +332,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the Jira issue tracker comments "Build green" on issue 42
     Then the injected logger recorded a message containing "rate limited" at level "warn"
 
-  # TRAP 3. With no logger injected the line still appears, and it appears in the PORT's default
-  # form: the bare message. ADW's `log` would render the same text as
-  # `<emoji> [2026-09-08T…Z] <message>` and redden the error, so the second assertion is what
-  # separates "defaulted to `consoleLogger`" from "defaulted to the framework logger the guard is
-  # meant to have made unreachable" — an implementation doing the latter is green on the first
-  # assertion alone.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: With no logger injected the Jira issue tracker falls back to the port's console default
     Given a recording forge endpoint is listening
@@ -434,14 +350,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the GitLab code host performs the "default branch" operation
     Then the adapter wrote a line containing "GitLab API" to stdout
     And no line the adapter wrote to stdout carries ADW's timestamped log decoration
-
-  # ── §6 THE GUARD SCOPE WIDENS TO BOTH ADAPTER DIRECTORIES, AND NO FURTHER (AC4) ────────
-  #
-  # The machine-checkable half of the whole slice, and the part that keeps it from being undone. Each
-  # row below is a file that reaches `../../core` at a line that exists today; after this issue every
-  # one of them must fail the build. Until the scope widens they all pass, which is why this outline
-  # is the pivot: an implementation that removes the imports but forgets the scope entries leaves AC1
-  # unenforced and this scenario red.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: A framework import from a named adapter module fails the guard by name
@@ -466,13 +374,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | adws/providers/jira/jiraApiClient.ts        |
       | adws/providers/jira/jiraBoardManager.ts     |
 
-  # TRAP 5, too-narrow edge. None of these five appear in the issue's file list, because none of them
-  # is entangled today — `mappers.ts` and both `gitlabTypes.ts`/`jiraTypes.ts` reach only `../types`
-  # and their own siblings, `adfConverter.ts` imports nothing at all, and the barrels only re-export.
-  # That is precisely why the scope entry has to be the DIRECTORY: six file entries pass this
-  # outline's sibling rows only by leaving them unguarded, and the first re-entanglement lands
-  # silently.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: A framework import from an unnamed sibling in either adapter directory fails the guard too
     Given a guard fixture tree holding the file "<path>":
@@ -492,13 +393,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | adws/providers/gitlab/index.ts       | ../../github/prApi     |
       | adws/providers/jira/adfConverter.ts  | ../../core/utils       |
       | adws/providers/jira/jiraTypes.ts     | ../../types/issueTypes |
-
-  # The other direction, and the exact shape the de-tangled adapters take: the `Logger` port comes
-  # from `adws/gitContext/`, the ports from `adws/providers/types.ts`, the raw shapes from a sibling.
-  # All three resolve inside the extractable set — the two directories move together — so an
-  # implementation that satisfied the guard by inlining a private logger type instead of importing
-  # the port would be passing a test it did not need to pass, while a rule that flagged any specifier
-  # leaving the file's own directory would fail the build on the very files this issue rewrites.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: The de-tangled adapters reaching the logger port, the provider ports and their own siblings pass the guard
@@ -527,16 +421,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # TRAP 5, too-wide edge, and the reason a one-line "widen to adws/providers" was, at the time, the
-  # worst possible answer. `repoContext.ts` was the file this very issue moved the environment reads
-  # INTO, importing `../github/gitContextFactory` and `../core/projectConfig` by design. #819 later
-  # cleaned and widened the scope by the whole `adws/providers/github` directory, so the three GitHub
-  # adapter modules this row used to pin were no longer out of scope; #823 then replaced
-  # `repoContext.ts` itself with `forgeProviders()` and widened the scope to the whole `adws/providers`
-  # directory, closing the gap this row used to prove. What remains provable is the boundary from
-  # outside the extractable set entirely — a framework file in `adws/core/` is still not checked,
-  # however it is imported.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: A framework file beside the extractable set is still not checked
     Given a guard fixture tree holding the file "<path>":
@@ -552,11 +436,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | path                          | specifier         |
       | adws/core/forgeWiring.ts      | ./environment     |
       | adws/core/launchGitContext.ts | ./providerConfig  |
-
-  # TRAP 6. AC2 puts the new unit tests inside the directories this section just put in scope, and
-  # they will import `vitest` and — for the "no environment read remaining" assertions — very likely
-  # framework paths on purpose. `isScannable` already excludes both shapes; this pins the exclusion
-  # where it now matters, rather than discovering it as a red build on the tests AC2 requires.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: The adapters' own test files are excluded from the widened scope
@@ -574,10 +453,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | path                                                   |
       | adws/providers/gitlab/__tests__/gitlabApiClient.test.ts |
       | adws/providers/jira/__tests__/jiraApiClient.test.ts     |
-
-  # The ratchet. WIDEN ONLY, NEVER NARROW is a property of a list, and the only way a test can see it
-  # is by re-running what the earlier slices pinned. Every entry #816 and #817 added must still fire
-  # after #818's widening.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: The scope entries the earlier slices seeded still fail on a framework import
@@ -598,10 +473,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
       | adws/providers/github/mappers.ts            | ../../types/issueTypes    |
       | adws/providers/github/domain/issueShapes.ts | ../../../types/issueTypes |
 
-  # The anti-relabel row #816 §6 introduced and #817 re-ran, re-run again because #818 is the third
-  # slice to change EXTRACTION_SCOPE and the first to widen it to whole directories: a widening
-  # applied to collection rather than to the extraction rule alone relabels or swallows this.
-
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: A framework shell-out still fails under the shell-out rule, not the extraction rule
     Given a guard fixture tree holding the file "adws/core/branchHelper.ts":
@@ -615,15 +486,6 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree fails naming "adws/core/branchHelper.ts"
     And the guard failure over the guard fixture tree cites no extraction-readiness rule
-
-  # ── §7 THE BACKSTOPS (AC4, AC5) ─────────────────────────────────────────────────────────
-  #
-  # TRAP 7's constructor-arity scenarios (GitLab/Jira "refuses by name" and the board-manager
-  # zero-argument outline) moved out from under this file in #844: `refusalStubs.test.ts` and
-  # `boardManager.test.ts` still cover the same arities directly against the four
-  # `PROVIDER_CONSTRUCTORS` names, and `checkGitGhGuard.test.ts`'s guarded-factory-name table still
-  # ratchets that they survive a rename. What remains here is the whole-repository backstop: the
-  # guard and the type-check, run for real.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario: The guard passes across the whole repository with both adapter directories in scope

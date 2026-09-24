@@ -1,11 +1,9 @@
 /**
- * Pure resume policy for the bounded resume cap (issue #639).
+ * Pure resume policy for the bounded resume cap.
  *
- * No I/O, no side effects — same inputs always produce the same output.
  * Mirrors progressGate.ts: a discriminated decision, a hard backstop.
  */
 
-/** Outcome returned by {@link nextResumeAction}. */
 export type ResumeAction = 'resume' | 'escalate';
 
 /**
@@ -16,12 +14,6 @@ export type ResumeAction = 'resume' | 'escalate';
 export const MAX_RESUME_ATTEMPTS = 3;
 
 /**
- * Pure policy: returns 'resume' while attempts are strictly below the bound,
- * 'escalate' once attempts reach or exceed it.
- *
- * @param attempts - Number of automatic resumes already performed.
- * @param max      - The cap (defaults to MAX_RESUME_ATTEMPTS).
- *
  * Semantics:
  *   attempts < max  → 'resume'   (still within budget)
  *   attempts >= max → 'escalate' (cap reached — park until human Retry)

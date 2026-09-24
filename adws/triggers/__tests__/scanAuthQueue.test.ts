@@ -132,7 +132,6 @@ describe('scanAuthQueue', () => {
     const count = await scanAuthQueue(BOUNDARY, TARGET_ARGS, undefined, deps);
 
     expect(count).toBe(1);
-    // Should only write/evaluate for adwId2
     expect(deps.writeTopLevelState).toHaveBeenCalledWith(adwId2, { workflowStage: 'abandoned' });
     expect(deps.writeTopLevelState).not.toHaveBeenCalledWith(adwId1, expect.anything());
   });

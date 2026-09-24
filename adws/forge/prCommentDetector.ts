@@ -2,7 +2,7 @@
  * The pr-review unaddressed-comment read wired to a launch boundary — the
  * single place `readUnaddressedComments`'s four reads are bound to
  * `boundary.providers.codeHost` and `boundary.gitContext`; `prReviewPhase.ts`
- * and `trigger_cron.ts` share it (#821).
+ * and `trigger_cron.ts` share it.
  */
 
 import { readUnaddressedComments, getLastAdwCommitTimestamp, type UnaddressedCommentReads } from '../core/unaddressedComments';
@@ -21,7 +21,6 @@ export function buildUnaddressedCommentReads(
   };
 }
 
-/** True when the PR has any unaddressed review comments. */
 export function hasUnaddressedComments(
   prNumber: number,
   boundary: Pick<LaunchBoundary, 'providers' | 'gitContext'>,

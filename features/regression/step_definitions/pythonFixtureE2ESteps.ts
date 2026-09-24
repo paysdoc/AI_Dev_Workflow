@@ -1,19 +1,3 @@
-/**
- * Step definitions for the Python fixture e2e regression scenario.
- *
- * Execution pattern: Phase import — drives the real ADW pipeline modules
- * (loadProjectConfig → runScenarioProof → harvestProofArtifacts →
- * formatPrProofComment / publishPrProof) in-process against an isolated
- * copy of test/fixtures/python-app/.
- *
- * Vocabulary phrases: G-PY1, W-PY1, T-PY1 through T-PY6
- * (see features/regression/vocabulary.md).
- *
- * The @regression Before/After hooks (features/regression/support/hooks.ts)
- * run automatically; they set REAL_GIT_PATH. A @python-e2e After hook here
- * tears down the fixture repo and proofDir.
- */
-
 import { After, Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import * as fs from 'fs';
@@ -35,10 +19,6 @@ import { Platform } from '@paysdoc/devplatform';
 
 const ADW_ID = 'x3qme8-python-fixture-targe';
 
-// ---------------------------------------------------------------------------
-// Teardown — scoped to @python-e2e
-// ---------------------------------------------------------------------------
-
 After({ tags: '@python-e2e' }, function (this: RegressionWorld) {
   if (this.pythonFixture) {
     teardownFixtureRepo(this.pythonFixture);
@@ -52,20 +32,12 @@ After({ tags: '@python-e2e' }, function (this: RegressionWorld) {
   this.capturedProofComment = undefined;
 });
 
-// ---------------------------------------------------------------------------
-// G-PY1: initialise the Python fixture as an ADW target repo
-// ---------------------------------------------------------------------------
-
 Given(
   'the Python fixture target {string} is initialised as an ADW target repo',
   function (this: RegressionWorld, fixtureName: string) {
     this.pythonFixture = setupFixtureRepo(fixtureName);
   },
 );
-
-// ---------------------------------------------------------------------------
-// W-PY1: run the scenario proof pipeline against the fixture
-// ---------------------------------------------------------------------------
 
 When(
   'ADW runs the scenario proof pipeline against the Python fixture for issue {int}',
@@ -89,10 +61,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T-PY1: proof run was not skipped
-// ---------------------------------------------------------------------------
-
 Then(
   'the scenario proof for the Python fixture is not skipped',
   function (this: RegressionWorld) {
@@ -102,10 +70,6 @@ Then(
     assert.ok(!first.skipped, 'Expected proof run not to be skipped (step-def gate should have found .py files)');
   },
 );
-
-// ---------------------------------------------------------------------------
-// T-PY2: JUnit tally
-// ---------------------------------------------------------------------------
 
 Then(
   'the scenario proof reports {int} passed and {int} failed',
@@ -118,10 +82,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T-PY3: no blocker failures
-// ---------------------------------------------------------------------------
-
 Then(
   'the scenario proof records no blocker failures',
   function (this: RegressionWorld) {
@@ -132,10 +92,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T-PY4: harvest at least N screenshots
-// ---------------------------------------------------------------------------
 
 Then(
   'the proof run harvests at least {int} screenshot artifact',
@@ -148,10 +104,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T-PY5: proof comment contains tally + inline screenshot embed
-// ---------------------------------------------------------------------------
 
 Then(
   'the composed proof comment shows the pass tally and an inline screenshot',
@@ -178,10 +130,6 @@ Then(
     assert.ok(comment.includes('[!['), 'Expected inline screenshot embed in comment');
   },
 );
-
-// ---------------------------------------------------------------------------
-// T-PY6: publish posts a comment with tally + signature
-// ---------------------------------------------------------------------------
 
 Then(
   'publishing the proof posts a PR comment carrying the pass tally',

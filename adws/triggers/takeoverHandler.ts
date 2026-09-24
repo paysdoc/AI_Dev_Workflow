@@ -9,7 +9,7 @@
  *                                         (scanPauseQueue is the sole resumer)
  *  5. abandoned                         → probe worktree → reuse-in-place if healthy,
  *                                         else reset-from-remote → reconcile → take_over_adwId
- *  6. phase_timeout                     → cap automatic resumes (#639): within budget →
+ *  6. phase_timeout                     → cap automatic resumes: within budget →
  *                                         probe worktree → reuse-in-place if healthy,
  *                                         else reset-from-remote → reconcile → take_over_adwId;
  *                                         at cap → escalate_human_gated
@@ -168,8 +168,6 @@ export function evaluateCandidate(
   const { issueNumber, boundary } = input;
   const repoInfo = boundary.repoId;
 
-  // Branch 1: attempt to acquire the per-issue spawn lock.
-  // If another live process holds it, defer immediately.
   const acquired = d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid);
   if (!acquired) {
     const holder = d.readSpawnLockRecord(repoInfo, issueNumber);
@@ -179,7 +177,6 @@ export function evaluateCandidate(
   // We hold the lock from here. Release it on any non-takeover exit.
   const releaseLock = () => d.releaseIssueSpawnLock(repoInfo, issueNumber);
 
-  // Branch 2: resolve the canonical adwId from issue comments.
   const adwId = d.resolveAdwId(issueNumber, repoInfo);
   if (adwId === null) {
     // No prior ADW work — spawn fresh; lock stays held for caller's spawn.
@@ -188,14 +185,12 @@ export function evaluateCandidate(
 
   const state = d.readTopLevelState(adwId);
   if (state === null) {
-    // State file not found — treat as fresh.
     return { kind: 'spawn_fresh' };
   }
 
   const stage = state.workflowStage ?? '';
   const cls = classifyStageString(stage);
 
-  // Branch 3 & 4: terminal — completed / discarded / paused / paused_auth.
   if (cls === 'terminal') {
     releaseLock();
     return {
@@ -205,14 +200,10 @@ export function evaluateCandidate(
     };
   }
 
-  // Branch 5: retriable (abandoned) — probe worktree → reuse-in-place or reset-from-remote → takeover.
   if (cls === 'retriable') {
     return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 
-  // Branch 6: phase_timeout — the watchdog exited the orchestrator (process.exit(0)).
-  // Cap the automatic resumes (#639): escalate to human_gated when the bound is reached.
-  // Within budget: increment the counter and run the #638 reuse-or-reset gate.
   if (stage === 'phase_timeout') {
     const attempts = state.resumeAttempts ?? 0;
     if (nextResumeAction(attempts, MAX_RESUME_ATTEMPTS) === 'escalate') {
@@ -228,7 +219,6 @@ export function evaluateCandidate(
     return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 
-  // Branch 7 & 8: active (*_running / starting / resuming).
   if (cls === 'active') {
     const pid = state.pid;
     const pidStartedAt = state.pidStartedAt ?? '';
@@ -245,6 +235,5 @@ export function evaluateCandidate(
     return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
-  // Branch 9: defensive fallthrough — awaiting_merge / human_gated / resumable.
   return { kind: 'spawn_fresh' };
 }

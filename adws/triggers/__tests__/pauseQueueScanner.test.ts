@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 
-// ── Module mocks (hoisted) ───────────────────────────────────────────────────
-
 vi.mock('child_process', () => ({
   execSync: vi.fn(),
   spawn: vi.fn(),
@@ -71,8 +69,6 @@ vi.mock('../../core/agentState', () => ({
   },
 }));
 
-// ── Imports (after mocks) ────────────────────────────────────────────────────
-
 import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import { removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQueue';
@@ -82,8 +78,6 @@ import { AgentStateManager } from '../../core/agentState';
 import { resumeWorkflow } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
   return {
@@ -101,7 +95,6 @@ function makeEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
   };
 }
 
-/** Creates a fake ChildProcess EventEmitter with the minimal interface spawn returns. */
 function makeFakeChild() {
   const emitter = new EventEmitter() as EventEmitter & {
     pid: number;
@@ -112,13 +105,10 @@ function makeFakeChild() {
   return emitter;
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────────
-
 describe('resumeWorkflow', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    // Default: worktree exists
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.openSync).mockReturnValue(42 as unknown as ReturnType<typeof fs.openSync>);
     // Default: canonical claim passes (lock free, state matches default makeEntry adwId)
@@ -131,10 +121,6 @@ describe('resumeWorkflow', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
-
-  // ── Worktree-gone comment posting, routed through a per-entry boundary ────
-  // (issue #797 — fixes a wrong-repo bug where a --target-repo entry's error
-  // comments were silently dropped by a cwd-based git-remote check)
 
   it("worktree gone: removes from queue and posts an error comment through the entry's own boundary", async () => {
     vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -262,8 +248,6 @@ describe('resumeWorkflow', () => {
     expect(child.unref).toHaveBeenCalledOnce();
   });
 
-  // ── Canonical-claim verification ───────────────────────────────────────────
-
   it('resume with matching claim proceeds to spawn and commits side-effects', async () => {
     vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
     vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
@@ -347,10 +331,6 @@ describe('resumeWorkflow', () => {
     expect(removeFromPauseQueue).not.toHaveBeenCalled();
     expect(postIssueStageComment).not.toHaveBeenCalled();
   });
-
-  // ── Repo-identity routing (issue #565 / #701) ─────────────────────────────
-  // Per-command auth is now supplied by the launch-boundary GitContext (PRD Auth model).
-  // These guards verify the correct repo identity is routed for spawn-lock acquisition.
 
   it('uses the target repo from extraArgs for spawn-lock, not the cwd-resolved repo', async () => {
     const child = makeFakeChild();

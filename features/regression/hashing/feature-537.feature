@@ -92,8 +92,6 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1 Normal path — declared inputs produce a SHA256 hex digest ───────────
-
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: The hash computer returns a SHA256 hex digest for a framework with declared, resolvable inputs
     Given a fixture framework whose adw_init spec declares hash inputs:
@@ -104,8 +102,6 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
     And the fixture input file "beta.txt" contains "beta-content-537"
     When the framework content hash is computed for the fixture framework
     Then the most recent computed hash is a 64-character lowercase hexadecimal SHA256 digest
-
-  # ── §2 Determinism & order-independence — reorder does not change the hash ──
 
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: Reordering the files in the hash inputs list does not change the digest
@@ -123,8 +119,6 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
     And the framework content hash is computed for the fixture framework
     Then the recorded hashes are all identical
 
-  # ── §3 Sensitivity — changing any byte in any declared input changes it ────
-
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: Changing one byte in any declared input file changes the digest
     Given a fixture framework whose adw_init spec declares hash inputs:
@@ -140,15 +134,11 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
     And the framework content hash is computed for the fixture framework
     Then the recorded hashes are all different
 
-  # ── §4 Error — missing hashInputs frontmatter is a hard, clear error ───────
-
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: A framework whose adw_init spec omits the hashInputs frontmatter raises a clear error
     Given a fixture framework whose adw_init spec omits the hash inputs frontmatter
     When the framework content hash computation is attempted for the fixture framework
     Then the hash computation fails with an error reporting the absent hash inputs declaration
-
-  # ── §5 Error — a declared input that does not resolve names the file ───────
 
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: A declared input file that does not resolve raises a clear error naming the missing file
@@ -159,8 +149,6 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
     And the fixture input file "alpha.txt" contains "alpha-content-537"
     When the framework content hash computation is attempted for the fixture framework
     Then the hash computation fails with an error that names the missing input file "does-not-exist.txt"
-
-  # ── §6 Two distinct frameworks with distinct inputs hash differently ───────
 
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: Frameworks with the same hash-input filenames but different file content hash differently
@@ -176,16 +164,12 @@ Feature: hashComputer — a pure deep module that computes the framework's conte
     And the framework content hash is computed for the second fixture framework
     Then the recorded hashes are all different
 
-  # ── §7 Real framework — the hashInputs spec change makes a digest resolvable ─
-
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: The hash computer returns a stable digest for the real ADW framework checkout
     When the framework content hash is computed for the ADW framework under test
     And the framework content hash is computed for the ADW framework under test
     Then the most recent computed hash is a 64-character lowercase hexadecimal SHA256 digest
     And the recorded hashes are all identical
-
-  # ── §8 Type-check ──────────────────────────────────────────────────────────
 
   @adw-537 @adw-zapagn-hashcomputer-deep-mo
   Scenario: TypeScript type-check passes after adding the hashComputer module

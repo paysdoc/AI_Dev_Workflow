@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Map of Gherkin BDD framework names → step definition file extensions.
 // Unknown or empty framework defaults to ['.ts'] to preserve existing cucumber-js/TS behaviour.
 const FRAMEWORK_EXTENSION_MAP: Record<string, string[]> = {
   'cucumber-js': ['.ts', '.js'],

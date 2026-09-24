@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwTest — scenarioProof — happy path
 
-  # Row 22: scenario proof phase validates passing tag set; state advances to awaiting_merge.
   Scenario: test orchestrator runs scenario proof phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1022 exists in the mock issue tracker

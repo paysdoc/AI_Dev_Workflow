@@ -2,10 +2,6 @@
  * Pure lifecycle decider for the promotion sweep. No I/O — every input is a
  * pre-computed fact; the decider only maps facts to a single `PromotionAction`.
  *
- * Covers the full lifecycle: `originate` (issue #740) plus `decline | redrive
- * | withdraw` (issue #741, the reconcile half) — a tagged, in-flight
- * candidate reconciled against its tracking issue/PR.
- *
  * Decision table:
  *
  * | tagState  | meetsThreshold | reconcile            | action    |

@@ -1,9 +1,4 @@
 /**
- * Scenario fix phase execution for workflows.
- *
- * Takes the failure list from a previous scenarioTestPhase run, invokes
- * runResolveScenarioAgent for each failed scenario tag, commits fixes, and returns.
- *
  * Intended to be called inside an orchestrator-level retry loop:
  *   scenarioTest → [scenarioFix → scenarioTest] × MAX_TEST_RETRY_ATTEMPTS
  */
@@ -24,13 +19,6 @@ import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
 import { evaluateResolveEdit } from '../core/resolveFreezeGuard';
 
-/**
- * Executes the Scenario Fix phase: resolves each failed scenario tag from a
- * previous scenarioTestPhase run, then commits and pushes all fixes.
- *
- * @param config - Workflow configuration
- * @param scenarioProof - The result of the previous scenarioTestPhase run
- */
 export async function executeScenarioFixPhase(
   config: WorkflowConfig,
   scenarioProof: ScenarioProofResult,
@@ -117,7 +105,6 @@ export async function executeScenarioFixPhase(
     gherkinFreezeViolations.push(...reverted);
   }
 
-  // Commit and push all fixes
   await runCommitAgent(
     'scenario-fix-agent',
     issueType,

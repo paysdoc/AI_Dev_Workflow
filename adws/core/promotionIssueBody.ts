@@ -1,6 +1,6 @@
 /**
  * Pure builder for the promotion issue's title/body/labels. Produces a
- * #734-shaped precise relocation instruction (see
+ * precise relocation instruction (see
  * `specs/issue-734-adw-ikwe55-feat-promote-729-adw-sdlc_planner-promote-729-regression-scenario.md`
  * for the canonical hand-done shape this reproduces): git mv the feature +
  * step-def files into the regression suite, add a feature-level `@regression`

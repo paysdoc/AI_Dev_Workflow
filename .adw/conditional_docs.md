@@ -344,7 +344,7 @@
     - features/per-issue/**
   - Conditions:
     - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
-    - When sweeping comments out of per-issue feature files or step definitions (see `app_docs/feature-m363ky-comment-only-guard.md` for the guard that verifies a sweep touched only comments)
+    - When working on the comment-only de-bloat sweep of `features/per-issue/` files (see `app_docs/feature-m363ky-comment-only-guard.md` for the guard itself)
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:

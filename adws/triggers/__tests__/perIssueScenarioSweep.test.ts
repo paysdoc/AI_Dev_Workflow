@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Module mocks (hoisted) ───────────────────────────────────────────────────
-
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
@@ -18,8 +16,6 @@ vi.mock('../../forge/issueLinkMarker', () => ({
   bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
 }));
 
-// ── Imports (after mocks) ────────────────────────────────────────────────────
-
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { readFileSync } from 'fs';
 import type { GitContext } from '@paysdoc/devplatform/git';
@@ -28,8 +24,6 @@ import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
 
 const UNTAGGED_CONTENT = 'Feature: plain\n';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -68,8 +62,6 @@ function makeFakeBoundary(gitContext: GitContext, codeHost: CodeHost = makeFakeC
 const fakeGitContext = makeFakeGitContext();
 const fakeBoundary = makeFakeBoundary(fakeGitContext);
 
-// ── Predicate truth table ────────────────────────────────────────────────────
-
 describe('isScenarioStale — truth table', () => {
   it('mergedAt = null → false (issue not yet merged)', () => {
     expect(isScenarioStale('features/per-issue/feature-1.feature', null, RETENTION_DAYS, NOW)).toBe(false);
@@ -92,8 +84,6 @@ describe('isScenarioStale — truth table', () => {
     expect(isScenarioStale('features/per-issue/feature-5.feature', future, RETENTION_DAYS, NOW)).toBe(false);
   });
 });
-
-// ── Sweep integration block ──────────────────────────────────────────────────
 
 describe('runPerIssueScenarioSweep — integration', () => {
   beforeEach(() => {
@@ -266,8 +256,6 @@ describe('runPerIssueScenarioSweep — integration', () => {
   });
 });
 
-// ── Promotion-awareness: the composed exemption gate ─────────────────────────
-
 describe('runPerIssueScenarioSweep — promotion-awareness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -373,8 +361,6 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
     expect(readFeatureContent).not.toHaveBeenCalled();
   });
 });
-
-// ── Default wiring — routes through a synced sweep worktree + PR ────────────
 
 describe('runPerIssueScenarioSweep — default wiring through the injected GitContext', () => {
   const PER_ISSUE_DIR = 'features/per-issue';

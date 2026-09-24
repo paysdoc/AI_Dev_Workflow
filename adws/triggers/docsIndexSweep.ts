@@ -1,8 +1,4 @@
 /**
- * Docs-index sweep — full repair + reconcile lifecycle, cron-dispatched via
- * `runDocsIndexSweepTick` (see `trigger_cron.ts`) on the
- * `DOCS_INDEX_SWEEP_INTERVAL_CYCLES` cadence.
- *
  * Reads `.adw/conditional_docs.md` and lists tracked files from a dedicated
  * worktree synced to fresh `origin/<default>` (`perIssueSweepPersist.ts`'s
  * `prepareSweepBase`, generalised via `SweepPersistSpec`), assesses index
@@ -143,8 +139,7 @@ function fileNew(spec: DocsIndexReportIssueSpec, args: ReconcileArgs): { reportI
 }
 
 /**
- * Runs one docs-index sweep pass: read → assess → repair-and-persist →
- * reconcile-report. Never throws. Returns `EMPTY_REPORT` when the repo has
+ * Never throws. Returns `EMPTY_REPORT` when the repo has
  * no readable index (a target repo without living-docs is a no-op — no PR,
  * no issue).
  */
@@ -216,8 +211,6 @@ export async function runDocsIndexSweep(deps: DocsIndexSweepDeps): Promise<DocsI
     if (cachedBase) cleanupSweepBase(cachedBase);
   }
 }
-
-// ── CLI entry point ──────────────────────────────────────────────────────────
 
 if (process.argv[1]?.replace(/\\/g, '/').includes('docsIndexSweep')) {
   const targetRepo = parseTargetRepoArgs(process.argv.slice(2));

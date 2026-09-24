@@ -1,6 +1,4 @@
 /**
- * Test harness for ADW mock infrastructure.
- *
  * Wires together the Claude CLI stub, GitHub API mock server, and git remote
  * mock. Provides setup() and teardown() functions for Cucumber Before/After
  * hooks. Environment variable changes are fully reversible.
@@ -22,7 +20,6 @@ import type { MockConfig, MockContext, MockServerState, FixtureRepoContext } fro
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Saved original env var values for restoration on teardown. */
 interface SavedEnv {
   CLAUDE_CODE_PATH: string | undefined;
   PATH: string | undefined;
@@ -66,7 +63,6 @@ function createGitMockDir(realGitPath: string): string {
   return tempDir;
 }
 
-/** Removes the temporary git mock directory. */
 function cleanupGitMockDir(): void {
   if (gitMockTempDir && existsSync(gitMockTempDir)) {
     try {
@@ -78,7 +74,6 @@ function cleanupGitMockDir(): void {
   gitMockTempDir = null;
 }
 
-/** Builds a MockContext pointing at the running server on the given port. */
 function buildContext(port: number): MockContext {
   const serverUrl = `http://localhost:${port}`;
 
@@ -93,16 +88,7 @@ function buildContext(port: number): MockContext {
   return { serverUrl, port, getRecordedRequests, setState, teardown };
 }
 
-/**
- * Sets up the full mock infrastructure.
- *
- * - Starts the GitHub API mock server on a random port
- * - Sets CLAUDE_CODE_PATH to point at the CLI stub
- * - Prepends a temp dir with a mock `git` wrapper to PATH
- * - Sets GH_TOKEN and GH_HOST so `gh` CLI can route to the mock
- *
- * Idempotent: calling setup twice without teardown returns the existing context.
- */
+/** Idempotent: calling setup twice without teardown returns the existing context. */
 export async function setupMockInfrastructure(
   config?: Partial<MockConfig>,
 ): Promise<MockContext> {
@@ -123,21 +109,17 @@ export async function setupMockInfrastructure(
   };
 
   try {
-    // Start GitHub API mock server
     const { port, url } = await startMockServer(config?.port ?? 0);
 
-    // Set up Claude CLI stub
     const stubPath = config?.stubPath ?? resolve(__dirname, 'claude-cli-stub.ts');
     process.env['CLAUDE_CODE_PATH'] = stubPath;
 
-    // Set up git remote mock
     const realGitPath = findRealGit();
     gitMockTempDir = config?.gitMockDir ?? createGitMockDir(realGitPath);
     const originalPath = process.env['PATH'] ?? '';
     process.env['PATH'] = `${gitMockTempDir}:${originalPath}`;
     process.env['REAL_GIT_PATH'] = realGitPath;
 
-    // Configure GitHub mock routing environment
     process.env['GH_TOKEN'] = 'mock-token';
     process.env['GH_HOST'] = `localhost:${port}`;
     process.env['MOCK_GITHUB_API_URL'] = url;
@@ -155,7 +137,6 @@ export async function setupMockInfrastructure(
 }
 
 /**
- * Stops all mocks and restores original environment variables.
  * Safe to call multiple times, including when setup never completed —
  * each step below is individually guarded on the resource it releases.
  */
@@ -178,25 +159,14 @@ export async function teardownMockInfrastructure(): Promise<void> {
   isSetUp = false;
 }
 
-/**
- * Resets mock server state without stopping it.
- * Use between scenarios when keeping the server running for performance.
- */
+/** Use between scenarios when keeping the server running for performance. */
 export function resetMock(): void {
   resetMockServer();
 }
 
 /**
- * Copies a fixture template to a temp directory and initializes it as a git repo.
- *
- * - Copies `test/fixtures/{fixtureName}/` to a fresh temp directory
- * - Runs `git init`, `git add .`, and `git commit` using the real git binary
- * - Returns the temp directory path and a cleanup function
- *
  * Must be called after `setupMockInfrastructure()` so that `REAL_GIT_PATH` is
  * already set, ensuring the real git is used rather than the mock wrapper.
- *
- * @param fixtureName - Subdirectory under test/fixtures/ to copy (default: 'cli-tool')
  */
 export function setupFixtureRepo(fixtureName = 'cli-tool'): FixtureRepoContext {
   const sourceDir = resolve(process.cwd(), 'test/fixtures', fixtureName);
@@ -226,7 +196,6 @@ export function setupFixtureRepo(fixtureName = 'cli-tool'): FixtureRepoContext {
   return { repoDir, cleanup };
 }
 
-/** Removes the fixture repo temp directory. */
 export function teardownFixtureRepo(ctx: FixtureRepoContext): void {
   ctx.cleanup();
 }

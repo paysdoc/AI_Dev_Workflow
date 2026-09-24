@@ -4,17 +4,9 @@
  * `GitContext` plus its bound provider triple are constructed. This is the
  * only sanctioned construction site (see `adws/guard/constructionRule.ts`).
  *
- * Since #791, the built context is handed a TokenProvider — the QUESTION,
+ * The built context is handed a TokenProvider — the QUESTION,
  * not a resolved answer — so a GitHub App installation token minted at
  * launch is never replayed, stale, hours into a long-running orchestrator.
- *
- * Since #794, the boundary also mints the forge provider triple (IssueTracker /
- * CodeHost / BoardManager) bound to the SAME identity the GitContext receives, in
- * the same call — see `buildLaunchBoundary`. `buildLaunchGitContext` is now the
- * context-only view of that one call. Since #823 the boundary constructs its one
- * `GitContext` directly and assembles the providers through the library's
- * `forgeProviders()` — ADW's own wiring (environment reads, the GitHub Slack/label
- * seams) lives in `forgeWiring.ts`; workspace binding lives in `workspaceBinding.ts`.
  */
 
 import { GitContext } from '@paysdoc/devplatform/git';
@@ -38,12 +30,8 @@ import { Platform } from '@paysdoc/devplatform';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 import { log } from './utils';
 
-/**
- * Injectable seams for buildLaunchGitContext. All fields are optional;
- * production defaults are applied if omitted.
- */
 export interface LaunchGitContextDeps {
-  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoIdentity(). */
+  /** Defaults to readLocalRepoIdentity(). */
   getRepoInfo?: (cwd?: string) => RepoIdentifier;
   /**
    * Returns a non-empty GitHub token for the given owner/repo. Adapted into a
@@ -53,21 +41,19 @@ export interface LaunchGitContextDeps {
   resolveToken?: (owner: string, repo: string) => string;
   /** The supported credential path. Takes precedence over `resolveToken` when both are supplied. */
   tokenProvider?: TokenProvider;
-  /** Returns a complete git identity. */
   resolveGitIdentity?: () => GitIdentity;
-  /** Absolute path to the ADW framework repo root. Defaults to REPO_ROOT. */
+  /** Defaults to REPO_ROOT. */
   frameworkRepoRoot?: string;
-  /** Absolute path to the directory that houses cloned target repos. Defaults to TARGET_REPOS_DIR. */
+  /** Defaults to TARGET_REPOS_DIR. */
   targetReposDir?: string;
-  /** The RepoIdentifier's declared platform. Defaults to Platform.GitHub (matches buildRepoIdentifier). */
+  /** Defaults to Platform.GitHub (matches buildRepoIdentifier). */
   platform?: Platform;
-  /** Loads provider forge selection for a workspace directory. Defaults to loadProviderConfig from ./providerConfig. */
+  /** Defaults to loadProviderConfig from ./providerConfig. */
   loadProviderConfig?: (dir: string) => ProviderConfig;
-  /** Assembles the bound provider triple. Defaults to the library's forgeProviders(). Deliberately a property-access seam, unflagged by the construction rule. */
+  /** Defaults to the library's forgeProviders(). Deliberately a property-access seam, unflagged by the construction rule. */
   forgeProviders?: (options: ForgeProvidersOptions) => BoundProviders;
   /**
-   * Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the
-   * selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. The third
+   * Defaults to buildAdwForgeDeps from ./forgeWiring. The third
    * argument is a thunk resolving to the boundary's own memoised `BoundProviders` —
    * invoked only at notification time (a status move), never during assembly, since
    * this function itself runs inside the lazy mint, before the providers it resolves
@@ -86,7 +72,7 @@ export interface LaunchGitContextDeps {
 /** ADW's launch credentials are GitHub-keyed by convention — the same convention `readLocalRepoIdentity` uses for `platform: Platform.GitHub`. Provider forge selection still comes from `.adw/providers.md` at first `.providers` access (deferred, unchanged). */
 const LAUNCH_CREDENTIAL_FORGE: ForgeSelection = { codeHost: 'github', issueTracker: 'github' };
 
-/** The one place ADW's environment reaches the library's credential factory. `alternateIdentityPat = GITHUB_PAT` preserves #819 parity: `'alternateIdentity'` requests get the PAT, `'default'` requests resolve App token → PAT → `gh auth token`. */
+/** The one place ADW's environment reaches the library's credential factory. `alternateIdentityPat = GITHUB_PAT` preserves parity: `'alternateIdentity'` requests get the PAT, `'default'` requests resolve App token → PAT → `gh auth token`. */
 export function launchCredentialsOptions(identity: RepoIdentifier): ForgeCredentialsOptions {
   return {
     forge: LAUNCH_CREDENTIAL_FORGE,
@@ -109,7 +95,7 @@ function tokenProviderFromResolver(resolveToken: (owner: string, repo: string) =
 }
 
 /**
- * Resolves the launch `TokenProvider` and bootstrap `GitIdentity`. When both
+ * When both
  * `deps.tokenProvider`/`deps.resolveToken` AND `deps.resolveGitIdentity` are
  * injected, returns them directly — no environment or `git config` read, so
  * every existing `baseDeps()` test stays hermetic. Otherwise mints whichever
@@ -246,12 +232,7 @@ export function buildLaunchBoundary(
   return boundary;
 }
 
-/**
- * The context-only view of a `buildLaunchBoundary` call — unchanged behaviour
- * for every existing caller. Building a context this way performs no
- * provider-config read and gains no new failure mode: it is exactly what this
- * function did before providers existed.
- */
+/** Building a context this way performs no provider-config read and gains no new failure mode. */
 export function buildLaunchGitContext(
   targetRepo: TargetRepoInfo | null,
   deps: LaunchGitContextDeps = {},

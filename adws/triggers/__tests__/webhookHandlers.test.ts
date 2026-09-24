@@ -10,8 +10,6 @@ import type { PullRequestWebhookPayload } from '../../types/issueTypes';
 import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 const BOUNDARY = { repoId: REPO_INFO, providers: {} } as unknown as LaunchBoundary;
 
@@ -76,8 +74,6 @@ function makeIssueDeps(overrides: Partial<IssueClosedDeps> = {}): IssueClosedDep
   };
 }
 
-// ── handlePullRequestEvent ───────────────────────────────────────────────────
-
 describe('handlePullRequestEvent — merged PR', () => {
   it('returns ignored for a merged PR without any side effects', async () => {
     const deps = makePrDeps();
@@ -139,8 +135,6 @@ describe('handlePullRequestEvent — non-closed action', () => {
     expect(deps.closeIssue).not.toHaveBeenCalled();
   });
 });
-
-// ── handleIssueClosedEvent ───────────────────────────────────────────────────
 
 describe('handleIssueClosedEvent — normal closure (completed workflow)', () => {
   it('cleans up worktree, deletes branch, and unblocks dependents', async () => {
@@ -263,7 +257,6 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
     // No adwId was found so no state-based operations
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
-    // Dependency unblock still runs (treats as normal closure)
     expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, []);
   });
 });

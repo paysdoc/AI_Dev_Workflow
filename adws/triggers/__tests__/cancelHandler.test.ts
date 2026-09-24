@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
-// Mock all external dependencies before importing the module under test
 vi.mock('../../core/workflowCommentParsing', () => ({
   extractAdwIdFromComment: vi.fn(),
 }));
@@ -161,14 +160,12 @@ describe('handleCancelDirective', () => {
     handleCancelDirective(42, [], boundary, undefined, processedSets);
 
     expect(processedSets.spawns.has(42)).toBe(false);
-    // Other entries untouched
     expect(processedSets.spawns.has(99)).toBe(true);
   });
 
   it('does not touch processedSets when not provided', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    // Should not throw when processedSets is undefined
     expect(() => handleCancelDirective(42, [], boundary)).not.toThrow();
   });
 
@@ -193,21 +190,18 @@ describe('handleCancelDirective', () => {
       .mockReturnValueOnce(null);
     mockReadFileSync.mockImplementation(() => { throw new Error('ENOENT'); });
 
-    // Should complete without throwing
     expect(() => handleCancelDirective(42, comments, boundary)).not.toThrow();
-    // Both adwIds still had rmSync called
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-1', { recursive: true, force: true });
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-2', { recursive: true, force: true });
   });
 
   it('deduplicates adwIds extracted from multiple comments', () => {
     const comments = [{ body: 'c1' }, { body: 'c2' }, { body: 'c3' }];
-    mockExtractAdwId.mockReturnValue('same-adwid'); // all return same id
+    mockExtractAdwId.mockReturnValue('same-adwid');
     mockFindOrchestratorStatePath.mockReturnValue(null);
 
     handleCancelDirective(42, comments, boundary);
 
-    // rmSync called only once despite three comments returning the same adwId
     expect(mockRmSync).toHaveBeenCalledTimes(1);
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/same-adwid', { recursive: true, force: true });
   });

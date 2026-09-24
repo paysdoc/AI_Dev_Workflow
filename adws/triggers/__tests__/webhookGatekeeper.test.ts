@@ -1,6 +1,4 @@
 /**
- * Tests for the adw:upgrade short-circuit in classifyAndSpawnWorkflow (Bug C′).
- *
  * The #UPG tracking issue carries the adw:upgrade label. It must be routed directly to
  * adwUpgrade.tsx and must NEVER reach evaluateCandidate / the normal classifier — otherwise
  * the classifier reads its title, mislabels it as a chore, and re-enters the upgrade gate on

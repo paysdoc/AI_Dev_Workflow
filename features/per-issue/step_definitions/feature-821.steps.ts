@@ -1,34 +1,13 @@
 /**
- * BDD step definitions for feature-821.feature
- *
- * The triggers reach the forge through the boundary's providers alone; the
- * legacy free-function layer is deleted.
- *
- * §1  the webhook's per-event boundary
- * §2  the cron tick
- * §3  the takeover handler's boundary-less adapters
- * §4  the cancel directive
- * §5  the gatekeeper's classify-and-label path
- * §6  the region-overlap registration
- * §7  the listing callers (concurrency + dependencies)
- * §8  the bootstrap that precedes the boundary (resolveWebhookRepo)
- * §9  whose login counts as "self" (unaddressed-comment read)
- * §10 what does not move (pure predicates / label vocabulary)
- * §11 structural backstops → feature-691.steps.ts (guard), feature-504.steps.ts (type-check)
- *
- * Reuses feature-796's recording-boundary harness (`world796()`) and
- * feature-820's registered Then phrases throughout — every phrase already
- * registered elsewhere is reused, never redefined. `Before`/`After` are
- * tag-scoped to `@adw-821` because feature-796's own hooks are scoped to
- * `@adw-796` and do not fire here.
+ * `Before`/`After` are tag-scoped to `@adw-821` because feature-796's own
+ * hooks are scoped to `@adw-796` and do not fire here.
  *
  * `dispatchWebhookEvent` and `checkAndTrigger` are driven directly (both
- * exported for this purpose, #821) rather than through the real HTTP server
- * or the real cron loop — `classifyAndSpawnWorkflow`'s `spawnDetached` call
- * cannot be safely exercised from a BDD step (no Vitest module mocking is
- * available here), so §5 calls its two sub-operations (classification,
- * label persistence) directly instead, exactly as feature-542.steps.ts's own
- * docblock explains for `routeIssueOpened`.
+ * exported for this purpose) rather than through the real HTTP server or the
+ * real cron loop — `classifyAndSpawnWorkflow`'s `spawnDetached` call cannot
+ * be safely exercised from a BDD step (no Vitest module mocking is available
+ * here), so §5 calls its two sub-operations (classification, label
+ * persistence) directly instead.
  */
 
 import { Before, After, Given, When, Then } from '@cucumber/cucumber';
@@ -70,8 +49,6 @@ import { readUnaddressedComments } from '../../../adws/core/unaddressedComments.
 import { ADW_CLASSIFICATION_LABELS } from '../../../adws/core/adwLabels.ts';
 import { bodyLinksIssue } from '../../../adws/forge/issueLinkMarker.ts';
 import { buildUnaddressedCommentReads } from '../../../adws/forge/prCommentDetector.ts';
-
-// ── §821-local world state — transient results not already on World796 ────────
 
 const s: {
   pendingWebhookRepoFullName: string | null;
@@ -128,7 +105,7 @@ function resetLocalState(): void {
   s.precomputedClassification = null;
 }
 
-/** The one repository §1/§11 name — writing its cron PID file first makes ensureCronProcess see a live cron already registered (this very process is genuinely alive), so it never spawns a real one. */
+/** Writing its cron PID file first makes ensureCronProcess see a live cron already registered (this very process is genuinely alive), so it never spawns a real one. */
 const WEBHOOK_FIXTURE_REPO = 'adw-fixture/void-821';
 
 function cronPidFilePath(repoFullName: string): string {
@@ -159,9 +136,6 @@ After({ tags: '@adw-821' }, function () {
   resetLocalState();
 });
 
-// ── Shared helpers ───────────────────────────────────────────────────────────
-
-/** Runs `fn`, capturing every console.log line emitted during the call (the ADW logger's only sink). */
 async function captureConsoleLogs(fn: () => void | Promise<void>): Promise<string[]> {
   const original = console.log;
   const lines: string[] = [];
@@ -196,8 +170,6 @@ function pushReviewComment(prNumber: number, comment: ReviewComment): void {
   list.push(comment);
   w.activeFixture.prComments.set(prNumber, list);
 }
-
-// ── §1 THE WEBHOOK'S PER-EVENT BOUNDARY ─────────────────────────────────────
 
 Given('a launch boundary for the repository {string} that fails to mint providers', function (repoStr: string) {
   s.pendingWebhookRepoFullName = repoStr;
@@ -258,8 +230,6 @@ Then('no workflow was spawned for issue {int}', function (_issueNumber: number) 
   );
 });
 
-// ── §2 THE CRON TICK ─────────────────────────────────────────────────────────
-
 Given('the cron module is imported rather than launched', function () {
   // Marker only — trigger_cron.ts's own process.argv[1] guard already means
   // cronBoundary is null when this file is imported by cucumber, never launched.
@@ -291,8 +261,6 @@ Then('the cron tick was skipped for want of a launch boundary', function () {
     `Expected a "no launch boundary" skip log, got: ${s.cronTickLogs!.join(' | ')}`,
   );
 });
-
-// ── §3 THE TAKEOVER HANDLER'S BOUNDARY-LESS ADAPTERS ────────────────────────
 
 Given('issue {int} in the recording tracker has an adw workflow comment naming adw id {string}', function (
   issueNumber: number, adwId: string,
@@ -336,15 +304,12 @@ When(
       adwId, issueNumber, workflowStage: 'starting', branchName: w.mergeBranchName,
     });
     // branchExistsOnRemote pinned true: the fixture repo has no real remote to ls-remote against
-    // (mapArtifactsToStage short-circuits to the state-file fallback otherwise) — same technique
-    // feature-820/797's own reconcile scenarios use.
+    // (mapArtifactsToStage short-circuits to the state-file fallback otherwise).
     const reconcileDeps = { ...buildDefaultReconcileDeps(w.boundary), branchExistsOnRemote: () => true };
     const deps = buildDefaultTakeoverDeps(w.boundary, reconcileDeps);
     setReconciledStage(deps.deriveStageFromRemote(adwId));
   },
 );
-
-// ── §4 THE CANCEL DIRECTIVE ──────────────────────────────────────────────────
 
 When('the cancel directive runs for issue {int} from that boundary', function (issueNumber: number) {
   const w = world796();
@@ -352,8 +317,6 @@ When('the cancel directive runs for issue {int} from that boundary', function (i
   const comments = w.boundary.providers.issueTracker.fetchComments(issueNumber);
   handleCancelDirective(issueNumber, comments, w.boundary);
 });
-
-// ── §5 THE GATEKEEPER'S CLASSIFY-AND-LABEL PATH ─────────────────────────────
 
 When('the gatekeeper resolves the spawn for issue {int} from that boundary', async function (issueNumber: number) {
   const w = world796();
@@ -400,8 +363,6 @@ Then('the boundary\'s providers recorded the label {string} being applied to iss
   );
   assert.ok(call, `Expected label "${label}" to have been applied to issue ${issueNumber}`);
 });
-
-// ── §6 THE REGION-OVERLAP REGISTRATION ──────────────────────────────────────
 
 Given('issue {int} in the recording tracker has a body that does not reference issue {int}', function (
   _issueNumber: number, _notReferenced: number,
@@ -451,8 +412,6 @@ Then('the updated body of issue {int} contains {string}', function (issueNumber:
 Then('the region overlap was not reported as registered', function () {
   assert.strictEqual(s.regionOverlapRegistered, false);
 });
-
-// ── §7 THE LISTING CALLERS (concurrency + dependencies) ─────────────────────
 
 Given(
   'the recording tracker lists {int} issues carrying adw workflow comments and no linked merged pull request',
@@ -517,8 +476,6 @@ Then('the resolved open dependencies are {string}', function (blocking: string) 
   assert.strictEqual(s.dependenciesResult!.map(String).join(', '), blocking);
 });
 
-// ── §8 THE BOOTSTRAP THAT PRECEDES THE BOUNDARY ─────────────────────────────
-
 When('a webhook payload naming the repository {string} is resolved', function (fullName: string) {
   s.webhookRepoError = null;
   try {
@@ -545,8 +502,6 @@ Then('resolving the webhook repository failed naming {string}', function (fullNa
   );
 });
 
-// ── §9 WHOSE LOGIN COUNTS AS "SELF" ──────────────────────────────────────────
-
 Given('the recording code host reports its authenticated login is {string}', function (login: string) {
   const w = world796();
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -569,8 +524,6 @@ When('the unaddressed comments of pull request {int} are read from that boundary
   const reads = buildUnaddressedCommentReads(w.boundary);
   setUnaddressedComments(readUnaddressedComments(prNumber, reads));
 });
-
-// ── §10 WHAT DOES NOT MOVE ────────────────────────────────────────────────────
 
 Then('the evaluated adw label name is {string}', function (labelName: string) {
   assert.ok(s.labelRecoveryResult, 'Expected cron label eligibility to have been evaluated');
@@ -612,8 +565,3 @@ Then('the upgrade redrive reported {string}', function (verdict: string) {
   const actual = s.redriveDecision!.reason === 'terminal' ? 'terminal' : (s.redriveDecision!.redrive ? 'upgrade' : s.redriveDecision!.reason);
   assert.strictEqual(actual, verdict);
 });
-
-// §11 reuses 'the git/gh guard is run across the repository' / 'the git/gh guard
-// reports no violations' (feature-691.steps.ts), 'no GitHub provider was
-// constructed during the run' (feature-796.steps.ts) and 'the ADW TypeScript
-// type-check passes' (feature-504.steps.ts) — no new step definitions.

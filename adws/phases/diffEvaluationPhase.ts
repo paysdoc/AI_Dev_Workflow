@@ -1,13 +1,3 @@
-/**
- * Diff evaluation phase.
- *
- * Runs the diff evaluator agent against the current branch diff,
- * posts the verdict as an audit comment on the issue, and returns
- * the verdict for orchestrator branching.
- *
- * Defaults to 'regression_possible' on any agent failure (fail-safe).
- */
-
 import { log, emptyModelUsageMap } from '../core';
 import type { ModelUsageMap } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
@@ -23,10 +13,7 @@ export type DiffEvaluationPhaseResult = {
   verdict: 'safe' | 'regression_possible';
 };
 
-/**
- * Gets the git diff for the current branch against the default branch.
- * Returns an empty string on error or when no context is available.
- */
+/** Returns an empty string on error or when no context is available. */
 function getGitDiff(ctx: GitContext | undefined, worktreePath: string, defaultBranch: string): string {
   if (!ctx) return '';
   try {
@@ -37,10 +24,7 @@ function getGitDiff(ctx: GitContext | undefined, worktreePath: string, defaultBr
   }
 }
 
-/**
- * Posts a diff verdict comment on the issue (audit trail).
- * Errors are caught and logged to prevent workflow crashes from comment failures.
- */
+/** Errors are caught and logged to prevent workflow crashes from comment failures. */
 function postVerdictComment(
   config: WorkflowConfig,
   verdict: 'safe' | 'regression_possible',
@@ -70,12 +54,7 @@ function postVerdictComment(
   }
 }
 
-/**
- * Executes the diff evaluation phase: runs the LLM diff evaluator,
- * posts the verdict as an issue comment (audit trail), and returns the verdict.
- *
- * Defaults to 'regression_possible' on any agent error (fail-safe).
- */
+/** Defaults to 'regression_possible' on any agent error (fail-safe). */
 export async function executeDiffEvaluationPhase(
   config: WorkflowConfig,
 ): Promise<DiffEvaluationPhaseResult> {

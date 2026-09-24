@@ -664,8 +664,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
 │   │   ├── branchOperations.test.ts
-│   │   ├── commitOperations.test.ts
-│   │   ├── fetchAndResetToRemote.test.ts
 │   │   ├── pushBranch.integration.test.ts
 │   │   ├── worktreeProbe.test.ts
 │   │   ├── worktreeReset.test.ts
@@ -724,6 +722,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
+│   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
@@ -972,6 +971,7 @@ test/                   # Integration test infrastructure
 │   │   ├── manifestInterpreter.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
+│   ├── gitContextFixture.ts    # Test GitContext factory fixture
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
