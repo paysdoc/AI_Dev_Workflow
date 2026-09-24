@@ -37,8 +37,6 @@ beforeEach(() => {
   mockStart.mockReturnValue(FAKE_HANDLE);
 });
 
-// ─── runWithOrchestratorLifecycle ─────────────────────────────────────────────
-
 describe('runWithOrchestratorLifecycle', () => {
   it('returns false and does not start heartbeat when acquireIssueSpawnLock returns false', async () => {
     mockAcquire.mockReturnValue(false);
@@ -95,8 +93,6 @@ describe('runWithOrchestratorLifecycle', () => {
     expect(mockStop).toHaveBeenCalledWith(FAKE_HANDLE);
   });
 });
-
-// ─── runWithRawOrchestratorLifecycle ─────────────────────────────────────────
 
 describe('runWithRawOrchestratorLifecycle', () => {
   it('returns false and does not start heartbeat when acquireIssueSpawnLock returns false', async () => {

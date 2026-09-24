@@ -1,7 +1,3 @@
-/**
- * Build phase execution for workflows.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -31,11 +27,9 @@ import { BoardStatus } from '@paysdoc/devplatform';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**
- * Executes the Build phase: read plan, run build agent, commit implementation.
  * Includes token limit recovery: when the agent approaches the token limit,
  * it is gracefully terminated, progress is saved, and a new agent is spawned
  * with context from the previous run. Repeats up to MAX_CONTEXT_RESETS times.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext, defaultBranch } = config;
@@ -47,7 +41,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
-  // Read plan content
   const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
   let planContent: string;
   try {
@@ -57,7 +50,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     throw new Error(`Cannot read plan file at ${planPath}: ${error}`);
   }
 
-  // Build agent step
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   const currentBranch = ctx.branchName || '';
@@ -69,7 +61,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     }
     log('Running Build Agent (scenario detection delegated to build agent)...', 'info');
 
-    // Resume-in-place recognition instruction (#640): on a cross-orchestrator resume,
+    // Resume-in-place recognition instruction: on a cross-orchestrator resume,
     // seed with the git-authoritative inventory/continue prompt so the agent does not
     // restart from scratch. The token-limit/compaction loop below re-wraps from raw
     // planContent on each in-build restart, so there is no double-wrapping.
@@ -109,7 +101,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
           log(`  [Turn ${info.turnCount}] Tool: ${info.toolName}`, 'info');
         }
 
-        // Update running token total with real-time extractor estimates during streaming
         if (RUNNING_TOKENS && info.tokenEstimate && Object.keys(info.tokenEstimate).length > 0) {
           let totalInput = 0;
           let totalOutput = 0;
@@ -125,7 +116,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
             }
           }
 
-          // Add previous phases' accumulated usage if available
           if (config.totalModelUsage) {
             for (const usage of Object.values(config.totalModelUsage)) {
               totalInput += usage.inputTokens;
@@ -154,13 +144,11 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
       const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
-      // Accumulate cost and model usage across continuations
       costUsd += buildResult.totalCostUsd || 0;
       if (buildResult.modelUsage) {
         modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
       }
 
-      // Log estimate-vs-actual comparison at phase completion
       if (buildResult.costSource === 'extractor_finalized' && buildResult.estimatedUsage && buildResult.actualUsage) {
         const estimated = buildResult.estimatedUsage;
         const actual = buildResult.actualUsage;
@@ -258,7 +246,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         throw new Error(`Build Agent failed: ${buildResult.output}`);
       }
 
-      // Agent completed successfully
       AgentStateManager.writeState(buildAgentStatePath, {
         output: buildResult.output.substring(0, 1000),
         execution: AgentStateManager.completeExecution(
@@ -279,7 +266,6 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     log('Skipping Build Agent (already completed)', 'info');
   }
 
-  // Commit implementation step
   if (shouldExecuteStage('build_committing', recoveryState)) {
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'build_committing', ctx);
