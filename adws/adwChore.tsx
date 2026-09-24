@@ -1,22 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Chore - Dedicated Chore Pipeline with LLM Diff Gate
- *
  * Usage: bunx tsx adws/adwChore.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Install Phase: install dependencies
- * 3. Plan Phase: classify issue, create branch, run plan agent, commit plan
- * 4. Build Phase: run build agent, commit implementation
- * 5. Step Def Phase: generate BDD step definitions
- * 6. Unit Test Phase: optionally run unit tests (unit only)
- * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
- * 8. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
- *    → if "regression_possible": post escalation comment → review → document
- * 9. PR Phase: create pull request
- * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -52,10 +36,6 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Posts an escalation comment on the issue when the diff evaluator detects
- * possible regressions and the chore is escalated to the full review pipeline.
- */
 function postEscalationComment(config: WorkflowConfig): void {
   const { repoContext, issueNumber } = config;
   if (!repoContext) return;
@@ -75,9 +55,6 @@ function postEscalationComment(config: WorkflowConfig): void {
   }
 }
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
@@ -114,7 +91,6 @@ async function main(): Promise<void> {
       if (diffResult.verdict !== 'safe') {
         postEscalationComment(config);
 
-        // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
         let proofPath = scenarioProofPath;
         let reviewBlockers: ReviewIssue[] = [];
         for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
@@ -128,7 +104,6 @@ async function main(): Promise<void> {
             const patchWrapper = (cfg: WorkflowConfig) =>
               executeReviewPatchCycle(cfg, reviewBlockers);
             await runPhase(config, tracker, patchWrapper);
-            // Re-run scenario tests to verify patch didn't break scenarios
             const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
             proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
           }
@@ -140,9 +115,8 @@ async function main(): Promise<void> {
 
       await runPhase(config, tracker, executePRPhase);
 
-      // Pre-merge approval (chore unified path): approve the PR unless the human has signalled
-      // hitl on the issue at this moment. Race accepted — a human can add hitl between this
-      // approval and the next cron tick; the merge gate is permissive in that case (rule 3).
+      // Race accepted — a human can add hitl between this approval and the next cron tick;
+      // the merge gate is permissive in that case (rule 3).
       if (config.repoContext && config.ctx.prUrl) {
         const { issueTracker, codeHost } = config.repoContext;
         const prNumber = extractPrNumber(config.ctx.prUrl);

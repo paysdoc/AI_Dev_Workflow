@@ -1,13 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Test - AI Developer Workflow Testing Phase
- *
  * Usage: bunx tsx adws/adwTest.tsx <issueNumber> [adw-id] [--cwd <path>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Test Phase: optionally run unit tests + BDD scenarios tagged @adw-{issueNumber}
- * 3. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -27,9 +20,6 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
