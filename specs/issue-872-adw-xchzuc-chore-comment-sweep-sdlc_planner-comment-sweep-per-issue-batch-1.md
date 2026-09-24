@@ -129,7 +129,7 @@ Apply the same rules to each file. Work top to bottom and re-run the guard on th
   - Header JSDoc: strip `(#818)` and drop the feature summary sentence. Keep the §1–§5 rationale: a real HTTP recorder with the injected instanceUrl, a child process because the env reads are load-time constants, and default transports so the shipped path is exercised. Keep the §6 hook-isolation rationale.
   - Delete the §7 phrase-reuse list.
   - Delete all 24 banner lines and their label lines.
-  - At ~91, strip `(#819)` and keep the rest only if it states why the port factories need the caller's GitContext here.
+  - The `(#819)` at ~91 (line 79 once the header JSDoc is trimmed) is not a comment of this file. It sits inside the template literal returned by `buildGitLabDriverSource` (lines 45–114), the source text of the child-process GitLab driver, so it is string content to the guard and must stay. Do not edit it.
   - Review the remaining `/**` blocks with the name-restating rule.
 - `step_definitions/feature-846.steps.ts`:
   - Header JSDoc: drop "Step definitions for feature-846.feature". Keep the reasons: a child-process driver against temp HOME/TARGET_REPOS_DIR, a real bare remote rather than a stub, `HOME` overridden because `os.homedir()` honours it, and `TARGET_REPOS_DIR` because it binds at import time.
@@ -138,7 +138,7 @@ Apply the same rules to each file. Work top to bottom and re-run the guard on th
   - Trim the one at ~115 to the reason the workspace path is taken from the LAST stdout line (the driver's own logs precede it).
 
 ### 5. Final content audit across all 13 files
-- `grep -nE '(#[0-9]{2,}|issue #[0-9]+)' <13 files>`: no hits may remain in a comment. Hits in Gherkin description prose and step text are content and must stay. For TS, the check applies to `//`/`/* */` comments only.
+- `grep -nE '(#[0-9]{2,}|issue #[0-9]+)' <13 files>`: no hits may remain in a comment. Hits in Gherkin description prose and step text are content and must stay. For TS, the check applies to real `//`/`/* */` comment ranges only: classify each hit with the TypeScript AST (string, template and regex literal spans versus `getLeadingCommentRanges`/`getTrailingCommentRanges`) rather than by eye, because comment-like text inside a template literal (`feature-818.steps.ts:79`, inside the driver-script literal at lines 45–114) is content and stays.
 - `grep -nE '^\s*(//|\*)\s*(-{5,}|─{3,}|═{3,}|={5,})' <10 TS files>`: must return nothing.
 - Read every surviving comment once. Each must state an invariant, an ordering constraint, or the reason for a non-obvious choice. Delete any that doesn't.
 - `grep -n 'eslint-disable\|^#!' <10 TS files>`: output is unchanged from before the sweep (empty at planning time).
@@ -164,6 +164,7 @@ Execute every command to validate the chore is complete with zero regressions.
 - Strictly follow `.adw/coding_guidelines.md`, in particular the **Comments** rule: comment only invariants, ordering constraints, and the reason a non-obvious choice was made; no restating the next line, no section banners, no issue numbers, no JSDoc on a self-describing name. The sweep only removes comments. It does not refactor code, so the other guidelines do not apply to this diff.
 - Feature-file trap: Gherkin's free-text description under `Feature:` is not a comment, and the guard treats it as content. Only lines beginning with `#` are comments. The three `#8xx`/`#647`-leading description lines are Gherkin comments already, so deleting them passes the guard even though it leaves a gap in the surrounding prose. The PRD accepts that ("the sweep trims and deletes; it does not improve the prose it keeps").
 - TS trap: string and template literal text is content. Comment-like text inside a literal must stay, and so must `//` inside URLs.
+- Known residual: `feature-818.steps.ts:79` keeps `(#819)` because it is template-literal text (the generated GitLab driver script), not a comment. Deleting it makes the guard report `code-changed` and fails `@adw-872` (verified in the review patch cycle). Stripping the tag from the generated script is an ordinary code change on the default branch and is out of this comment-only chore's scope.
 - JSDoc that survives keeps its wording (PRD *Out of Scope*). Only whole sentences are dropped, and inline issue tags are stripped.
 - The per-issue scenario (`features/per-issue/feature-872.feature`, tagged `@adw-872`) and its step definition come from the scenario-writer and step-definition agents, not from this plan. It must assert exactly one behaviour: the comment-only guard passes for the 13 listed files against the default branch. The step must let the guard resolve the base ref itself (no `--base`, no hardcoded branch name). Those new files are not in Touched Files and are not subject to the sweep.
 - If the guard reports `code-changed` for a file, diff that file with `git diff -U0 <file>` and look for an accidental edit to a string, step line, description line, or DocString line. Restore that edit rather than weakening the guard.
