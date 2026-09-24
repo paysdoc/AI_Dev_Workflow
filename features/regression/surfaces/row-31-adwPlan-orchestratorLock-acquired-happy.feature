@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwPlan — orchestratorLock — acquired and released (happy path)
 
-  # Row 31: lock acquired at start, released on success; exit 0.
   Scenario: plan orchestrator acquires spawn-gate lock and releases it on success
     Given an issue 1031 exists in the mock issue tracker
     And no spawn lock exists for issue 1031

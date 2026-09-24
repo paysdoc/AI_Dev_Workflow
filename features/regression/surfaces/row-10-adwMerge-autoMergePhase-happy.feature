@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwMerge — autoMergePhase — happy path (PR already merged)
 
-  # Row 10: PR already merged in mock; auto-merge phase detects it; zero merge calls recorded.
   Scenario: merge orchestrator detects pre-merged PR and records zero merge calls
     Given an issue 1010 exists in the mock issue tracker
     And the mock GitHub API records all PR-list calls

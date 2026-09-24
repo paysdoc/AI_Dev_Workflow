@@ -1,16 +1,3 @@
-/**
- * Then step definitions for @regression scenarios.
- *
- * Execution pattern: mock-query (T2, T3, T7, T8, T10) and artefact reads
- * (T1, T9 — state files written by the orchestrator under test, not source files).
- *
- * IMPORTANT: T1 and T9 read the state file produced by the orchestrator as an
- * *artefact* of the system under test. This is permitted by the rot-detection
- * rubric. They do NOT read source files from adws/.
- *
- * Vocabulary phrases: T1–T11 (see features/regression/vocabulary.md).
- */
-
 import { Then } from '@cucumber/cucumber';
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
@@ -21,10 +8,6 @@ import type { RecordedRequest } from '../../../test/mocks/types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
-
-// ---------------------------------------------------------------------------
-// T1: state file records workflowStage
-// ---------------------------------------------------------------------------
 
 Then(
   'the state file for adwId {string} records workflowStage {string}',
@@ -62,10 +45,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T2: mock API recorded a comment on issue {int}
-// ---------------------------------------------------------------------------
-
 Then(
   'the mock GitHub API recorded a comment on issue {int}',
   function (this: RegressionWorld, issueNumber: number) {
@@ -81,10 +60,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T3: mock API recorded a comment containing text {string}
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock GitHub API recorded a comment containing the text {string}',
@@ -110,31 +85,17 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T4: git-mock recorded a commit on branch {string}
-// ---------------------------------------------------------------------------
-
 Then(
   'the git-mock recorded a commit on branch {string}',
   function (this: RegressionWorld, branch: string) {
-    // The git-mock intercepts remote git operations. Local commit operations
-    // pass through to the real git. This step asserts that the orchestrator
-    // performed a commit on the expected branch, evidenced by the branch name
-    // being set in World and the subprocess having completed (T5 asserts exit).
+    // Local commits pass through to real git, so this step checks branch-name agreement only; T5 asserts the exit code.
     assert.strictEqual(
       this.targetBranch,
       branch,
       `Expected branch "${branch}" but World.targetBranch is "${this.targetBranch}"`,
     );
-    // The actual git commit recording requires the git-mock to log local calls.
-    // For Issue #1 this step validates branch-name agreement; full invocation
-    // logging wires in during Issue #2 scenario authoring.
   },
 );
-
-// ---------------------------------------------------------------------------
-// T5: orchestrator subprocess exited {int}
-// ---------------------------------------------------------------------------
 
 Then(
   'the orchestrator subprocess exited {int}',
@@ -156,16 +117,10 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T6: spawn-gate lock for issue {int} is released
-// ---------------------------------------------------------------------------
-
 Then(
   'the spawn-gate lock for issue {int} is released',
   function (_this: RegressionWorld, issueNumber: number) {
-    // The orchestrator lock is a runtime artefact (not a source file).
-    // After the orchestrator subprocess completes, the lock file must be absent.
-    // The lock path convention follows orchestratorLock.ts behaviour.
+    // The lock path mirrors orchestratorLock.ts; the lock is a runtime artefact, not a source file.
     const lockCandidates = [
       join(process.cwd(), `.adw/locks/issue-${issueNumber}.lock`),
     ];
@@ -177,10 +132,6 @@ Then(
     }
   },
 );
-
-// ---------------------------------------------------------------------------
-// T7: mock harness recorded zero PR-merge calls
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock harness recorded zero PR-merge calls',
@@ -196,10 +147,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T8: mock API recorded a PR creation for issue {int}
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock GitHub API recorded a PR creation for issue {int}',
@@ -221,10 +168,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T9: state file records no error
-// ---------------------------------------------------------------------------
 
 Then(
   'the state file for adwId {string} records no error',
@@ -248,10 +191,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T10: mock API recorded {int} total API calls
-// ---------------------------------------------------------------------------
-
 Then(
   'the mock GitHub API recorded {int} total API calls',
   function (this: RegressionWorld, expectedCount: number) {
@@ -263,10 +202,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T12: mock API recorded an application of the {string} label on issue {int}
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock GitHub API recorded an application of the {string} label on issue {int}',
@@ -290,10 +225,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T13: mock harness recorded zero applications of the {string} label on issue {int}
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock harness recorded zero applications of the {string} label on issue {int}',
@@ -319,13 +250,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T14: mock harness recorded zero comment posts on issue {int}
-// ---------------------------------------------------------------------------
-// feature-509.steps.ts, which used to own this phrase, was removed by the per-issue
-// retention sweep; the phrase is still exercised (feature-542 and others), so it lives
-// here now alongside its T13/T21 siblings.
-
 Then(
   'the mock harness recorded zero comment posts on issue {int}',
   function (this: RegressionWorld, issueNumber: number) {
@@ -341,14 +265,6 @@ Then(
   },
 );
 
-// T15 (artefact file carries a "@promotion-suggested-" tag dated today on the seeded scenario)
-// and T16 (carries no "@promotion-suggested-" tag on the seeded scenario) are covered by the
-// existing {string}-parameterised patterns in feature-509.steps.ts — no duplicate here.
-
-// ---------------------------------------------------------------------------
-// Helper: extract individual @tag tokens from the tag block before a scenario header
-// ---------------------------------------------------------------------------
-
 function extractTagBlock(lines: string[], headerIdx: number): string[] {
   const tags: string[] = [];
   for (let i = headerIdx - 1; i >= 0; i--) {
@@ -361,10 +277,6 @@ function extractTagBlock(lines: string[], headerIdx: number): string[] {
   }
   return tags;
 }
-
-// ---------------------------------------------------------------------------
-// T17: artefact file carries exactly one @promotion-suggested- tag (seeded scenario)
-// ---------------------------------------------------------------------------
 
 Then(
   'the artefact file at {string} in the worktree for adwId {string} carries exactly one "@promotion-suggested-" tag on the seeded scenario',
@@ -385,10 +297,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T18: artefact file carries @promotion-suggested- tag dated today (named scenario)
-// ---------------------------------------------------------------------------
 
 Then(
   'the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}',
@@ -412,10 +320,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T19: artefact file carries no @promotion-suggested- tag (named scenario)
-// ---------------------------------------------------------------------------
-
 Then(
   'the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}',
   function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
@@ -437,10 +341,6 @@ Then(
     );
   },
 );
-
-// ---------------------------------------------------------------------------
-// T20: mock API recorded a comment on issue {int} containing the seeded scenario name
-// ---------------------------------------------------------------------------
 
 Then(
   'the mock GitHub API recorded a comment on issue {int} containing the seeded scenario name {string}',
@@ -465,10 +365,6 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T21: mock harness recorded zero comment posts on issue {int} referencing scenario name
-// ---------------------------------------------------------------------------
-
 Then(
   'the mock harness recorded zero comment posts on issue {int} referencing the seeded scenario name {string}',
   function (this: RegressionWorld, issueNumber: number, scenarioName: string) {
@@ -490,16 +386,10 @@ Then(
   },
 );
 
-// ---------------------------------------------------------------------------
-// T11: git-mock recorded a push to branch {string}
-// ---------------------------------------------------------------------------
-
 Then(
   'the git-mock recorded a push to branch {string}',
   function (this: RegressionWorld, branch: string) {
-    // The git-remote-mock intercepts `git push` and no-ops it, recording the
-    // invocation. This step validates the branch name matches the one in World.
-    // Full invocation-log access wires in during Issue #2.
+    // The git-remote-mock's invocation log is not readable here yet, so this step checks branch-name agreement only.
     assert.strictEqual(
       this.targetBranch,
       branch,

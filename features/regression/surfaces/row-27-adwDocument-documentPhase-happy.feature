@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwDocument — documentPhase — happy path
 
-  # Row 27: document orchestrator posts a documentation comment.
   Scenario: document orchestrator completes document phase and posts a comment
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1027 exists in the mock issue tracker

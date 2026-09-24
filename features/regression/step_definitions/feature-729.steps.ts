@@ -1,14 +1,3 @@
-/**
- * BDD step definitions for feature-729.feature
- *
- * §1 drives the real production double-exclusion path: copyAdwInitCommandToWorktree
- * gitignores the command file, then commitChanges is asked to also exclude it.
- * §2 re-pins the tracked/non-ignored case as an anti-over-correction guard.
- *
- * Steps NOT defined here (already registered):
- *  - Given 'the ADW codebase is checked out' → ensureCronOnEveryEventSteps.ts (G18)
- */
-
 import { Before, After, Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import * as fs from 'fs';
@@ -18,17 +7,9 @@ import { execSync } from 'child_process';
 import { copyAdwInitCommandToWorktree } from '../../../adws/phases/worktreeSetup.ts';
 import { commitOps } from '@paysdoc/devplatform/git';
 
-// ---------------------------------------------------------------------------
-// Module-level scenario state (reset in Before/After hooks)
-// ---------------------------------------------------------------------------
-
 let worktreeDir: string | undefined;
 let preCommitHead: string | undefined;
 let commitThrew: Error | undefined;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function initGitRepo(dir: string): void {
   execSync('git init', { cwd: dir, stdio: 'pipe' });
@@ -57,10 +38,6 @@ function committedTreeFiles(): string[] {
     .filter(Boolean);
 }
 
-// ---------------------------------------------------------------------------
-// Before / After hooks — scoped to @adw-729
-// ---------------------------------------------------------------------------
-
 Before({ tags: '@adw-729' }, function () {
   worktreeDir = undefined;
   preCommitHead = undefined;
@@ -74,10 +51,6 @@ After({ tags: '@adw-729' }, function () {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Given
-// ---------------------------------------------------------------------------
-
 Given(
   'an upgrade regen worktree whose command file ".claude\\/commands\\/adw_init.md" is gitignored by the real copy-init-command step',
   function () {
@@ -90,8 +63,7 @@ Given(
     execSync('git add -A', { cwd: worktreeDir, stdio: 'pipe' });
     execSync('git commit -m "baseline"', { cwd: worktreeDir, stdio: 'pipe' });
 
-    // Real production step: copies the command file in untracked, then gitignores it —
-    // frameworkRepoRoot is the ADW repo checkout, which holds the real command file.
+    // frameworkRepoRoot is the ADW checkout, which holds the real command file to copy.
     copyAdwInitCommandToWorktree(worktreeDir, process.cwd());
   },
 );
@@ -113,7 +85,6 @@ Given(
     execSync('git add -A', { cwd: worktreeDir, stdio: 'pipe' });
     execSync('git commit -m "baseline"', { cwd: worktreeDir, stdio: 'pipe' });
 
-    // Modify the tracked command file (pending change). No .gitignore entry written.
     fs.writeFileSync(path.join(cmdDir, 'adw_init.md'), 'modified command\n');
   },
 );
@@ -127,10 +98,6 @@ Given(
     fs.writeFileSync(filePath, 'regenerated content\n');
   },
 );
-
-// ---------------------------------------------------------------------------
-// When
-// ---------------------------------------------------------------------------
 
 When(
   'the framework upgrade commits the regen excluding {string}',
@@ -147,10 +114,6 @@ When(
     }
   },
 );
-
-// ---------------------------------------------------------------------------
-// Then
-// ---------------------------------------------------------------------------
 
 Then(
   'the regen commit is recorded on the worktree branch',

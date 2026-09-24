@@ -1,11 +1,3 @@
-/**
- * When step definitions for @regression scenarios.
- *
- * Execution pattern: subprocess (W1, W10, W11) and phase-import (W2–W9, W12).
- *
- * Vocabulary phrases: W1–W12 (see features/regression/vocabulary.md).
- */
-
 import { When } from '@cucumber/cucumber';
 import { spawnSync } from 'child_process';
 import { resolve, dirname } from 'path';
@@ -17,7 +9,6 @@ import type { RegressionWorld } from './world.ts';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
 
-/** Builds the env overlay for subprocess invocations, merging harness env vars. */
 function buildSubprocessEnv(world: RegressionWorld): NodeJS.ProcessEnv {
   return {
     ...process.env,
@@ -25,7 +16,6 @@ function buildSubprocessEnv(world: RegressionWorld): NodeJS.ProcessEnv {
   };
 }
 
-/** Spawns an orchestrator subprocess and captures the exit code in World. */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function spawnOrchestrator(
   world: RegressionWorld,
@@ -45,10 +35,6 @@ function spawnOrchestrator(
   world.lastExitCode = result.status ?? -1;
 }
 
-// ---------------------------------------------------------------------------
-// Orchestrator name → file map
-// ---------------------------------------------------------------------------
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ORCHESTRATOR_FILES: Record<string, string> = {
   sdlc: 'adwSdlc.tsx',
@@ -63,10 +49,6 @@ const ORCHESTRATOR_FILES: Record<string, string> = {
   'pr-review': 'adwPrReview.tsx',
   document: 'adwDocument.tsx',
 };
-
-// ---------------------------------------------------------------------------
-// W1: orchestrator invoked with adwId and issue
-// ---------------------------------------------------------------------------
 
 When(
   'the {string} orchestrator is invoked with adwId {string} and issue {int}',
@@ -88,10 +70,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W2: plan phase executed with config
-// ---------------------------------------------------------------------------
-
 When(
   'the plan phase is executed with config {string}',
   async function (this: RegressionWorld, _configLabel: string) {
@@ -111,10 +89,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W3: build phase executed with config
-// ---------------------------------------------------------------------------
-
 When(
   'the build phase is executed with config {string}',
   async function (this: RegressionWorld, _configLabel: string) {
@@ -131,10 +105,6 @@ When(
     */
   },
 );
-
-// ---------------------------------------------------------------------------
-// W4: review phase executed with config
-// ---------------------------------------------------------------------------
 
 When(
   'the review phase is executed with config {string}',
@@ -153,10 +123,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W5: PR phase executed with config
-// ---------------------------------------------------------------------------
-
 When(
   'the PR phase is executed with config {string}',
   async function (this: RegressionWorld, _configLabel: string) {
@@ -173,10 +139,6 @@ When(
     */
   },
 );
-
-// ---------------------------------------------------------------------------
-// W6: auto-merge phase executed with config
-// ---------------------------------------------------------------------------
 
 When(
   'the auto-merge phase is executed with config {string}',
@@ -195,10 +157,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W7: document phase executed with config
-// ---------------------------------------------------------------------------
-
 When(
   'the document phase is executed with config {string}',
   async function (this: RegressionWorld, _configLabel: string) {
@@ -215,10 +173,6 @@ When(
     */
   },
 );
-
-// ---------------------------------------------------------------------------
-// W8: install phase executed with config
-// ---------------------------------------------------------------------------
 
 When(
   'the install phase is executed with config {string}',
@@ -237,10 +191,6 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W9: workflow initialised with config
-// ---------------------------------------------------------------------------
-
 When(
   'the workflow is initialised with config {string}',
   async function (this: RegressionWorld, _configLabel: string) {
@@ -258,15 +208,10 @@ When(
   },
 );
 
-// ---------------------------------------------------------------------------
-// W10: cron probe runs once
-// ---------------------------------------------------------------------------
-
 When(
   'the cron probe runs once',
   function (this: RegressionWorld) {
-    // Per-issue (source-inspection) scenarios don't run the @regression Before hook,
-    // so mockContext remains null.  In that context, the step is a no-op.
+    // Per-issue (source-inspection) scenarios: mockContext is null → no-op.
     if (this.mockContext === null) return;
     return 'pending';
     // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
@@ -286,10 +231,6 @@ When(
     */
   },
 );
-
-// ---------------------------------------------------------------------------
-// W11: webhook handler receives event for issue
-// ---------------------------------------------------------------------------
 
 When(
   'the webhook handler receives a {string} event for issue {int}',
@@ -312,10 +253,6 @@ When(
     */
   },
 );
-
-// ---------------------------------------------------------------------------
-// Shared helper — builds a minimal mocked WorkflowConfig
-// ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildMockedWorkflowConfig(world: RegressionWorld, _label: string): Record<string, unknown> {

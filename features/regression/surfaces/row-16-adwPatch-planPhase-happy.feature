@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwPatch — planPhase — happy path
 
-  # Row 16: patch orchestrator drives plan phase; state advances to awaiting_merge.
   Scenario: patch orchestrator completes plan phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1016 exists in the mock issue tracker

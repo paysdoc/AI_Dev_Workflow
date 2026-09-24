@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwBuild — unitTestPhase — happy path
 
-  # Row 6: unit test phase runs after build; state advances to awaiting_merge.
   Scenario: build orchestrator runs unit test phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1006 exists in the mock issue tracker
