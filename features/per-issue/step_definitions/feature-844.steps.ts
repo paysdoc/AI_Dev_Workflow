@@ -1,32 +1,11 @@
 /**
- * BDD step definitions for feature-844.feature
- *
- * Routes the workflow issue record, the HITL board notifier and the
- * health-check probes through the forge ports; makes local repo identity and
- * the SSH clone rewrite ADW-owned and host-neutral; and re-proves the vcs
- * contracts the deleted `adws/vcs/__tests__` files used to carry.
- *
- * §1  the issue record through the tracker port
- * §2  the HITL board notifier through the ports
- * §3  the health check through the ports
- * §4  local repo identity without the GitHub adapter
- * §5  the SSH clone rewrite without the GitHub adapter
- * §6  the contracts the deleted tests carried (commitOps/branchOps)
- * §7  the backstops (guard, docs-index, type-check)
- *
- * Reuses feature-796.steps.ts's recording-boundary harness (`world796()`)
- * throughout — every phrase feature-796/820/816/817/810 already registers is
- * reused, never redefined. `Before`/`After` are tag-scoped to `@adw-844`
- * because feature-796's own hooks are scoped to `@adw-796` (its .feature file
- * has since been swept) and do not fire here; this file resets the same
- * shared world and the guard fixture tree from its own hooks, as
- * feature-817/820.steps.ts do.
+ * `Before`/`After` are tag-scoped to `@adw-844` because feature-796's own
+ * hooks are scoped to `@adw-796` and do not fire here; this file resets the
+ * same shared world and the guard fixture tree from its own hooks.
  *
  * §7's guard/type-check phrases have no surviving registration anywhere
- * (feature-769.steps.ts / feature-691.steps.ts / feature-504.steps.ts, which
- * six other per-issue files still attribute them to, have all been swept) —
- * this file is the one that supplies them, verified clean against
- * `--tags @adw-844 --dry-run` first.
+ * (feature-769.steps.ts / feature-691.steps.ts / feature-504.steps.ts have
+ * all been swept) — this file is the one that supplies them.
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -53,10 +32,6 @@ import { ensureRepoWorkspace, commitOps, branchOps } from '@paysdoc/devplatform/
 
 const REPO_ROOT = process.cwd();
 const ORIGINAL_SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
-
-// ---------------------------------------------------------------------------
-// This file's own local world state
-// ---------------------------------------------------------------------------
 
 interface GitRunnerCall { command: string; cwd: string }
 
@@ -116,11 +91,7 @@ function freshState(): S844 {
 
 let s: S844 = freshState();
 
-// ---------------------------------------------------------------------------
-// A counting, capturing fetch stub — Slack delivery for §2, "no forge
-// request" proof for §4. Never a real network call.
-// ---------------------------------------------------------------------------
-
+// Never a real network call.
 let fetchCallCount = 0;
 let originalFetch: typeof fetch | undefined;
 
@@ -148,10 +119,6 @@ function lastSlackMessage(): string {
   return s.slackMessages[s.slackMessages.length - 1];
 }
 
-// ---------------------------------------------------------------------------
-// Before / After hooks — scoped to @adw-844
-// ---------------------------------------------------------------------------
-
 Before({ tags: '@adw-844' }, function () {
   s = freshState();
   installFetchStub();
@@ -178,10 +145,6 @@ function requireBoundary(): LaunchBoundary {
   assert.ok(w.boundary, 'Expected a launch boundary to have been built first');
   return w.boundary;
 }
-
-// ---------------------------------------------------------------------------
-// §1 — the issue record through the tracker port
-// ---------------------------------------------------------------------------
 
 Given('issue {int} in the recording tracker has the url {string}', function (issueNumber: number, url: string) {
   const w = world796();
@@ -281,10 +244,6 @@ Then('the boundary\'s providers were asked to fetch issue {int}', function (issu
   const call = w.activeCallLog.find((c) => c.operation === 'fetchIssue' && c.args[0] === issueNumber);
   assert.ok(call, `Expected a fetchIssue call for issue ${issueNumber}`);
 });
-
-// ---------------------------------------------------------------------------
-// §2 — the HITL board notifier through the ports
-// ---------------------------------------------------------------------------
 
 Given('issue {int} in the recording tracker is titled {string} and carries the label {string}', function (issueNumber: number, title: string, label: string) {
   const w = world796();
@@ -411,10 +370,6 @@ Then('the blocked-transition notification announces issue {int} as discarded', f
   );
 });
 
-// ---------------------------------------------------------------------------
-// §3 — the health check through the ports
-// ---------------------------------------------------------------------------
-
 Given('the recording code host reports the authenticated user {string}', function (user: string) {
   const w = world796();
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -478,17 +433,10 @@ Then('the issue-accessibility health check fails with the error {string}', funct
   assert.strictEqual(s.issueCheckResult.error, message);
 });
 
-// ---------------------------------------------------------------------------
-// §4 — local repo identity without the GitHub adapter
-//
-// The two guard-fixture scenarios at the tail of §4 (zero-arg vs explicit-root
-// readLocalRepoIdentity) reuse feature-816.steps.ts's Given/When/Then verbatim
-// — no step definitions of this file's own back them.
-//
 // The pair is a jurisdiction test between two rules that inspect the SAME
-// argument position. `unsanctioned-construction` (#795) matches on the callee
+// argument position. `unsanctioned-construction` matches on the callee
 // name and would flag `gitContextForRepo(...)` at this non-sanctioned path
-// whatever it is passed; `cwd-derived-identity` (#769) reads the argument and
+// whatever it is passed; `cwd-derived-identity` reads the argument and
 // decides by arity. Both firing meant the explicit-root half could never be
 // written outside the two sanctioned files, so the construction rule now
 // defers on this one composite — `isIdentityReadComposite`, the only import
@@ -496,7 +444,6 @@ Then('the issue-accessibility health check fails with the error {string}', funct
 // still goes red under the rule that names the actual defect; every other
 // construction, `gitContextForRepo(threadedIdentity)` included, is flagged by
 // callee name exactly as before.
-// ---------------------------------------------------------------------------
 
 Given('a checkout whose origin remote is {string}', function (remote: string) {
   s.checkoutRemote = remote;
@@ -547,10 +494,6 @@ Then('reading the local repo identity issued no forge request', function () {
   assert.strictEqual(fetchCallCount, 0, `Expected no fetch calls, got ${fetchCallCount}`);
 });
 
-// ---------------------------------------------------------------------------
-// §5 — the SSH clone rewrite without the GitHub adapter
-// ---------------------------------------------------------------------------
-
 When('the clone url {string} is prepared for cloning', function (input: string) {
   s.preparedCloneUrl = convertToSshUrl(input);
 });
@@ -584,10 +527,6 @@ Then('the recorded clone was issued for {string}', function (expectedUrl: string
   assert.ok(cmd, `Expected a git clone command, got: ${s.recordedCloneCommands.join(', ')}`);
   assert.ok(cmd.includes(expectedUrl), `Expected the clone command to reference "${expectedUrl}", got: ${cmd}`);
 });
-
-// ---------------------------------------------------------------------------
-// §6 — the contracts the deleted adws/vcs/__tests__ files carried
-// ---------------------------------------------------------------------------
 
 function makeRecordingGitRunner(opts: { failFetch?: boolean; pushRejectStderr?: string } = {}): { run: (cmd: string, cwd: string) => string; calls: GitRunnerCall[] } {
   const calls: GitRunnerCall[] = [];
@@ -687,13 +626,6 @@ Then('the regression suite enumerates {int} scenarios', function (count: number)
   assert.ok(match, `Expected a "N scenarios" summary line, got:\n${s.regressionEnumerateOutput}`);
   assert.strictEqual(Number(match[1]), count);
 });
-
-// ---------------------------------------------------------------------------
-// §7 — the backstops (guard, docs-index, type-check)
-// ---------------------------------------------------------------------------
-
-// 'the docs-index gate is run over the ADW checkout' / 'the docs-index gate exits 0'
-// are reused from feature-810.steps.ts — not redefined here.
 
 When('the git\\/gh guard is run across the repository', function () {
   try {
