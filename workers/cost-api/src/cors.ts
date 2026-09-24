@@ -1,7 +1,6 @@
 import type { Env } from './types.ts';
 
 /**
- * Derives CORS response headers from the request origin and env config.
  * If the request origin is in the `ALLOWED_ORIGINS` list (defaults to
  * `https://paysdoc.nl`), the `Access-Control-Allow-Origin` header is set.
  * If not, the header is omitted so the browser blocks the cross-origin read.
@@ -33,7 +32,6 @@ export function handleOptions(request: Request, env: Env): Response {
   });
 }
 
-/** Clones a response with CORS headers merged in. */
 export function withCors(response: Response, request: Request, env: Env): Response {
   const headers = new Headers(response.headers);
   for (const [key, value] of Object.entries(corsHeaders(request, env))) {

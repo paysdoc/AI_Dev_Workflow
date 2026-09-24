@@ -3,10 +3,6 @@ import type { Env } from './types.ts';
 // Lifecycle phase order — phases not in this list sort last, alphabetically.
 const PHASE_ORDER = ['plan', 'build', 'test', 'review', 'document'] as const;
 
-// ---------------------------------------------------------------------------
-// Row types
-// ---------------------------------------------------------------------------
-
 interface ProjectListRow {
   readonly id: number;
   readonly slug: string;
@@ -33,10 +29,6 @@ interface TokenUsageRow {
   readonly token_count: number;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function notFoundResponse(): Response {
   return Response.json({ error: 'Project not found' }, { status: 404 });
 }
@@ -58,11 +50,6 @@ function sortPhases(a: string, b: string): number {
   return ai - bi;
 }
 
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
-
-/** GET /api/projects — returns all projects sorted by name ASC. */
 export async function handleGetProjects(env: Env): Promise<Response> {
   const { results } = await env.DB
     .prepare('SELECT id, slug, name, repo_url FROM projects ORDER BY name ASC')
@@ -76,7 +63,6 @@ export async function handleGetProjects(env: Env): Promise<Response> {
   })));
 }
 
-/** GET /api/projects/:id/costs/breakdown — cost aggregated by model+provider, sorted by totalCost DESC. */
 export async function handleGetCostBreakdown(projectId: string, env: Env): Promise<Response> {
   const id = parseInt(projectId, 10);
   if (isNaN(id)) return notFoundResponse();
@@ -101,9 +87,6 @@ export async function handleGetCostBreakdown(projectId: string, env: Env): Promi
 }
 
 /**
- * GET /api/projects/:id/costs/issues — per-issue costs with per-phase token
- * breakdowns, sorted by issueNumber ASC, phases in lifecycle order.
- *
  * Two queries are used to avoid the fan-out duplication that arises when
  * joining cost_records (one row per record) with token_usage (N rows per
  * record) and trying to SUM costs in the same GROUP BY as token types.
@@ -136,7 +119,6 @@ export async function handleGetCostIssues(projectId: string, env: Env): Promise<
       .all<TokenUsageRow>(),
   ]);
 
-  // Build token lookup: issueNumber → phase → tokenType → count
   const tokenMap = new Map<number, Map<string, Map<string, number>>>();
   for (const row of tokenUsage.results) {
     if (!tokenMap.has(row.issue_number)) tokenMap.set(row.issue_number, new Map());
@@ -145,7 +127,7 @@ export async function handleGetCostIssues(projectId: string, env: Env): Promise<
     byPhase.get(row.phase)!.set(row.token_type, row.token_count);
   }
 
-  // Group phase costs by issue number (already ordered by issue_number ASC)
+  // already ordered by issue_number ASC
   const issueMap = new Map<number, PhaseCostRow[]>();
   for (const row of phaseCosts.results) {
     if (!issueMap.has(row.issue_number)) issueMap.set(row.issue_number, []);

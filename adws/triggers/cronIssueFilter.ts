@@ -1,11 +1,6 @@
 /**
- * Cron issue evaluation and filtering logic.
- *
  * Extracted from trigger_cron.ts so the logic is testable without triggering
  * the cron's module-level side effects (setInterval, process guard).
- *
- * Evaluates whether a given issue should be processed, and if so, determines
- * the action to take ('spawn' a new workflow or 'merge' an awaiting_merge PR).
  */
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
@@ -14,7 +9,6 @@ import { decideSerialization, parseRelevantFilesSection } from './regionOverlap'
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
 
-/** Minimal issue shape required for evaluation. */
 export interface CronIssue {
   readonly number: number;
   readonly body?: string;
@@ -25,24 +19,20 @@ export interface CronIssue {
   readonly title?: string;
 }
 
-/** Result of evaluating a single issue. */
 export interface FilterResult {
   readonly eligible: boolean;
   readonly reason?: string;
   /** 'merge' for awaiting_merge issues; 'spawn' for all standard-eligible issues. */
   readonly action?: 'spawn' | 'merge';
-  /** The adw-id associated with the issue (set for awaiting_merge issues). */
   readonly adwId?: string;
 }
 
-/** Eligible issue enriched with cron action metadata. */
 export interface EligibleIssue {
   readonly issue: CronIssue;
   readonly action: 'spawn' | 'merge';
   readonly adwId?: string;
 }
 
-/** An issue deferred by the region-overlap serialization gate. */
 export interface OverlapDeferral {
   readonly issueNumber: number;
   readonly blockedBy: number;
@@ -64,25 +54,9 @@ export interface ProcessedSets {
 }
 
 /**
- * Determines if an issue should be processed by the cron backlog sweeper.
- *
  * `awaiting_merge` bypasses the grace period entirely — the original orchestrator
  * has already exited and there is no race condition risk.
  *
- * `processed.spawns` is a fresh-spawn boot-window dedup set: it gates ONLY the
- * `stage === null` (fresh) path, preventing a re-poll from spawning a second
- * workflow before the first child writes any state. It must NOT short-circuit
- * the recovery stages (`retriable` / `phase_timeout`) — an `abandoned` issue
- * this process previously spawned must still be eligible for takeover on a
- * subsequent poll (issue #653). The merge path uses the spawn lock on disk (via
- * `shouldDispatchMerge`) so an issue in `spawns` may still be eligible for the
- * merge path once it transitions into `awaiting_merge`.
- *
- * @param issue                - The issue to evaluate
- * @param now                  - Current timestamp in ms
- * @param processed            - Set of issue numbers already spawned this cycle
- * @param gracePeriodMs        - Minimum ms of inactivity before a fresh issue is eligible
- * @param resolveStage         - Injectable stage resolver (defaults to the real implementation)
  * @param cancelledThisCycle   - Issue numbers that were cancelled earlier in the current
  *                               cycle and must be skipped once; this set is not persisted
  *                               across cycles.
@@ -103,16 +77,13 @@ export function evaluateIssue(
     return { eligible: false, reason: 'cancelled' };
   }
 
-  // Resolve stage first so we can dispatch to the right dedup set. The spawn
-  // dedup (processed.spawns) is applied ONLY on the fresh stage === null path
-  // and must NOT short-circuit awaiting_merge OR the recovery stages
-  // (retriable / phase_timeout). An issue this process originally spawned
-  // legitimately re-enters the filter once it transitions into awaiting_merge
-  // (merge orchestrator must be allowed to run) or into a recoverable stage
-  // (abandoned → retriable → takeover must be reachable without a cron restart).
+  // Resolve stage first so we can dispatch to the right dedup set. An issue
+  // this process originally spawned legitimately re-enters the filter once it
+  // transitions into awaiting_merge (merge orchestrator must be allowed to run)
+  // or into a recoverable stage (abandoned → retriable → takeover must be
+  // reachable without a cron restart).
   const resolution = resolveStage(issue.comments);
 
-  // awaiting_merge bypasses grace period — spawn merge orchestrator immediately.
   // Dedup is handled by shouldDispatchMerge (spawn lock on disk), not an in-memory set.
   if (resolution.stage === 'awaiting_merge') {
     if (!resolution.adwId) {
@@ -145,7 +116,6 @@ export function evaluateIssue(
     return { eligible: false, reason: 'review_failed' };
   }
 
-  // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
   const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
   if (now - activityMs < gracePeriodMs) {
     return { eligible: false, reason: 'grace_period' };
@@ -159,15 +129,14 @@ export function evaluateIssue(
     // would be re-spawned every poll). It must NOT gate the recovery branches
     // below (retriable / phase_timeout): an abandoned issue this cron already
     // spawned must remain eligible for takeover, or it strands for the cron's
-    // entire lifetime (issue #653). The on-disk spawnGate (acquired in
+    // entire lifetime. The on-disk spawnGate (acquired in
     // evaluateCandidate / runWithOrchestratorLifecycle) is the authoritative
     // concurrency guard for in-progress work.
     if (processed.spawns.has(issue.number)) {
       return { eligible: false, reason: 'processed' };
     }
-    // Apply the label-recovery gate only when this is truly fresh (no prior adwId)
-    // and an evaluator has been injected. Issues with a non-null adwId bypass the gate
-    // and reach the existing takeover machinery (evaluated by evaluateCandidate).
+    // Issues with a non-null adwId bypass the gate and reach the existing
+    // takeover machinery (evaluated by evaluateCandidate).
     if (resolution.adwId === null && labelRecovery) {
       const labelResult = labelRecovery(issue);
       if (!labelResult.eligible) {
@@ -192,11 +161,10 @@ export function evaluateIssue(
   // phase_timeout: a watchdog-killed workflow whose orchestrator exited. Make it
   // eligible so trigger_cron routes it through evaluateCandidate (takeover), which
   // recovers it via reset-from-remote. Without this it falls through to the
-  // unknown-stage exclusion below and strands forever (issue #637).
+  // unknown-stage exclusion below and strands forever.
   if (stage === 'phase_timeout') {
     return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
-  // Unknown stage — exclude
   return { eligible: false, reason: `adw_stage:${stage}` };
 }
 
@@ -212,17 +180,12 @@ export function resolveTouchedFilesFromBody(issue: CronIssue): string[] {
 }
 
 /**
- * Filters and sorts issues for backlog sweep processing.
  * Returns eligible issues (with action metadata) sorted oldest-first.
- * Builds an annotation list of excluded issues for verbose logging.
  *
  * A cross-issue region-overlap pass is applied to the eligible spawn candidates
- * after per-issue filtering. `resolveTouchedFiles` defaults to
- * `resolveTouchedFilesFromBody` (issue-body section parse), so the pass runs by
- * default in the live cron. Overlapping pairs are serialized: the lower-numbered
+ * after per-issue filtering. Overlapping pairs are serialized: the lower-numbered
  * issue in each cluster proceeds; others are deferred and recorded in
- * `overlapDeferrals`. Tests may inject a different resolver to drive the pass
- * directly without requiring a formatted issue body.
+ * `overlapDeferrals`.
  */
 export function filterEligibleIssues(
   issues: readonly CronIssue[],
@@ -252,7 +215,6 @@ export function filterEligibleIssues(
 
   initialEligible.sort((a, b) => new Date(a.issue.createdAt).getTime() - new Date(b.issue.createdAt).getTime());
 
-  // Region-overlap serialization pass over spawn-eligible candidates.
   const spawnCandidates = initialEligible.filter(e => e.action === 'spawn');
   if (spawnCandidates.length < 2) {
     return { eligible: initialEligible, filteredAnnotations, overlapDeferrals: [] };

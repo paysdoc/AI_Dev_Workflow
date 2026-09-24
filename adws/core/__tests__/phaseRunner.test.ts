@@ -10,7 +10,6 @@ const { writeTopLevelStateMock, readTopLevelStateMock } = vi.hoisted(() => ({
   readTopLevelStateMock: vi.fn(() => null as any),
 }));
 
-// Mock dependencies to avoid filesystem/network side effects
 vi.mock('../config', () => ({ RUNNING_TOKENS: false }));
 vi.mock('../../cost', () => ({
   mergeModelUsageMaps: (a: Record<string, unknown>, b: Record<string, unknown>) => ({ ...a, ...b }),
@@ -219,7 +218,7 @@ describe('runPhase()', () => {
   });
 
   it('falls back to config.completedPhases when top-level state has no phases map', async () => {
-    readTopLevelStateMock.mockReturnValue({ workflowStage: 'starting' } as Record<string, unknown>); // no phases
+    readTopLevelStateMock.mockReturnValue({ workflowStage: 'starting' } as Record<string, unknown>);
     const config = makeConfig({ completedPhases: ['install'] });
     const tracker = new CostTracker();
     const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0.05, modelUsage: {} });

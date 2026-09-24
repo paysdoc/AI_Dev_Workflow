@@ -1,14 +1,9 @@
 /**
- * Proof Comment Formatter — pure functions that transform structured proof data
- * into rich markdown for GitHub issue comments.
- *
  * No side effects, no I/O. Caller is responsible for appending ADW footer.
  */
 
 import type { ScenarioProofResult, TagProofResult } from '../phases/scenarioProof';
 import type { ReviewIssue } from '../agents/reviewAgent';
-
-// ── Types ────────────────────────────────────────────────────────────────────
 
 export interface VerificationResult {
   name: string;
@@ -17,9 +12,7 @@ export interface VerificationResult {
 }
 
 export interface ProofCommentInput {
-  /** Overall review outcome. */
   passed: boolean;
-  /** Summary text from review agents. */
   reviewSummary?: string;
   /** Scenario proof results — optional for backward compatibility. */
   scenarioProof?: ScenarioProofResult;
@@ -29,13 +22,10 @@ export interface ProofCommentInput {
   nonBlockerIssues: ReviewIssue[];
   /** Type-check / lint results — optional placeholder for future wiring. */
   verificationResults?: VerificationResult[];
-  /** All review agent summaries. */
   allSummaries?: string[];
   /** Screenshot URLs — placeholder for future wiring. */
   screenshotUrls?: string[];
 }
-
-// ── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
  * Parses scenario count summary from cucumber output.
@@ -59,9 +49,6 @@ function formatReviewIssueItem(issue: ReviewIssue): string {
   return `- **#${issue.reviewIssueNumber}** [${issue.issueSeverity}]: ${issue.issueDescription}`;
 }
 
-// ── Section formatters ───────────────────────────────────────────────────────
-
-/** Renders a markdown proof table for all tag results. */
 export function formatProofTable(tagResults: TagProofResult[]): string {
   const rows = tagResults.map(r => {
     const counts = r.skipped ? '-' : parseScenarioCounts(r.output);
@@ -75,7 +62,6 @@ export function formatProofTable(tagResults: TagProofResult[]): string {
   ].join('\n');
 }
 
-/** Renders a verification section showing supplementary check results. */
 export function formatVerificationSection(results: VerificationResult[]): string {
   const rows = results.map(r => {
     const status = r.passed ? '✅ passed' : '❌ failed';
@@ -91,19 +77,16 @@ export function formatVerificationSection(results: VerificationResult[]): string
   ].join('\n');
 }
 
-/** Renders non-blocker issues in a collapsible `<details>` section. */
 export function formatNonBlockerSection(issues: ReviewIssue[]): string {
   const items = issues.map(formatReviewIssueItem).join('\n');
   return `<details>\n<summary>Non-blocker issues (${issues.length})</summary>\n\n${items}\n\n</details>`;
 }
 
-/** Renders blocker issues in a collapsible `<details>` section. */
 export function formatBlockerSection(issues: ReviewIssue[]): string {
   const items = issues.map(formatReviewIssueItem).join('\n');
   return `<details>\n<summary>Blocker issues (${issues.length})</summary>\n\n${items}\n\n</details>`;
 }
 
-/** Renders full per-tag scenario output in a collapsible `<details>` section. */
 export function formatScenarioOutputSection(tagResults: TagProofResult[]): string {
   const withOutput = tagResults.filter(r => !r.skipped && r.output.length > 0);
   const sections = withOutput.length > 0
@@ -112,12 +95,8 @@ export function formatScenarioOutputSection(tagResults: TagProofResult[]): strin
   return `<details>\n<summary>Full scenario output</summary>\n\n${sections}\n\n</details>`;
 }
 
-// ── Main composer ────────────────────────────────────────────────────────────
-
 /**
- * Composes all proof comment sections into a full review comment body.
- *
- * Pure function — no side effects. The caller is responsible for appending
+ * The caller is responsible for appending
  * any workflow footer (ADW ID, token usage, ADW_SIGNATURE).
  */
 export function formatReviewProofComment(input: ProofCommentInput): string {

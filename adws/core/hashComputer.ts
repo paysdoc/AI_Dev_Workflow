@@ -1,6 +1,4 @@
 /**
- * hashComputer — framework content hash.
- *
  * Computes a SHA256 hex digest over the byte content of the files declared in
  * the `hashInputs:` frontmatter of `.claude/commands/adw_init.md`. The digest
  * is the stable "current framework version" primitive that downstream slices
@@ -18,7 +16,6 @@ import { join } from 'path';
 
 export const ADW_INIT_RELATIVE_PATH = '.claude/commands/adw_init.md';
 
-/** Injectable I/O boundary for pure, testable use. */
 export interface HashComputerDeps {
   readFile: (filePath: string) => Buffer;
 }
@@ -27,11 +24,6 @@ export const defaultDeps: HashComputerDeps = {
   readFile: (p) => readFileSync(p),
 };
 
-/**
- * Parses the `hashInputs:` block-list from `adw_init.md` YAML frontmatter.
- * Throws a clear error if frontmatter is absent, `hashInputs:` is missing, or
- * the resulting list is empty.
- */
 function parseHashInputs(content: string): string[] {
   const lines = content.split(/\r?\n/);
 
@@ -88,10 +80,6 @@ function parseHashInputs(content: string): string[] {
   return items;
 }
 
-/**
- * Reads the bytes of a single declared hash input, throwing a clear error if
- * the file is not found or unreadable.
- */
 function readHashInput(frameworkRepoRoot: string, relPath: string, deps: HashComputerDeps): Buffer {
   const absPath = join(frameworkRepoRoot, relPath);
   try {
@@ -101,15 +89,6 @@ function readHashInput(frameworkRepoRoot: string, relPath: string, deps: HashCom
   }
 }
 
-/**
- * Returns the SHA256 hex digest of the framework's declared `hashInputs` files.
- *
- * Files are read in lexicographic order of their declared relative paths so the
- * digest is invariant to the order they appear in the frontmatter list.
- *
- * @param frameworkRepoRoot - Absolute path to the ADW framework repository root.
- * @param deps - Injectable I/O dependency (defaults to the real filesystem).
- */
 export function computeFrameworkHash(
   frameworkRepoRoot: string,
   deps: HashComputerDeps = defaultDeps,

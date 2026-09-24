@@ -1,12 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 
-// ── Module mocks (hoisted) ───────────────────────────────────────────────────
-
 vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
-
-// ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { runDocsIndexSweep } from '../docsIndexSweep';
 import { serializeConditionalDocs, type ConditionalDocsRegistry, type ConditionalDocEntry } from '../../core/conditionalDocsRegistry';
@@ -15,8 +11,6 @@ import { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, type DocsIndex
 import type { LaunchBoundary } from '../../core';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function entry(overrides: Partial<ConditionalDocEntry> & { docPath: string }): ConditionalDocEntry {
   return { ownedGlobs: [], conditions: ['When X'], ...overrides };

@@ -136,13 +136,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   Background:
     Given the ADW codebase is checked out
 
-  # ══════ §1  THE HEALTH DECISION IS PURE, WHOLE-INDEX, AND SHARED (task 1c) ══════════════
-  #
-  # The headline repair, and the one the June regression needed: an entry pointing at a doc that is
-  # not there. Convergence cannot see this — it only looks at the area of the current change — so it
-  # is exactly the class of rot a periodic whole-index pass exists to find. Deterministic, so it is a
-  # repair, not a violation. RED before: the module does not exist.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: An entry whose doc file is absent is reported as a deterministic drop repair
     Given a docs index fixture holding an entry "app_docs/feature-ghost.md" whose doc file is absent
@@ -151,14 +144,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the health check reports a drop repair for "app_docs/feature-ghost.md"
     And the health check reports no drop repair for "app_docs/feature-live.md"
 
-  # The gate bug, expressed where the fix has to live. `checkLivingDocsIndex.ts` resolves every
-  # docPath against `app_docs/feature-*.md`, so the two legitimate top-level entries are reported as
-  # dangling — which the transcript in the header shows happening on this checkout right now. Under
-  # the shared module the same mistake would be strictly worse than a false gate failure: the sweep
-  # auto-drops dangling entries, so the first cadence-eligible tick would delete the repository's
-  # two README entries and open a PR that merges the deletion. Pinned on the repair side for that
-  # reason. RED before.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A top-level entry whose file is present outside app_docs is never reported as dangling
     Given a docs index fixture holding an entry "README.md" whose doc file is present at the repository root
@@ -166,11 +151,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the docs index health check runs over the fixture
     Then the health check reports no drop repair for "README.md"
     And the health check reports no drop repair for "adws/README.md"
-
-  # The second deterministic repair: a glob that owns nothing. A module doc survives a file rename or
-  # a package move with a glob pointing into empty space; the glob is dead, but the doc and its other
-  # globs are not. Pruning is per-glob, and the surviving globs must be left exactly alone — a prune
-  # that rewrote the whole `Owns:` block would round-trip differently and fail the gate's first check.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A glob matching zero tracked files is pruned while the entry's live globs are left alone
@@ -182,12 +162,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the docs index health check runs over the fixture
     Then the health check reports a glob prune of "adws/core/deleted.ts" from "app_docs/feature-live.md"
     And the health check reports no glob prune of "adws/core/live.ts"
-
-  # Negative space, and the cheapest wrong implementation to write: pruning an entry's last glob is
-  # not the same as dropping the entry. A doc that owns nothing is still a doc — it is reachable by
-  # its `Conditions:` lines, which are what `/document` and the planners actually route on — and its
-  # file is right there. Dropping it would orphan the doc and re-create, one tick later, the exact
-  # state this issue was raised to repair.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: An entry whose every glob is dead keeps its place in the index because its doc file is present
@@ -201,13 +175,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the health check reports no drop repair for "app_docs/feature-live.md"
     And the health check reports a glob prune of "adws/core/deleted.ts" from "app_docs/feature-live.md"
 
-  # The first judgement finding, and the line the whole design turns on. Two docs owning one file is
-  # a real defect — it is what `/document` produced 64 times while the module docs were missing — but
-  # WHICH doc should lose the glob is not a decision code can make. The hand repair on 2026-08-28
-  # needed a written rule plus two explicit overrides to resolve 37 pairs. So: reported, named, and
-  # left in place. An implementation that "helpfully" dropped one side would delete authored
-  # documentation on a cron cadence.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: Two entries owning the same tracked file are reported as a violation naming both, and neither is repaired
     Given a docs index fixture entry "app_docs/feature-9gjajh-providers.md" owning the glob "adws/providers/github/*.ts"
@@ -218,11 +185,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     And the health check reports the overlapping tracked file "adws/providers/github/ghIssueApi.ts"
     And the health check reports no repairs
 
-  # The second judgement finding, and the mirror image of a dangling entry: the FILE is there and the
-  # ENTRY is missing. 25 module docs sat in this state for two months — present, unindexed, and
-  # therefore invisible to every planner that reads the index. Index it, fold it, or delete it is a
-  # human call; the machine's job is to stop it being invisible.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A doc file no entry indexes is reported as an orphan violation and is never deleted
     Given a docs index fixture holding an entry "app_docs/feature-live.md" whose doc file is present
@@ -230,12 +192,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the docs index health check runs over the fixture
     Then the health check reports an orphan violation naming "app_docs/feature-orphan.md"
     And the health check reports no repairs
-
-  # The third judgement finding. The band is the only check that speaks about the index as a WHOLE —
-  # 217 entries is not a set of 217 local defects, it is one systemic one — and it is the check that
-  # would have screamed loudest in June. Phrased against the band's bounds rather than the literal
-  # `MAX_ENTRIES = 60`, because the issue leaves the choice between a module-count-derived band and a
-  # constant open; either way an index one entry past the top is out and an index inside it is in.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario Outline: An entry count outside the band is a violation and a count inside it is not
@@ -249,10 +205,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
       | a count inside the band         | no violation |
       | one fewer than the band allows  | a violation  |
 
-  # The green path, asserted as a whole rather than per-check. A sweep whose decision module invents
-  # a repair on a healthy index opens an empty PR every cadence cycle; a gate that invents a
-  # violation turns every pull request red. Both failures are cheap to write and expensive to notice.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A healthy index yields neither repairs nor violations
     Given a docs index fixture whose entries all have present doc files and live globs
@@ -261,12 +213,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the docs index health check runs over the fixture
     Then the health check reports no repairs
     And the health check reports no violations
-
-  # ══════ §2  CADENCE, LAUNCH BOUNDARY, AND THE NON-FATAL SWALLOW (task 1, dispatch) ══════
-  #
-  # The dispatch contract, identical in shape to the two sibling sweeps (#745 pinned the same three
-  # facts for the promotion sweep). Cadence first: a sweep that pushes branches and opens PRs must
-  # not run on every 20-second tick.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: On a cadence-eligible cron cycle the docs-index sweep is dispatched exactly once
@@ -284,12 +230,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
       | one-after-cadence    |
       | mid-interval         |
 
-  # No launch boundary means no verified identity for the repository being swept. The rule the whole
-  # #790–#797 phase established is that the pass SKIPS rather than falling back to a cwd-derived
-  # identity — on a cron host that polls target repositories, a cwd fallback would repair the
-  # FRAMEWORK's index while claiming to repair the target's, and land the result in the wrong repo.
-  # The skip must be logged: a silent skip is indistinguishable from a sweep that found nothing.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A cron cycle with no launch context skips the docs-index sweep instead of falling back to the working directory
     Given the cron holds no launch context
@@ -298,25 +238,12 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     And the cron logs that the docs-index sweep was skipped for want of a launch context
     And the cron docs-index-sweep dispatch completes without raising an error
 
-  # #812's lesson, applied at the point of introduction rather than after the next incident. The tick
-  # is fired and forgotten; an escaped rejection anywhere inside it is an unhandled rejection, and
-  # Node kills the cron process. A docs-index sweep touches git, the forge and the filesystem on a
-  # generous cadence — it is precisely the shape of caller that finds this.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A throwing docs-index sweep is logged and swallowed so the cron tick completes without raising
     Given the injected docs-index sweep is configured to throw a transient error
     When the cron docs-index-sweep dispatch runs for a "cadence-eligible" cron cycle
     Then the cron logs the docs-index sweep failure as an error
     And the cron docs-index-sweep dispatch completes without raising an error
-
-  # ══════ §3  REPAIRS LAND THROUGH A MERGED PULL REQUEST (task 1a, persistence) ═══════════
-  #
-  # The persistence contract, and AC2's first half. The cron host's own checkout is shared, possibly
-  # stale and possibly mid-workflow; the repair is decided and committed on a dedicated worktree
-  # synced to fresh `origin/<default>`, then landed by an immediately-merged PR. The "behind origin"
-  # given is not decoration — it is the state that makes a direct commit on the host wrong, and #758
-  # pinned the same fact for the per-issue sweep.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A tick that finds a dangling entry lands the pruned index on origin through a merged pull request
@@ -335,11 +262,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the index on the docs-index sweep branch still carries the entry "app_docs/feature-live.md"
     And the index on the docs-index sweep branch no longer carries that entry's dead glob
 
-  # The negative half of the persistence contract, and the reason the sweep is safe to run against a
-  # host that is also somebody's working checkout. Nothing the pass does may appear as a commit on
-  # the cron host's own default branch, and the repair may reach origin's default branch only by way
-  # of the merge — never by a direct push.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The repair never reaches the default branch except through the merged pull request
     Given a docs index on origin's default branch carrying an entry whose doc file is not tracked
@@ -347,9 +269,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the cron cycle runs the docs-index sweep
     Then the docs-index repair reaches origin's default branch only through the merged pull request
     And the cron host's local default branch carries no commit added by the pass
-
-  # A sweep that opens an empty PR on every cadence-eligible cycle is noise with a merge queue
-  # attached. Nothing to repair means nothing to push.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A tick over a healthy index opens no pull request and adds no commit anywhere
@@ -359,11 +278,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     And origin's default branch tip is unchanged by the docs-index sweep
     And the cron host's local default branch carries no commit added by the pass
 
-  # AC3, the sweep half: the June regression in miniature. Twenty dangling entries restored onto the
-  # index — the shape a `resolve_conflict` textual union produces — are all dropped in ONE tick, and
-  # every live entry survives. Both halves matter: a sweep that dropped only the first, or that
-  # over-pruned into the live entries, would be worse than the regression it repairs.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: Twenty restored dangling entries are dropped in a single tick and every live entry survives
     Given a docs index on origin's default branch into which 20 dangling entries have been restored
@@ -371,11 +285,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the cron cycle runs the docs-index sweep
     Then the index on the docs-index sweep branch omits all 20 dangling entries
     And the index on the docs-index sweep branch retains every entry whose doc file is tracked
-
-  # Non-fatal at the persistence layer, and self-healing across ticks. A merge that fails leaves the
-  # repair unlanded — which is correct, because the repair was never committed to the shared base —
-  # and the failure must be visible rather than swallowed silently. The next tick re-derives the same
-  # deterministic repair from origin and tries again.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A sweep whose pull request fails to merge reports the failure and re-attempts on the next tick
@@ -387,11 +296,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     And the cron cycle completes without raising an error
     And a later docs-index sweep re-attempts the repair
 
-  # AC5, the sweep half. On a cron host polling a target repository, the pass must repair the
-  # repository the launch boundary names and no other — including when the host's own checkout has
-  # the very same defect sitting in front of it. #769 pinned this for the two sibling sweeps; a new
-  # sweep is a new chance to reintroduce a cwd-derived identity.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A target-repo cron tick repairs the target repository's index and leaves the framework repository's alone
     Given a target repository checkout whose docs index carries a dangling entry
@@ -402,12 +306,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the sweep repairs the docs index of the target repository
     And the framework repository checkout's docs index still carries its dangling entry
     And every repository operation the docs-index sweep performed was issued through the cron's launch context
-
-  # ══════ §4  JUDGEMENT FINDINGS FILE EXACTLY ONE OPEN HITL ISSUE (task 1b) ═══════════════
-  #
-  # The reporting contract. Three violation kinds found in one tick produce ONE issue, `hitl`-
-  # labelled so the resulting work is human-approved, and the body must actually name the offenders —
-  # an issue that says "overlaps detected" costs a human the same investigation the sweep just did.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: Overlapping globs, an orphan doc and an out-of-band count are reported in a single hitl issue
@@ -421,11 +319,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     And the filed issue body names the orphan doc
     And the filed issue body reports the entry count against the band
 
-  # "At most one OPEN issue" is the requirement, and a cadence this generous still comes around. The
-  # reconciliation is the `promotionReconcileLink.ts` shape: the filed issue carries a back-link
-  # marker, the next tick finds the open tracker by it, and files nothing. Without this the sweep
-  # becomes an issue generator — a hundred trackers for one unresolved overlap.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A second tick over the same violations reconciles against the open tracker and files no second issue
     Given a docs index on origin's default branch whose entries overlap on a tracked file
@@ -434,10 +327,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the docs-index sweep files exactly one issue across both ticks
     And the second tick reconciles against the open docs-index health issue by its back-link
 
-  # A tracker that was closed — the human resolved the overlaps, or decided they were fine and closed
-  # it — must not suppress reporting forever. If the violation is still there on a later tick, a new
-  # tracker is filed. "At most one OPEN" is not "at most one ever".
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A violation that outlives a closed tracker is re-filed as one new issue
     Given a docs index on origin's default branch whose entries overlap on a tracked file
@@ -445,11 +334,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the cron cycle runs the docs-index sweep
     Then the docs-index sweep files exactly one issue
     And the filed issue carries the "hitl" label
-
-  # The line between the two halves of the sweep, asserted as negative space. A violation is reported,
-  # never repaired: the overlapping entries stay exactly as they are, and no PR is opened on their
-  # account. An implementation that resolved overlaps by dropping one side would delete authored
-  # documentation on a cadence, and the deletion would arrive pre-merged.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: Overlapping entries are left untouched in the index and no repair pull request is opened for them
@@ -466,10 +350,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the cron cycle runs the docs-index sweep
     Then the docs-index sweep files no issue
 
-  # AC5, the reporting half. The tracker belongs to the repository whose index is broken. Filing it
-  # against the cron host's own repository would bury a target repo's documentation debt in the
-  # framework's backlog, where nobody who can fix it is looking.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The hitl issue is filed in the launch-boundary repository, not the cron host's own
     Given a target repository checkout whose docs index carries overlapping entries
@@ -478,13 +358,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the cron cycle runs the docs-index sweep
     Then the docs-index health issue is created in the target repository
     And the docs-index sweep creates no issue in the framework repository
-
-  # ══════ §5  THE GATE IS A CI-RUNNABLE COMMAND THAT NEEDS NO FORGE (task 2) ══════════════
-  #
-  # What CI actually depends on: a broken index fails the command. AC3's CI half — the same 20
-  # restored dangling entries §3 repairs — arriving on a branch and being caught before merge. The
-  # gate must NAME them: a red check that says only "1 check failed" sends the author back to run it
-  # locally, which is the CI equivalent of not reporting at all.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The docs-index gate fails and names every dangling entry when twenty are restored on a branch
@@ -499,21 +372,12 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     When the docs-index gate runs over the fixture checkout
     Then the docs-index gate exits 0
 
-  # The gate bug from the CI side. Both READMEs are tracked and present; a gate that reports them
-  # dangling turns every pull request red for a defect that does not exist, and the standard response
-  # to a permanently-red check is to stop reading it — which is how the index rotted the first time.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: Top-level README entries are not reported as dangling by the gate
     Given a fixture checkout whose docs index indexes "README.md" and "adws/README.md"
     And both README files are tracked in the fixture checkout
     When the docs-index gate runs over the fixture checkout
     Then the docs-index gate reports no dangling entry
-
-  # AC2's prerequisite, asserted as behaviour rather than as an absent line of code. A CI runner has
-  # no GitHub App installation for the repository under test; `gitContextForRepo` eagerly resolves an
-  # installation token, and #812 showed exactly what that throws when the App is not installed. The
-  # observable is that the gate reaches a verdict anyway and asks the forge for nothing.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The gate reaches its verdict with no forge credentials and issues no forge request
@@ -523,11 +387,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the docs-index gate exits 0
     And the docs-index gate issued no forge request
 
-  # The other half of removing that call: the guard's self-cleaning ratchet. Leaving the allowlist
-  # entry behind after the construction is gone is itself a guard failure, so this scenario fails
-  # both ways round — construction removed but entry left, or entry removed but construction left.
-  # AC5's `bun run lint:git-guard` green.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The git/gh guard passes across the repository with the docs-index gate de-allowlisted
     Given the ADW codebase is checked out
@@ -535,24 +394,11 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Then the git/gh guard reports no violations
     And the git/gh guard reports no stale allowlist entry for the docs-index gate
 
-  # ══════ §6  THE REAL INDEX IS GREEN (AC1, AC4 — the convergence pass's only observable) ══
-  #
-  # AC1, end to end, through the entry point CI invokes. This is the scenario the whole issue exists
-  # to turn green, and it is RED today on three separate checks (header transcript). It is also the
-  # only assertion that task 3's fold — 23 feature docs into their owning module docs, `oqb76h`
-  # promoted to the module doc for `adws/gitContext/` — can be measured by: the merged prose is LLM
-  # output, the resulting index is not.
-
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The docs-index gate exits 0 over the ADW checkout when run through its package script entry point
     Given the ADW codebase is checked out
     When the docs-index gate is run through its package script entry point
     Then the docs-index gate exits 0
-
-  # AC4, split into its three named checks so a failure says WHICH invariant broke rather than only
-  # that the gate is red — and so the convergence pass can be seen landing one at a time. Overlaps
-  # and the count are RED today; orphans are green and must stay that way, since folding docs is
-  # exactly the operation that leaves orphans behind when the index is not updated with them.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The ADW index has no overlapping owned globs after the convergence pass
@@ -571,12 +417,6 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Given the ADW codebase is checked out
     When the docs-index gate is run over the ADW checkout
     Then the docs-index gate reports the entry count inside its band
-
-  # ══════ §7  TYPE-CHECK BACKSTOP (registry T22) ═════════════════════════════════════════
-  #
-  # A new core module, a new trigger, a new cadence constant, a changed dispatch site and a gate that
-  # loses a dependency — five places where a plausible edit compiles in the author's head and not in
-  # `tsc`. The removed `gitContextForRepo` import is the likeliest to be left dangling.
 
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: TypeScript type-check passes with the docs-index health module, the cron sweep and the reworked gate wired in

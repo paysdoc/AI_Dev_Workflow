@@ -1,7 +1,3 @@
-/**
- * Worktree setup helpers: gitignore management and slash-command/skill copying.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +15,8 @@ export const REQUIRED_ADW_FILES = [
 ] as const;
 
 /**
- * Ensures a given entry exists in the `.gitignore` file at the specified directory.
  * Creates the `.gitignore` file if it doesn't exist. Idempotent — safe to call
  * multiple times without duplicating the entry.
- *
- * @param worktreePath - The absolute path to the directory containing `.gitignore`
- * @param entry - The gitignore pattern to ensure is present (e.g., `.claude/commands/bug.md`)
  */
 export function ensureGitignoreEntry(worktreePath: string, entry: string): void {
   const gitignorePath = path.join(worktreePath, '.gitignore');
@@ -50,12 +42,8 @@ export function ensureGitignoreEntry(worktreePath: string, entry: string): void 
 }
 
 /**
- * Ensures multiple entries exist in the `.gitignore` file at the specified directory.
  * Writes all new entries in a single file operation with one comment header,
  * avoiding duplicate comments from calling `ensureGitignoreEntry` in a loop.
- *
- * @param worktreePath - The absolute path to the directory containing `.gitignore`
- * @param entries - The gitignore patterns to ensure are present
  */
 export function ensureGitignoreEntries(worktreePath: string, entries: readonly string[]): void {
   if (entries.length === 0) return;
@@ -81,10 +69,7 @@ export function ensureGitignoreEntries(worktreePath: string, entries: readonly s
   log(`Added ${newEntries.length} gitignore entr${newEntries.length === 1 ? 'y' : 'ies'} to ${gitignorePath}`, 'info');
 }
 
-/**
- * Parses the YAML frontmatter of a markdown file and returns whether `target: true` is set.
- * Returns `false` if the file doesn't exist, has no frontmatter, or the `target` field is absent/false.
- */
+/** Returns `false` if the file doesn't exist, has no frontmatter, or the `target` field is absent/false. */
 function parseFrontmatterTarget(filePath: string): boolean {
   if (!fs.existsSync(filePath)) return false;
   const content = fs.readFileSync(filePath, 'utf-8');
@@ -99,9 +84,6 @@ function parseFrontmatterTarget(filePath: string): boolean {
   return false;
 }
 
-/**
- * Copies all files from a source directory to a destination directory, overwriting existing files.
- */
 function copyDirContents(srcDir: string, destDir: string): void {
   fs.mkdirSync(destDir, { recursive: true });
   fs.readdirSync(srcDir).forEach((file) => {
@@ -112,9 +94,6 @@ function copyDirContents(srcDir: string, destDir: string): void {
   });
 }
 
-/**
- * Returns the set of basenames tracked by git under a given path prefix in the worktree.
- */
 function getTrackedBasenames(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
   try {
     return new Set(ctx.lsFiles(worktreePath, prefix).map((f) => path.basename(f)));
@@ -123,10 +102,7 @@ function getTrackedBasenames(ctx: GitContext, worktreePath: string, prefix: stri
   }
 }
 
-/**
- * Returns the set of top-level directory names tracked by git under a given path prefix.
- * E.g., for `.claude/skills/` returns `{'tdd', 'refactor', ...}`.
- */
+/** E.g., for `.claude/skills/` returns `{'tdd', 'refactor', ...}`. */
 function getTrackedTopDirs(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
   try {
     return new Set(
@@ -158,14 +134,13 @@ export function copyAdwInitCommandToWorktree(worktreePath: string, frameworkRepo
   ensureGitignoreEntry(worktreePath, '.adw/.regen-receipt');
 }
 
-/** Pure skip-if-exists decision for the starter guardrails settings copy (#763). */
+/** Pure skip-if-exists decision for the starter guardrails settings copy. */
 export type StarterSettingsDecision =
   | { readonly action: 'copy' }
   | { readonly action: 'skip'; readonly reason: 'already_exists' };
 
 /**
- * Decides whether the starter guardrails `settings.json` should be copied into a target
- * worktree. An owner who already has a `.claude/settings.json` has opinions — the copy is
+ * An owner who already has a `.claude/settings.json` has opinions — the copy is
  * always skipped, never merged or overwritten.
  */
 export function decideStarterSettingsCopy({ settingsExists }: { settingsExists: boolean }): StarterSettingsDecision {
@@ -173,20 +148,19 @@ export function decideStarterSettingsCopy({ settingsExists }: { settingsExists: 
   return { action: 'copy' };
 }
 
-/** Outcome of {@link copyStarterSettingsToWorktree}. */
 export interface StarterSettingsResult {
   readonly action: 'copied' | 'skipped';
   readonly destPath: string;
 }
 
 /**
- * Copies the canonical deny-only `templates/claude-settings-starter.json` (#762) into a
+ * Copies the canonical deny-only `templates/claude-settings-starter.json` into a
  * target worktree's `.claude/settings.json`, byte-identical, ONLY when the worktree has
  * none — an existing owner-authored settings file is never read, merged, or overwritten.
  *
  * Unlike `copyClaudeAssetsToWorktree`, this file is deliberately left OFF the gitignore
  * list: it is the repo owner's to keep, edit, or delete, and must ride into the init/
- * upgrade commit (#763).
+ * upgrade commit.
  */
 export function copyStarterSettingsToWorktree(worktreePath: string, frameworkRepoRoot: string): StarterSettingsResult {
   const destPath = path.join(worktreePath, '.claude', 'settings.json');
@@ -209,9 +183,6 @@ export function copyStarterSettingsToWorktree(worktreePath: string, frameworkRep
  * Gate logic (all conditions must hold):
  *   1. All six canonical `.adw/` config files exist and are non-empty.
  *   2. `features/regression/vocabulary.md` exists.
- *
- * Returns `{ ok: true, missing: [] }` on pass; `{ ok: false, missing }` on fail,
- * where `missing` lists the tokens that caused the failure.
  */
 export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: readonly string[] } {
   const adwDir = path.join(worktreePath, '.adw');
@@ -233,10 +204,7 @@ export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: re
 }
 
 /**
- * Copies ALL commands and ALL skills from the ADW framework repo into a target worktree,
- * always overwriting (merged replacement for the two previous helper functions).
- *
- * Post-copy gitignore policy — preserving the #267 invariant:
+ * Post-copy gitignore policy:
  *   - `target: true` assets: left committable (refresh + propagation into the product repo).
  *   - `target: false` assets: gitignored for run-availability only, UNLESS already tracked
  *     by git (never gitignore an already-committed path — gitignore can't untrack).

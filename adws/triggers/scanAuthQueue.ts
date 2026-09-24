@@ -1,6 +1,4 @@
 /**
- * scanAuthQueue — resume paused_auth orchestrators after auth has been restored.
- *
  * Called by trigger_cron.ts when the auth gate is absent (i.e., auth has been cleared).
  * For each agents/<adwId>/state.json with workflowStage === 'paused_auth':
  *   1. Rewrite state to 'abandoned' so takeoverHandler branch 5 fires.
@@ -50,12 +48,7 @@ function buildDefaultDeps(): ScanAuthQueueDeps {
   };
 }
 
-/**
- * Walks agents/* for paused_auth states, rewrites each to abandoned, then
- * routes through takeoverHandler branch 5 to re-spawn with the original adwId.
- *
- * @returns count of orchestrators successfully re-triggered
- */
+/** @returns count of orchestrators successfully re-triggered */
 export async function scanAuthQueue(
   boundary: LaunchBoundary,
   targetRepoArgs: string[],
@@ -83,7 +76,6 @@ export async function scanAuthQueue(
     const issueNumber = state.issueNumber;
     log(`scanAuthQueue: resuming adwId=${adwId} issue #${issueNumber}`, 'info');
 
-    // Rewrite to 'abandoned' so takeoverHandler branch 5 fires
     try {
       d.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
     } catch (err) {

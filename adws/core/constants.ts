@@ -1,10 +1,3 @@
-/**
- * Orchestrator identifier constants.
- *
- * Replaces magic string literals for orchestrator names across the codebase.
- * Each value corresponds to an entry in the AgentIdentifier union type.
- */
-/** Maximum number of auto-merge retry attempts before posting a failure comment. */
 export const MAX_AUTO_MERGE_ATTEMPTS = 3;
 
 export const OrchestratorId = {

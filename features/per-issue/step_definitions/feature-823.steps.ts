@@ -1,17 +1,4 @@
 /**
- * BDD step definitions for feature-823.feature — entry file.
- * Shared state (w823/wcopy), Before/After hooks, and the splitRepo helper.
- * Given/When/Then registrations live in sibling files auto-discovered by the
- * cucumber glob:
- *  - feature-823-assembly.steps.ts   (§1 seam-assembly + §1/§2 assembled-set steps)
- *  - feature-823-probes.steps.ts     (§2/§5 type-probe verdicts)
- *  - feature-823-workspace.steps.ts  (§4 workspace-binding steps)
- *  - feature-823-copyout.steps.ts    (§7 copy-out / extraction-gate steps)
- *
- * forgeProviders() is the library's one way to build a bound provider set —
- * one identity in, every member bound to it, an unknown forge name refused
- * by name, and the launch boundary its only caller.
- *
  * Reuses five existing harnesses verbatim, never redefining their phrases:
  * the guard fixture tree (feature-816.steps.ts), the type-probe harness
  * (feature-817.steps.ts), the launch-boundary world (feature-794.steps.ts),
@@ -38,10 +25,6 @@ export function splitRepo(repoStr: string): RepoIdentifier {
   const [owner, repo] = repoStr.split('/');
   return { owner, repo, platform: Platform.GitHub };
 }
-
-// ---------------------------------------------------------------------------
-// Shared state — §1/§4 assembly & workspace-binding scratch
-// ---------------------------------------------------------------------------
 
 export interface W823 {
   assembleError: Error | null;
@@ -73,10 +56,6 @@ function resetW823(): void {
   w823.tempDirs = [];
 }
 
-// ---------------------------------------------------------------------------
-// Shared state — §7 copy-out scratch
-// ---------------------------------------------------------------------------
-
 export interface Wcopy {
   tempDir: string | null;
   importError: Error | null;
@@ -93,11 +72,6 @@ function resetWcopy(): void {
   wcopy.importError = null;
   wcopy.imported = false;
 }
-
-// ---------------------------------------------------------------------------
-// Before / After — scoped to @adw-823, forcing isolation from every reused
-// file's own (differently-tag-scoped) hooks.
-// ---------------------------------------------------------------------------
 
 Before({ tags: '@adw-823' }, async function () {
   resetGuardFixtureTree();

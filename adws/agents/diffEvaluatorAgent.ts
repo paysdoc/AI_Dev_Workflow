@@ -1,12 +1,4 @@
-/**
- * Diff evaluator agent.
- *
- * LLM-based diff evaluation using Haiku for binary classification.
- * Classifies a git diff as "safe" (auto-merge) or "regression_possible" (escalate).
- *
- * The fallback to 'regression_possible' on parse failure moves to phase level
- * (diffEvaluationPhase.ts) — this agent returns a structured error instead.
- */
+/** The fallback to 'regression_possible' on parse failure moves to phase level (diffEvaluationPhase.ts) — this agent returns a structured error instead. */
 
 import { runCommandAgent } from './commandAgent';
 import type { CommandAgentOptions, ExtractionResult } from './commandAgent';
@@ -26,10 +18,6 @@ export const diffEvaluatorSchema: Record<string, unknown> = {
   additionalProperties: false,
 };
 
-/**
- * Extracts a DiffEvaluatorVerdict from raw agent output.
- * Returns a structured error if parsing fails (retry loop handles recovery).
- */
 function extractDiffVerdict(output: string): ExtractionResult<DiffEvaluatorVerdict> {
   try {
     const jsonMatch = output.match(/\{[\s\S]*?"verdict"[\s\S]*?\}/);
@@ -48,12 +36,7 @@ function extractDiffVerdict(output: string): ExtractionResult<DiffEvaluatorVerdi
   }
 }
 
-/**
- * Runs the diff evaluator agent to classify a git diff as safe or regression_possible.
- *
- * @param diff - The git diff string to evaluate.
- * @param options - Agent options (logsDir, issueBody, cwd, etc.) — omit `args`, it is set to `diff`.
- */
+/** @param options - Agent options (logsDir, issueBody, cwd, etc.) — omit `args`, it is set to `diff`. */
 export async function runDiffEvaluatorAgent(
   diff: string,
   options: Omit<CommandAgentOptions, 'args'>,

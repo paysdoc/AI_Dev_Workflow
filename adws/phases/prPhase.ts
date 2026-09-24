@@ -1,9 +1,3 @@
-/**
- * PR creation phase for workflows.
- * Generates PR title/body via the /pull_request skill, then programmatically
- * pushes the branch and creates the PR via CodeHost.createMergeRequest().
- */
-
 import {
   log,
   shouldExecuteStage,
@@ -21,10 +15,6 @@ import { BoardStatus } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
-/**
- * Executes the PR phase: generate PR title/body via agent, push branch, create PR via CodeHost.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- */
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoContext } = config;
   const phaseStartTime = Date.now();
@@ -74,7 +64,6 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     if (result.modelUsage) modelUsage = result.modelUsage;
 
     if (repoContext && gitCtx) {
-      // Push branch and create PR programmatically via the provider
       const { prContent } = result;
       gitCtx.pushBranch(currentBranch, worktreePath);
       const defaultBranch = resolvedDefaultBranch;
@@ -99,7 +88,6 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
         log(`Failed to move issue #${issueNumber} to Review: ${error}`, 'error');
       }
     } else {
-      // No repoContext — log agent output for diagnostics
       log(`PR content generated (no repoContext to create PR): ${result.prContent.title}`, 'info');
     }
   } else {

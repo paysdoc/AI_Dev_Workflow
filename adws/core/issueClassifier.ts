@@ -1,11 +1,3 @@
-/**
- * Issue classifier for ADW workflows.
- *
- * Provides single-step LLM classification via /classify_issue.
- * Deterministic regex command extraction has been removed; classification
- * is performed exclusively by the AI heuristic.
- */
-
 import type { Issue } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
@@ -18,9 +10,6 @@ import {
 import { extractAdwIdFromComment } from './workflowCommentParsing';
 import { readAdwLabelNames } from './adwLabels';
 
-/**
- * Result of classifying an issue for trigger purposes.
- */
 export interface IssueClassificationResult {
   issueType: IssueClassSlashCommand;
   success: boolean;
@@ -28,15 +17,6 @@ export interface IssueClassificationResult {
   issueTitle?: string;
 }
 
-/**
- * Classifies an issue using /classify_issue (AI heuristic).
- *
- * @param issueContext - The issue context string to classify
- * @param issueNumber - The GitHub issue number
- * @param agentName - Name identifier for the agent
- * @param outputFile - Path for agent output file
- * @returns IssueClassificationResult
- */
 async function classifyWithIssueCommand(
   issueContext: string,
   issueNumber: number,
@@ -106,17 +86,10 @@ export interface ClassifyIssueForTriggerDeps {
 }
 
 /**
- * Classifies an issue to determine the appropriate workflow.
- * Uses LLM-only classification via /classify_issue.
- *
  * The adw:* label override is enforced here — at the sole chokepoint all four
  * trigger paths (cron, issues.opened, issue_comment, dependency-closure) share —
  * rather than per-caller, so callers that omit labelRouting cannot silently fall
- * through to the LLM on a labeled issue (#618).
- *
- * @param issueNumber - The GitHub issue number to classify
- * @param deps - Injectable deps; `fetchIssue` is required, `classifyWith` optional
- * @returns Classification result with issue type and success status
+ * through to the LLM on a labeled issue.
  */
 export async function classifyIssueForTrigger(
   issueNumber: number,
@@ -131,10 +104,8 @@ export async function classifyIssueForTrigger(
     log(`classifyIssueForTrigger: issue #${issueNumber} title="${issue.title}", body length=${issue.body?.length ?? 0}`);
 
     // Deterministic adw:* label override — a single adw:<type> classification label
-    // bypasses AI classification on EVERY spawn path. Enforced here (all four triggers
-    // funnel through this chokepoint) so a caller that omits labelRouting cannot
-    // silently fall through to the LLM. Multiple conflicting adw:<type> labels fall
-    // through to the heuristic, unchanged.
+    // bypasses AI classification on EVERY spawn path. Multiple conflicting adw:<type>
+    // labels fall through to the heuristic, unchanged.
     const labelReading = readAdwLabelNames(issue.labels);
     if (labelReading.classification && !labelReading.conflict) {
       log(`Issue #${issueNumber}: adw:* label override -> ${labelReading.classification}, skipping AI classification`, 'success');
@@ -171,13 +142,6 @@ export async function classifyIssueForTrigger(
   }
 }
 
-/**
- * Classifies a pre-fetched issue to determine its type.
- * Uses LLM-only classification via /classify_issue.
- *
- * @param issue - The pre-fetched issue
- * @returns Classification result with issue type and success status
- */
 export async function classifyGitHubIssue(
   issue: ClassifiableIssue
 ): Promise<IssueClassificationResult> {

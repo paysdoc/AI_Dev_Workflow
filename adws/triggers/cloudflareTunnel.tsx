@@ -1,8 +1,5 @@
 #!/usr/bin/env bunx tsx
 /**
- * Cloudflare Tunnel Script for ADW Webhook Server
- *
- * Automates creation and running of a Cloudflare tunnel using `cloudflared`.
  * Exposes the local ADW webhook server to the internet so GitHub can deliver
  * webhook events to the local ADW instance.
  *

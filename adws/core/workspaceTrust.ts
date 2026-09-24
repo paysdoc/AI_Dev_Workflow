@@ -1,6 +1,6 @@
 /**
  * Grants Claude Code workspace trust for a target-repo workspace path in
- * `~/.claude.json` (issue #846).
+ * `~/.claude.json`.
  *
  * Claude Code refuses to honour a target repo's `.claude/settings.json`
  * `permissions.allow` entries until the workspace has been opened
@@ -11,7 +11,7 @@
  *
  * This lives in `adws/core/` (the ADW-side wrapper), not in
  * `adws/gitContext/repoWorkspace.ts` — workspace trust is a Claude-Code
- * concern, not a git one, and that library is deleted by #840 — and not on
+ * concern, not a git one — and not on
  * the per-spawn path in `adws/agents/claudeAgent.ts`. `~/.claude.json` is
  * read-modify-written by every live Claude Code session (interactive or
  * spawned), so writing once per repo at ensure time — before any agent for
@@ -29,10 +29,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { log as defaultLog, type LogLevel } from './logger';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export const CLAUDE_CONFIG_FILENAME = '.claude.json';
 
 export type WorkspaceTrustFs = Pick<typeof fs, 'readFileSync' | 'writeFileSync' | 'renameSync'>;
@@ -40,9 +36,7 @@ export type WorkspaceTrustFs = Pick<typeof fs, 'readFileSync' | 'writeFileSync' 
 export interface WorkspaceTrustDeps {
   /** Home directory resolver; defaults to os.homedir. Injectable for tests. */
   homedir?: () => string;
-  /** Filesystem seam; defaults to real fs. */
   fsDeps?: WorkspaceTrustFs;
-  /** Log function; defaults to the core logger. */
   log?: (message: string, level?: LogLevel) => void;
 }
 
@@ -52,10 +46,6 @@ export type WorkspaceTrustResult =
   | { action: 'skipped'; reason: string };
 
 type JsonObject = Record<string, unknown>;
-
-// ---------------------------------------------------------------------------
-// Internals
-// ---------------------------------------------------------------------------
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -114,12 +104,8 @@ function atomicWriteJson(file: string, data: JsonObject, fsDeps: WorkspaceTrustF
   fsDeps.renameSync(tmp, file);
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
- * Resolves the `~/.claude.json` path. `homedir` defaults to `os.homedir` —
+ * `homedir` defaults to `os.homedir` —
  * never read `$HOME` directly here, so Windows resolution stays correct.
  */
 export function claudeConfigPath(homedir: () => string = os.homedir): string {
@@ -127,8 +113,6 @@ export function claudeConfigPath(homedir: () => string = os.homedir): string {
 }
 
 /**
- * Grants Claude Code workspace trust for `workspacePath` in `~/.claude.json`.
- *
  * Never throws. A missing, unreadable, unparseable, or non-object config
  * file, a non-object `projects` value, or a failed tmp-write/rename all
  * yield `{ action: 'skipped', reason }` plus a `warn` log — the caller (the

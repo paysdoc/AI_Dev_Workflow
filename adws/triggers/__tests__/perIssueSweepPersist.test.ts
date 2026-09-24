@@ -1,12 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Module mocks (hoisted) ───────────────────────────────────────────────────
-
 vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
-
-// ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import {
   persistRemovalViaPr,
@@ -66,8 +62,6 @@ function makeFakeBase(overrides: Partial<SweepBase> = {}): SweepBase {
     ...overrides,
   };
 }
-
-// ── persistRemovalViaPr ──────────────────────────────────────────────────────
 
 describe('persistRemovalViaPr', () => {
   it('no-op when paths is empty — no guard check, no commit', async () => {
@@ -151,8 +145,6 @@ describe('persistRemovalViaPr', () => {
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#42'), 'success');
   });
 });
-
-// ── prepareSweepBase ─────────────────────────────────────────────────────────
 
 describe('prepareSweepBase', () => {
   beforeEach(() => {
@@ -254,8 +246,6 @@ describe('prepareSweepBase', () => {
   });
 });
 
-// ── persistCommitViaPr (#810 generalisation) ────────────────────────────────
-
 describe('persistCommitViaPr', () => {
   it('skips when an open sweep PR already exists — commit is never invoked', async () => {
     const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 7) });
@@ -306,8 +296,6 @@ describe('persistCommitViaPr', () => {
   });
 });
 
-// ── prepareSweepBase with a custom SweepPersistSpec (#810 generalisation) ──
-
 describe('prepareSweepBase — custom spec', () => {
   it('uses the given spec\'s branch for worktree creation and PR title for openPr', () => {
     const customSpec: SweepPersistSpec = {
@@ -338,8 +326,6 @@ describe('prepareSweepBase — custom spec', () => {
     expect(base?.sweepBranch).toBe(PER_ISSUE_SWEEP_SPEC.branch);
   });
 });
-
-// ── cleanupSweepBase ─────────────────────────────────────────────────────────
 
 describe('cleanupSweepBase', () => {
   function makeFakeCleanupBase(overrides: Record<string, unknown> = {}) {

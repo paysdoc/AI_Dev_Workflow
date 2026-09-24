@@ -1,24 +1,4 @@
 /**
- * BDD step definitions for feature-796.feature
- *
- * Orchestrators and phases reach the forge only through the providers the launch
- * boundary minted.
- *
- * §1  the merge orchestrator's forge traffic goes through the boundary
- * §2  the branch lookup must still see pull requests that are not open
- * §3  the upgrade orchestrator stops minting its own provider
- * §4  the auto-merge phase's two gates run on the repo context it was handed
- * §5  workflow init sources its providers from the boundary, always
- * §6  a repository that is not on GitHub needs no orchestrator change
- * §7  the wrong-repo invariant survives the migration
- * §8  the migration captures no credential at wiring time
- * §9  the structural backstops → feature-691.steps.ts (guard), feature-504.steps.ts (type-check)
- *
- * Driven through the boundary's existing injection seams (LaunchGitContextDeps,
- * `mintProviders`), exactly as feature-794.steps.ts drives it, plus the two exported
- * production deps-builders (`buildDefaultDeps`, `buildDefaultUpgradeDeps`) and the
- * exported `resolveWorkflowProviders` decision function this slice introduces.
- *
  * The fixture repository "adw-fixture/void-796" is never a real repository — every
  * `targetReposDir`/`frameworkRepoRoot` the boundary receives is a throwaway mkdtemp
  * directory, so a step that reaches an un-migrated git operation fails locally and
@@ -66,10 +46,7 @@ import { UPGRADE_FAILURE_SIGNATURE } from '../../../adws/core/upgradeFailureCap.
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
 import type { GitContext, GitIdentity } from '@paysdoc/devplatform/git';
 
-// ── The fixture repo's real filesystem home (never on disk as a git repo) ─────
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-
-// ── World state ──────────────────────────────────────────────────────────────
 
 export interface CallRecord {
   operation: string;
@@ -89,27 +66,27 @@ export interface Fixture {
   prState: Map<number, string>;
   prComments: Map<number, ReviewComment[]>;
   lastAdwCommit: Map<string, Date | null>;
-  /** #820 §4: pull request number -> the issue it implements (PullRequest.linkedIssueNumber). */
+  /** Pull request number -> the issue it implements (PullRequest.linkedIssueNumber). */
   prLinkedIssue: Map<number, number>;
-  /** #820 §7: label names NOT yet defined on the repo — applyLabel lazy-creates and records 'createLabel', then removes the entry (idempotent create). */
+  /** Label names NOT yet defined on the repo — applyLabel lazy-creates and records 'createLabel', then removes the entry (idempotent create). */
   undefinedLabels: Set<string>;
-  /** #821: every PR of the repository (open, closed, merged) — CodeHost.listPullRequests()'s backing store. */
+  /** Every PR of the repository (open, closed, merged) — CodeHost.listPullRequests()'s backing store. */
   allPRs: PullRequestRecord[];
-  /** #844: per-issue Issue field overrides for fetchIssue — default '' (today's behaviour) when unset. */
+  /** Per-issue Issue field overrides for fetchIssue — default '' (today's behaviour) when unset. */
   issueUrls: Map<number, string>;
   issueCreatedAts: Map<number, string>;
   issueAuthors: Map<number, string>;
   issueStates: Map<number, string>;
-  /** #844: issue numbers whose fetchIssue should reject, as the real tracker does on a forge refusal. */
+  /** Issue numbers whose fetchIssue should reject, as the real tracker does on a forge refusal. */
   refuseIssueFetch: Set<number>;
-  /** #844: codeHost refusal flags for the two "refuses by name" health-check rows. */
+  /** codeHost refusal flags for the two "refuses by name" health-check rows. */
   refuseListPullRequests: boolean;
   refuseAuthenticatedUser: boolean;
-  /** #848: when true, approvePullRequest records the call but reports { success: false }. */
+  /** When true, approvePullRequest records the call but reports { success: false }. */
   approveFails: boolean;
-  /** #848: when true, canApprovePullRequests records the call then refuses by name (throws). */
+  /** When true, canApprovePullRequests records the call then refuses by name (throws). */
   refuseCanApprove: boolean;
-  /** #848: when true, every recorded approval also flips prApproval for that PR — as GitHub does with ADW's PAT-served approval. */
+  /** When true, every recorded approval also flips prApproval for that PR — as GitHub does with ADW's PAT-served approval. */
   approvalsCountAsReviews: boolean;
 }
 
@@ -176,8 +153,7 @@ const w: World796 = {
 };
 
 /**
- * Cross-file accessor for the live module world (#820), the same pattern as
- * feature-816.steps.ts's `resetGuardFixtureTree`. Returns the SAME mutable
+ * Cross-file accessor for the live module world. Returns the SAME mutable
  * object every call — callers read/write it directly, they never clone it.
  */
 export function world796(): World796 {
@@ -230,8 +206,6 @@ After({ tags: '@adw-796' }, function () {
   resetWorld();
 });
 
-// ── Shared helpers ───────────────────────────────────────────────────────────
-
 const FIXED_IDENTITY: GitIdentity = {
   authorName: 'ADW Test Bot',
   authorEmail: 'bot@test.dev',
@@ -278,7 +252,6 @@ export function makeFixture(): Fixture {
   };
 }
 
-/** The exact forge-semantic member set from AC1's sweep (gitContext.ts:492-742). */
 const FORGE_SEMANTIC_METHODS = new Set([
   'defaultBranch', 'fetchIssue', 'commentOnIssue', 'issueState', 'closeIssue', 'issueTitle',
   'fetchIssueComments', 'issueHasLabel', 'addIssueLabel', 'createIssue', 'updateIssueBody',
@@ -289,7 +262,7 @@ const FORGE_SEMANTIC_METHODS = new Set([
   'runGraphQLInput', 'moveIssueToStatus',
 ]);
 
-/** Wraps a GitContext in a Proxy that logs access to any forge-semantic member; everything else forwards silently. */
+/** Everything else forwards silently. */
 function watchGitContext(real: GitContext, log: string[]): GitContext {
   return new Proxy(real as unknown as Record<string, unknown>, {
     get(target, prop, receiver) {
@@ -302,7 +275,7 @@ function watchGitContext(real: GitContext, log: string[]): GitContext {
   }) as unknown as GitContext;
 }
 
-/** A gitContext-shaped stub for scenarios with no real GitContext to watch (auto-merge phase config). */
+/** For scenarios with no real GitContext to watch (auto-merge phase config). */
 function makeStubGitContext(): GitContext {
   const stub: Record<string, unknown> = {};
   for (const name of FORGE_SEMANTIC_METHODS) {
@@ -322,7 +295,7 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
     async fetchIssue(issueNumber) {
       record(callLog, 'fetchIssue', issueNumber);
       if (fixture.refuseIssueFetch.has(issueNumber)) {
-        // Mirrors the real GitHub tracker's wrap exactly — fetchIssueRecord (#844) no
+        // Mirrors the real GitHub tracker's wrap exactly — fetchIssueRecord no
         // longer wraps it a second time, so this IS the message the caller sees.
         throw new Error(`Failed to fetch issue #${issueNumber}: recording tracker configured to refuse`);
       }
@@ -510,7 +483,6 @@ function makeRecordingProviders(fixture: Fixture, callLog: CallRecord[], repoId:
   };
 }
 
-/** Builds a launch boundary whose minted providers are this file's recording stand-ins. */
 function buildRecordingBoundary(owner: string, repo: string): void {
   w.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-796-framework-'));
   w.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-796-target-repos-'));
@@ -542,7 +514,7 @@ function buildRecordingBoundary(owner: string, repo: string): void {
 let cachedClaimBranch: string | null = null;
 let claimBranchOverride: string | null = null;
 
-/** The real upgrade claim branch for THIS repo's actual framework state — deterministic per run. */
+/** Deterministic per run. */
 export function claimBranchName(): string {
   if (claimBranchOverride) return claimBranchOverride;
   if (!cachedClaimBranch) {
@@ -553,7 +525,7 @@ export function claimBranchName(): string {
 
 /**
  * Freezes the claim branch this harness seeds and reads, for scenarios that must NAME the
- * branch literally in Gherkin (feature-820 §10). The real name embeds
+ * branch literally in Gherkin. The real name embeds
  * `computeFrameworkHash(FRAMEWORK_REPO_ROOT)`, which changes with every commit, so a literal
  * Gherkin parameter can only match a frozen hash. Scenarios that drive the real upgrade
  * orchestrator (this file's own, which recompute the hash inside production code) must leave
@@ -617,8 +589,6 @@ function assertApprovalAsked(prNumber: number): void {
   assert.ok(call, `Expected an isPullRequestApproved call for pull request ${prNumber}`);
 }
 
-// ── §1/§3/§6/§7 setup — the recording boundary ─────────────────────────────────
-
 Given('a launch boundary for the repository {string} whose providers record every call', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
   buildRecordingBoundary(owner, repo);
@@ -635,8 +605,6 @@ Given(
 Given('the local git remote answers {string}', function (repoStr: string) {
   w.remoteAnswer = splitRepo(repoStr);
 });
-
-// ── §1/§3/§4 — watching the git context for forge-semantic calls ──────────────
 
 Given('the boundary\'s git context is watched for forge-semantic calls', function () {
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
@@ -662,23 +630,17 @@ Then('the watched git context was asked for no forge-semantic operation', functi
   );
 });
 
-// ── §1/§8 — building the merge orchestrator's production dependencies ─────────
-
 Given('the merge orchestrator\'s production dependencies are built from that boundary', function () {
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
   const effective = w.watchedBoundary ?? w.boundary;
   w.mergeDeps = buildDefaultDeps(effective);
 });
 
-// ── §3 — building the upgrade orchestrator's production dependencies ──────────
-
 Given('the upgrade orchestrator\'s production dependencies are built from that boundary', function () {
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
   const effective = w.watchedBoundary ?? w.boundary;
   w.upgradeDeps = buildDefaultUpgradeDeps(effective.providers, effective.gitContext);
 });
-
-// ── §1/§2 — branch/PR fixtures (literal branch name) ───────────────────────────
 
 Given('the branch {string} has a pull request numbered {int} in state {string}', function (branchName: string, prNumber: number, state: string) {
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -689,11 +651,9 @@ Given('the branch {string} has a pull request numbered {int} in state {string}',
 
 /**
  * "the branch {string} has no pull request" is already registered by
- * feature-527.steps.ts (G20, mock-server PR fixture setup — a no-op there when
- * `this.mockContext` is unset, which is always true for this file's scenarios).
- * Re-registering the identical phrase here would be an AmbiguousStepDefinition,
- * so feature-527's handler calls this exported hook instead of feature-796
- * registering a second, colliding Given.
+ * feature-527.steps.ts. Re-registering the identical phrase here would be an
+ * AmbiguousStepDefinition, so feature-527's handler calls this exported hook
+ * instead of feature-796 registering a second, colliding Given.
  */
 export function noteBranchHasNoPullRequest(branchName: string): void {
   if (!w.activeFixture) return;
@@ -704,8 +664,6 @@ export function noteBranchHasNoPullRequest(branchName: string): void {
 Given('the merge orchestrator has already failed to resolve a pull request {int} times', function (count: number) {
   w.mergeRetryCount = count;
 });
-
-// ── §2/§3 — claim-branch PR fixtures (computed branch name) ────────────────────
 
 Given('the claim branch for issue {int} has no pull request', function (_issueNumber: number) {
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -721,8 +679,6 @@ Given(
     w.activeFixture.prState.set(prNumber, state);
   },
 );
-
-// ── §1/§3/§4 — label/approval/comment fixtures ─────────────────────────────────
 
 Given('issue {int} carries the label {string}', function (issueNumber: number, label: string) {
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -755,16 +711,12 @@ Given('issue {int} carries {int} recorded upgrade failure comments', function (i
   w.activeFixture.issueComments.set(issueNumber, comments);
 });
 
-// ── §3 — regeneration succeeds without touching real git/LLM ──────────────────
-
 Given('the upgrade regeneration produces a committed change', function () {
   assert.ok(w.upgradeDeps, 'Expected upgrade orchestrator dependencies to have been built first');
   const fakeWorktree = mkdtempSync(path.join(tmpdir(), 'adw-796-worktree-'));
   w.tempDirs.push(fakeWorktree);
   w.upgradeDeps = { ...w.upgradeDeps, ...stubRegenDeps(fakeWorktree) };
 });
-
-// ── §4/§6/§7 — auto-merge phase configuration ──────────────────────────────────
 
 Given('an auto-merge phase configuration for issue {int} whose pull request is {int}', function (issueNumber: number, prNumber: number) {
   const repoId: RepoIdentifier = { owner: 'adw-fixture', repo: 'void-796', platform: Platform.GitHub };
@@ -786,11 +738,11 @@ Given('an auto-merge phase configuration for issue {int} whose pull request is {
     },
     branchName,
     repoContext: undefined,
-    // #821 (dcdd8622) made executeAutoMergePhase skip with no provider call at all when
-    // gitContext is falsy — every scenario built from this fixture stops at the hitl-label
-    // gate (no scenario here has an approved PR), so a non-functional stub is sufficient;
-    // scenarios that need to watch it override this via "the configuration's git context
-    // is watched for forge-semantic calls" below.
+    // executeAutoMergePhase skips with no provider call at all when gitContext is
+    // falsy — every scenario built from this fixture stops at the hitl-label gate
+    // (no scenario here has an approved PR), so a non-functional stub is sufficient;
+    // scenarios that need to watch it override this via "the configuration's git
+    // context is watched for forge-semantic calls" below.
     gitContext: makeStubGitContext(),
   } as unknown as WorkflowConfig;
 });
@@ -812,8 +764,6 @@ Given('the configuration is served by a recording tracker that is not GitHub', f
   buildAutoMergeProviders();
 });
 
-// ── §8 — credential counting ────────────────────────────────────────────────────
-
 Given('the boundary resolves credentials through a counting credential source', function () {
   // resolveToken (wired in buildRecordingBoundary) always counts; reset here for a clean read.
   w.tokenCallCount = 0;
@@ -822,8 +772,6 @@ Given('the boundary resolves credentials through a counting credential source', 
 Then('the counting credential source was never asked', function () {
   assert.strictEqual(w.tokenCallCount, 0, `Expected the credential source never to be asked, got ${w.tokenCallCount} call(s)`);
 });
-
-// ── §5 — workflow init provider sourcing ────────────────────────────────────────
 
 When('workflow init resolves its providers from that boundary with no caller-supplied identity', function () {
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
@@ -879,8 +827,6 @@ Then('no issue tracker was constructed outside the launch boundary', function ()
   assert.strictEqual(w.mintCallCount, 0, `Expected no provider construction at all, got ${w.mintCallCount} mint(s)`);
 });
 
-// ── When — running the orchestrators / phase ────────────────────────────────────
-
 When('the merge orchestrator runs for issue {int} under adw id {string}', async function (issueNumber: number, adwId: string) {
   assert.ok(w.mergeDeps, 'Expected the merge orchestrator\'s production dependencies to have been built first');
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
@@ -909,8 +855,6 @@ When('the auto-merge phase runs', async function () {
   await executeAutoMergePhase(w.autoMergeConfig);
 });
 
-// ── §1/§2 — merge/upgrade outcome assertions ────────────────────────────────────
-
 Then('the merge orchestrator reports the outcome {string} for reason {string}', function (outcome: string, reason: string) {
   assert.ok(w.mergeResult, 'Expected the merge orchestrator to have run');
   assert.strictEqual(w.mergeResult.outcome, outcome);
@@ -931,8 +875,6 @@ Then('the upgrade orchestrator did not stop on an existing pull request', functi
   assert.ok(w.upgradeResult, 'Expected the upgrade orchestrator to have run');
   assert.notStrictEqual(w.upgradeResult.reason, 'pr_already_exists');
 });
-
-// ── Comment assertions (shared across boundary/configuration/non-GitHub phrasing) ─
 
 Then('the boundary\'s issue tracker recorded a comment on issue {int}', function (issueNumber: number) {
   assertCommentRecorded(issueNumber);
@@ -960,8 +902,6 @@ Then('the configuration\'s providers recorded no comment', function () {
   assertNoCommentRecorded();
 });
 
-// ── Label assertions ─────────────────────────────────────────────────────────────
-
 Then('the boundary\'s providers recorded the label {string} applied to issue {int}', function (label: string, issueNumber: number) {
   assertLabelApplied(issueNumber, label);
 });
@@ -982,8 +922,6 @@ Then('the configuration\'s providers recorded no label applied to issue {int}', 
   assertNoLabelApplied(issueNumber);
 });
 
-// ── Label/approval read assertions ────────────────────────────────────────────────
-
 Then('the boundary\'s providers were asked for the labels on issue {int}', function (issueNumber: number) {
   assertLabelsAsked(issueNumber);
 });
@@ -999,8 +937,6 @@ Then('the boundary\'s providers were asked for the approval on pull request {int
 Then('the configuration\'s providers were asked for the approval on pull request {int}', function (prNumber: number) {
   assertApprovalAsked(prNumber);
 });
-
-// ── §3 — upgrade PR/comment/board assertions ──────────────────────────────────────
 
 Then('the boundary\'s code host created exactly one pull request', function () {
   const calls = w.activeCallLog.filter(c => c.operation === 'createPullRequest');
@@ -1025,8 +961,6 @@ Then('the boundary\'s providers recorded issue {int} moved to {string}', functio
   assert.ok(call, `Expected issue ${issueNumber} to have been moved to "${status}"`);
 });
 
-// ── §6 — non-GitHub tracker / no GitHub provider constructed ──────────────────────
-
 Then('no GitHub provider was constructed during the phase', function () {
   assert.ok(w.autoMergeConfig?.repoContext, 'Expected the auto-merge configuration to carry a repo context');
   const rc = w.autoMergeConfig.repoContext;
@@ -1045,8 +979,6 @@ Then('no GitHub provider was constructed during the run', function () {
     'Expected the code host not to be a GitHubCodeHost instance',
   );
 });
-
-// ── §7 — wrong-repo invariant ──────────────────────────────────────────────────────
 
 Then('every recorded provider call addressed the repository {string}', function (repoStr: string) {
   const { owner, repo } = splitRepo(repoStr);
@@ -1071,7 +1003,3 @@ Then('every recorded provider call about a pull request named pull request {int}
     );
   }
 });
-
-// §9 reuses 'the git/gh guard is run across the repository' / 'the git/gh guard reports
-// no violations' (feature-691.steps.ts) and 'the ADW TypeScript type-check passes'
-// (feature-504.steps.ts) — no new step definitions.

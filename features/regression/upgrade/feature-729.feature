@@ -65,7 +65,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
     • #729 §2 re-pins #685 §D1's tracked-exclude-still-works behaviour under the new
       ignore-safe filter, as a guard against an over-correcting fix that unconditionally
       drops every exclude (which would let `adw_init.md` back into the self-host commit).
-      #685 §D1's own scenario remains owned by #685 and is not edited here.
 
   Scope notes:
 
@@ -95,7 +94,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
 
     Novel phrasing introduced here — the registry has no phrase for a gitignored-exclude
     regen commit or a commit-tree assertion (the #685 §D commit phrases are bound to
-    #685's own step-def module state, so reusing them would cross-wire state under the
     globally-loaded step defs, and re-declaring them would be a duplicate-step-definition
     error). All novel phrasing is surfaced to the maintainer in the agent Output:
       • `an upgrade regen worktree whose command file ".claude/commands/adw_init.md" is gitignored by the real copy-init-command step`
@@ -137,18 +135,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
   Background:
     Given the ADW codebase is checked out
 
-  # ════════════════════════════════════════════════════════════════════════════════
-  # §1 The fix: a gitignored excluded path no longer crashes the regen commit (RED→GREEN)
-  # ════════════════════════════════════════════════════════════════════════════════
-  #
-  # The production double-exclusion. The real `copyAdwInitCommandToWorktree` has already
-  # gitignored `.claude/commands/adw_init.md` in the upgrade worktree; `commitChanges` is
-  # then asked to exclude that same path. Before the fix, `git add -A -- '.' ':(exclude)…'`
-  # rejects the ignored path with exit 1 and the upgrade crashes uncaught — so no commit is
-  # recorded. After the ignore-safe filter drops the already-ignored path, the commit is
-  # recorded: the genuine `.adw/` regen change lands and the gitignored command file stays
-  # out of the tree (as `git add -A` would skip it anyway).
-
   @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
   Scenario: A regen commit whose excluded command file is gitignored is recorded and carries the genuine .adw/ change
     Given an upgrade regen worktree whose command file ".claude/commands/adw_init.md" is gitignored by the real copy-init-command step
@@ -157,17 +143,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
     Then the regen commit is recorded on the worktree branch
     And the recorded commit's tree includes ".adw/project.md"
     And the recorded commit's tree excludes ".claude/commands/adw_init.md"
-
-  # ════════════════════════════════════════════════════════════════════════════════
-  # §2 Guard: a tracked, non-ignored excluded path is still held out (mechanism preserved)
-  # ════════════════════════════════════════════════════════════════════════════════
-  #
-  # The self-host case, and the anti-over-correction guard. Where `adw_init.md` is a
-  # TRACKED, modified file (never gitignored), `git check-ignore` reports nothing ignored,
-  # so the exclude survives and still does real work: the regen change commits while the
-  # tracked command file is held out of the tree. Green before AND after the fix — it fails
-  # only if the ignore-safe filter wrongly drops a non-ignored exclude and lets the command
-  # file back into the commit (the #685 §D1 behaviour, re-pinned under the new filter).
 
   @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
   Scenario: A regen commit still holds out a tracked, non-ignored command file via the exclude

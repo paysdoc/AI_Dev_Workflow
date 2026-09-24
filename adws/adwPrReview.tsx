@@ -1,21 +1,7 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW PR Review - AI Developer Workflow for PR Review Comments
- *
  * Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>   (canonical form)
  *        bunx tsx adws/adwPrReview.tsx <pr-number>              (manual fallback, routed through resolver)
- *
- * Workflow:
- * 1. Initialize: build the launch boundary, resolve the invocation (branch→PR/adwId), fetch PR
- *    details, detect unaddressed comments, setup worktree, initialize state
- * 2. Install Phase: install dependencies
- * 3. Plan Phase: read existing plan, run PR review plan agent
- * 4. Build Phase: run PR review build agent to implement revision plan
- * 5. Step Def Phase: generate BDD step definitions
- * 6. Unit Test Phase: run unit tests
- * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
- * 8. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
- * 9. Finalize: commit and push changes, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -94,12 +80,10 @@ async function main(): Promise<void> {
 
     await runPhase(config.base, tracker, executeStepDefPhase, 'stepDef');
 
-    // Unit tests
     await runPhase(config.base, tracker, executeUnitTestPhase);
 
     const { scenarioProofPath } = await runScenarioTestFixLoop(config.base, tracker);
 
-    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
     let proofPath = scenarioProofPath;
     let reviewBlockers: ReviewIssue[] = [];
     let reviewPassed = false;
@@ -113,7 +97,6 @@ async function main(): Promise<void> {
         const patchWrapper = (cfg: WorkflowConfig) =>
           executeReviewPatchCycle(cfg, reviewBlockers);
         await runPhase(config.base, tracker, patchWrapper);
-        // Re-run scenario tests to verify patch didn't break scenarios
         const retestResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
         proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
       }

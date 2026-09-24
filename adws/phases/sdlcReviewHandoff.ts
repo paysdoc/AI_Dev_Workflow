@@ -1,11 +1,7 @@
 /**
- * SDLC review-failure handoff.
- *
  * Extracted from adwSdlc.tsx main() so the BDD §2 scenario can phase-import
  * and drive the outcome in isolation over a mocked WorkflowConfig, without
  * spawning a full orchestrator subprocess.
- *
- * Mirrors the completePRReviewWorkflow pattern from prReviewCompletion.ts.
  */
 
 import { AgentStateManager, log } from '../core';
@@ -21,9 +17,6 @@ export interface SdlcReviewFailedConfig {
 }
 
 /**
- * Writes the `review_failed` terminal state and posts the branch-pointing
- * issue comment that tells the operator to push a fix and post `## Retry`.
- *
  * Called by adwSdlc.tsx when decidePostReviewOutcome returns skipDocAndPR:true.
  * The orchestrator persists its own cost/metadata separately.
  */

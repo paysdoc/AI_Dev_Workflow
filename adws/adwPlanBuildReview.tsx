@@ -1,20 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Plan, Build & Review - Plan+Build+Test+PR+Review Orchestrator
- *
  * Usage: bunx tsx adws/adwPlanBuildReview.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
- * 3. Alignment Phase: single-pass alignment of plan against scenarios
- * 4. Build Phase: run build agent, commit implementation
- * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Scenario Test Phase: run BDD scenarios
- * 7. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
- * 8. PR Phase: create pull request (only after review passes)
- * 9. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 10. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -46,9 +32,6 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
@@ -74,11 +57,9 @@ async function main(): Promise<void> {
       await runPhase(config, tracker, executeBuildPhase);
       const testResult = await runPhase(config, tracker, executeUnitTestPhase);
 
-      // Scenario test phase — proof path needed for review
       const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
       let proofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
 
-      // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
       let reviewRetries = 0;
       let reviewPassed = false;
       let reviewBlockers: ReviewIssue[] = [];
@@ -93,7 +74,6 @@ async function main(): Promise<void> {
           const patchWrapper = (cfg: WorkflowConfig) =>
             executeReviewPatchCycle(cfg, reviewBlockers);
           await runPhase(config, tracker, patchWrapper);
-          // Re-run scenario tests to verify patch didn't break scenarios
           const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
           proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
         }

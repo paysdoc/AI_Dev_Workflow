@@ -47,11 +47,6 @@ Feature: The review phase leaves the pull request unapproved when the issue carr
     Given the ADW codebase is checked out
     And a launch boundary for the repository "adw-fixture/void-848" whose providers record every call
 
-  # ── §1  A hitl ISSUE'S PASSING REVIEW MUST NOT APPROVE (AC1) ──────────────────────────────
-  #
-  # Every row here reports that the code host CAN approve, so the issue's label is the only thing
-  # left that can stop the approval. RED today: the phase approves pull request 7.
-
   @adw-848 @adw-izqk31-review-phase-approve
   Scenario: A passing review on an issue carrying hitl leaves the pull request unapproved and logs the skip naming the issue
     Given the recording code host reports that it can approve pull requests
@@ -74,8 +69,6 @@ Feature: The review phase leaves the pull request unapproved when the issue carr
     Then the boundary's code host recorded no approval
     And the review phase reported the review as passed
 
-  # ── §2  NO hitl — APPROVAL EXACTLY AS TODAY (AC2) ─────────────────────────────────────────
-
   @adw-848 @adw-izqk31-review-phase-approve
   Scenario: A passing review on an unlabelled issue approves the pull request exactly as before
     Given the recording code host reports that it can approve pull requests
@@ -84,13 +77,6 @@ Feature: The review phase leaves the pull request unapproved when the issue carr
     When the review phase completes with no blocker issues for that configuration
     Then the boundary's code host recorded an approval of pull request 7
     And the review phase reported the review as passed
-
-  # ── §3  THE NON-FATAL PATHS STAY NON-FATAL (AC3) ──────────────────────────────────────────
-  #
-  # Both rows use an unlabelled issue so the approval path is actually reached whatever order the
-  # fix checks the label and the capability in. In the first row the recording code host records
-  # the approval request even though it reports the approval as failed — that recorded request is
-  # what proves the failure path ran.
 
   @adw-848 @adw-izqk31-review-phase-approve
   Scenario: A failed approval on an unlabelled issue does not fail the passing review
@@ -110,13 +96,6 @@ Feature: The review phase leaves the pull request unapproved when the issue carr
     When the review phase completes with no blocker issues for that configuration
     Then the boundary's code host recorded no approval
     And the review phase reported the review as passed
-
-  # ── §4  THE hitl GATE SURVIVES A REVIEW PASS (AC5 — the regression proof) ──────────────────
-  #
-  # The review phase and the merge orchestrator share one recording boundary, so the merge gate
-  # reads the same label and approval state the review phase left behind. RED today: the review
-  # pass approves pull request 7, the code host then reports it approved, and the merge
-  # orchestrator walks past the gate instead of deferring.
 
   @adw-848 @adw-izqk31-review-phase-approve
   Scenario: The hitl merge gate still defers the unapproved pull request after the review phase passes

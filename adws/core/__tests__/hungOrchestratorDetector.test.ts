@@ -5,10 +5,6 @@ import * as path from 'path';
 import { findHungOrchestrators, type HungDetectorDeps } from '../hungOrchestratorDetector';
 import type { AgentState } from '../../types/agentTypes';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 let testDir: string;
 
 beforeEach(() => {
@@ -58,10 +54,6 @@ const NOW = Date.parse('2026-04-20T10:10:00.000Z');
 const STALE_MS = 180_000; // 3 minutes
 const STALE_LAST_SEEN = '2026-04-20T10:00:00.000Z'; // 10 min ago — stale
 const FRESH_LAST_SEEN = '2026-04-20T10:09:50.000Z'; // 10 sec ago — fresh
-
-// ---------------------------------------------------------------------------
-// Positive cases
-// ---------------------------------------------------------------------------
 
 describe('findHungOrchestrators — positive cases', () => {
   it('returns build_running entry with live PID and stale lastSeenAt', () => {
@@ -115,10 +107,6 @@ describe('findHungOrchestrators — positive cases', () => {
     expect(ids).toContain('multi-02');
   });
 });
-
-// ---------------------------------------------------------------------------
-// Negative cases
-// ---------------------------------------------------------------------------
 
 describe('findHungOrchestrators — negative cases (skipped entries)', () => {
   it('skips entry with fresh lastSeenAt (age <= threshold)', () => {
@@ -248,10 +236,6 @@ describe('findHungOrchestrators — negative cases (skipped entries)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Injected-clock tests
-// ---------------------------------------------------------------------------
-
 describe('findHungOrchestrators — injected clock', () => {
   it('uses the passed now value, not the system clock', () => {
     const lastSeenAt = '2026-04-20T10:00:00.000Z';
@@ -269,10 +253,6 @@ describe('findHungOrchestrators — injected clock', () => {
     expect(findHungOrchestrators(fiveMin, STALE_MS, deps)).toHaveLength(1);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Purity assertions
-// ---------------------------------------------------------------------------
 
 describe('findHungOrchestrators — purity', () => {
   it('does not mutate any fixture state file after returning', () => {

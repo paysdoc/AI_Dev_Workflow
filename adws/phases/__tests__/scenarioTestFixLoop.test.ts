@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
-// Mock modules before importing the loop
 vi.mock('../../core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../core')>();
   return {

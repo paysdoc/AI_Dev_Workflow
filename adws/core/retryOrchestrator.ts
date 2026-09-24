@@ -1,8 +1,3 @@
-/**
- * Generic retry-with-resolution orchestration logic.
- * Consolidates the common retry loop pattern from testRetry.ts and reviewRetry.ts.
- */
-
 import { type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, persistTokenCounts } from '../cost';
 import { type AgentIdentifier } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
@@ -30,19 +25,14 @@ export interface RetryConfig<TRunResult extends AgentRunResult, TFailure> {
   statePath: string;
   label: string;
 
-  /** Run the agent and return the result */
   run: () => Promise<TRunResult>;
 
-  /** Determine if the run passed */
   isPassed: (result: TRunResult) => boolean;
 
-  /** Extract failures from a failed run */
   extractFailures: (result: TRunResult) => TFailure[];
 
-  /** Resolve failures (e.g., fix test, patch blocker) and return cost */
   resolveFailures: (failures: TFailure[]) => Promise<AgentRunResult>;
 
-  /** Optional callback when a retry attempt fails */
   onRetryFailed?: (attempt: number, maxAttempts: number) => void;
 
   /** Optional callback when context compaction is detected; triggers a context reset without incrementing retryCount */
@@ -52,23 +42,14 @@ export interface RetryConfig<TRunResult extends AgentRunResult, TFailure> {
   maxContextResets?: number;
 }
 
-/**
- * Helper to get ADW ID from state path.
- */
 function getAdwIdFromState(statePath: string): string {
   return AgentStateManager.readState(statePath)?.adwId || '';
 }
 
-/**
- * Helper to initialize agent state.
- */
 export function initAgentState(statePath: string, agentName: AgentIdentifier): string {
   return AgentStateManager.initializeState(getAdwIdFromState(statePath), agentName, statePath);
 }
 
-/**
- * Tracks cost and model usage, persisting token counts.
- */
 export function trackCost(
   result: AgentRunResult,
   state: { costUsd: number; modelUsage: ModelUsageMap },
@@ -82,8 +63,6 @@ export function trackCost(
 }
 
 /**
- * Generic retry loop with resolution.
- * Runs an agent, checks for failures, resolves them, and retries.
  * When `onCompactionDetected` is provided, compaction events restart the current
  * step without incrementing the retry counter, up to `maxContinuations` times.
  */
@@ -107,7 +86,6 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
     const result = await run();
     trackCost(result, costState, statePath);
 
-    // Handle compaction recovery for run() — only when callback is provided
     if (onCompactionDetected && result.compactionDetected) {
       contextResetCount++;
       log(`${label} agent context compacted (context reset ${contextResetCount}/${maxContextResets})`, 'info');
@@ -140,7 +118,6 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
     const resolveResult = await resolveFailures(lastFailures);
     trackCost(resolveResult, costState, statePath);
 
-    // Handle compaction recovery for resolveFailures() — only when callback is provided
     if (onCompactionDetected && resolveResult.compactionDetected) {
       contextResetCount++;
       log(`${label} resolver context compacted (context reset ${contextResetCount}/${maxContextResets})`, 'info');

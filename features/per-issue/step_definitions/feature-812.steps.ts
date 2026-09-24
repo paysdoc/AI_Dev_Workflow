@@ -1,8 +1,4 @@
 /**
- * BDD step definitions for feature-812.feature
- * Cron trigger crash loop: janitor discovery `.adw` marker gate, per-repo fault
- * isolation, and the cron tick guard (issue #812).
- *
  * §1–§3 drive the REAL `runJanitorPass` / `discoverTargetRepoWorktrees` over a
  * throwaway `targetReposDir` (a fresh tmp directory per scenario), with only the
  * network- and OS-touching members of `DEFAULT_DEPS` stubbed (`listWorktrees`,
@@ -12,11 +8,7 @@
  * filesystem implementations so the marker-gate predicate under test is genuine.
  *
  * §4 spawns the REAL entrypoint (`bunx tsx adws/triggers/trigger_cron.ts`) as a
- * subprocess, mirroring features/per-issue/step_definitions/feature-776.steps.ts.
- *
- * Steps NOT defined here (already registered elsewhere):
- *   Given 'the ADW codebase is checked out'      → features/step_definitions/ensureCronOnEveryEventSteps.ts (G18)
- *   Then  'the ADW TypeScript type-check passes' → features/per-issue/step_definitions/feature-504.steps.ts (T22)
+ * subprocess.
  */
 
 import { Given, When, Then, Before, After, setDefaultTimeout } from '@cucumber/cucumber';
@@ -34,7 +26,6 @@ import {
 } from '../../../adws/triggers/devServerJanitor';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// features/per-issue/step_definitions → repo root
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 // Spawning a real cron subprocess and waiting out a 20s poll interval comfortably
@@ -43,10 +34,6 @@ setDefaultTimeout(60_000);
 
 const YOUNG_MS = 0;
 const OLD_MS = JANITOR_GRACE_PERIOD_MS * 2;
-
-// ---------------------------------------------------------------------------
-// World (§1–§3 — in-process janitor pass over a throwaway root)
-// ---------------------------------------------------------------------------
 
 const world: {
   tmpRoot: string;
@@ -99,10 +86,6 @@ After({ tags: '@adw-812' }, function () {
     try { fs.rmSync(world.tmpRoot, { recursive: true, force: true }); } catch { /* best effort */ }
   }
 });
-
-// ---------------------------------------------------------------------------
-// Harness internals (§1–§3)
-// ---------------------------------------------------------------------------
 
 function repoDir(ownerRepo: string): string {
   return path.join(world.tmpRoot, ownerRepo);
@@ -161,10 +144,6 @@ function buildDeps(): JanitorDeps {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Given (§1–§3)
-// ---------------------------------------------------------------------------
-
 Given('the target repositories root holds {string} with a git checkout and an ADW marker directory', function (ownerRepo: string) {
   makeRepoDir(ownerRepo, { git: true, marker: true });
 });
@@ -208,10 +187,6 @@ Given('the worktree listing for the failing repository fails with {string}', fun
   world.failingRepos.set(world.failingRepoName, reason);
 });
 
-// ---------------------------------------------------------------------------
-// When (§1–§3)
-// ---------------------------------------------------------------------------
-
 When('the janitor pass runs', async function () {
   const deps = buildDeps();
   try {
@@ -222,10 +197,6 @@ When('the janitor pass runs', async function () {
   }
   world.passRan = true;
 });
-
-// ---------------------------------------------------------------------------
-// Then (§1–§3)
-// ---------------------------------------------------------------------------
 
 Then('the janitor lists no worktrees for repository {string}', function (ownerRepo: string) {
   const attempted = world.listWorktreesCalls.some(c => `${c.owner}/${c.repo}` === ownerRepo);
@@ -286,11 +257,6 @@ Then('the janitor pass completes without raising', function () {
   assert.strictEqual(world.passError, null, `Expected the janitor pass to resolve without raising. Raised: ${world.passError}`);
 });
 
-// ---------------------------------------------------------------------------
-// World (§4 — real subprocess: spawns the REAL entrypoint
-// `bunx tsx adws/triggers/trigger_cron.ts`, mirroring feature-776.steps.ts)
-// ---------------------------------------------------------------------------
-
 const FAKE_WORKING_PAT = 'adw-812-test-pat-never-used-for-a-real-call';
 const CLAUDE_CLI_STUB = path.join(REPO_ROOT, 'test', 'mocks', 'claude-cli-stub.ts');
 
@@ -329,7 +295,7 @@ After({ tags: '@adw-812' }, function () {
   if (cronWorld.proc?.pid) {
     // Negative PID: kill the whole detached process group — bunx's own wrapper
     // process is not the one that writes the PID file (see cronPidFilePath); the
-    // real tsx-executed grandchild is only reachable this way (mirrors feature-776).
+    // real tsx-executed grandchild is only reachable this way.
     try { process.kill(-cronWorld.proc.pid, 'SIGKILL'); } catch { /* already dead */ }
   }
   if (cronWorld.repoKey) {
@@ -342,10 +308,6 @@ After({ tags: '@adw-812' }, function () {
     try { fs.rmSync(cronWorld.targetReposDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
 });
-
-// ---------------------------------------------------------------------------
-// Harness internals (§4)
-// ---------------------------------------------------------------------------
 
 /** Mirrors cronProcessGuard.ts's own path derivation (agents/cron/{owner}_{repo}.json). */
 function cronPidFilePath(repoKey: string): string {
@@ -388,15 +350,14 @@ async function waitFor(predicate: () => boolean, timeoutMs: number, description:
 }
 
 /**
- * Spawns the real cron entrypoint pinned (via --target-repo) to a private, collision-free
- * repo key so it never contends with a real cron's PID file for this repo. Hermetic
- * credentials mirror feature-776's "working" mode: a syntactically-complete PAT satisfies
- * GitContext's construction-time validate-and-discard probe (gitContext.ts:141-156) without
- * ever making a real GitHub call, and the GitHub App is deliberately left unconfigured so
- * no eager installation-token resolution is attempted. CLAUDE_CODE_PATH points at the
- * repo's Claude CLI stub so the entry guard's guardrails-probe warm-up (and, when relevant,
- * pauseQueueScanner's rate-limit probe) resolve in milliseconds instead of real `claude`
- * calls.
+ * Pinned (via --target-repo) to a private, collision-free repo key so it never
+ * contends with a real cron's PID file for this repo. A syntactically-complete PAT
+ * satisfies GitContext's construction-time validate-and-discard probe without ever
+ * making a real GitHub call, and the GitHub App is deliberately left unconfigured
+ * so no eager installation-token resolution is attempted. CLAUDE_CODE_PATH points
+ * at the repo's Claude CLI stub so the entry guard's guardrails-probe warm-up (and,
+ * when relevant, pauseQueueScanner's rate-limit probe) resolve in milliseconds
+ * instead of real `claude` calls.
  */
 function spawnCron(repoKey: string, extraEnv: NodeJS.ProcessEnv): void {
   cronWorld.repoKey = repoKey;
@@ -429,16 +390,12 @@ function spawnCron(repoKey: string, extraEnv: NodeJS.ProcessEnv): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Given (§4)
-// ---------------------------------------------------------------------------
-
 Given('a cron trigger process whose poll tick raises on every cycle', async function () {
   // The lever: a pause-queue entry whose extraArgs is a non-array JSON value. resumeWorkflow's
   // first line (resolveEntryRepoInfo → parseTargetRepoArgs([...(entry.extraArgs ?? [])])) throws
   // a TypeError spreading it, before any fs/network call — deterministic and never swallowed by
-  // scanPauseQueue or checkAndTrigger, so it reaches runGuardedTick on every cycle (#812 note:
-  // this lever is NOT one the janitor's own isolation could swallow).
+  // scanPauseQueue or checkAndTrigger, so it reaches runGuardedTick on every cycle (this lever is
+  // NOT one the janitor's own isolation could swallow).
   cronWorld.pauseQueuePath = path.join(REPO_ROOT, 'agents', 'paused_queue.json');
   fs.mkdirSync(path.dirname(cronWorld.pauseQueuePath), { recursive: true });
   fs.writeFileSync(cronWorld.pauseQueuePath, JSON.stringify([
@@ -486,10 +443,6 @@ Given('the GitHub App is not installed on {string}', function (_ownerRepo: strin
   // unmarked repo.
 });
 
-// ---------------------------------------------------------------------------
-// When (§4)
-// ---------------------------------------------------------------------------
-
 When('the cron trigger loop runs past the failing tick', async function () {
   await waitFor(
     () => countOccurrences(cronWorld.stdout, 'checkAndTrigger: tick failed (non-fatal)') >= 1,
@@ -505,10 +458,6 @@ When('the cron trigger loop runs its janitor cycle', async function () {
   // line of its own to wait on here; that silence is exactly what §1 established).
   await waitFor(() => countOccurrences(cronWorld.stdout, 'POLL:') >= 1, 20_000, 'the first poll tick to complete past the janitor pass');
 });
-
-// ---------------------------------------------------------------------------
-// Then (§4)
-// ---------------------------------------------------------------------------
 
 Then('the cron trigger logs the tick failure as an error', function () {
   assert.ok(

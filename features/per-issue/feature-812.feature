@@ -79,14 +79,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1 ADMISSION IS THE `.adw` MARKER (Desired behavior 1; AC1) ─────────────────────────
-  #
-  # The headline, and a faithful reproduction of the incident: one ADW-managed repository beside one
-  # course repository the GitHub App was never installed on. Today discovery admits both, builds a
-  # GitContext for `paicc/paicc-1`, eats the 404 and takes the trigger down with it. After the fix
-  # the unmarked repository is never touched — and the ADW-managed repository beside it is still
-  # scanned in the same pass, which is what makes this a filter rather than a mute. RED before.
-
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: A repository without the ADW marker is never listed, even when its worktree listing would fail with an App-installation 404
     Given the target repositories root holds "paysdoc/AI_Dev_Workflow" with a git checkout and an ADW marker directory
@@ -97,12 +89,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     Then the janitor lists no worktrees for repository "paicc/paicc-1"
     And the janitor lists the worktrees of repository "paysdoc/AI_Dev_Workflow"
     And the janitor pass completes without raising
-
-  # An unmarked repository must be skipped ENTIRELY, not merely spared the token resolution. The
-  # issue enumerates three probes that must not happen for it, and each is a separate observable:
-  # the worktree listing, the `lsof` process probe, and the kill. A fix that filtered only at the
-  # listing site would still `lsof +D` and SIGTERM inside a course repository the operator never
-  # handed to ADW — the most expensive way to be wrong here. (AC1.)
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: An unmarked repository is neither probed for processes nor considered for cleaning
@@ -115,25 +101,12 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     And the janitor probes no worktree under repository "paicc/paicc-1"
     And the janitor kills no processes under repository "paicc/paicc-1"
 
-  # The filter is a CONJUNCTION, not a swap. A directory carrying `.adw` but no `.git` is not a
-  # repository at all — a bare `.adw` config folder, a half-deleted clone, an operator's notes
-  # directory — and admitting it would hand a non-repository to `git worktree list`. Pinned as
-  # negative space because the cheapest wrong fix is to replace the `.git` test with a `.adw` test
-  # rather than to require both. (Desired behavior 1: "in addition to `.git`".)
-
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: A directory carrying the ADW marker but no git checkout is not admitted as a target repository
     Given the target repositories root holds "acme/notes" with an ADW marker directory and no git checkout
     When the janitor pass runs
     Then the janitor lists no worktrees for repository "acme/notes"
     And the janitor probes no worktree under repository "acme/notes"
-
-  # ── §2 THE MARKED REPOSITORY IS DISCOVERED EXACTLY AS BEFORE (AC2) ──────────────────────
-  #
-  # The other half of the filter, and the reason the janitor still earns its keep: a repository
-  # carrying both entries reaches the full decision path — listed, probed, and cleaned when the kill
-  # rule says so. GREEN before and after; this is the scenario that fails if the marker filter is
-  # written too tightly (wrong marker name, file-vs-directory confusion, case sensitivity).
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: A repository carrying both a git checkout and the ADW marker is scanned and cleaned as before
@@ -146,11 +119,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     And the janitor probes the worktree "feature-issue-28-cancel-directive"
     And the janitor cleans the orphaned processes in worktree "feature-issue-28-cancel-directive"
 
-  # The self-host case, called out explicitly in the issue ("The self-host framework repo itself
-  # contains `.adw` and remains discoverable — that is intended"). The framework dogfoods itself, so
-  # its own worktrees are exactly the ones that strand dev servers most often; a marker filter that
-  # accidentally excluded the framework repository would silently retire the janitor's main job.
-
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: The self-host framework repository carries the marker and stays in the janitor's scan set
     Given the target repositories root holds "paysdoc/AI_Dev_Workflow" with a git checkout and an ADW marker directory
@@ -159,15 +127,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     When the janitor pass runs
     Then the janitor lists the worktrees of repository "paysdoc/AI_Dev_Workflow"
     And the janitor probes the worktree "bugfix-issue-812-cron-janitor-marker"
-
-  # ── §3 ONE UNREACHABLE REPOSITORY IS A WARNING, NOT THE END OF THE PASS (AC3) ───────────
-  #
-  # The marker filter narrows WHICH repositories are listed; it does not make listing infallible. An
-  # ADW-managed repository whose App installation was revoked, whose remote was deleted, or whose
-  # network call times out still throws from inside discovery. Today that throw ends the pass for
-  # every repository — including ones already walked past — and continues out to the tick. The
-  # failure must be logged with the repository NAMED (an unnamed warning is unactionable when six
-  # repositories are in the set) and the pass must carry on. RED before.
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: A repository whose worktree listing fails is logged by name and skipped while the pass continues
@@ -182,13 +141,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     And the janitor lists the worktrees of repository "paysdoc/AI_Dev_Workflow"
     And the janitor lists the worktrees of repository "paysdoc/paysdoc.nl"
     And the janitor pass completes without raising
-
-  # Isolation must not depend on WHERE the bad repository sits in the walk. A `try`/`catch` placed
-  # around the whole owner loop rather than around the single listing would pass the scenario above
-  # (the failing repository happens to sit in the middle of one owner) and still lose every
-  # repository behind the failure under a different directory ordering. The outline drives the same
-  # three-repository set with the failure first, middle and last; in every ordering the two healthy
-  # repositories are listed.
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario Outline: A failing repository at any position in the walk costs only itself
@@ -205,12 +157,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
       | middle   |
       | last     |
 
-  # Surviving the failure is necessary but not sufficient: the pass must still do its WORK. A skip
-  # implemented by returning an empty candidate list on the first error would satisfy every
-  # assertion above and quietly stop cleaning anything the moment one repository goes bad — the
-  # janitor equivalent of failing silent. Here an orphaned dev server sits in a repository walked
-  # after the failing one, and it still gets cleaned in the same pass.
-
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: An orphaned dev server behind a failing repository is still cleaned in the same pass
     Given the target repositories root holds "paysdoc/revoked-app" with a git checkout and an ADW marker directory
@@ -222,15 +168,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     When the janitor pass runs
     Then the janitor cleans the orphaned processes in worktree "feature-issue-28-cancel-directive"
 
-  # ── §4 A TICK THAT THROWS MUST NOT TAKE THE PROCESS WITH IT (AC4) ───────────────────────
-  #
-  # The class-level fix, and the one that would have contained this incident on its own. `void
-  # checkAndTrigger()` promotes any rejection in any part of a tick into process death — the janitor
-  # was merely the caller that found it first. The guard is asserted through the three facts an
-  # operator would check: the failure is in the log, the process is still there, and the loop moved
-  # on. The third matters most: a guard that catches and then stops rescheduling trades a crash loop
-  # for a silent stall, which is strictly worse to diagnose. RED before on all three.
-
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: A poll tick that raises is logged and the cron trigger keeps polling
     Given a cron trigger process whose poll tick raises on every cycle
@@ -238,14 +175,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     Then the cron trigger logs the tick failure as an error
     And the cron trigger process is still running
     And the cron trigger executes its next poll tick
-
-  # The incident itself, end to end, at the process level: a cron trigger polling a target
-  # repositories root that holds a non-ADW repository the App was never installed on, driven through
-  # the janitor cycle that killed it 17 times. This is the scenario that reproduces the operator's
-  # `Removing stale cron PID file … (PID N is dead)` loop, and the one that proves the three fixes
-  # compose — the repository is filtered out (§1), a listing failure could only warn (§3), and even
-  # an unexpected throw could not end the process (§4). RED before: the trigger dies on the first
-  # janitor cycle and never reaches the next tick.
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: The cron trigger survives a janitor cycle over a target repositories root holding a non-ADW repository
@@ -255,12 +184,6 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     Then the cron trigger process is still running
     And the cron trigger process has not exited on an unhandled promise rejection
     And the cron trigger executes its next poll tick
-
-  # ── §5 TYPE-CHECK ───────────────────────────────────────────────────────────────────────
-  #
-  # The discovery filter adds a dependency to the injectable `JanitorDeps` surface and the tick guard
-  # changes the shape of two call sites; both are places where a plausible edit compiles in the
-  # author's head and not in `tsc`.
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
   Scenario: TypeScript type-check passes after the marker filter, the discovery isolation and the tick guard

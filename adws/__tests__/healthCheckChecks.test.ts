@@ -28,8 +28,6 @@ function makeFakeCtx(overrides: Partial<{
   } as unknown as GitContext;
 }
 
-// ── checkGitRepository ────────────────────────────────────────────────────────
-
 describe('checkGitRepository', () => {
   it('happy path: returns success with branch, remote, and user info', () => {
     const ctx = makeFakeCtx();
@@ -95,8 +93,6 @@ describe('checkGitRepository', () => {
   });
 });
 
-// ── checkGitHubCLI ────────────────────────────────────────────────────────────
-
 describe('checkGitHubCLI', () => {
   function makeCodeHost(getAuthenticatedUser: CodeHost['getAuthenticatedUser']): Pick<CodeHost, 'getAuthenticatedUser'> {
     return { getAuthenticatedUser };
@@ -138,8 +134,6 @@ describe('checkGitHubCLI', () => {
     }
   });
 });
-
-// ── checkIssueNumber ──────────────────────────────────────────────────────────
 
 describe('checkIssueNumber', () => {
   function makeTracker(fetchIssue: IssueTracker['fetchIssue']): Pick<IssueTracker, 'fetchIssue'> {

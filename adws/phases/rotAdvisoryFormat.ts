@@ -1,7 +1,4 @@
-/**
- * Pure formatter for the promotion rot/reuse advisory PR comment.
- * No I/O — same input always produces the same string.
- */
+/** No I/O — same input always produces the same string. */
 
 import type { RotVerdict } from '../agents/rotAnalysisAgent';
 
@@ -20,11 +17,6 @@ function formatRow(verdict: RotVerdict): string {
   return `| \`${step}\` | ${reuse} | ${verdict.rot} | ${note} |`;
 }
 
-/**
- * Formats the single advisory PR comment body: a header marking the analysis
- * advisory/non-blocking, plus a per-step reuse/rot verdict table for the
- * promoted scenario's Given/When/Then phrases.
- */
 export function formatRotAdvisoryComment(feature: string, verdicts: readonly RotVerdict[]): string {
   const lines = [
     HEADER,

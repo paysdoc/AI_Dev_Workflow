@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwBuild — buildPhase — edge: missing lock (acquired and released)
 
-  # Row 5: no prior lock exists; orchestrator acquires lock, runs, releases lock on success.
   Scenario: build orchestrator acquires spawn-gate lock and releases it on success
     Given an issue 1005 exists in the mock issue tracker
     And no spawn lock exists for issue 1005

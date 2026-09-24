@@ -18,8 +18,6 @@ function makeDeferral(overrides: Partial<OverlapDeferral> = {}): OverlapDeferral
   };
 }
 
-// ── buildBlockedByBody ────────────────────────────────────────────────────────
-
 describe('buildBlockedByBody', () => {
   it('inserts ref INSIDE existing "## Blocked by" section — the "None" regression trap', () => {
     const body = '## Blocked by\nNone - can start immediately\n\n## Notes\nx';
@@ -55,20 +53,15 @@ describe('buildBlockedByBody', () => {
   it('is idempotent at the body level (calling twice would double-insert, but the guard prevents it)', () => {
     const body = '## Blocked by\nNone\n';
     const once = buildBlockedByBody(body, 700);
-    // The marker line is there once
     expect(once.split(`#700 ${REGION_OVERLAP_MARKER}`).length - 1).toBe(1);
   });
 });
-
-// ── blockedByRef ──────────────────────────────────────────────────────────────
 
 describe('blockedByRef', () => {
   it('formats ref with the annotation marker', () => {
     expect(blockedByRef(700)).toBe(`#700 ${REGION_OVERLAP_MARKER}`);
   });
 });
-
-// ── formatRegionOverlapComment ────────────────────────────────────────────────
 
 describe('formatRegionOverlapComment', () => {
   it('names the blocker issue', () => {
@@ -89,8 +82,6 @@ describe('formatRegionOverlapComment', () => {
   });
 });
 
-// ── registerRegionOverlapBlocker ──────────────────────────────────────────────
-
 describe('registerRegionOverlapBlocker', () => {
   it('calls updateIssueBody and commentOnIssue exactly once on first registration', () => {
     const updateIssueBody = vi.fn();
@@ -103,12 +94,9 @@ describe('registerRegionOverlapBlocker', () => {
     expect(result).toBe(true);
     expect(updateIssueBody).toHaveBeenCalledOnce();
     expect(commentOnIssue).toHaveBeenCalledOnce();
-    // The body passed to updateIssueBody must contain the marker
     const passedBody: string = updateIssueBody.mock.calls[0][1];
     expect(passedBody).toContain(`#700 ${REGION_OVERLAP_MARKER}`);
-    // parseDependencies on the passed body must resolve #700
     expect(parseDependencies(passedBody)).toContain(700);
-    // The comment must name the blocker
     const passedComment: string = commentOnIssue.mock.calls[0][1];
     expect(passedComment).toContain('#700');
     expect(passedComment).toContain('adws/triggers/takeoverHandler.ts');
@@ -118,7 +106,6 @@ describe('registerRegionOverlapBlocker', () => {
     const updateIssueBody = vi.fn();
     const commentOnIssue = vi.fn();
     const deferral = makeDeferral({ issueNumber: 100, blockedBy: 700 });
-    // Body already has the marker
     const body = `## Blocked by\n#700 ${REGION_OVERLAP_MARKER}\nNone\n`;
 
     const result = registerRegionOverlapBlocker(deferral, body, { updateIssueBody, commentOnIssue });

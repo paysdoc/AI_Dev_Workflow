@@ -196,7 +196,6 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
   });
 
   it('throws AuthRequiredError when retry also returns authExpired=true (loggedIn=true path)', async () => {
-    // First call: authExpired
     mockHandleAgentProcess.mockResolvedValueOnce({
       ...BASE_RESULT,
       success: false,
@@ -206,7 +205,6 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     mockExecSync.mockReturnValueOnce(
       Buffer.from(JSON.stringify({ loggedIn: true, email: 'user@test.com', subscriptionType: 'pro' }))
     );
-    // Retry also fails with authExpired
     mockHandleAgentProcess.mockResolvedValueOnce({
       ...BASE_RESULT,
       success: false,

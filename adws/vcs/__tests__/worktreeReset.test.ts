@@ -1,6 +1,4 @@
 /**
- * Tests re-homed from vcs/worktreeReset.ts resetWorktreeToRemote onto
- * the GitContext worktreeResetOps module (#662).
  * Uses injected runner + fs spy — no child_process or fs module mocks needed.
  */
 
@@ -41,8 +39,6 @@ function makeRunner(gitDirResponse: string, extras: Map<string, string | Error> 
   return { run, calls };
 }
 
-// ── Clean worktree (idempotent) ──────────────────────────────────────────────
-
 describe('clean worktree — idempotent', () => {
   it('runs fetch, reset, clean in order and makes no abort or rmSync calls', () => {
     const { run, calls } = makeRunner('/wt/.git');
@@ -79,8 +75,6 @@ describe('clean worktree — idempotent', () => {
   });
 });
 
-// ── Dirty tracked files ──────────────────────────────────────────────────────
-
 describe('dirty tracked files', () => {
   it('calls git reset --hard exactly once', () => {
     const { run, calls } = makeRunner('/wt/.git');
@@ -93,8 +87,6 @@ describe('dirty tracked files', () => {
     expect(resetCalls[0].command).toBe('git reset --hard "origin/main"');
   });
 });
-
-// ── In-progress merge, plumbing succeeds ────────────────────────────────────
 
 describe('in-progress merge — plumbing succeeds', () => {
   it('runs merge --abort before fetch/reset/clean and does not call rmSync', () => {
@@ -112,8 +104,6 @@ describe('in-progress merge — plumbing succeeds', () => {
     expect(fs.rmCalls).toHaveLength(0);
   });
 });
-
-// ── In-progress merge, plumbing fails → fallback ────────────────────────────
 
 describe('in-progress merge — plumbing fails', () => {
   it('removes MERGE_HEAD and continues to fetch/reset/clean', () => {
@@ -136,8 +126,6 @@ describe('in-progress merge — plumbing fails', () => {
   });
 });
 
-// ── In-progress rebase, plumbing succeeds ───────────────────────────────────
-
 describe('in-progress rebase — plumbing succeeds', () => {
   it('runs rebase --abort before fetch/reset/clean and does not call rmSync', () => {
     const { run, calls } = makeRunner('/wt/.git');
@@ -152,8 +140,6 @@ describe('in-progress rebase — plumbing succeeds', () => {
     expect(fs.rmCalls).toHaveLength(0);
   });
 });
-
-// ── In-progress rebase, plumbing fails → fallback ───────────────────────────
 
 describe('in-progress rebase — plumbing fails', () => {
   it('removes rebase-apply and rebase-merge dirs then continues', () => {
@@ -175,8 +161,6 @@ describe('in-progress rebase — plumbing fails', () => {
   });
 });
 
-// ── Both merge and rebase markers ───────────────────────────────────────────
-
 describe('both merge and rebase markers present', () => {
   it('aborts merge before rebase', () => {
     const { run, calls } = makeRunner('/wt/.git');
@@ -192,8 +176,6 @@ describe('both merge and rebase markers present', () => {
     expect(mergeIdx).toBeLessThan(rebaseIdx);
   });
 });
-
-// ── git-dir resolution ───────────────────────────────────────────────────────
 
 describe('git-dir resolution', () => {
   it('resolves a relative .git to an absolute path for existence checks', () => {
@@ -214,8 +196,6 @@ describe('git-dir resolution', () => {
     expect(fs.existsCalls).toContain('/abs/path/to/gitdir/MERGE_HEAD');
   });
 });
-
-// ── Mandatory steps throw on failure ────────────────────────────────────────
 
 describe('mandatory steps throw on failure', () => {
   it('throws when git fetch fails and does not call reset or clean', () => {

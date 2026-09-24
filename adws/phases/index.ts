@@ -1,14 +1,3 @@
-/**
- * Composable workflow phase functions for orchestrators.
- *
- * Provides high-level phase functions that compose lower-level operations
- * from core/, github/, agents/, and triggers/ modules. Each orchestrator
- * composes these phases in its main() function.
- *
- * Located at adws/ level (not in core/) because it imports from
- * agents/, github/, triggers/, and core/.
- */
-
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeAssetsToWorktree } from './worktreeSetup';
 export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
 export { completeWorkflow, handleWorkflowError, handleWorkflowDiscarded, handleRateLimitPause } from './workflowCompletion';

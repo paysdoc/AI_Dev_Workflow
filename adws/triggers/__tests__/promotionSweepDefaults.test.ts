@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Module mocks (hoisted) ───────────────────────────────────────────────────
-
 vi.mock('fs', () => ({
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
@@ -15,8 +13,6 @@ vi.mock('../../core', async (importOriginal) => {
     loadProjectConfig: vi.fn(),
   };
 });
-
-// ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { makeDefaultDeps } from '../promotionSweepDefaults';
 import { log, loadProjectConfig } from '../../core';
@@ -72,8 +68,6 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ── listPerIssueFeatures ─────────────────────────────────────────────────────
-
 describe('listPerIssueFeatures', () => {
   it('lists feature-{N}.feature files under the injected context basePath', () => {
     const ctx = makeFakeGitContext({
@@ -97,8 +91,6 @@ describe('listPerIssueFeatures', () => {
   });
 });
 
-// ── readFeatureContent ───────────────────────────────────────────────────────
-
 describe('readFeatureContent', () => {
   it('reads the file from the injected context basePath', () => {
     const ctx = makeFakeGitContext({ basePath: '/target-repo' });
@@ -117,8 +109,6 @@ describe('readFeatureContent', () => {
     expect(makeDefaultDeps(makeFakeBoundary(ctx)).readFeatureContent('features/per-issue/feature-611.feature')).toBeNull();
   });
 });
-
-// ── listStepDefSiblings ──────────────────────────────────────────────────────
 
 describe('listStepDefSiblings', () => {
   it('lists step-def siblings for the given feature number under the injected context basePath', () => {
@@ -140,8 +130,6 @@ describe('listStepDefSiblings', () => {
     expect(makeDefaultDeps(makeFakeBoundary(ctx)).listStepDefSiblings(611)).toEqual([]);
   });
 });
-
-// ── scenariosConfig ──────────────────────────────────────────────────────────
 
 describe('scenariosConfig', () => {
   it('reads scenario paths via loadProjectConfig(ctx.basePath), falling back to defaults for unset fields', () => {
@@ -172,8 +160,6 @@ describe('scenariosConfig', () => {
   });
 });
 
-// ── loadVocabulary ───────────────────────────────────────────────────────────
-
 describe('loadVocabulary', () => {
   it('reads the vocabulary file from the injected context basePath', () => {
     const ctx = makeFakeGitContext({ basePath: '/target-repo' });
@@ -192,8 +178,6 @@ describe('loadVocabulary', () => {
     expect(makeDefaultDeps(makeFakeBoundary(ctx)).loadVocabulary('features/regression/vocabulary.md')).toBe('');
   });
 });
-
-// ── loadStats ────────────────────────────────────────────────────────────────
 
 describe('loadStats', () => {
   it('routes the numerator/denominator queries through the injected context (ctx.logSince)', () => {
@@ -218,8 +202,6 @@ describe('loadStats', () => {
   });
 });
 
-// ── listPromotionIssues ──────────────────────────────────────────────────────
-
 describe('listPromotionIssues', () => {
   it('queries open+closed issues labeled regression-promotion through the injected issue tracker', () => {
     const issues = [{ number: 900, body: 'Promotes: feature-611', state: 'OPEN', labels: [] }];
@@ -243,8 +225,6 @@ describe('listPromotionIssues', () => {
     expect(makeDefaultDeps(makeFakeBoundary(ctx, issueTracker)).listPromotionIssues()).toEqual([]);
   });
 });
-
-// ── tagAndCommit ─────────────────────────────────────────────────────────────
 
 describe('tagAndCommit', () => {
   it('writes, commits (scoped to filePath), and pushes when the checkout is on the default branch', () => {
@@ -277,8 +257,6 @@ describe('tagAndCommit', () => {
     expect(ctx.pushBranch).not.toHaveBeenCalled();
   });
 });
-
-// ── fileIssue ────────────────────────────────────────────────────────────────
 
 describe('fileIssue', () => {
   it('creates the issue and applies every label via the injected issue tracker', () => {

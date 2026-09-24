@@ -44,10 +44,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// ---------------------------------------------------------------------------
-// notifyReviewTransition
-// ---------------------------------------------------------------------------
-
 describe('notifyReviewTransition', () => {
   it('posts :eyes: Slack message for a hitl issue with a matching PR', async () => {
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
@@ -75,7 +71,7 @@ describe('notifyReviewTransition', () => {
   });
 
   it('posts for a hitl issue whose PR uses the repo-qualified `Closes owner/repo#N` body', async () => {
-    // #592 regression: the SDLC PR template emits `Closes owner/repo#N`, not `Implements #N`.
+    // The SDLC PR template emits `Closes owner/repo#N`, not `Implements #N`.
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
     const mockFetch = makeFetchMock();
     vi.stubGlobal('fetch', mockFetch);
@@ -252,10 +248,6 @@ describe('notifyReviewTransition', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// notifyBlockedTransition — discarded
-// ---------------------------------------------------------------------------
-
 describe('notifyBlockedTransition — discarded', () => {
   it('posts :no_entry: message with issue URL for a hitl issue', async () => {
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
@@ -293,10 +285,6 @@ describe('notifyBlockedTransition — discarded', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
-
-// ---------------------------------------------------------------------------
-// notifyBlockedTransition — review_error
-// ---------------------------------------------------------------------------
 
 describe('notifyBlockedTransition — review_error', () => {
   it('posts :warning: message with snippet and issue URL', async () => {
@@ -373,10 +361,6 @@ describe('notifyBlockedTransition — review_error', () => {
     ).resolves.toBeUndefined();
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildNotifierDeps — the one production reader set, over a resolved-later thunk
-// ---------------------------------------------------------------------------
 
 describe('buildNotifierDeps', () => {
   const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };

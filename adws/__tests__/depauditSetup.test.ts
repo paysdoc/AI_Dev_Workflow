@@ -3,8 +3,6 @@ import { executeDepauditSetup, type DepauditSetupDeps } from '../phases/depaudit
 import type { WorkflowConfig } from '../phases/workflowInit';
 import type { CodeHost } from '@paysdoc/devplatform';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
     worktreePath: '/tmp/fixture',
@@ -47,8 +45,6 @@ function makeDeps(overrides: Partial<DepauditSetupDeps> = {}): DepauditSetupDeps
     ...overrides,
   };
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('executeDepauditSetup — depaudit setup invocation', () => {
   it('invokes depaudit setup with config.worktreePath as cwd', async () => {

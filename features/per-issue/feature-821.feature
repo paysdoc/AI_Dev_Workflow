@@ -183,15 +183,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1  THE WEBHOOK'S PER-EVENT BOUNDARY (AC1, FINDING 1) ─────────────────────────────────
-  #
-  # `dispatchWebhookEvent` resolves the repo from the payload, then builds a per-event context, then
-  # dispatches. Every forge call it makes downstream — `fetchIssueCommentsRest` for the cancel and
-  # retry directives, `fetchPRDetails` in `webhookHandlers`, `isAdwRunningForIssue` — currently
-  # re-derives identity from the `repoInfo` it carries alongside. The first row asserts the
-  # replacement: one set of providers, minted once per event, bound to the payload's repository, and
-  # a local git remote naming something else cannot redirect any of it.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A webhook event's forge calls all address the repository the payload named
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
@@ -203,12 +194,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And the local git remote was never read
     And the watched git context was asked for no forge-semantic operation
 
-  # The swallow at `:161-165` is the row that matters. Today a failed context build leaves
-  # `eventGitContext` undefined and the event proceeds, because the legacy free functions do not
-  # need it. After the migration there is nothing behind them. An implementation that keeps the
-  # warn-and-continue shape ships a webhook that answers 200 and does nothing — the single hardest
-  # failure to notice in production, because the forge shows no trace of it at all.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A webhook event whose providers cannot be minted is reported, not silently accepted
     Given a launch boundary for the repository "adw-fixture/void-821" that fails to mint providers
@@ -216,14 +201,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     Then the webhook event was not reported as triggered
     And the webhook event failure names the repository "adw-fixture/void-821"
     And no workflow was spawned for issue 42
-
-  # ── §2  THE CRON TICK (AC1, FINDING 2) ────────────────────────────────────────────────────
-  #
-  # `trigger_cron.ts:18,47` is the single densest legacy import line in the slice: `getRepoInfo`,
-  # `fetchPRList`, `hasUnaddressedComments`, `fetchLinkedPRs`, `readAdwLabelNames` plus the three
-  # comment predicates. `checkAndTrigger` already reads issues off `boundary.providers.issueTracker`
-  # (`:354`) and already passes `boundary.providers.codeHost` to the redrive (`:406`), so the shape
-  # is half-built: this is finishing it, not inventing it.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A cron tick reads issues and pull requests through the providers its own boundary minted
@@ -235,12 +212,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And every recorded provider call addressed the repository "adw-fixture/void-821"
     And the local git remote was never read
 
-  # FINDING 2's contract. `checkAndTrigger:313-315` already logs and returns when the boundary is
-  # null; the sweeps do the same. A migration that makes providers mandatory by dereferencing them
-  # unconditionally turns "imported by a test" into a TypeError, and — far worse — a migration that
-  # "fixes" that by falling back to `getRepoInfo()` reintroduces the exact cwd-derived identity the
-  # whole PRD exists to delete, in the one code path where nothing would ever catch it.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A cron tick with no boundary skips without reaching for a cwd-derived identity
     Given the cron module is imported rather than launched
@@ -249,19 +220,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     Then the cron tick was skipped for want of a launch boundary
     And the local git remote was never read
     And no workflow was spawned for issue 42
-
-  # ── §3  THE TAKEOVER HANDLER'S BOUNDARY-LESS ADAPTERS (AC1, FINDING 5 handoff) ────────────
-  #
-  # #820's FINDING 1 pushed two legacy wirings DOWN into this file rather than leaving them in
-  # `core/`: `buildBoundarylessReconcileDeps` (`takeoverHandler.ts:93-106`, using
-  # `defaultFindPRByBranch` from the doomed `prApi.ts`) and the `fetchIssueCommentBodies` arm of
-  # `resolveAdwId` (`:118-120`). Both sit behind a `boundary ? … : …` ternary whose false arm is
-  # this slice's entire remit. The docblock at `:90-91` says so in as many words: "#821 replaces
-  # this with the boundary's own wiring once triggers hold one."
-  #
-  # The ternary must COLLAPSE, not merely stop being reached. A false arm left in place compiles,
-  # passes every test that supplies a boundary, and keeps `prApi.ts` alive — which makes AC2
-  # unsatisfiable while looking finished.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A takeover resolves the running adw id through the tracker the boundary minted
@@ -284,20 +242,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
       | feature-issue-42-ciwxf3-prior | OPEN   | awaiting_merge |
       | feature-issue-42-ciwxf3-prior | MERGED | completed      |
 
-  # ── §4  THE CANCEL DIRECTIVE (AC1) ────────────────────────────────────────────────────────
-  #
-  # `cancelHandler.ts:18` imports the same three-operation issue cluster #820 migrated in
-  # `adwClearComments`: `fetchIssueCommentsRest`, `getIssueTitleSync`, `deleteIssueComment`. The id
-  # round-trip trap is identical and worth restating because it is invisible: legacy
-  # `deleteIssueComment(commentId: number, …)` takes a NUMBER, the port's
-  # `deleteComment(commentId: string)` takes a STRING, and `IssueComment.id` is the REST id
-  # stringified (#819). A migration that re-derives ids from a different listing deletes nothing and
-  # still reports success, because the cancel sequence counts its own loop iterations rather than
-  # the forge's acknowledgements.
-  #
-  # The cancel sequence is also the one place where a wrong repository is destructive rather than
-  # merely wrong: steps 2–4 kill processes, remove worktrees and delete state directories.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A cancel directive clears the issue's comments through the boundary's tracker
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
@@ -314,18 +258,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     Then every recorded provider call addressed the repository "adw-fixture/void-821"
     And the local git remote was never read
 
-  # ── §5  THE GATEKEEPER'S CLASSIFY-AND-LABEL PATH (AC1) ────────────────────────────────────
-  #
-  # `webhookGatekeeper.ts:134` carries the `fetchGitHubIssue` adapter #820 pushed down out of
-  # `core/issueClassifier.ts`, wrapped in `mapGitHubIssueToIssue` — and `:16` imports `applyLabel`
-  # and `issueTypeToAdwLabel` for the persist-inferred-label step at `:150-158`. The two rows split
-  # the seam the way the code does: classification reads, label persistence writes.
-  #
-  # The label write is guarded by `if (labelRouting?.persistInferredLabel && classification.success)`
-  # and its failure is caught and logged at 'warn' (`:154-156`). So a migration that breaks it
-  # breaks nothing loudly: issues simply stop acquiring their `adw:*` label, and the next cron cycle
-  # re-classifies them from scratch through the language model, forever.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: The gatekeeper classifies a fresh issue by reading it through the boundary's tracker
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
@@ -341,19 +273,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And the trigger classifier will classify issue 42 as "/bug"
     When the gatekeeper resolves the spawn for issue 42 from that boundary with label persistence enabled
     Then the boundary's providers recorded the label "adw:bug" being applied to issue 42
-
-  # ── §6  THE REGION-OVERLAP REGISTRATION (AC1) ─────────────────────────────────────────────
-  #
-  # `regionOverlapSignals.ts:13` imports `updateIssueBody` and `commentOnIssue`. This is the
-  # mechanism that deferred THIS ISSUE behind #817 and #820 — both `adw:region-overlap` comments on
-  # #821 were written by this code path.
-  #
-  # THE ORDER IS THE INVARIANT, and the docblock at `:78-81` explains why: `updateIssueBody`
-  # RETHROWS, so it runs first and a failure aborts before the comment; the comment is posted only
-  # on first successful registration, which is what makes it one-time. Swap them, or swallow the
-  # body write, and the issue gets an explanatory comment every cron cycle while never actually
-  # acquiring the `## Blocked by` line — so it keeps spawning in parallel on a stale base, which is
-  # precisely the forced-rebase deadlock the mechanism exists to prevent.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: Registering a region overlap writes the blocked-by reference before the explanatory comment
@@ -372,19 +291,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     Then the region overlap was not reported as registered
     And the boundary's issue tracker recorded no comment
 
-  # ── §7  THE LISTING CALLERS (AC1) ─────────────────────────────────────────────────────────
-  #
-  # `issueListApi.ts` has exactly two exports and four trigger callers: `concurrencyGuard.ts:11`,
-  # `issueClosedUnblockRouter.ts:18`, `webhookGatekeeper.ts:30` and `takeoverHandler.ts:35`. All four
-  # go through `IssueTracker.listIssues` / `fetchComments`.
-  #
-  # `concurrencyGuard` is the one with teeth. `fetchOpenIssuesWithComments` (`:17-24`) SWALLOWS every
-  # error and returns `[]`, which makes the in-progress count 0, which means the
-  # `MAX_CONCURRENT_PER_REPO` cap silently lifts and the cron spawns without limit. That degrade path
-  # is deliberate and must survive the migration unchanged — but it also means a migration that
-  # simply breaks the listing shows up as "ADW spawned nine workflows at once", not as a test
-  # failure. The first row pins the cap holding; the second pins the degrade being unchanged.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A repository at its concurrency cap blocks a further spawn, counted through the boundary's tracker
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
@@ -402,10 +308,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     When the concurrency guard is consulted for that boundary
     Then the concurrency guard reported the repository below capacity
 
-  # `issueDependencies.ts:16` uses `getIssueState` to decide whether a `## Blocked by` reference is
-  # still blocking. A dependency wrongly read as open leaves the issue queued forever; wrongly read
-  # as closed spawns it onto an unmerged base — the same deadlock §6 guards from the other side.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario Outline: A blocked-by dependency's open state is read through the boundary's tracker
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
@@ -418,14 +320,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
       | state  | blocking |
       | OPEN   | 41       |
       | CLOSED |          |
-
-  # ── §8  THE BOOTSTRAP THAT PRECEDES THE BOUNDARY (AC2, FINDING 3) ─────────────────────────
-  #
-  # `resolveWebhookRepo` is upstream of every provider in the process — it is what decides which
-  # repository the per-event boundary binds to. Wherever `getRepoInfoFromPayload` lands when
-  # `githubApi.ts` is deleted, the resolution must stay pure and stay identical, including its
-  # rejection of a malformed full name (`githubApi.ts:39-41`), because a silently-wrong parse here
-  # binds the entire event — auth, providers, spawn args — to the wrong repository.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario Outline: A webhook payload's repository is resolved without touching the forge or the local remote
@@ -443,14 +337,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
   Scenario: A webhook payload carrying a malformed repository name is rejected rather than half-parsed
     When a webhook payload naming the repository "not-a-full-name" is resolved
     Then resolving the webhook repository failed naming "not-a-full-name"
-
-  # ── §9  WHOSE LOGIN COUNTS AS "SELF" (AC1, FINDING 4) ─────────────────────────────────────
-  #
-  # `prCommentDetector` survives, relocates, and loses its `getAuthenticatedUser` import when
-  # `githubApi.ts` goes. The two rows pin the two failure directions named in FINDING 4. They are
-  # written against the unaddressed-comment reader because that is where the answer is consumed —
-  # asserting the login itself would assert an implementation detail rather than the behaviour that
-  # depends on it.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: A review comment written by the workflow's own login is never unaddressed
@@ -472,16 +358,6 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And pull request 7 has a human review comment "please rename this" at "2026-09-09T10:00:00Z"
     When the unaddressed comments of pull request 7 are read from that boundary
     Then the unaddressed comments are exactly "please rename this"
-
-  # ── §10  WHAT DOES NOT MOVE (AC1's "for forge operations" qualifier, FINDING 7) ───────────
-  #
-  # #820 established the taxonomy: (a) forge operations move, (b) pure predicates over data the
-  # caller already holds do not, (c) label-name constants do not. The triggers are the largest
-  # remaining holder of (b) and (c), and #820 explicitly deferred them here. These rows assert the
-  # behaviour so that the import repoint to `adws/core/adwLabels.ts` is provably a repoint — a
-  # builder who turns a label constant into a `fetchLabels` round-trip, or routes `bodyLinksIssue`
-  # through a provider, fails here rather than shipping a cron tick that makes N extra API calls per
-  # issue per 20-second poll.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: Reading adw label names off labels the caller already holds asks the forge for nothing
@@ -511,29 +387,10 @@ Feature: The triggers reach the forge through the boundary's providers alone —
       | adw:upgrade | upgrade          |
       | adw:blocked | terminal         |
 
-  # ── §11  THE STRUCTURAL BACKSTOPS (AC2, AC3, AC4, AC6) ────────────────────────────────────
-  #
-  # These rows carry every acceptance criterion that is a statement about the source tree, in the
-  # only form the rot rule permits: runtime artefacts. They are not ceremony.
-  #
-  # `the git/gh guard is run across the repository` shells the whole `checkGitGhGuard.ts` binary,
-  # whose `main()` calls `findStaleSanctionedEntries`. It fails if a deleted module's allowlist entry
-  # survives (AC4), if a relocated survivor's entry goes stale at its old path or its new path
-  # constructs unsanctioned (FINDING 5), and it is what keeps `CWD_DERIVED_IDENTITY_FNS` honest
-  # after `getRepoInfo` is deleted (FINDING 6, PRD story 24). It is the executable form of AC4.
-  #
-  # The type-check is the executable form of AC2 and AC3: a deleted module with a surviving importer
-  # cannot type-check, and a relocated module whose callers were not repointed cannot either. It is
-  # also the only thing that catches the six `vi.mock` paths of FINDING 6 before the unit suite does.
-
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: The guard stays green with no stale transitional entries after the legacy layer is deleted
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
-
-  # The row asserts PROVIDERS only, not contexts: `gitContextFactory.ts` is explicitly excluded from
-  # AC2's deletion list and kept by AC3, so `cancelHandler`'s `gitContextForSync` construction is
-  # still legal here — retiring it is #822/#823, not this slice.
 
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: No GitHub provider is constructed outside the launch boundary during a migrated trigger run

@@ -31,7 +31,6 @@ beforeEach(() => {
   mockRunAgent.mockReset();
 });
 
-// Test A: domain invariant
 describe('VALID_ISSUE_TYPES domain invariant', () => {
   it('equals exactly the four real workflow types', () => {
     expect([...VALID_ISSUE_TYPES]).toEqual(['/chore', '/bug', '/feature', '/pr_review']);
@@ -42,7 +41,6 @@ describe('VALID_ISSUE_TYPES domain invariant', () => {
   });
 });
 
-// Test D: classifyIssueForTrigger — adw:* label override at the chokepoint
 describe('classifyIssueForTrigger — adw:* label override', () => {
   it('single adw:bug label deterministically resolves to /bug without calling the LLM', async () => {
     const issue = makeClassifiableIssue({ number: 618, title: 'fix: some bug', labels: ['adw:bug'] });
@@ -87,7 +85,6 @@ describe('classifyIssueForTrigger — adw:* label override', () => {
   });
 });
 
-// Test B: /adw_init cannot be the resolved type
 describe('classifyGitHubIssue — /adw_init safety', () => {
   it('degrades to /feature when agent output contains only /adw_init', async () => {
     mockRunAgent.mockResolvedValue({
@@ -99,7 +96,6 @@ describe('classifyGitHubIssue — /adw_init safety', () => {
     expect(result.issueType).not.toBe('/adw_init');
   });
 
-  // Test C: last real type wins when /adw_init trails a real type
   it('resolves to /bug when output has /bug before a trailing /adw_init', async () => {
     mockRunAgent.mockResolvedValue({
       success: true,

@@ -1,12 +1,6 @@
 /**
- * Deep module for reading `.github/adw.yml` at a target repo's worktree root
- * to determine the framework-upgrade auto-merge policy, the unit-test gate,
- * and the guardrails-injection canary.
- *
  * The file lives outside `.adw/` so `/adw_init` regeneration of `.adw/` cannot
- * clobber it — the same rationale that keeps `.adw-version` outside `.adw/`
- * (see `adwVersion.ts` and the parent PRD "Hash storage on target repos" section
- * of `specs/prd/adw-init-hash-and-label-classification.md`).
+ * clobber it — the same rationale that keeps `.adw-version` outside `.adw/`.
  *
  * Read rules:
  *   - File absent           → { hitl: false, unitTests: true, guardrails: false } (no warning; absence is the common case)
@@ -18,7 +12,7 @@
  *   - `unitTests: true`     → unitTests: true (gate enabled)
  *   - No `unitTests:` key   → unitTests: true (absent → enabled; opt-out default)
  *   - Malformed `unitTests` → unitTests: true + warn log (fails safe toward enabled)
- *   - `guardrails: true`    → guardrails: true (opt-in canary; see issue #762)
+ *   - `guardrails: true`    → guardrails: true (opt-in canary)
  *   - `guardrails: false`   → guardrails: false
  *   - No `guardrails:` key  → guardrails: false (absent → withheld; opt-in default)
  *   - Malformed `guardrails` → guardrails: false + warn log (fails safe toward disabled)
@@ -39,8 +33,8 @@ export const ADW_YML_RELATIVE_PATH = path.join('.github', 'adw.yml');
  *
  * `unitTests: false` opts out of the unit-test phase gate; default `true` (enabled, opt-out).
  *
- * `guardrails: true` opts a target repo into ADW's `--settings` guardrail injection
- * (issue #762) — a temporary rollout canary key. Default `false` (withheld).
+ * `guardrails: true` opts a target repo into ADW's `--settings` guardrail injection —
+ * a temporary rollout canary key. Default `false` (withheld).
  */
 export interface AdwYmlConfig {
   readonly hitl: boolean;
@@ -51,7 +45,6 @@ export interface AdwYmlConfig {
 const DEFAULT_CONFIG: AdwYmlConfig = { hitl: false, unitTests: true, guardrails: false };
 
 /**
- * Self-documenting, fully-commented `.github/adw.yml` template.
  * All keys are commented out so the file parses to the defaults.
  * Kept byte-identical to the heredoc in `.claude/commands/adw_init.md`.
  */
@@ -131,9 +124,6 @@ function applyKeySpec(rawLine: string, spec: KeySpec, resolved: Map<keyof AdwYml
 }
 
 /**
- * Pure parser: converts `.github/adw.yml` file content to an `AdwYmlConfig`.
- * Does not perform I/O — suitable for direct unit testing.
- *
  * First occurrence of each key wins; subsequent duplicates are ignored.
  * Malformed values default to the per-key default and emit a warn log.
  */
@@ -154,12 +144,6 @@ export function parseAdwYml(content: string): AdwYmlConfig {
   };
 }
 
-/**
- * Reads `.github/adw.yml` from the given worktree root and returns its config.
- *
- * @param worktreePath - Absolute path to the target repo's worktree root.
- * @returns `AdwYmlConfig` with parsed values, or defaults for absent/unreadable files.
- */
 export function readAdwYmlConfig(worktreePath: string): AdwYmlConfig {
   const filePath = path.join(worktreePath, ADW_YML_RELATIVE_PATH);
   if (!fs.existsSync(filePath)) return DEFAULT_CONFIG;
@@ -173,12 +157,7 @@ export function readAdwYmlConfig(worktreePath: string): AdwYmlConfig {
 }
 
 /**
- * Creates `.github/adw.yml` from `ADW_YML_TEMPLATE` only when the file does not
- * already exist. Never overwrites an existing file (it carries durable operator policy).
- *
- * @param worktreePath - Absolute path to the target repo's worktree root.
- * @returns `{ created: true }` when the file was written; `{ created: false }` when it
- *   already existed (no write performed).
+ * Never overwrites an existing file (it carries durable operator policy).
  */
 export function writeAdwYmlTemplateIfAbsent(worktreePath: string): { created: boolean } {
   const filePath = path.join(worktreePath, ADW_YML_RELATIVE_PATH);

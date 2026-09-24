@@ -1,12 +1,3 @@
-/**
- * Shared linked-PR detection.
- *
- * Detects whether a GitHub issue has a linked merged or closed pull request
- * by scanning PR bodies for a `Closes`/`Implements #N` reference (see
- * issueLinkMarker for the canonical match, including the optional owner/repo
- * qualifier and the digit-boundary guard).
- */
-
 import { log } from '../core/logger';
 import type { CodeHost } from '@paysdoc/devplatform';
 import { bodyLinksIssue } from './issueLinkMarker';
@@ -35,9 +26,7 @@ export function hasLinkedMergedOrClosedPR(
 }
 
 /**
- * Fetches all PRs (open + closed + merged) for the repository via the
- * boundary's code host. Returns [] on error to allow callers to degrade
- * gracefully.
+ * Returns [] on error to allow callers to degrade gracefully.
  */
 export function fetchLinkedPRs(codeHost: Pick<CodeHost, 'listPullRequests'>): LinkedPRRef[] {
   try {

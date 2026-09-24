@@ -131,20 +131,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1  THE COMMENT-CLEARING ORCHESTRATOR (AC1) ───────────────────────────────────────────
-  #
-  # `adwClearComments.tsx` is the densest legacy caller left: `clearIssueComments` (`:64`) performs
-  # three forge operations in eight lines — list, read title, delete — against a `resolvedRepoInfo`
-  # that falls back to `getRepoInfo()`. It is also fully exported and takes no config object, so it
-  # is the cleanest thing in the slice to drive.
-  #
-  # The id round-trip is the trap. Legacy `deleteIssueComment(commentId: number, …)`
-  # (`issueApi.ts:355`) takes a NUMBER; the port's `deleteComment(commentId: string)` takes a
-  # STRING, and `IssueComment.id` is the REST id stringified (#819). A migration that passes the
-  # port's string id to a still-numeric call site, or re-derives ids from a different listing,
-  # deletes nothing and still reports success — the function counts its own loop iterations, not
-  # the forge's acknowledgements.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: Clearing an issue's comments lists and deletes them through the issue tracker the boundary minted
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -156,11 +142,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     And the comment-clearing orchestrator reported 3 deleted and 0 failed
     And the watched git context was asked for no forge-semantic operation
 
-  # The title read is a separate port gap, not a detail. `getIssueTitleSync` has no equivalent on
-  # IssueTracker: `fetchIssue` is async and returns the whole issue, and `clearIssueComments` is
-  # synchronous. Widening the port (AC1's second sentence) is the honest fix; quietly dropping the
-  # title from the log line is the shortcut this row exists to catch.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The cleared issue's title is read through the tracker rather than a legacy synchronous call
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -170,10 +151,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the boundary's providers were asked for the title of issue 42
     And the comment-clearing orchestrator reported the issue title "A stuck workflow"
 
-  # `resolvedRepoInfo = repoInfo ?? getRepoInfo()` (`:65`) is the wrong-repo vector in its purest
-  # form: run `adwClearComments 42` inside a worktree whose remote names another repository and the
-  # deletions land there. This row is the reason the migration is worth doing at all.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: A local git remote naming another repository cannot redirect the comment clearing
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -182,20 +159,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     When the comment-clearing orchestrator clears issue 42 from that boundary
     Then every recorded provider call addressed the repository "adw-fixture/void-820"
     And the local git remote was never read
-
-  # ── §2  THE PROOF PUBLISHER (AC1) ─────────────────────────────────────────────────────────
-  #
-  # `proof/prProofPublisher.ts` defaults its commenter to the legacy `commentOnPR` (`:146`), and
-  # `proof/types.ts` encodes that in `CommenterFn = (prNumber, body, repoInfo) => void`. Migrating
-  # to `codeHost.commentOnPullRequest(prNumber, body)` drops the third parameter — the "call-shape
-  # update" AC3 permits.
-  #
-  # THE TRAP: `repoInfo` IS LOAD-BEARING TWICE. Besides the commenter, `publishPrProof` destructures
-  # it for the R2 upload (`const { owner, repo } = repoInfo`, then `uploader({ owner, repo, key, …
-  # })`). A migration that deletes `repoInfo` from `PublishDeps` because "the code host knows the
-  # repo now" breaks the upload key namespace, and `publishPrProof` swallows every error it raises —
-  # so proof screenshots silently stop being published and no test notices. The second row exists
-  # only to make that failure loud.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The proof comment is posted by the code host the boundary minted
@@ -214,10 +177,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the recording uploader was asked to upload for the repository "adw-fixture/void-820"
     And the boundary's code host recorded a comment on pull request 7
 
-  # `proofPublishPhase.ts:34` is the phase-level half: `repoContext?.repoId ?? getRepoInfo()`. The
-  # phase wraps everything in a try/catch that logs at 'warn' and continues, so a wrong-repo read
-  # here is invisible in every existing suite.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The proof publish phase publishes to the boundary's repository, not the local remote's
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -227,17 +186,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     When the proof publish phase runs for that configuration
     Then the boundary's code host recorded a comment on pull request 7
     And the local git remote was never read
-
-  # ── §3  THE REMAINING WRONG-REPO FALLBACKS (AC1) ──────────────────────────────────────────
-  #
-  # `phases/orchestratorLock.ts:25` resolves the lock namespace as `config.targetRepo ?? getRepoInfo()`
-  # while `config.repoContext.repoId` — the boundary-bound identity — sits unused on the same object.
-  #
-  # THE LOCK KEY MUST NOT MOVE. `acquireIssueSpawnLock(repoInfo, issueNumber, pid)` derives its lock
-  # artefact path from the repo identity. If the migration changes the derived key for runs that
-  # behave identically today, every in-flight lock is orphaned and two orchestrators can spawn on the
-  # same issue across the deploy. The first row pins the self-host key as unchanged; the second pins
-  # the target-repo key to the boundary rather than the ambient remote.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: A self-host run's spawn lock keeps the key it uses today
@@ -257,10 +205,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the spawn lock artefact was written under the repository "adw-fixture/void-820"
     And the local git remote was never read
 
-  # `phases/depauditSetup.ts:71` already receives a `codeHost` and calls `codeHost.setSecret` on it
-  # (`:43`), then reads the LOCAL REMOTE two lines earlier to name the repository in its warnings.
-  # `codeHost.getRepoIdentifier()` is on the port and is the same object the secret writes go to.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The dependency-audit setup names the repository its code host is bound to
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -271,19 +215,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the reported skipped-secret warnings name the repository "adw-fixture/void-820"
     And the local git remote was never read
 
-  # ── §4  THE BRANCH LOOKUPS IN core/ AND THE PR-REVIEW ORDERING (AC1, FINDINGS 1 & 4) ──────
-  #
-  # `core/upgradeClaim.ts:175-178` wires `defaultFindPRByBranch` and `fetchPRDetails` into
-  # `UpgradeClaimDeps` from `buildDefaultUpgradeClaimDeps` — a builder whose only production caller
-  # is `upgradeGate.ts:179`, which already holds `providers`. This one is unblocked, unlike §5's
-  # sibling, and the migration is a straight swap onto `codeHost.findPullRequestByBranch` and
-  # `codeHost.fetchPullRequest`.
-  #
-  # `resolveIssueNumberFromPR` reads `details.issueNumber` and returns null on ANY throw. The port's
-  # `PullRequest` carries the same fact as `linkedIssueNumber` (optional). A migration that reads a
-  # field that is never populated silently returns null forever, which makes every upgrade claim look
-  # unlinked and re-opens issues that already exist — this row is that regression's only alarm.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The upgrade claim resolves its existing pull request through the code host the boundary minted
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -292,10 +223,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     When the upgrade claim deps resolve the issue number for the branch "adw-upgrade-abc123" from that boundary
     Then the resolved upgrade claim issue number is 51
     And the boundary's code host was asked for the pull request on branch "adw-upgrade-abc123"
-
-  # FINDING 4 as an executable row. Today the lookup happens before any boundary exists, so this is
-  # RED for an ordering reason rather than an import reason, and a plan that only rewrites the import
-  # cannot make it pass.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The pr-review orchestrator resolves a resumed branch's pull request after the boundary exists
@@ -307,12 +234,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the resolved pr-review pull request number is 7
     And the boundary's code host was asked for the pull request on branch "feature-issue-42-void"
     And the local git remote was never read
-
-  # `core/remoteReconcile.ts` — FINDING 1. With `buildLegacyReconcileDeps` pushed down into
-  # `takeoverHandler.ts`, `deriveStageFromRemote` takes its wiring from the caller, and the stage it
-  # derives over the boundary's wiring must be the stage it derives today. This row is the
-  # invariant, not the implementation; the boundary-less trigger path is covered by
-  # `remoteReconcile.test.ts` and `takeoverHandler`'s unit tests, which can drive it hermetically.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario Outline: The remote reconcile derives today's stage from the boundary's wiring
@@ -326,20 +247,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
       | state  | wiring                | stage          |
       | OPEN   | the boundary's wiring | awaiting_merge |
       | MERGED | the boundary's wiring | completed      |
-
-  # ── §5  THE LABEL-OVERRIDE CHOKEPOINT (AC1, FINDING 1) ────────────────────────────────────
-  #
-  # `core/issueClassifier.ts` is where a mechanical migration does the most damage, because the
-  # damage type-checks. `fetchGitHubIssue` returns the raw `GitHubIssue`, whose `labels` are OBJECTS
-  # (`{ name: string }`), and `readAdwLabels(issue)` (`:133`) reads them to enforce the adw:* label
-  # override — the #618 chokepoint that ALL FOUR spawn paths share. The port's `fetchIssue` returns
-  # the forge-neutral `Issue`, whose `labels` are STRINGS.
-  #
-  # Swap the fetcher without reconciling the label shape and `readAdwLabels` sees nothing it
-  # recognises: `labelReading.classification` is undefined, the override never fires, and every
-  # labelled issue silently falls through to the LLM classifier. That costs money on every trigger
-  # and produces the wrong workflow on some of them, and no existing test catches it because the
-  # unit suite injects `deps.fetchIssue` and never exercises the default.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario Outline: An adw label still overrides classification without reaching the language model
@@ -355,29 +262,12 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
       | adw:bug     | /bug     |
       | adw:feature | /feature |
 
-  # The conflict and no-label paths must keep falling THROUGH to the model — an over-eager migration
-  # that maps any label to a classification breaks them in the opposite direction.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: An issue carrying two conflicting adw labels still falls through to the language model
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
     And issue 42 in the recording tracker carries the labels "adw:chore" and "adw:feature"
     When the trigger classifier classifies issue 42 from that boundary
     Then the trigger classifier invoked the language model
-
-  # ── §6  THE APPROVAL CAPABILITY GATE (AC1 second sentence — port widening) ────────────────
-  #
-  # `phases/reviewPhase.ts:110` gates PR approval on `isGitHubAppConfigured() && GITHUB_PAT` — a
-  # GitHub-specific capability probe standing in a forge-neutral phase. It cannot simply be deleted:
-  # `GitLabCodeHost.approvePullRequest` is a refusal stub that THROWS, so an ungated call turns a
-  # passing review into a thrown phase on any GitLab repo. It cannot simply be kept either, because
-  # keeping it means `phases/` still imports `githubAppAuth` — exactly what AC1 forbids.
-  #
-  # The forge-neutral shape is a capability question on the port, answered by the adapter that knows:
-  # GitHub answers from its own app/PAT configuration; a forge that cannot express approval refuses
-  # by name (§9), as the issue's "named refusal stubs on GitLab/Jira, exactly as #796 did" requires.
-  # Approval failure is documented non-fatal (`reviewPhase.ts:109`), and so is a refused capability
-  # probe — a passing review stays passed on every forge. Both rows keep it that way.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: A passing review approves the pull request when the code host reports it can
@@ -396,20 +286,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the boundary's code host recorded no approval
     And the review phase reported the review as passed
 
-  # ── §7  THE LABEL-WRITE POLICY MUST NOT DRIFT (AC1) ───────────────────────────────────────
-  #
-  # `phases/unitTestPhase.ts:138` and `phases/stackCoherenceReporter.ts:29` both call the legacy
-  # `applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo)` inside a try/catch whose comment
-  # explains why (`:132` — "applyLabel can throw; swallow it").
-  #
-  # THE PORT OFFERS TWO METHODS AND ONLY ONE IS CORRECT. `applyLabel` lazy-creates a missing label
-  # and RETHROWS anything else; `addLabel` swallows everything (fail-open). Reaching for `addLabel`
-  # because it "matches the existing swallow" moves the swallow from the caller into the provider and
-  # loses the lazy-create — on a repository that has never seen `adw:unverified`, the label is never
-  # created and never applied, and the phase reports success either way. Both rows are green with
-  # `applyLabel` and green-looking-but-wrong with `addLabel`, which is why the second one asserts the
-  # creation rather than the application.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: A failing unit-test phase marks the issue unverified through the tracker the boundary minted
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -427,24 +303,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     When the unit-test phase records an unverified verdict for that configuration
     Then the boundary's providers recorded the label "adw:unverified" being created
     And the boundary's providers recorded the label "adw:unverified" applied to issue 42
-
-  # ── §8  THE UNADDRESSED-COMMENT READ (AC1 second sentence — the deepest widening) ─────────
-  #
-  # `phases/prReviewPhase.ts:42,55` calls `fetchPRDetails` and `getUnaddressedComments`. The first is
-  # a straight swap onto `codeHost.fetchPullRequest`. The second is not a port method at all: it is a
-  # COMPOSITE (`prCommentDetector.ts:55`) that fetches PR details, fetches review comments, filters
-  # out bot / self / ADW-signed authors using `getAuthenticatedUser()`, constructs its own context
-  # via `gitContextForRepo`, reads the branch's last ADW commit timestamp, and keeps only comments
-  # newer than it.
-  #
-  # THE PORT CANNOT EXPRESS THE FILTER TODAY. `ReviewComment` carries `author: string` — there is no
-  # `isBot` and no authenticated-user identity — so decomposing into `fetchPullRequest` +
-  # `fetchReviewComments` + framework-side filtering silently drops the bot and self-review
-  # exclusions, and the pr-review workflow starts replying to its own comments in a loop. The settled
-  # shape is decomposition, not a composite port method: `ReviewComment` grows `isBot` and `CodeHost`
-  # grows `getAuthenticatedUser`, and the filter itself becomes `readUnaddressedComments` in
-  # `adws/core/` over those two reads plus the branch's last ADW commit. Either way these two rows
-  # must hold — they assert the filter's outcome, not where it lives.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The pr-review workflow sees only human comments posted after the last ADW commit
@@ -471,20 +329,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
       | self-reviewed | approving my own work   |
       | ADW-signed    | ADW review complete     |
 
-  # ── §9  A FORGE THAT IS NOT GITHUB REFUSES BY NAME (AC1 second sentence) ──────────────────
-  #
-  # Every port method this slice grows gets a refusal stub on GitLab/Jira that names itself, exactly
-  # as #796 did (`providers/__tests__/refusalStubs.test.ts`). Naming matters: a bare `throw` or a
-  # silent `return undefined` turns a missing capability into a mystery at 3am, and a stub that
-  # returns a plausible falsy value turns it into a wrong answer that never surfaces at all.
-  #
-  # The rows below are the three METHODS this slice adds: `getIssueTitle` (§1), the capability probe
-  # (§6), and the authenticated-user read §8's filter needs. §8's composite is NOT a port method —
-  # the port grows `getAuthenticatedUser` plus an `isBot` flag on `ReviewComment` and the filter is
-  # composed framework-side — so there is no `fetchUnaddressedReviewComments` row. The two FIELD
-  # widenings (`PullRequest.state`, `ReviewComment.isBot`) are data, not methods, and get no row
-  # here. Each added method must fail with its own name.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario Outline: A widened port method refuses by name on a forge that does not implement it
     When the "<method>" method is called on the "<provider>" provider
@@ -496,17 +340,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
       | GitLabCodeHost   | canApprovePullRequests |
       | GitLabCodeHost   | getAuthenticatedUser   |
 
-  # ── §10  WHAT DOES NOT MOVE (AC1's "for forge operations" qualifier) ──────────────────────
-  #
-  # The scope note's (b)/(c) categories, as behaviour rather than as an argument. These two rows are
-  # GREEN TODAY and must stay green: they are the alarm for a migration that over-reaches and turns a
-  # pure predicate or a label constant into a forge call. Moving the vocabulary itself to
-  # `adws/core/adwLabels.ts` is expected (see the scope note) and invisible here, as long as
-  # `labelManager.ts`/`prApi.ts` keep re-exporting it for the trigger callers #821 owns.
-  #
-  # `shouldSkipScenarioAuthoring` reads labels the phase already holds on `config.issue` — no forge
-  # traffic at all, which is exactly why the assertion is "asked for nothing".
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: Deciding to skip scenario authoring asks the forge for nothing
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -516,10 +349,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the scenario phase reported that it skipped scenario authoring
     And the boundary's providers recorded no forge call
 
-  # The upgrade orchestrator's `wontfix` escape hatch runs on `hasWontFixLabelName` over the labels
-  # already on the `PullRequestSummary` the code host returned. feature-796 covers the escape hatch
-  # itself; this row covers only the thing #820 could break — that reading it costs no forge call.
-
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: Reading the wontfix escape hatch off a fetched pull request asks the forge for nothing further
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
@@ -527,19 +356,6 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     When the upgrade claim deps read the retirement state of the claim pull request for issue 51 from that boundary
     Then the claim pull request is reported retired
     And the boundary's code host was asked for the pull request on branch "adw-upgrade-abc123" exactly once
-
-  # ── §11  THE STRUCTURAL BACKSTOPS (AC1 residue, AC2, AC3) ─────────────────────────────────
-  #
-  # These three rows carry everything not behaviourally drivable in this harness: `adwMerge.tsx`'s
-  # dead deps field (FINDING 2), `adwChore.tsx`'s unexported call sites (FINDING 3), the phases whose
-  # only change is dropping a `gitContextFor` they no longer need, and — the one AC with real teeth —
-  # the construction guard's stale-entry ratchet (FINDING 5).
-  #
-  # The guard row is not ceremony. `the git/gh guard is run across the repository` shells the whole
-  # `checkGitGhGuard.ts` binary, whose `main()` calls `findStaleSanctionedEntries`. Migrate a phase
-  # off `gitContextFor` and forget its transitional entry and this row fails; add a new transitional
-  # entry to make a fresh construction site legal and it fails on the ratchet's other edge. It is the
-  # only executable statement of AC2 in the file.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The construction guard stays green with no stale transitional entries after the migration

@@ -1,6 +1,4 @@
 /**
- * Manifest interpreter for the programmable claude-cli-stub.
- *
  * Schema strategy: full-contents writes only. Each edit entry specifies a
  * `path` (relative to the worktree root) and `contents` (the complete new
  * file contents). The interpreter writes every edit atomically before the
@@ -19,10 +17,6 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname, isAbsolute } from 'path';
 import { execSync } from 'child_process';
 
-// ---------------------------------------------------------------------------
-// Schema types
-// ---------------------------------------------------------------------------
-
 interface ManifestEdit {
   path: string;
   contents: string;
@@ -38,10 +32,6 @@ interface Manifest {
   edits: ManifestEdit[];
   commits?: ManifestCommit[];
 }
-
-// ---------------------------------------------------------------------------
-// Type guard
-// ---------------------------------------------------------------------------
 
 function isManifestEdit(v: unknown): v is ManifestEdit {
   return (
@@ -73,32 +63,20 @@ function isManifest(v: unknown): v is Manifest {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// File-write helper (isolated side effect)
-// ---------------------------------------------------------------------------
-
 function writeEdit(absolutePath: string, contents: string): void {
   mkdirSync(dirname(absolutePath), { recursive: true });
   writeFileSync(absolutePath, contents, 'utf-8');
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export interface ApplyManifestResult {
   /** Absolute paths of files written, in declaration order. */
   editsApplied: string[];
   /** Resolved absolute path of the JSONL payload to stream. */
   jsonlPath: string;
-  /** Number of synthetic commits created in the worktree (0 if none). */
   commitsCreated: number;
 }
 
 /**
- * Reads a manifest JSON file, validates its schema, applies declared file
- * edits to `worktreePath`, and returns the resolved JSONL path.
- *
  * @throws `Error` with `manifestInterpreter:` prefix for malformed manifests.
  * @throws `Error` with `conflicting edits` message for duplicate edit paths.
  */
@@ -106,7 +84,6 @@ export function applyManifest(
   manifestPath: string,
   worktreePath: string,
 ): ApplyManifestResult {
-  // Parse
   let raw: string;
   try {
     raw = readFileSync(manifestPath, 'utf-8');
@@ -131,7 +108,6 @@ export function applyManifest(
     );
   }
 
-  // Check for conflicting edits (duplicate path values)
   const seenPaths = new Set<string>();
   for (const edit of parsed.edits) {
     if (seenPaths.has(edit.path)) {
@@ -142,7 +118,6 @@ export function applyManifest(
     seenPaths.add(edit.path);
   }
 
-  // Apply edits
   const editsApplied: string[] = [];
   for (const edit of parsed.edits) {
     const absolutePath = resolve(worktreePath, edit.path);
@@ -164,7 +139,6 @@ export function applyManifest(
     }
   }
 
-  // Resolve jsonlPath
   const jsonlPath = isAbsolute(parsed.jsonlPath)
     ? parsed.jsonlPath
     : resolve(worktreePath, parsed.jsonlPath);

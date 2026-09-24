@@ -2,22 +2,15 @@ import type { IssueClassSlashCommand, SlashCommand } from './issueTypes';
 import type { OrchestratorIdType } from '../core/constants';
 import type { LegacyModelUsageMap } from '../cost/types';
 
-/**
- * Result returned by runClaudeAgentWithCommand.
- * Shared between claudeAgent.ts and agentProcessHandler.ts to avoid bidirectional coupling.
- */
+/** Shared between claudeAgent.ts and agentProcessHandler.ts to avoid bidirectional coupling. */
 export interface AgentResult {
   success: boolean;
   output: string;
   sessionId?: string;
   totalCostUsd?: number;
-  /** Per-model token usage breakdown from the Claude CLI. */
   modelUsage?: LegacyModelUsageMap;
-  /** The state path if state tracking was enabled */
   statePath?: string;
-  /** True when the agent was terminated due to approaching the token limit. */
   tokenLimitExceeded?: boolean;
-  /** True when the agent was terminated due to context compaction detection. */
   compactionDetected?: boolean;
   /** Token usage snapshot at the time of interruption. */
   tokenUsage?: TokenUsageSnapshot;
@@ -33,13 +26,11 @@ export interface AgentResult {
    * Only available when costSource is 'extractor_finalized'.
    */
   actualUsage?: Record<string, Record<string, number>>;
-  /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
   costSource?: 'extractor_finalized' | 'extractor_estimated';
-  /** True when the agent was terminated due to an expired OAuth token or authentication failure. */
   authExpired?: boolean;
   /** True when the agent was terminated due to a rate limit, billing limit, or transient API outage. */
   rateLimited?: boolean;
-  /** Count of permission-denied (and other errored) tool calls observed in the run's stream (issue #762). */
+  /** Count of permission-denied (and other errored) tool calls observed in the run's stream. */
   deniedToolCallCount?: number;
 }
 
@@ -56,10 +47,7 @@ export class RateLimitError extends Error {
   }
 }
 
-/**
- * Thrown when a Claude agent invocation exceeds its watchdog timeout.
- * Caught by runPhase() which writes the phase as failed and calls handlePhaseTimeout (exit 0).
- */
+/** Caught by runPhase() which writes the phase as failed and calls handlePhaseTimeout (exit 0). */
 export class AgentTimeoutError extends Error {
   readonly agentName: string;
   readonly phaseName: string | undefined;
@@ -86,9 +74,6 @@ export class AuthRequiredError extends Error {
   }
 }
 
-/**
- * Claude Code agent prompt configuration.
- */
 export interface AgentPromptRequest {
   prompt: string;
   adwId: string;
@@ -98,18 +83,12 @@ export interface AgentPromptRequest {
   outputFile: string;
 }
 
-/**
- * Claude Code agent response.
- */
 export interface AgentPromptResponse {
   output: string;
   success: boolean;
   sessionId?: string | null;
 }
 
-/**
- * Claude Code agent template execution request.
- */
 export interface AgentTemplateRequest {
   agentName: string;
   slashCommand: SlashCommand;
@@ -133,9 +112,6 @@ export interface ClaudeCodeResultMessage {
   sessionId: string;
 }
 
-/**
- * Snapshot of cumulative token usage at a point in time.
- */
 export interface TokenUsageSnapshot {
   readonly totalInputTokens: number;
   readonly totalOutputTokens: number;
@@ -144,9 +120,6 @@ export interface TokenUsageSnapshot {
   readonly thresholdPercent: number;
 }
 
-/**
- * Agent identifier for consistent naming across the state system.
- */
 export type AgentIdentifier =
   | 'orchestrator'
   | OrchestratorIdType
@@ -155,44 +128,29 @@ export type AgentIdentifier =
   | 'build-agent'
   | 'pr-review-plan-agent'
   | 'pr-review-build-agent'
-  // Test workflow agents
   | 'test-agent'
   | 'test-resolver-agent'
-  // Review workflow agents
   | 'review-agent'
   | 'review-agent-1'
   | 'review-agent-2'
   | 'review-agent-3'
   | 'patch-agent'
-  // Git workflow agents
   | 'branchName-agent'
   | 'commit-agent'
-  // PR and document agents
   | 'pr-agent'
   | 'document-agent'
-  // Scenario agent
   | 'scenario-agent'
-  // Step definition agent
   | 'step-def-agent'
-  // Install agent
   | 'install-agent'
-  // Plan validation agents
   | 'validation-agent'
   | 'resolution-agent'
   | 'scenario-fidelity-agent'
-  // Single-pass alignment agent
   | 'alignment-agent'
-  // Dependency extraction agent
   | 'dependency-extraction-agent'
-  // Review patch / scenario fix agents
   | 'review-patch'
   | 'scenario-fix'
-  // Refactor agent
   | 'refactor-agent';
 
-/**
- * Execution status for tracking agent progress.
- */
 export type AgentExecutionStatus =
   | 'pending'
   | 'running'
@@ -200,36 +158,20 @@ export type AgentExecutionStatus =
   | 'failed'
   | 'paused';
 
-/**
- * Agent execution state for tracking progress.
- */
 export interface AgentExecutionState {
-  /** Current execution status */
   status: AgentExecutionStatus;
-  /** ISO 8601 timestamp when agent started */
   startedAt: string;
-  /** ISO 8601 timestamp when agent completed (if applicable) */
   completedAt?: string;
-  /** Error message if failed */
   errorMessage?: string;
 }
 
-/**
- * Execution state for a single workflow phase.
- * Stored in the top-level state file's `phases` map.
- */
+/** Stored in the top-level state file's `phases` map. */
 export interface PhaseExecutionState {
   status: 'pending' | 'running' | 'completed' | 'failed';
-  /** ISO 8601 timestamp when the phase started */
   startedAt: string;
-  /** ISO 8601 timestamp when the phase completed (success or failure) */
   completedAt?: string;
-  /** Optional output or summary captured from the phase */
   output?: string;
-  /**
-   * Machine-readable reason for a failed status.
-   * Canonical value: 'agent_timeout' (set by the watchdog path in phaseRunner.ts).
-   */
+  /** Canonical value: 'agent_timeout' (set by the watchdog path in phaseRunner.ts). */
   failureReason?: string;
 }
 
@@ -241,26 +183,18 @@ export interface PhaseExecutionState {
  * GitIdentity (git author/committer) and the provider RepoIdentifier.
  */
 export interface RepoIdentity {
-  /** GitHub owner (organisation or user). */
   owner: string;
   /** Repository name (without the owner prefix). */
   repo: string;
 }
 
-/**
- * Core agent state stored in state.json.
- * Contains all context needed for workflow execution and recovery.
- */
+/** Core agent state stored in state.json. */
 export interface AgentState {
-  /** Unique ADW session identifier */
   adwId: string;
-  /** GitHub issue number being addressed */
   issueNumber: number | null;
-  /** Git branch name for the feature/fix; assembled from the LLM-produced slug (per PRD "Branch-name generation"). */
+  /** Assembled from the LLM-produced slug. */
   branchName?: string;
-  /** Path to the implementation plan file */
   planFile?: string;
-  /** Issue classification (slash command) */
   issueClass?: IssueClassSlashCommand;
   /** OS process ID of the orchestrator process (for liveness checks); paired with pidStartedAt for PID-reuse-safe liveness via processLiveness.isProcessLive. */
   pid?: number;
@@ -272,17 +206,12 @@ export interface AgentState {
    * Produced by processLiveness.getProcessStartTime; never re-normalised by the writer.
    */
   pidStartedAt?: string;
-  /** ISO 8601 timestamp of the most recent heartbeat or phase-boundary write. Populated by the heartbeat module (future slice) and optionally by phase transitions. */
+  /** ISO 8601 timestamp of the most recent heartbeat or phase-boundary write. */
   lastSeenAt?: string;
-  /** Agent identifier */
   agentName: AgentIdentifier;
-  /** Parent agent identifier (for nested agents) */
   parentAgent?: AgentIdentifier;
-  /** Execution state */
   execution: AgentExecutionState;
-  /** Agent-specific output or summary */
   output?: string;
-  /** Additional metadata for agent-specific data */
   metadata?: Record<string, unknown>;
   /** Granular lifecycle stage of the workflow (e.g. "build_running", "completed") */
   workflowStage?: string;
@@ -298,15 +227,13 @@ export interface AgentState {
    * `MAX_RESUME_ATTEMPTS`; cleared (re-armed) on `## Retry`.
    */
   resumeAttempts?: number;
-  /** Per-phase execution state map: phaseName → PhaseExecutionState */
   phases?: Record<string, PhaseExecutionState>;
   /**
    * Repo identity (owner/repo) recorded at workflow init from the launch
    * boundary (GitContext). Read on resume as a cross-check only; the launch
-   * boundary remains authoritative. Optional so pre-#665 state resumes without
-   * backfill (story 15).
+   * boundary remains authoritative. Optional so state written before this
+   * field existed resumes without backfill.
    */
   repoIdentity?: RepoIdentity;
-  /** Orchestrator script path (e.g. "adws/adwSdlc.tsx") */
   orchestratorScript?: string;
 }

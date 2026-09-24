@@ -1,8 +1,3 @@
-/**
- * Document phase execution for workflows.
- * Uses the /document skill via a Claude agent.
- */
-
 import {
   log,
   AgentStateManager,
@@ -20,13 +15,6 @@ import type { WorkflowConfig } from './workflowInit';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
-/**
- * Executes the Document phase: generate feature documentation.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- *
- * @param config - Workflow configuration
- * @param screenshotsDir - Optional directory containing review screenshots
- */
 export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
@@ -112,10 +100,8 @@ export async function executeDocumentPhase(
     }
   }
 
-  // Commit documentation
   await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
-  // Push documentation commit to remote
   gitCtx.pushBranch(branchName, worktreePath);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);

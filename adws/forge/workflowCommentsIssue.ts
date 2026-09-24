@@ -1,7 +1,3 @@
-/**
- * Issue workflow comment formatting and posting functions.
- */
-
 import { WorkflowStage, IssueClassSlashCommand, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
@@ -9,7 +5,6 @@ import type { ScenarioProofResult } from '../phases/scenarioProof';
 import type { PhaseCostRecord } from '../cost/types';
 import { formatReviewProofComment, type ProofCommentInput } from './proofCommentFormatter';
 
-/** Context information for issue workflow comments. */
 export interface WorkflowContext {
   issueNumber: number | null;
   adwId: string;
@@ -29,10 +24,8 @@ export interface WorkflowContext {
     lastText?: string;
   };
   costBreakdown?: CostBreakdown;
-  /** Phase cost records for the new cost formatter. */
   phaseCostRecords?: PhaseCostRecord[];
   /**
-   * Pre-computed cost section string from the new comment formatter.
    * When set, takes precedence over `costBreakdown` in comment formatting.
    * An empty string means the formatter ran but cost display is disabled.
    */
@@ -41,15 +34,10 @@ export interface WorkflowContext {
   tokenContinuationNumber?: number;
   /** Token usage snapshot at the time of interruption. */
   tokenUsage?: TokenUsageSnapshot;
-  /** Summary from the review agent. */
   reviewSummary?: string;
-  /** Array of review issues found. */
   reviewIssues?: ReviewIssue[];
-  /** The specific issue currently being patched. */
   patchingIssue?: ReviewIssue;
-  /** Current review attempt number. */
   reviewAttempt?: number;
-  /** Maximum review attempts. */
   maxReviewAttempts?: number;
   /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
   runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
@@ -65,9 +53,7 @@ export interface WorkflowContext {
   allScreenshots?: string[];
   /** Phases completed before the pause (for paused/resumed comments). */
   completedPhases?: string[];
-  /** Phase where the workflow was paused. */
   pausedAtPhase?: string;
-  /** Human-readable reason for the pause. */
   pauseReason?: string;
   /** Phase name that exceeded its watchdog (set by handlePhaseTimeout). */
   timeoutPhaseName?: string;
@@ -147,7 +133,6 @@ function formatPrCreatedComment(ctx: WorkflowContext): string {
 }
 
 /**
- * Returns the cost section for a workflow comment.
  * Prefers `ctx.costSection` (pre-computed by the new formatter) when set.
  * Falls back to the legacy `formatCostBreakdownMarkdown` when only `costBreakdown` is available.
  */
@@ -322,7 +307,6 @@ function formatResumedComment(ctx: WorkflowContext): string {
   return `## :arrow_forward: ADW Workflow Resuming\n\nRate limit cleared — resuming workflow from paused phase.${resumingFrom}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
 }
 
-/** Formats the resuming workflow comment. */
 export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
@@ -345,7 +329,6 @@ function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
   return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will be recovered automatically on the next cron tick: the worktree is reset to the remote and the run resumes from the reconciled stage.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
-/** Formats a workflow comment for the given stage. */
 export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext): string {
   switch (stage) {
     case 'starting': return formatStartingComment(ctx);
@@ -390,8 +373,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
 }
 
 /**
- * Builds the explanatory issue comment posted when the resume cap is exhausted
- * and the workflow escalates to human_gated. Context-free (no WorkflowContext).
+ * Context-free (no WorkflowContext).
  */
 export function formatHumanGatedComment(adwId: string, attempts: number, max: number): string {
   return [

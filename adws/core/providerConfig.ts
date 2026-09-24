@@ -2,9 +2,7 @@
  * ADW's consumer-side provider-config parser — reads `.adw/providers.md` in a
  * workspace directory. The PRD says the extractable library never reads
  * consumer config files, which is why this lives in `adws/core/` rather than
- * in the provider package. Moved out of the now-deleted `adws/providers/repoContext.ts`
- * (#819); its output changed from `Platform` to per-port forge names and its
- * re-export shim there dropped when that file was deleted (#823).
+ * in the provider package.
  */
 
 import { existsSync, readFileSync } from 'fs';
@@ -18,7 +16,6 @@ import {
   type IssueTrackerForge,
 } from '@paysdoc/devplatform/providers';
 
-/** Provider forge configuration read from `.adw/providers.md`. */
 export interface ProviderConfig {
   codeHost: CodeHostForge;
   codeHostUrl?: string;
@@ -28,7 +25,7 @@ export interface ProviderConfig {
 }
 
 /**
- * Parses a code-host forge name. Case-insensitive. Throws, naming the
+ * Case-insensitive. Throws, naming the
  * section and the value, when the name is outside the code-host union.
  */
 export function parseCodeHostForge(value: string, section: string): CodeHostForge {
@@ -42,7 +39,7 @@ export function parseCodeHostForge(value: string, section: string): CodeHostForg
 }
 
 /**
- * Parses an issue-tracker forge name. Case-insensitive. Throws, naming the
+ * Case-insensitive. Throws, naming the
  * section and the value, when the name is outside the issue-tracker union.
  */
 export function parseIssueTrackerForge(value: string, section: string): IssueTrackerForge {
@@ -55,10 +52,7 @@ export function parseIssueTrackerForge(value: string, section: string): IssueTra
   return trimmed;
 }
 
-/**
- * Loads provider configuration from `.adw/providers.md` in the working directory.
- * Returns GitHub defaults when the file is absent or sections are missing.
- */
+/** Returns GitHub defaults when the file is absent or sections are missing. */
 export function loadProviderConfig(cwd: string): ProviderConfig {
   const configPath = join(cwd, '.adw', 'providers.md');
   const defaults: ProviderConfig = {

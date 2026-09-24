@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwReview — alignmentPhase — happy path
 
-  # Row 34: alignment phase ensures plan/implementation agreement; state advances to awaiting_merge.
   Scenario: review orchestrator completes alignment phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1034 exists in the mock issue tracker

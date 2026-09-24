@@ -20,7 +20,6 @@ function parseTableRows(block: string): VocabularyEntry[] {
       .map(c => c.trim());
     // Expected: # | Phrase | Semantics | Pattern | Assertion target (5 columns)
     if (cols.length < 5) continue;
-    // Skip header/separator rows
     if (cols[1].startsWith('-') || cols[1].toLowerCase() === 'phrase') continue;
     const phrase = cols[1].replace(/`/g, '').trim();
     const pattern = toPattern(cols[3]);
@@ -51,7 +50,6 @@ function parseSurfaceExamples(content: string): string[] {
 export function parse(content: string): VocabularyRegistry {
   const entries = new Map<string, VocabularyEntry>();
 
-  // Extract table sections under ## Given, ## When, ## Then
   const sectionRe = /^##\s+(Given|When|Then)\b/gm;
   let match: RegExpExecArray | null;
   const sections: { start: number }[] = [];

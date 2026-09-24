@@ -9,8 +9,6 @@ import {
 import type { PullRequestSummary } from '@paysdoc/devplatform';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const HASH = 'abc123';
 const BRANCH = 'adw-upgrade-abc123';
 
@@ -35,8 +33,6 @@ function makeDeps(overrides: Partial<UpgradeClaimDeps> = {}): UpgradeClaimDeps {
   };
 }
 
-// ── buildClaimBranchName — pure ───────────────────────────────────────────────
-
 describe('buildClaimBranchName', () => {
   it('produces adw-upgrade-<hash> for a valid hash', () => {
     expect(buildClaimBranchName('abc123')).toBe('adw-upgrade-abc123');
@@ -55,8 +51,6 @@ describe('buildClaimBranchName', () => {
     expect(buildClaimBranchName(hash)).toBe(`adw-upgrade-${hash}`);
   });
 });
-
-// ── buildClaimResult — pure ───────────────────────────────────────────────────
 
 describe('buildClaimResult', () => {
   it('returns won:true with branch when pushed is true', () => {
@@ -85,8 +79,6 @@ describe('buildClaimResult', () => {
   });
 });
 
-// ── claimUpgradeOrFindExisting — winner path ──────────────────────────────────
-
 describe('claimUpgradeOrFindExisting — winner path', () => {
   it('returns { won: true, branch } when pushClaimBranch returns true', async () => {
     const deps = makeDeps({ pushClaimBranch: vi.fn().mockReturnValue(true) });
@@ -114,8 +106,6 @@ describe('claimUpgradeOrFindExisting — winner path', () => {
     expect(pushFn).toHaveBeenCalledWith(BRANCH, HASH);
   });
 });
-
-// ── claimUpgradeOrFindExisting — loser path ───────────────────────────────────
 
 describe('claimUpgradeOrFindExisting — loser path', () => {
   it('returns { won: false, existingIssueNumber: N, existingBranch } when PR and issue resolvable', async () => {
@@ -180,8 +170,6 @@ describe('claimUpgradeOrFindExisting — loser path', () => {
   });
 });
 
-// ── claimUpgradeOrFindExisting — concurrency logic ────────────────────────────
-
 describe('claimUpgradeOrFindExisting — exactly one winner logic', () => {
   it('first call wins and second call loses when push alternates true/false', async () => {
     const pushFn = vi.fn()
@@ -200,8 +188,6 @@ describe('claimUpgradeOrFindExisting — exactly one winner logic', () => {
   });
 });
 
-// ── claimUpgradeOrFindExisting — error propagation ────────────────────────────
-
 describe('claimUpgradeOrFindExisting — error propagation', () => {
   it('propagates errors thrown by pushClaimBranch (not misclassified as loser)', async () => {
     const networkError = new Error('ECONNREFUSED: connection refused');
@@ -212,8 +198,6 @@ describe('claimUpgradeOrFindExisting — error propagation', () => {
     await expect(claimUpgradeOrFindExisting(HASH, deps)).rejects.toThrow('ECONNREFUSED');
   });
 });
-
-// ── buildDefaultUpgradeClaimDeps — smoke test ─────────────────────────────────
 
 describe('buildDefaultUpgradeClaimDeps', () => {
   const spyCtx = {

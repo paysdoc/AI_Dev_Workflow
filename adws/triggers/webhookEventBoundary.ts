@@ -1,8 +1,6 @@
 /**
- * Per-event resilience boundary for the webhook trigger.
- *
  * One job: contain and report a per-event failure so the webhook process
- * survives it (issue #776). Pure context/formatting helpers plus a single
+ * survives it. Pure context/formatting helpers plus a single
  * no-throw reporter — no `http` types, so this is testable without touching
  * the server.
  */
@@ -22,7 +20,7 @@ export interface WebhookFailureDeps {
   notify?: (text: string) => Promise<void>;
 }
 
-/** Parses a webhook delivery body. Never throws — undefined on bad JSON or a non-object result. */
+/** Never throws — undefined on bad JSON or a non-object result. */
 export function safeParseWebhookBody(rawBody: Buffer): Record<string, unknown> | undefined {
   try {
     const parsed: unknown = JSON.parse(rawBody.toString());
@@ -38,7 +36,7 @@ function readNumber(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-/** Defensively extracts identity from a raw webhook payload. Pure — survives a hostile or truncated body. */
+/** Pure — survives a hostile or truncated body. */
 export function describeWebhookEvent(
   event: string | undefined,
   body: Record<string, unknown> | undefined,
@@ -66,12 +64,11 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** One-line log message naming event type, repo and issue/PR — the operator-facing failure summary. */
 export function formatWebhookFailureLog(context: WebhookEventContext, error: unknown): string {
   return `Webhook event handler failed [event=${context.event} repo=${context.repo} issue=${issueLabel(context)}]: ${errorMessage(error)}`;
 }
 
-/** Multi-line Slack alert naming the same identifiers. Makes no claim about the HTTP response. */
+/** Makes no claim about the HTTP response. */
 export function formatWebhookFailureAlert(context: WebhookEventContext, error: unknown): string {
   return [
     ':rotating_light: Webhook event handler failed',
@@ -83,8 +80,7 @@ export function formatWebhookFailureAlert(context: WebhookEventContext, error: u
 }
 
 /**
- * Logs and Slack-alerts a contained webhook failure. Contractually never throws — a
- * reporter that throws would re-create the outage it exists to prevent — and never
+ * Contractually never throws — a reporter that throws would re-create the outage it exists to prevent — and never
  * awaits the alert, so a black-holed Slack endpoint cannot delay the caller.
  */
 export function reportWebhookEventFailure(

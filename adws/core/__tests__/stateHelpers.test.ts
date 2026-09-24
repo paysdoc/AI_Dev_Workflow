@@ -1,6 +1,5 @@
 /**
- * Unit tests for findOrchestratorStatePath — orchestrator directory disambiguation.
- * Covers the #529 regression where a failed init-orchestrator shadows the real
+ * Covers the regression where a failed init-orchestrator shadows the real
  * sdlc-orchestrator when an adwId is reused across two runs.
  */
 
@@ -65,7 +64,6 @@ describe('findOrchestratorStatePath', () => {
     const result = findOrchestratorStatePath(adwId);
     expect(result?.endsWith('sdlc-orchestrator')).toBe(true);
 
-    // Confirm branchName is readable from the resolved state
     const resolvedState = JSON.parse(
       fs.readFileSync(path.join(result!, 'state.json'), 'utf-8'),
     ) as Record<string, unknown>;

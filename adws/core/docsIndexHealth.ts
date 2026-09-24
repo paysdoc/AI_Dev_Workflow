@@ -1,13 +1,5 @@
 /**
- * docsIndexHealth.ts — the whole-index decision core for `.adw/conditional_docs.md`.
- *
- * Given the index content and the two facts about the world it needs (which
- * doc files exist, which files the repo tracks), classifies every finding as
- * either a deterministic REPAIR (an entry whose docPath has no file behind
- * it, an `Owns:` glob matching zero files) or a judgement-required VIOLATION
- * (non-canonical serialization, a duplicate docPath, an orphan doc, an
- * overlapping `Owns:` glob pair, an entry count outside the band). No I/O, no
- * forge, no repo identity — the same module serves both the CI gate
+ * No I/O, no forge, no repo identity — the same module serves both the CI gate
  * (`checkLivingDocsIndex.ts`) and the cron sweep (`docsIndexSweep.ts`) so
  * they can never drift apart.
  *
@@ -25,10 +17,6 @@ import {
   type ConditionalDocsRegistry,
 } from './conditionalDocsRegistry';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface CountBand {
   readonly min: number;
   readonly max: number;
@@ -36,8 +24,7 @@ export interface CountBand {
 
 /**
  * 44 module docs + 2 READMEs + headroom for genuinely novel modules. The
- * lower bound is what catches a mass-deletion merge accident (the June 2026
- * regression this issue backstops).
+ * lower bound is what catches a mass-deletion merge accident.
  */
 export const DEFAULT_COUNT_BAND: CountBand = { min: 25, max: 60 };
 
@@ -65,10 +52,6 @@ export interface DocsIndexAssessment {
   readonly violations: readonly DocsIndexViolation[];
 }
 
-// ---------------------------------------------------------------------------
-// isFeatureDocPath
-// ---------------------------------------------------------------------------
-
 const FEATURE_DOC_RE = /^app_docs\/feature-[^/]+\.md$/;
 
 /** True for a direct-child `app_docs/feature-*.md` path; excludes `app_docs/assets/**` and any other nesting. */
@@ -76,23 +59,18 @@ export function isFeatureDocPath(p: string): boolean {
   return FEATURE_DOC_RE.test(p);
 }
 
-// ---------------------------------------------------------------------------
-// Repairs (deterministic)
-// ---------------------------------------------------------------------------
-
-/**
- * Dangling = `docPath` absent from the file set, resolved against the repo
- * root (this is the README fix — no `app_docs/` prefix is ever assumed).
- * Dead glob = an `Owns:` glob matching zero files. Legacy entries (no
- * `Owns:`) can only ever produce a `drop-dangling-entry` repair.
- */
-/** Dead globs owned by a single entry — an `Owns:` glob matching zero tracked files. */
 function findDeadGlobRepairs(entry: ConditionalDocEntry, files: readonly string[]): DocsIndexRepair[] {
   return entry.ownedGlobs
     .filter((glob) => !files.some((f) => matchesGlob(glob, f)))
     .map((glob) => ({ kind: 'prune-dead-glob' as const, docPath: entry.docPath, glob }));
 }
 
+/**
+ * Dangling = `docPath` absent from the file set, resolved against the repo
+ * root — no `app_docs/` prefix is ever assumed. Dead glob = an `Owns:` glob
+ * matching zero files. Legacy entries (no `Owns:`) can only ever produce a
+ * `drop-dangling-entry` repair.
+ */
 export function findRepairs(registry: ConditionalDocsRegistry, files: readonly string[]): DocsIndexRepair[] {
   const fileSet = new Set(files);
   return registry.entries.flatMap((entry): DocsIndexRepair[] =>
@@ -137,11 +115,7 @@ export function applyRepairs(
   return { ...registry, entries };
 }
 
-// ---------------------------------------------------------------------------
-// Violations (judgement-required)
-// ---------------------------------------------------------------------------
-
-/** Same first-diverging-line convention `checkLivingDocsIndex.ts` used pre-#810. */
+/** Same first-diverging-line convention `checkLivingDocsIndex.ts` used. */
 function findFirstDiffLine(a: string, b: string): number {
   const linesA = a.split('\n');
   const linesB = b.split('\n');
@@ -240,10 +214,6 @@ export function findViolations(
   return violations;
 }
 
-// ---------------------------------------------------------------------------
-// Assessment (parse → repairs → repaired → violations)
-// ---------------------------------------------------------------------------
-
 export function assessDocsIndexHealth(
   inputs: DocsIndexHealthInputs,
   band: CountBand | null = DEFAULT_COUNT_BAND,
@@ -254,10 +224,6 @@ export function assessDocsIndexHealth(
   const violations = findViolations(inputs.content, repaired, inputs.files, band);
   return { registry, repairs, repaired, violations };
 }
-
-// ---------------------------------------------------------------------------
-// Formatting — shared by the gate's report, the sweep's log, and the PR/issue bodies
-// ---------------------------------------------------------------------------
 
 const OVERLAP_FILE_PREVIEW = 5;
 

@@ -2,9 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { evaluateIssue, filterEligibleIssues, type CronIssue, type ProcessedSets } from '../cronIssueFilter';
 import type { StageResolution } from '../cronStageResolver';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-const GRACE = 60_000; // 60 s grace period used across all tests
+const GRACE = 60_000;
 
 function makeIssue(overrides: Partial<CronIssue> = {}): CronIssue {
   return {
@@ -32,8 +30,6 @@ function noProcessed(): ProcessedSets {
   const spawns = new Set<number>();
   return { spawns };
 }
-
-// ── evaluateIssue — awaiting_merge behaviour ─────────────────────────────────
 
 describe('evaluateIssue — awaiting_merge', () => {
   it('returns eligible with action=merge when stage is awaiting_merge', () => {
@@ -72,7 +68,7 @@ describe('evaluateIssue — awaiting_merge', () => {
     expect(result.action).toBe('merge');
   });
 
-  // Regression for #398/#399: when this same cron process originally spawned the
+  // When this same cron process originally spawned the
   // SDLC workflow for an issue, the issue is in `processed.spawns`. Once that
   // workflow exits with awaiting_merge, the next poll must still detect it as
   // a merge candidate — the spawn dedup must NOT block the merge path.
@@ -91,8 +87,6 @@ describe('evaluateIssue — awaiting_merge', () => {
 
 
 });
-
-// ── evaluateIssue — grace period still applies to non-awaiting_merge ─────────
 
 describe('evaluateIssue — grace period for standard stages', () => {
   it('excludes a fresh issue within the grace period', () => {
@@ -150,8 +144,6 @@ describe('evaluateIssue — grace period for standard stages', () => {
     expect(result.reason).toBe('processed');
   });
 });
-
-// ── filterEligibleIssues — awaiting_merge propagation ───────────────────────
 
 describe('filterEligibleIssues — awaiting_merge propagation', () => {
   it('includes awaiting_merge issue with adwId and action=merge', () => {
@@ -218,7 +210,6 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
     expect(filteredAnnotations).toContain('#40(awaiting_merge_no_adwid)');
   });
 
-  // List-level regression for #398/#399.
   it('includes awaiting_merge issue even when it is in processed.spawns', () => {
     const issue = makeIssue({ number: 398 });
     const processed = { spawns: new Set<number>([398]) };
@@ -234,8 +225,6 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
   });
 
 });
-
-// ── evaluateIssue — cancelledThisCycle ───────────────────────────────────────
 
 describe('evaluateIssue — cancelledThisCycle', () => {
   it('returns ineligible with reason=\'cancelled\' when issue is in cancelledThisCycle', () => {
@@ -297,8 +286,6 @@ describe('evaluateIssue — cancelledThisCycle', () => {
   });
 });
 
-// ── evaluateIssue — discarded skip-terminal ──────────────────────────────────
-
 describe('evaluateIssue — discarded skip-terminal', () => {
   it('returns ineligible with reason=discarded when stage is discarded', () => {
     const issue = makeIssue({ number: 60 });
@@ -338,8 +325,6 @@ describe('evaluateIssue — discarded skip-terminal', () => {
     expect(filteredAnnotations).toContain('#62(discarded)');
   });
 });
-
-// ── filterEligibleIssues — cancelledThisCycle annotation ────────────────────
 
 describe('filterEligibleIssues — cancelledThisCycle annotation', () => {
   it('filtered annotation reads \'#N(cancelled)\' when the issue is in cancelledThisCycle', () => {

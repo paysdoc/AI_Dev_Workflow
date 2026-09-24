@@ -1,7 +1,3 @@
-/**
- * Plan phase execution for workflows.
- */
-
 import {
   log,
   AgentStateManager,
@@ -24,10 +20,6 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { BoardStatus } from '@paysdoc/devplatform';
 
-/**
- * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- */
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
@@ -36,7 +28,6 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
-  // Classify step
   if (shouldExecuteStage('classified', recoveryState)) {
     AgentStateManager.writeState(orchestratorStatePath, { issueClass: issueType });
     AgentStateManager.appendLog(orchestratorStatePath, `Issue classified as: ${issueType}`);
@@ -64,7 +55,6 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     }
   }
 
-  // Plan agent step
   const planPath = getPlanFilePath(issueNumber, worktreePath);
   ctx.planPath = planPath;
   let costUsd = 0;
@@ -119,7 +109,6 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     AgentStateManager.writeState(orchestratorStatePath, { planFile: resolvedPlanPath });
     AgentStateManager.appendLog(orchestratorStatePath, `Plan created: ${resolvedPlanPath}`);
 
-    // Read the plan file content for the issue comment summary
     const planFileContent = readPlanFile(issueNumber, worktreePath);
     if (!planFileContent) {
       log('Could not read plan file for summary, using agent output', 'info');
@@ -134,7 +123,6 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     log('Skipping Plan Agent (plan already exists or completed)', 'info');
   }
 
-  // Commit plan step
   if (shouldExecuteStage('plan_committing', recoveryState)) {
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'plan_committing', ctx);
@@ -158,11 +146,9 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   return { costUsd, modelUsage, phaseCostRecords };
 }
 
-/** Maximum characters of previous output to include in a continuation prompt. */
 export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 
 /**
- * Builds a continuation prompt that includes the original plan and previous agent's output.
  * @param baseBranch - base/default branch to diff committed work against, e.g. `dev`; when
  *   omitted with checkpoint commits present, falls back to generic branch-history inspection.
  * @param checkpointCommitsPresent - true when the build branch carries checkpoint commits
@@ -228,7 +214,6 @@ ${truncatedOutput}
 }
 
 /**
- * Builds the first-invocation prompt for a build resumed in a reused worktree (#640).
  * Reuses the git-authoritative continuation framing from buildContinuationPrompt so the
  * agent inventories existing committed + uncommitted work and continues from the first
  * not-yet-done step, rather than restarting from scratch. Empty previous-output is
@@ -240,11 +225,9 @@ export function buildResumeInPlacePrompt(originalPlanContent: string, baseBranch
 }
 
 /**
- * Returns true when the build phase should seed the resume-in-place recognition
- * instruction rather than the plain plan content. canResume is a sound, simple trigger:
- * the inventory-then-continue instruction degrades gracefully to "start from step 1"
- * when no partial build work is present (e.g. a RESET-then-resume, or a resume that
- * had not yet reached the build stage).
+ * canResume is a sound, simple trigger: the inventory-then-continue instruction
+ * degrades gracefully to "start from step 1" when no partial build work is present
+ * (e.g. a RESET-then-resume, or a resume that had not yet reached the build stage).
  */
 export function shouldResumeBuildInPlace(recoveryState: RecoveryState): boolean {
   return recoveryState.canResume === true;

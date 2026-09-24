@@ -1,7 +1,5 @@
 #!/usr/bin/env bun
 /**
- * Claude CLI stub for ADW mock infrastructure.
- *
  * Accepts the same flags as the real Claude Code CLI and streams canned JSONL
  * to stdout. Pointed to via the CLAUDE_CODE_PATH environment variable.
  *
@@ -38,13 +36,9 @@ const PAYLOAD_DIR = join(FIXTURE_DIR, 'payloads');
 
 const STREAM_DELAY_MS = parseInt(process.env['MOCK_STREAM_DELAY_MS'] ?? '10', 10);
 
-/** Flags that accept a following value argument. */
 const VALUE_FLAGS = new Set(['--output-format', '--model', '--effort']);
 
-/**
- * Extracts the trailing prompt string from process.argv.
- * Skips known flags and their values; returns the first non-flag argument.
- */
+/** Skips known flags and their values; returns the first non-flag argument. */
 function extractPrompt(argv: string[]): string {
   const args = argv.slice(2);
   let i = 0;
@@ -62,7 +56,6 @@ function extractPrompt(argv: string[]): string {
   return '';
 }
 
-/** Selects the payload file path based on prompt content or MOCK_FIXTURE_PATH. */
 function selectPayloadPath(): string {
   const mockFixturePath = process.env['MOCK_FIXTURE_PATH'];
   if (mockFixturePath) {
@@ -80,12 +73,10 @@ function selectPayloadPath(): string {
   return join(PAYLOAD_DIR, 'plan-agent.json');
 }
 
-/** Sleeps for the configured delay. */
 function sleep(ms: number): Promise<void> {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-/** Writes a JSONL line to stdout, then waits for the configured delay. */
 async function streamLine(line: string): Promise<void> {
   process.stdout.write(line + '\n');
   await sleep(STREAM_DELAY_MS);
@@ -99,7 +90,7 @@ function extractText(payload: Array<{ type: string; text?: string }>): string {
     .join('');
 }
 
-/** Appends the prompt to MOCK_INVOCATION_LOG if set. Enables ordering assertions in step defs. */
+/** Enables ordering assertions in step defs. */
 function recordInvocation(prompt: string): void {
   const logPath = process.env['MOCK_INVOCATION_LOG'];
   if (!logPath) return;
@@ -120,12 +111,10 @@ function resolveManifestPath(): string | undefined {
   return existsSync(marker) ? marker : undefined;
 }
 
-/** Main entry point. */
 async function main(): Promise<void> {
   try {
     recordInvocation(extractPrompt(process.argv));
 
-    // When a manifest is resolved (env var or cwd marker file), apply it and derive payloadPath from it.
     const manifestPath = resolveManifestPath();
     let payloadPath: string;
     if (manifestPath) {
@@ -140,7 +129,6 @@ async function main(): Promise<void> {
       text?: string;
     }>;
 
-    // Assemble and stream the assistant message
     const envelopePath = join(ENVELOPE_DIR, 'assistant-message.jsonl');
     const envelope = JSON.parse(readFileSync(envelopePath, 'utf-8')) as {
       message: { content: unknown[] };
@@ -148,7 +136,6 @@ async function main(): Promise<void> {
     envelope.message.content = payload;
     await streamLine(JSON.stringify(envelope));
 
-    // Assemble and stream the result message
     const resultPath = join(ENVELOPE_DIR, 'result-message.jsonl');
     const result = JSON.parse(readFileSync(resultPath, 'utf-8')) as {
       result: string;

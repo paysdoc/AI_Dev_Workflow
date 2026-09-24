@@ -168,7 +168,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     • THREE §7 PHRASES HAVE NO SURVIVING DEFINITION AND THIS SLICE MUST SUPPLY THEM.
       `the ADW TypeScript type-check passes` (vocabulary T22) and the pair `the git/gh guard is run
       across the repository` / `the git/gh guard reports no violations` are used by #796, #797, #810,
-      #812, #816 and #821 and are attributed in those files' header comments to
       `feature-504.steps.ts` and `feature-691.steps.ts` — both of which have since been deleted. No
       registration for any of the three exists anywhere under `features/` today. They are not
       reuse; they are new step definitions this slice owns. The guard pair must shell the whole
@@ -186,16 +185,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1  THE ISSUE RECORD THROUGH THE TRACKER PORT (item 1, `adws/core/issueRecord.ts`) ─────
-  #
-  # `fetchIssueRecord(ctx, n)` is `parseGitHubIssue(createGhRepoApi(ctx).fetchIssue(n))` wrapped in
-  # one error message. Its single production caller is `workflowInit.ts:167`, which assigns the
-  # result to `WorkflowConfig.issue` and hands it to four agents. The port takes its place; the
-  # AGENTS' INPUT MUST NOT MOVE. FINDING 1 lists the four fields at risk; these are the four rows.
-  #
-  # The tracker arrives through the launch boundary's `BoundProviders` — `workflowInit` already
-  # holds `boundary.providers`. Nothing here may construct a provider.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A fetched issue record still carries the pull-request url the build agent prints
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -210,11 +199,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the issue record for issue 42 is read from that boundary
     Then the issue record's creation timestamp is "2026-09-01T09:15:00Z"
 
-  # `planAgent.ts:266` is `author: issue.author.login` and `:38` prints `${issue.author.login}`. The
-  # port hands back a login STRING. A migration that leaves both call sites alone renders
-  # "**Author:** undefined" into the plan prompt and type-checks clean if the record type widened to
-  # `string | GitHubUser`. The observable is the rendered value, not the shape it travelled in.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The author the plan agent renders is the login, not an undefined property read
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -222,10 +206,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the plan agent's issue section is rendered for issue 42 from that boundary
     Then the rendered issue section names the author "octocat"
     And the rendered issue section contains no "undefined"
-
-  # Same trap one field over: `issue.labels.map(l => l.name)` against a `string[]` yields
-  # `[undefined, undefined]`, which joins to "undefined, undefined" in the prompt and makes
-  # `readAdwLabelNames` (`adwLabels.ts:96`) classify nothing.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The labels the plan agent renders and the classifier reads survive the port crossing
@@ -235,20 +215,12 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     Then the rendered issue section names the labels "adw:feature, hitl"
     And the adw classification read from that issue record is "adw:feature"
 
-  # The error contract is load-bearing: `workflowInit` has no handler of its own, so this string is
-  # what an operator sees on a bad issue number. The port throws its own adapter-shaped message
-  # inside; the wrap must survive it.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A failed issue read still fails with the message the caller's error contract names
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
     And the recording tracker refuses to read issue 42
     When the issue record for issue 42 is read from that boundary
     Then reading the issue record failed with a message beginning "Failed to fetch issue #42:"
-
-  # The point of the whole item. `createGhRepoApi(ctx)` is a bound view over the context — it issues
-  # `gh` itself. Once the tracker answers, the context must be asked for no forge operation at all,
-  # and a local remote naming another repository must not be able to redirect the read.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The issue record is read through the boundary's tracker and not over its git context
@@ -266,18 +238,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     Then every recorded provider call addressed the repository "adw-fixture/void-844"
     And the local git remote was never read
 
-  # ── §2  THE HITL BOARD NOTIFIER THROUGH THE PORTS (item 1, `adws/forge/hitlBoardNotifier.ts`) ──
-  #
-  # `buildNotifierDeps` is the last bound-repo-API reader set. `readIssue` → `IssueTracker.fetchIssue`
-  # is uneventful once §1's fields exist. `listOpenPRs` → `CodeHost.listPullRequests()` is not:
-  # FINDING 2 (the missing `updatedAt`, in the type AND in the `gh --json` projection) and FINDING 3
-  # (state=all wakes a fallback that is unreachable today) both land here, and both are invisible to
-  # every existing suite because `notifyReviewTransition` swallows everything it throws.
-  #
-  # `findPullRequestByBranch` is offered by the issue and cannot serve: it returns
-  # `PullRequestSummary`, which carries no `body`, and `bodyLinksIssue(pr.body, issueNumber)` is the
-  # entire matching rule. `listPullRequests` is the only usable port method.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The announced pull request is the open one, not the merged one updated more recently
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -287,10 +247,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the review-transition notification is raised for issue 42 from that boundary
     Then the review-transition notification announces pull request 7
 
-  # FINDING 3, stated as the behaviour that must NOT change. Today the merged-only issue produces
-  # silence because `listOpenPRs` filtered before `selectPreferredPR` could prefer. Hand state=all
-  # straight through and a human is paged to approve a pull request that merged last week.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: An issue whose only linked pull request is merged raises no review-transition notification
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -298,14 +254,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     And the recording code host has pull request 9 merged, linking issue 42, updated at "2026-09-08T10:00:00Z"
     When the review-transition notification is raised for issue 42 from that boundary
     Then no review-transition notification was announced
-
-  # FINDING 2's discriminating row, and the one row in §2 that asserts a CHANGE rather than a
-  # preservation. Both candidates are OPEN, so the open-preference cannot decide and the `updatedAt`
-  # sort is the only thing left. Today that sort is already a no-op — the notifier's own cast carries
-  # no `updatedAt` — so this row fails RED against current behaviour on purpose. It goes green only
-  # when `updatedAt` is added to `PullRequestRecord` AND to `fetchAllPRsCmd`'s `--json` list AND to
-  # both adapters. A type widened without the projection yields `NaN` comparisons, a no-op sort, and
-  # whichever pull request the forge happened to list first — i.e. no movement at all.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: Two open linked pull requests resolve to the one the forge updated most recently
@@ -317,10 +265,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the review-transition notification is raised for issue 42 from that boundary
     Then the review-transition notification announces pull request 8
 
-  # `buildNotifierDeps` synthesises `https://github.com/${owner}/${repo}/pull/${number}` — a
-  # GitHub-only path shape assembled inside what is becoming a host-neutral caller. GitLab's is
-  # `/-/merge_requests/`. The link is what the human clicks, so it must come from the forge.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The announced link is the url the forge published, not one assembled from owner and repo
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -330,10 +274,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the review-transition notification is raised for issue 42 from that boundary
     Then the announced notification link is "https://forge.example/adw-fixture/void-844/-/merge_requests/7"
 
-  # The hitl gate runs BEFORE the pull-request listing today, so a non-hitl issue costs one issue read
-  # and nothing else. `listPullRequests` is a 200-item `gh pr list --state all` per notification; a
-  # migration that hoists it above the gate multiplies that across every board move.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: An issue without the hitl label is not announced and costs no pull-request listing
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -341,11 +281,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the review-transition notification is raised for issue 42 from that boundary
     Then no review-transition notification was announced
     And the boundary's providers were asked for no pull-request listing
-
-  # `listPullRequests` "Throws on failure — callers own the swallow policy" (`types.ts`). The legacy
-  # `listOpenPRs` returned null on any parse or command failure and the notifier treated null as
-  # "nothing to announce". The no-throw-at-boundary contract in this module's own header must hold
-  # through the port, or a forge hiccup during a board move takes the workflow down with it.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A code host that throws while listing pull requests leaves the notifier silent, not raising
@@ -365,21 +300,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     Then the boundary's providers were asked to fetch issue 42
     And the blocked-transition notification announces issue 42 as discarded
     And the watched git context was asked for no forge-semantic operation
-
-  # ── §3  THE HEALTH CHECK THROUGH THE PORTS (item 1, `adws/healthCheckChecks.ts`) ────────────
-  #
-  # Two checks, both taking a `GitContext` today and both about to take a provider instead.
-  #
-  # `checkGitHubCLI:196` wraps `authenticatedUser()` in try/catch and reads a throw as unauthenticated.
-  # `CodeHost.getAuthenticatedUser()` returns NULL for the same condition and warns once — so the
-  # natural reading ("the port already handles it, drop the catch") is exactly wrong: `GitLabCodeHost`
-  # REFUSES BY NAME rather than returning null, and an uncaught refusal turns the whole health check
-  # into a stack trace. The refusal contract those `{} as GitLabApiClient` step definitions prove
-  # (FINDING 6) is what these rows lean on.
-  #
-  # `checkIssueNumber:270` is SYNCHRONOUS and `healthCheck.tsx:144` calls it without `await`.
-  # `IssueTracker.fetchIssue` is async. The check and its call site both become async, or the check
-  # returns a pending promise and `details.title` is `undefined` in every health report.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: An authenticated code host is reported as authenticated by the forge health check
@@ -413,11 +333,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     And the issue-accessibility health check reports the title "A stuck workflow"
     And the issue-accessibility health check reports the state "OPEN"
 
-  # The legacy check had three failure branches over a raw JSON string: the command threw, the string
-  # contained "Could not resolve", or the string failed to parse. Through the port the last two are
-  # unreachable — `fetchIssue` returns a parsed `Issue` or throws. The operator-visible message for
-  # an unreachable issue must not change as those branches collapse into one.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: An unreachable issue reports the same accessibility error it reports today
     Given a launch boundary for the repository "adw-fixture/void-844" whose providers record every call
@@ -447,18 +362,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     And the issue-accessibility health check runs for issue 42 from that boundary
     Then the watched git context was asked for no forge-semantic operation
 
-  # ── §4  LOCAL REPO IDENTITY WITHOUT THE GITHUB ADAPTER (item 2) ────────────────────────────
-  #
-  # `readLocalRepoIdentity(cwd?)` replaces five `readLocalRepoInfo` imports: `orchestratorCli:143`,
-  # `healthCheck.tsx:112`, `pauseQueueScanner:57`, `trigger_cron:61` and `launchGitContext:195`'s
-  # `deps.getRepoInfo ?? ` default. Every one of those five feeds a `RepoIdentifier` into a launch
-  # boundary or a token pin, so a shape that stops resolving is not a cosmetic loss — it is a process
-  # that cannot start.
-  #
-  # FINDING 4 has the whole argument. The outline is the compatibility surface: each row is a remote
-  # `readLocalRepoInfo` resolves TODAY and must still resolve. The `ssh://` rows are the ones a
-  # straight `readOriginRemoteUrl` + `parseOwnerRepoFromUrl` composition drops.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario Outline: Every origin remote shape that resolves today still resolves to the same identity
     Given a checkout whose origin remote is "<remote>"
@@ -478,20 +381,11 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
       | https://github.com/paysdoc/paysdoc.nl                      | paysdoc | paysdoc.nl  |
       | https://github.com/paysdoc/paysdoc.nl.git                  | paysdoc | paysdoc.nl  |
 
-  # `buildRepoIdentifier`, `resolveEntryRepoInfo` and `buildLaunchBoundary` all stamp
-  # `Platform.GitHub` on the identities they build; `providerConfig` then branches on it to pick an
-  # adapter. A host-neutral parser that returns `{owner, repo}` and a composition that forgets to
-  # stamp anything produces an identity whose `platform` is `undefined` and an adapter choice made by
-  # a falsy default.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The resolved identity still carries the platform the provider selection branches on
     Given a checkout whose origin remote is "https://github.com/acme/webapp.git"
     When the local repo identity is read from that checkout
     Then the local repo identity declares the platform "github"
-
-  # "Same error message on failure" — the exact string, because `@adw-779` already asserts on it and
-  # `healthCheck.tsx:112` renders it into the health report's `gitContext` failure.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A remote that cannot be parsed fails with the message it fails with today
@@ -505,19 +399,11 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the local repo identity is read from that checkout
     Then reading the local repo identity failed with a message beginning "Failed to get repo info:"
 
-  # The reader is a `git remote get-url origin` and a regex. It must never reach a forge — this is
-  # the pre-context read that runs before any credential exists, and #812 showed what an eager forge
-  # call does on a host with no App installation.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: Reading the local repo identity issues no forge request
     Given a checkout whose origin remote is "https://github.com/acme/webapp.git"
     When the local repo identity is read from that checkout
     Then reading the local repo identity issued no forge request
-
-  # FINDING 5. The guard is name-based and this issue introduces a name. A fixture carrying the
-  # composite the rule exists to catch must still fail under `cwd-derived-identity` — if it passes,
-  # the rule has gone dead and nothing else in the repository says so.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A context constructed from a zero-argument identity read is still flagged after the rename
@@ -535,10 +421,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     Then the guard run over the guard fixture tree fails naming "adws/core/probeOps.ts"
     And the guard failure over the guard fixture tree cites the "cwd-derived-identity" rule
 
-  # The other edge of the same rule: `healthCheck.tsx:112` passes REPO_ROOT explicitly, and that is
-  # what makes it legal. A rename that made the rule match on arity alone would turn the repository's
-  # own self-host boundary red.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: An identity read given an explicit root is not flagged as cwd-derived
     Given a guard fixture tree holding the file "adws/core/probeOps.ts":
@@ -552,23 +434,6 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
       """
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
-
-  # ── §5  THE SSH CLONE REWRITE WITHOUT THE GITHUB ADAPTER (item 3) ──────────────────────────
-  #
-  # `targetRepoManager.ts` applies `convertToSshUrl` at two sites (`:48` clone, `:72` ensure) before
-  # handing the core a URL — since #793 the core clones exactly what it is given. The host-neutral
-  # rule the issue states is `https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`,
-  # anything else passed through.
-  #
-  # THAT RULE CHANGES BEHAVIOUR ON PURPOSE, IN ONE ROW. `cloneUrl.test.ts` currently asserts
-  # `https://gitlab.com/acme/webapp.git` is returned UNCHANGED, because the old guard was
-  # `startsWith('https://github.com/')`. Host-neutral means it converts, and a GitLab target repo is
-  # cloned over SSH — which needs a key on the box that HTTPS did not. That is the issue's stated
-  # intent, so the outline states it as intent; the existing unit expectation is the thing that
-  # changes, and it should change deliberately rather than be discovered.
-  #
-  # The `ssh://` row is the compatibility half: it is not `https://`, so it passes through, exactly as
-  # `cloneUrl.test.ts` already requires — a naive "any scheme" rewrite double-converts it.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario Outline: The clone-url rewrite is host-neutral and passes everything else through
@@ -588,27 +453,11 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
       | not-a-url                                    | not-a-url                                |
       |                                              |                                          |
 
-  # The rewrite is only worth anything if it is still applied where it was applied. `cloneRepo` is
-  # handed the converted URL, not the published one.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A target repository is cloned from the rewritten ssh url, not the published https one
     Given a target repository "acme/webapp" published at "https://github.com/acme/webapp.git" that has never been cloned
     When the target repository workspace is ensured
     Then the recorded clone was issued for "git@github.com:acme/webapp.git"
-
-  # ── §6  THE CONTRACTS THE DELETED TESTS CARRIED (item 4) ───────────────────────────────────
-  #
-  # FINDING 6 is the argument; these are the four behaviours that must not lose their only cover.
-  # `commitOps.pushBranch` and `branchOps.fetchAndResetToRemote` are driven in-process with a
-  # recording runner — the git command strings it captures are the assertion target, so no repository
-  # and no remote is needed. Whether the two `adws/vcs/__tests__/` files survive is then a file-
-  # inventory question these rows make safe to answer either way.
-  #
-  # The lease contract is not a detail: `pushBranch` force-pushes with `--force-with-lease`, and
-  # `isLeaseRejection` is what tells an orchestrator "someone else moved this branch" apart from
-  # "the push failed". Collapsing the two makes a concurrent-worktree collision look like a network
-  # error and the workflow retries into a clobber.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: A branch push fetches before force-pushing with a lease
@@ -648,31 +497,10 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     Then the recorded git commands are a fetch of "adw-844-probe" followed by a hard reset
     And every recorded git command ran in "/wt"
 
-  # "Regression tag counts must not regress for anything else", asserted as the runner's own tally
-  # rather than as a file inventory. 53 is what `--tags @regression --dry-run` selects today. The
-  # `@adw-818` and `@adw-820` scenarios FINDING 6 corrects the issue about are per-issue and are not
-  # in this count, so nothing this slice does to them may move it.
-
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The regression suite still selects every scenario it selects today
     When the regression suite is enumerated by tag
     Then the regression suite enumerates 53 scenarios
-
-  # ── §7  THE BACKSTOPS (item 5, AC1, AC2, AC3, AC4) ────────────────────────────────────────
-  #
-  # The guard run shells the whole `checkGitGhGuard.ts` binary, so item 5's "no new git/gh shell-out"
-  # and the construction rule's stale-entry ratchet are both inside what it asserts. A host-neutral
-  # `convertToSshUrl` re-homed into `adws/core/` is the sharp edge: `adws/providers/github/` is
-  # structurally exempt from the shell-out rule and `adws/core/` is not, so a rewrite that reaches for
-  # a git command instead of a regex fails here rather than in review.
-  #
-  # The type-check is the executable form of AC1's and AC2's import-graph half — a relocated helper
-  # whose callers were not repointed cannot compile, and neither can a `WorkflowConfig.issue` whose
-  # record type lost a field four agents read.
-  #
-  # `lint:docs-index` is AC4's gate: the living docs for `issueRecord`, `hitlBoardNotifier`,
-  # `healthCheck` and `targetRepoManager` all describe helpers this slice removes, and the index must
-  # still own every file they point at afterwards.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: The git/gh guard stays green with the identity reader and clone rewrite re-homed into ADW

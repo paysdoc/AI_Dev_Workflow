@@ -1,9 +1,3 @@
-/**
- * Step Definition phase execution for workflows.
- * Uses the /generate_step_definitions skill via a Claude agent.
- * Non-fatal: errors are caught and logged without blocking workflow completion.
- */
-
 import {
   log,
   AgentStateManager,
@@ -14,12 +8,7 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runStepDefAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 
-/**
- * Executes the Step Definition phase: generate step definitions for BDD scenarios.
- * This phase is non-fatal — errors are caught and logged, never thrown.
- *
- * @param config - Workflow configuration
- */
+/** This phase is non-fatal — errors are caught and logged, never thrown. */
 export async function executeStepDefPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {

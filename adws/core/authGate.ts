@@ -1,5 +1,4 @@
 /**
- * Host-wide auth gate primitive.
  * Atomic temp+rename writer mirrors adws/core/pauseQueue.ts:55-60.
  */
 

@@ -1,15 +1,6 @@
-/**
- * PR Agent - Pull request content generation via Claude skills.
- * Uses the /pull_request slash command from .claude/commands/pull_request.md
- * The agent generates PR title and body as JSON; the caller handles git push and PR creation.
- */
-
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
-/**
- * Structured PR content returned by the agent.
- */
 export interface PrContent {
   title: string;
   body: string;
@@ -25,17 +16,11 @@ export const prContentSchema: Record<string, unknown> = {
   additionalProperties: false,
 };
 
-/**
- * Extracts PR title and body from the agent's JSON output.
- * Handles markdown code fences. Returns structured error if extraction fails.
- */
 function extractPrContentFromOutput(output: string): ExtractionResult<PrContent> {
   const trimmed = output.trim();
 
-  // Strip markdown code fences if present
   const fenceStripped = trimmed.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
 
-  // Find the first JSON object in the output
   const jsonMatch = fenceStripped.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
@@ -49,7 +34,6 @@ function extractPrContentFromOutput(output: string): ExtractionResult<PrContent>
     }
   }
 
-  // Fallback: first non-empty line as title, rest as body
   const lines = trimmed.split('\n').filter(line => line.trim());
   const title = lines[0]?.trim() ?? '';
   const body = lines.slice(1).join('\n').trim();
@@ -68,17 +52,7 @@ const prAgentConfig: CommandAgentConfig<PrContent> = {
 };
 
 /**
- * Runs the /pull_request skill to generate PR title and body as structured JSON.
  * The caller is responsible for pushing the branch and creating the PR programmatically.
- *
- * @param branchName - Branch to create PR from
- * @param issueJson - JSON string of the GitHub issue
- * @param planFile - Path to the implementation plan file
- * @param adwId - ADW session identifier
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory
- * @param cwd - Optional working directory (worktree path)
- * @param issueBody - Optional issue body for model selection
  * @param repoOwner - Optional owner of the repo where the issue lives (for cross-repo PRs)
  * @param repoName - Optional name of the repo where the issue lives (for cross-repo PRs)
  */

@@ -1,6 +1,4 @@
 /**
- * Gherkin freeze — snapshot, detect changes, and restore `.feature` files.
- *
  * fs calls are isolated here at the edges; the permit/reject decision
  * lives in `adws/core/resolveFreezeGuard.ts`.
  */

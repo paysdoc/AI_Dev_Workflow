@@ -1,7 +1,4 @@
-/**
- * Minimal Slack webhook notifier for auth-gate events.
- * No-throw at boundary — failures are logged but never propagate.
- */
+/** No-throw at boundary — failures are logged but never propagate. */
 
 import { log } from './logger';
 

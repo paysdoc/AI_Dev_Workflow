@@ -1,16 +1,8 @@
-/**
- * Unit tests for AgentStateManager top-level state operations.
- * Tests getTopLevelStatePath, writeTopLevelState, readTopLevelState,
- * and the deep-merge semantics of the phases map.
- */
-
 import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Override AGENTS_STATE_DIR before module load by setting env, then import dynamically.
-// Since vitest doesn't easily allow env overrides post-import, we use the real AGENTS_STATE_DIR
-// but with a unique adwId to avoid conflicts.
+// We use the real AGENTS_STATE_DIR but with a unique adwId to avoid conflicts.
 
 import { AgentStateManager } from '../agentState';
 import { AGENTS_STATE_DIR } from '../config';
@@ -66,8 +58,8 @@ describe('AgentStateManager.writeTopLevelState() and readTopLevelState()', () =>
     AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'build_running' });
     const state = AgentStateManager.readTopLevelState(adwId);
     expect(state!.workflowStage).toBe('build_running');
-    expect(state!.adwId).toBe(adwId);  // preserved
-    expect(state!.issueNumber).toBe(1); // preserved
+    expect(state!.adwId).toBe(adwId);
+    expect(state!.issueNumber).toBe(1);
   });
 
   it('deep-merges phases — adding phase B does not clobber phase A', () => {
@@ -176,7 +168,6 @@ describe('AgentStateManager.writeTopLevelState() and readTopLevelState()', () =>
     const filePath = AgentStateManager.getTopLevelStatePath(adwId);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, '{ invalid json {{{{', 'utf-8');
-    // Write should succeed (starts fresh)
     AgentStateManager.writeTopLevelState(adwId, { adwId, workflowStage: 'starting' });
     const state = AgentStateManager.readTopLevelState(adwId);
     expect(state!.workflowStage).toBe('starting');
@@ -308,6 +299,6 @@ describe('Phase status transitions via writeTopLevelState', () => {
     AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'testing' });
     const state = AgentStateManager.readTopLevelState(adwId);
     expect(state!.workflowStage).toBe('testing');
-    expect(state!.phases!.install.status).toBe('completed'); // preserved
+    expect(state!.phases!.install.status).toBe('completed');
   });
 });
