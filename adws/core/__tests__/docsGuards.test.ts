@@ -17,10 +17,6 @@ function sz(docPath: string, lineCount: number): DocSize {
   return { docPath, lineCount };
 }
 
-// ---------------------------------------------------------------------------
-// §1 globsOverlap — overlap matrix
-// ---------------------------------------------------------------------------
-
 describe('globsOverlap', () => {
   it('identical globs → overlap', () => {
     expect(globsOverlap('adws/triggers/**', 'adws/triggers/**')).toBe(true);
@@ -46,10 +42,6 @@ describe('globsOverlap', () => {
     expect(globsOverlap('src/**', 'adws/**')).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §2 checkBloat — threshold boundaries
-// ---------------------------------------------------------------------------
 
 describe('checkBloat', () => {
   const T = 10;
@@ -92,10 +84,6 @@ describe('checkBloat', () => {
     expect(JSON.stringify(sizes)).toBe(copy);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §3 checkRegrowth — overlap matrix
-// ---------------------------------------------------------------------------
 
 describe('checkRegrowth', () => {
   it('identical owned glob → one regrowth flag naming both docPaths', () => {
@@ -167,10 +155,6 @@ describe('checkRegrowth', () => {
     expect(JSON.stringify(entries)).toBe(copy);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §4 runDocsGuards — combined entry point
-// ---------------------------------------------------------------------------
 
 describe('runDocsGuards', () => {
   it('returns both flag sets', () => {

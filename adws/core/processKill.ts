@@ -1,6 +1,4 @@
 /**
- * Process-group kill helper — shared between dev-server lifecycle and agent watchdog.
- *
  * Uses `process.kill(-pid, signal)` to signal the entire POSIX process group,
  * reaching grandchildren (orphan shells, heredoc pipelines, etc.) that a simple
  * single-process kill would miss.

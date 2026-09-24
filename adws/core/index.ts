@@ -1,16 +1,9 @@
-/**
- * Core module - Configuration, types, and utilities.
- */
-
-// Constants
 export { OrchestratorId, MAX_AUTO_MERGE_ATTEMPTS } from './constants';
 export type { OrchestratorIdType } from './constants';
 
-// Configuration
 export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, MAX_FAILURES, WORKTREES_DIR, TARGET_REPOS_DIR, REPO_ROOT, assertCwdIsRepoRoot, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, HEARTBEAT_TICK_INTERVAL_MS, HEARTBEAT_STALE_THRESHOLD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, JANITOR_INTERVAL_CYCLES, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand, COST_API_URL, COST_API_TOKEN } from './config';
 export type { ReasoningEffort } from './config';
 
-// Data types (from issueTypes.ts)
 export type {
   IssueClassSlashCommand,
   SlashCommand,
@@ -19,7 +12,6 @@ export type {
 } from '../types/issueTypes';
 export { VALID_ISSUE_TYPES } from '../types/issueTypes';
 
-// Data types (from agentTypes.ts)
 export type {
   AgentResult,
   AgentPromptRequest,
@@ -35,17 +27,14 @@ export type {
 } from '../types/agentTypes';
 export { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/agentTypes';
 
-// Data types (from workflowTypes.ts)
 export type {
   WorkflowStage,
   PRReviewWorkflowStage,
   RecoveryState,
 } from '../types/workflowTypes';
 
-// Prefix maps and routing maps for consistent branch naming, commit messages, and orchestrator dispatch
 export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, issueTypeToOrchestratorMap } from '../types/issueRouting';
 
-// Utilities
 export {
   generateAdwId,
   slugify,
@@ -59,7 +48,6 @@ export {
   type LogLevel,
 } from './utils';
 
-// Agent State Management
 export {
   AgentStateManager,
   initializeAgentState,
@@ -74,14 +62,11 @@ export {
   isProcessLive,
 } from './agentState';
 
-// Orchestrator shared utilities
 export { shouldExecuteStage, getNextStage } from './orchestratorLib';
 
-// Cost types (re-exported from adws/cost for backward compatibility)
 export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../cost';
 export { emptyModelUsage, emptyModelUsageMap } from '../cost';
 
-// Cost helpers (re-exported from adws/cost for backward compatibility)
 export {
   CURRENCY_SYMBOLS,
   fetchExchangeRates,
@@ -93,50 +78,38 @@ export {
   computeEurRate,
 } from '../cost';
 
-// Project configuration
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
 export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd, parseUnitTestsEnabled } from './projectConfig';
 
-// Test verdict
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
-// Docs guards (pure — no I/O)
 export type { DocSize, BloatFlag, RegrowthFlag, GuardFlags } from './docsGuards';
 export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, runDocsGuards } from './docsGuards';
 
-// Docs index health (pure — no I/O)
 export type { CountBand, DocsIndexRepair, DocsIndexViolation, DocsIndexHealthInputs, DocsIndexAssessment } from './docsIndexHealth';
 export { DEFAULT_COUNT_BAND, isFeatureDocPath, findRepairs, applyRepairs, findViolations, assessDocsIndexHealth, formatRepair, formatViolation } from './docsIndexHealth';
 
-// Docs index report body (pure — no I/O)
 export type { BuildDocsIndexReportIssueInput, DocsIndexReportIssueSpec, DocsIndexReportMarker, DocsIndexReportIssueRef } from './docsIndexReportBody';
 export { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, buildDocsIndexReportIssue, parseDocsIndexReportMarker, findOpenDocsIndexReport } from './docsIndexReportBody';
 
-// Resolve freeze guard (pure classifier — no fs)
 export type { ResolveEditVerdict } from './resolveFreezeGuard';
 export { evaluateResolveEdit } from './resolveFreezeGuard';
 
-// Resolve verdict (pure verdict — no fs)
 export type { ResolveVerdictOutcome, ResolveVerdictSignals } from './resolveVerdict';
 export { computeResolveVerdict } from './resolveVerdict';
 
-// JUnit report parser
 export type { TestReport, TestCaseResult } from './testReportParser';
 export { parseJUnitXml, readJUnitReport } from './testReportParser';
 
-// Step-def detection
 export { stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework } from './stepDefDetection';
 
-// Stack coherence check
 export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, StackCoherenceWarningCode } from './stackCoherenceCheck';
 export { stackCoherenceCheck } from './stackCoherenceCheck';
 
-// Issue classifier
 export type { IssueClassificationResult, ClassifiableIssue, ClassifyIssueForTriggerDeps } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
 
-// ADW label vocabulary (pure)
 export type { AdwLabelDefinition, AdwLabelReading } from './adwLabels';
 export {
   ADW_NONE_LABEL,
@@ -158,39 +131,29 @@ export {
   hasWontFixLabelName,
 } from './adwLabels';
 
-// GitHub-App environment wrapper (moved from adws/github/githubAppAuth.ts, #820)
 export { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 
-// Issue record — the port's Issue, read through the boundary's IssueTracker
 export { fetchIssueRecord } from './issueRecord';
 
-// Local repo identity — ADW-owned, host-neutral replacement for readLocalRepoInfo (#844)
 export { readLocalRepoIdentity } from './localRepoIdentity';
 export type { LocalRepoIdentityDeps } from './localRepoIdentity';
 
-// Unaddressed PR-review comment filter
 export { readUnaddressedComments, getLastAdwCommitTimestamp } from './unaddressedComments';
 export type { UnaddressedCommentCandidate, UnaddressedCommentReads } from './unaddressedComments';
 
-// PR-review invocation resolution (adwPrReview.tsx's branch→PR/adwId lookup)
 export { resolvePrReviewInvocation } from './prReviewInvocation';
 export type { PrReviewInvocationDeps, PrReviewInvocation } from './prReviewInvocation';
 
-// Workflow mapping
 export { getWorkflowScript } from './workflowMapping';
 
-// Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
-// Orchestrator CLI utilities
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
-// Token utilities (re-exported from adws/cost for backward compatibility)
 export type { TokenTotals, ModelTokenEntry } from '../cost';
 export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 
-// Target repo manager
 export {
   getTargetRepoWorkspacePath,
   isRepoCloned,
@@ -200,17 +163,13 @@ export {
 } from './targetRepoManager';
 export type { WorkspaceTrustDeps, WorkspaceTrustResult } from './workspaceTrust';
 
-// Launch-boundary GitContext adapter
 export { buildLaunchGitContext, buildLaunchBoundary } from './launchGitContext';
 export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
 
-// Workspace binding over the caller's own context (moved out of launchGitContext.ts, #823)
 export { bindWorkspaceContext, validateGitRemote } from './workspaceBinding';
 
-// Repo identity cross-check (launch-boundary persistence and resume tripwire)
 export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';
 
-// Cost module (PhaseCostRecord, comment formatters)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from '../cost';
 export {
   PhaseCostStatus,
@@ -222,41 +181,31 @@ export {
   formatCostCommentSection,
 } from '../cost';
 
-// Heartbeat module
 export type { HeartbeatHandle } from './heartbeat';
 export { startHeartbeat, stopHeartbeat } from './heartbeat';
 
-// Hung orchestrator detector
 export { findHungOrchestrators, defaultHungDetectorDeps } from './hungOrchestratorDetector';
 export type { HungOrchestrator, HungDetectorDeps } from './hungOrchestratorDetector';
 
-// Phase runner utilities
 export type { PhaseResult, PhaseFn } from './phaseRunner';
 export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
-// Agent watchdog timeout utilities
 export { AGENT_DEFAULT_TIMEOUT_MS, AGENT_PHASE_TIMEOUT_MAP, getAgentTimeoutForPhase } from './agentTimeouts';
 
-// Process-group kill helper (also re-exported from devServerLifecycle for backward compat)
 export { killProcessGroup } from './processKill';
 
-// Pause queue
 export type { PausedWorkflow } from './pauseQueue';
 export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from './pauseQueue';
 
-// Remote reconcile
 export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
 export type { ReconcileDeps } from './remoteReconcile';
 
-// Framework content hash
 export { computeFrameworkHash, defaultDeps as hashComputerDefaultDeps, ADW_INIT_RELATIVE_PATH } from './hashComputer';
 export type { HashComputerDeps } from './hashComputer';
 
-// Upgrade claim
 export { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, buildClaimBranchName, buildClaimResult, isPushRejectionError, extractGitErrorText } from './upgradeClaim';
 export type { UpgradeClaimDeps, UpgradeClaimResult } from './upgradeClaim';
 
-// Workflow comment parsing (platform-agnostic)
 export {
   STAGE_ORDER,
   ADW_SIGNATURE,
@@ -280,25 +229,19 @@ export {
   detectRecoveryState,
 } from './workflowCommentParsing';
 
-// ADW version file (.adw-version) read/write
 export { ADW_VERSION_FILENAME, readAdwVersion, writeAdwVersion } from './adwVersion';
 
-// ADW YAML config (.github/adw.yml) — upgrade auto-merge policy + unit-test gate
 export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml, writeAdwYmlTemplateIfAbsent, ADW_YML_TEMPLATE } from './adwYmlConfig';
 export type { AdwYmlConfig } from './adwYmlConfig';
 
-// Slack notifier
 export { postSlack } from './slackNotifier';
 
-// Upgrade failure cap helpers
 export { isUpgradeFailureComment, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from './upgradeFailureCap';
 export type { IssueCommentRecord } from './upgradeFailureCap';
 
-// Guardrails injection (issue #762) — payload builder, gate, and startup probe
 export { buildGuardrailsSettings, serializeGuardrailsSettings, resolveHookLogDir, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from './guardrailsPayload';
 export type { GuardrailsSettings, GuardrailsHookEntry } from './guardrailsPayload';
 export { resolveGuardrailsDecision, resolveGuardrailsDecisionForSpawn, productionGuardrailsGateDeps, setGuardrailsGateDepsForTesting, resetGuardrailsAlertMemo } from './guardrailsGate';
 export type { GuardrailsDecision, GuardrailsGateInput, GuardrailsGateDeps } from './guardrailsGate';
 export { runGuardrailsProbe, getGuardrailsProbeVerdict, resetGuardrailsProbeMemo } from './guardrailsProbe';
 export type { ProbeVerdict } from './guardrailsProbe';
-

@@ -1,15 +1,10 @@
 /**
- * remoteReconcile — derives the authoritative WorkflowStage from remote artifacts.
- *
  * Reads branch existence and PR state from GitHub rather than trusting the
  * potentially-stale local state file. Because the GitHub API exhibits
  * read-your-write lag, a mandatory re-verification read fires immediately after
  * the first read; the two results must agree before the stage is returned.
  * If they diverge, the function retries up to MAX_RECONCILE_VERIFICATION_RETRIES
  * additional times. Persistent divergence falls back to the state-file value.
- *
- * All I/O is injected via ReconcileDeps so every code path is unit-testable
- * without touching real GitHub or the file system.
  */
 
 import { AgentStateManager } from './agentState';
@@ -23,9 +18,8 @@ import type { GitContext } from '@paysdoc/devplatform/git';
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
 
 /**
- * Injectable I/O boundaries for deriveStageFromRemote. Identity is closed
- * over by whichever builder constructed these — neither reads a repoInfo
- * per call.
+ * Identity is closed over by whichever builder constructed these — neither
+ * reads a repoInfo per call.
  */
 export interface ReconcileDeps {
   readonly readTopLevelState: (adwId: string) => AgentState | null;
@@ -34,7 +28,6 @@ export interface ReconcileDeps {
 }
 
 /**
- * Maps remote artifact observations to a WorkflowStage.
  * Returns null when the artifacts are insufficient to determine stage
  * (caller should fall back to the state-file value).
  */
@@ -56,7 +49,7 @@ function readOnce(branchName: string, deps: ReconcileDeps): WorkflowStage | null
   );
 }
 
-/** Shared `branchExistsOnRemote` body for both dep builders: a failed `ls-remote` is treated as "branch absent" rather than propagated. */
+/** A failed `ls-remote` is treated as "branch absent" rather than propagated. */
 function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, branchName: string): boolean {
   try {
     return gitContext.lsRemote(branchName).length > 0;
@@ -67,8 +60,6 @@ function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, b
 }
 
 /**
- * Derives the authoritative WorkflowStage for an ADW run from remote artifacts.
- *
  * `deps` carries the only wiring this function reads. A caller holding a
  * launch boundary passes `buildDefaultReconcileDeps(boundary)`.
  */

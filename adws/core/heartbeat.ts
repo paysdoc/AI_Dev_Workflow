@@ -1,5 +1,5 @@
 /**
- * Heartbeat ticker. Writes `lastSeenAt` to the top-level state file every `intervalMs`,
+ * Writes `lastSeenAt` to the top-level state file every `intervalMs`,
  * decoupled from phase progress. Exists to give the cron sweeper a signal to distinguish
  * alive-but-wedged from alive-and-progressing orchestrators.
  */

@@ -91,8 +91,6 @@ describe('jiraConfigFrom', () => {
   });
 });
 
-// ── buildAdwForgeDeps ─────────────────────────────────────────────────────────
-
 function makeRepoId(overrides: Partial<RepoIdentifier> = {}): RepoIdentifier {
   return { owner: 'acme', repo: 'webapp', platform: Platform.GitHub, ...overrides };
 }
@@ -150,8 +148,6 @@ describe('buildAdwForgeDeps', () => {
     // thunk we handed in is the one the wiring threads through, not a re-derived one.
   });
 });
-
-// ── adwGitHubForgeDeps — Review-transition wiring, re-driven through forgeProviders ──
 
 const PROJECT_RESPONSE = JSON.stringify({ data: { repository: { projectsV2: { nodes: [{ id: 'PVT_1' }] } } } });
 const ITEM_RESPONSE = JSON.stringify({

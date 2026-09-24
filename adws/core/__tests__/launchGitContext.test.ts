@@ -1,8 +1,5 @@
 /**
- * Unit tests for the launchGitContext boundary-constructor adapter.
- *
  * All I/O is behind injected seams — no real gh/git calls, no network.
- * Mirrors the no-I/O, identity-in/path-out style of gitContext.test.ts.
  */
 
 import * as path from 'path';
@@ -60,8 +57,6 @@ function makeTargetRepo(owner: string, repo: string): TargetRepoInfo {
   return { owner, repo, cloneUrl: `https://github.com/${owner}/${repo}.git` };
 }
 
-// ── §1: target context from --target-repo ────────────────────────────────────
-
 describe('target context from --target-repo', () => {
   it('basePath is join(targetReposDir, owner, repo)', () => {
     const ctx = buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps());
@@ -95,8 +90,6 @@ describe('target context from --target-repo', () => {
   });
 });
 
-// ── §2: self-host context when no --target-repo ──────────────────────────────
-
 describe('self-host context (no --target-repo)', () => {
   it('basePath equals the injected framework repo root', () => {
     const ctx = buildLaunchGitContext(null, baseDeps());
@@ -123,8 +116,6 @@ describe('self-host context (no --target-repo)', () => {
   });
 });
 
-// ── §3: worktreePathFor under the resolved base ──────────────────────────────
-
 describe('worktreePathFor resolution', () => {
   it('target: worktreePathFor resolves under the target workspace .worktrees', () => {
     const ctx = buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps());
@@ -138,8 +129,6 @@ describe('worktreePathFor resolution', () => {
     expect(ctx.worktreePathFor('feature-x')).toBe(expected);
   });
 });
-
-// ── §4: cwd-independence ─────────────────────────────────────────────────────
 
 describe('cwd-independence', () => {
   const originalCwd = process.cwd();
@@ -156,8 +145,6 @@ describe('cwd-independence', () => {
     expect(path2).toBe(path1);
   });
 });
-
-// ── §5: identity / token plumbing ────────────────────────────────────────────
 
 describe('identity and token plumbing', () => {
   it('commandEnv carries the resolved token as GH_TOKEN', () => {
@@ -180,8 +167,6 @@ describe('identity and token plumbing', () => {
     expect(env.GIT_COMMITTER_EMAIL).toBe('committer@launch.dev');
   });
 });
-
-// ── §6: incomplete identity propagates the GitContext construction error ──────
 
 describe('incomplete identity', () => {
   it('throws when resolved token is empty', () => {
@@ -209,8 +194,6 @@ describe('incomplete identity', () => {
     ).toThrow(/GitContext/);
   });
 });
-
-// ── §7: TokenProvider port at the launch boundary ────────────────────────────
 
 function makeIncrementingProvider(): { provider: TokenProvider; requests: CredentialRequest[] } {
   const requests: CredentialRequest[] = [];
@@ -278,8 +261,6 @@ describe('TokenProvider port at the launch boundary', () => {
   });
 });
 
-// ── §7b: resolveLaunchCredentials — the forgeCredentials seam (#840) ─────────
-
 describe('resolveLaunchCredentials: options threading into deps.forgeCredentials', () => {
   it('mints via the seam with the GitHub-keyed forge, the boundary identity, and deps.github built from readGitHubAppConfig/GITHUB_PAT', () => {
     mockReadGitHubAppConfig.mockReturnValue({ appId: '1', appSlug: 'bot', privateKeyPath: '/k' });
@@ -343,8 +324,6 @@ describe('resolveLaunchCredentials: injected seams win over minting', () => {
   });
 });
 
-// ── §8: buildLaunchBoundary — identity binding (AC1/AC4) ─────────────────────
-
 function makeFakeProviders(identity: RepoIdentifier): BoundProviders {
   return {
     issueTracker: {} as BoundProviders['issueTracker'],
@@ -382,8 +361,6 @@ describe('buildLaunchBoundary: identity binding', () => {
   });
 });
 
-// ── §9: buildLaunchBoundary — divergence foreclosed ───────────────────────────
-
 describe('buildLaunchBoundary: one identity read, not several', () => {
   it('a getRepoInfo seam answering differently on a second call cannot split a self-host boundary\'s identity', () => {
     let calls = 0;
@@ -406,8 +383,6 @@ describe('buildLaunchBoundary: one identity read, not several', () => {
   });
 });
 
-// ── §10: buildLaunchBoundary — all providers minted from one identity ────────
-
 describe('buildLaunchBoundary: all providers minted in one recorded call', () => {
   it('forgeProviders is invoked exactly once, with the boundary\'s repoId as identity', () => {
     const { forgeProviders, calls } = makeRecordingForgeProviders();
@@ -427,8 +402,6 @@ describe('buildLaunchBoundary: all providers minted in one recorded call', () =>
     expect(calls[0].gitContext).toBe(boundary.gitContext);
   });
 });
-
-// ── §11: buildLaunchBoundary — config-driven selection unchanged (AC2) ───────
 
 describe('buildLaunchBoundary: provider selection stays config-driven', () => {
   it('an injected loadProviderConfig reaches forgeProviders as exactly the selected forge names', () => {
@@ -464,8 +437,6 @@ describe('buildLaunchBoundary: provider selection stays config-driven', () => {
   });
 });
 
-// ── §11b: buildLaunchBoundary — the assembly seams (#823) ────────────────────
-
 describe('buildLaunchBoundary: the default assembly path (no seam injected)', () => {
   it('yields a frozen set whose codeHost.getRepoIdentifier() equals boundary.repoId, with no I/O at construction', () => {
     const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
@@ -497,8 +468,6 @@ describe('buildLaunchBoundary: forgeProviders receives the boundary\'s own conte
     expect(calls[0].deps).toBe(sentinelDeps);
   });
 });
-
-// ── §12: buildLaunchBoundary — deferred, memoised minting ─────────────────────
 
 describe('buildLaunchBoundary: deferred, memoised minting', () => {
   it('building the boundary calls neither the config loader nor the assembly seam', () => {
@@ -536,8 +505,6 @@ describe('buildLaunchBoundary: deferred, memoised minting', () => {
   });
 });
 
-// ── §13: buildLaunchGitContext — the context-only view is total ──────────────
-
 describe('buildLaunchGitContext: the context-only view gains no new failure mode', () => {
   it('succeeds even when the injected config loader throws — providers are never touched', () => {
     const loadProviderConfig = () => { throw new Error('malformed .adw/providers.md'); };
@@ -554,8 +521,6 @@ describe('buildLaunchGitContext: the context-only view gains no new failure mode
     expect(viaContext.basePath).toBe(viaBoundary.gitContext.basePath);
   });
 });
-
-// ── §14: buildLaunchBoundary — default platform ───────────────────────────────
 
 describe('buildLaunchBoundary: RepoIdentifier platform', () => {
   it('defaults to Platform.GitHub when deps.platform is not supplied', () => {
