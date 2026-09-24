@@ -1,6 +1,4 @@
 /**
- * Unit tests for branchNameResolution.ts
- *
  * Uses real AgentStateManager (atomic write path exercised) and vi.mock for the agent,
  * following the conventions in topLevelState.test.ts and gitAgent.test.ts.
  */
@@ -112,10 +110,6 @@ describe('persistBranchName', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Deterministic fallback tests (criterion 1 & 4)
-// ---------------------------------------------------------------------------
-
 describe('_resolveWorkflowBranchNameForTest — deterministic identity fallback (criterion 1)', () => {
   const adwId = `${BASE_ADW_ID}-fallback`;
 
@@ -186,7 +180,6 @@ describe('_resolveWorkflowBranchNameForTest — strand-proof fallback on agent f
       _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn),
     ).rejects.toBeInstanceOf(AuthRequiredError);
 
-    // No branch name should be persisted on an auth failure.
     expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBeUndefined();
   });
 });
@@ -232,7 +225,6 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
     mockAgent.mockReset();
   });
 
-  // Case 1: No persisted, no recovery → agent called once, result persisted
   describe('case 1: fresh run, no persisted state, no recovery', () => {
     const adwId = `${BASE_ADW_ID}-case1`;
 
@@ -250,7 +242,6 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
     });
   });
 
-  // Case 2: Persisted name present → agent NOT called (criterion 1)
   describe('case 2: persisted name exists', () => {
     const adwId = `${BASE_ADW_ID}-case2`;
 
@@ -267,7 +258,6 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
     });
   });
 
-  // Case 3: recoveryState.branchName present → agent NOT called, name persisted
   describe('case 3: recovery state has branchName', () => {
     const adwId = `${BASE_ADW_ID}-case3`;
 
@@ -288,7 +278,6 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
     });
   });
 
-  // Case 4: Two sequential calls, agent returns A then B → only one agent call
   describe('case 4: two calls, agent would diverge (resolver-level criterion 3)', () => {
     const adwId = `${BASE_ADW_ID}-case4`;
 
@@ -311,7 +300,6 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
     });
   });
 
-  // Case 5: Mismatch guard (criterion 2) — concurrent writer persists a different name
   describe('case 5: mismatch guard — concurrent write during agent call', () => {
     const adwId = `${BASE_ADW_ID}-case5`;
 

@@ -1,10 +1,4 @@
 /**
- * Scenario test phase execution for workflows.
- *
- * Runs BDD scenarios tagged @adw-{issueNumber} and @regression via the
- * project-configured tag runner. Optionally wraps execution in withDevServer
- * when the target repo requires a running dev server for its scenarios.
- *
  * This is a deep module — the caller passes WorkflowConfig and receives a
  * structured result; all dev-server lifecycle, subprocess management, and
  * proof file I/O are hidden inside.
@@ -39,9 +33,6 @@ function isDevServerConfigured(startDevServer: string): boolean {
 }
 
 /**
- * Executes the Scenario Test phase: runs BDD scenarios via the configured
- * tag runner, optionally wrapping execution in withDevServer.
- *
  * Returns immediately with a passing result when:
  * - `projectConfig.scenariosMd` is empty (no scenarios configured), or
  * - `projectConfig.commands.runScenariosByTag` is 'N/A'
@@ -69,7 +60,6 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
   const { stepDefDirectory, bddFramework } = projectConfig.scenarios;
   const stepDefExtensions = stepDefExtensionsFor(bddFramework);
 
-  // Guard: skip when scenarios are not configured
   if (!scenariosMd.trim() || runByTagCommand.trim() === 'N/A') {
     log('Scenario test phase: no scenarios configured — skipping', 'info');
     AgentStateManager.appendLog(orchestratorStatePath, 'Scenario test phase: skipped (no scenarios configured)');

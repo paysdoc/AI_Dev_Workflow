@@ -4,29 +4,23 @@
  * the `seen` set and counters based on the returned decision.
  */
 
-/** Discriminated decision returned by {@link evaluateProgressGate}. */
 export type ProgressGateDecision =
   | { kind: 'continue' }
   | { kind: 'abort'; reason: 'no_progress' }
   | { kind: 'abort'; reason: 'backstop' };
 
 export interface ProgressGateInput {
-  /** HEAD tree hash computed at this batch boundary. */
   headTreeHash: string;
   /** Tree hashes already seen this build (seeded with the build-start hash). Not mutated. */
   seen: ReadonlySet<string>;
-  /** Number of progress checkpoints already recorded this build. */
   checkpointCount: number;
   /** Hard backstop on checkpoints (MAX_PROGRESS_CHECKPOINTS). */
   maxCheckpoints: number;
 }
 
 /**
- * Classifies a committed worktree state at a batch boundary.
- * - Non-novel (returned to a prior state, or nothing committed → unchanged hash
+ * Non-novel (returned to a prior state, or nothing committed → unchanged hash
  *   still in `seen`, including the build-start seed) → abort: no_progress.
- * - Novel but the backstop is exhausted → abort: backstop.
- * - Novel and within budget → continue.
  */
 export function evaluateProgressGate(input: ProgressGateInput): ProgressGateDecision {
   const { headTreeHash, seen, checkpointCount, maxCheckpoints } = input;
@@ -40,7 +34,6 @@ export function evaluateProgressGate(input: ProgressGateInput): ProgressGateDeci
   return { kind: 'continue' };
 }
 
-/** The abort reasons the progress gate can return (derived from {@link ProgressGateDecision}). */
 export type ProgressGateAbortReason = Extract<ProgressGateDecision, { kind: 'abort' }>['reason'];
 
 export interface ProgressGateAbortBounds {
@@ -51,8 +44,7 @@ export interface ProgressGateAbortBounds {
 }
 
 /**
- * Maps a progress-gate abort reason to a distinct, operator-facing failure message
- * describing the corrective action. Pure: same inputs → same string; no I/O, no mutation.
+ * Pure: same inputs → same string; no I/O, no mutation.
  * The two reasons demand opposite responses and must not be conflated.
  */
 export function describeProgressGateAbort(
