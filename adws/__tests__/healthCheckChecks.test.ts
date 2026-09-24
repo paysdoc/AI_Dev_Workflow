@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { GitContext } from '../gitContext';
-import type { CodeHost, Issue, IssueTracker } from '../providers/types';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { CodeHost, Issue, IssueTracker } from '@paysdoc/devplatform';
 import {
   checkGitRepository,
   checkGitHubCLI,

@@ -32,7 +32,7 @@ import { resetRecordingSeam } from './feature-819.steps.ts';
 import { resetTypeProbe } from './feature-817.steps.ts';
 import { stopRecordingForgeEndpoint, resetRecorder } from './feature-818.steps.ts';
 
-import { Platform, type RepoIdentifier, type BoundProviders, type RepoContext } from '../../../adws/providers/types.ts';
+import { Platform, type RepoIdentifier, type BoundProviders, type RepoContext } from '@paysdoc/devplatform';
 
 export function splitRepo(repoStr: string): RepoIdentifier {
   const [owner, repo] = repoStr.split('/');

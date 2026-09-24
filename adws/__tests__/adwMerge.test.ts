@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
 import { getPlanFilePath, planFileExists } from '../agents';
-import { Platform } from '../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

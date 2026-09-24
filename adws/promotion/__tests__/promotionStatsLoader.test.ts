@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { loadPromotionStats } from '../promotionStatsLoader.ts';
 import type { PromotionStatsLoaderDeps } from '../promotionStatsLoader.ts';
-import type { LogSinceOptions } from '../../gitContext/index.ts';
+import type { LogSinceOptions } from '@paysdoc/devplatform/git';
 
 // Fixed now for deterministic isoSince: 2026-05-21 → since = 2026-02-20
 const FIXED_NOW = new Date('2026-05-21T00:00:00Z');

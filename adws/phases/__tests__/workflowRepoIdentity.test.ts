@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { resolveWorkflowRepoId } from '../workflowRepoIdentity';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from '../workflowInit';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 type Identity = Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>;
 

@@ -4,9 +4,8 @@
  * a single W object and makeSpyExec factory — no duplicate step definitions.
  */
 
-import { GitContext } from '../../../adws/gitContext/index.ts';
-import type { GitContextOptions, ExecFn, FsDeps } from '../../../adws/gitContext/index.ts';
-import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { GitContextOptions, ExecFn, FsDeps } from '@paysdoc/devplatform/git';
 
 export const TARGET_REPOS_ROOT = '/srv/adw/repos';
 export const FRAMEWORK_ROOT = '/srv/adw/framework';

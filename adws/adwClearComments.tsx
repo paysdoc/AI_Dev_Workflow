@@ -9,7 +9,7 @@
  */
 
 import { log, buildLaunchBoundary } from './core';
-import type { IssueTracker } from './providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 import type { TargetRepoInfo } from './types/issueTypes';
 
 interface ClearCommentsResult {

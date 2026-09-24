@@ -6,7 +6,7 @@ vi.mock('../../core', () => ({
 
 import { isAdwRunningForIssue } from '../workflowCommentsBase';
 import { AgentStateManager } from '../../core';
-import type { Issue, IssueComment, IssueTracker } from '../../providers/types';
+import type { Issue, IssueComment, IssueTracker } from '@paysdoc/devplatform';
 
 const isAgentProcessRunning = vi.mocked(AgentStateManager.isAgentProcessRunning);
 

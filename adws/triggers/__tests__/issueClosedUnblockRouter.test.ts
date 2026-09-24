@@ -7,8 +7,8 @@ import {
   type IssueWithDeps,
 } from '../issueClosedUnblockRouter';
 import { parseDependencies, parseKeywordProximityDependencies } from '../issueDependencies';
-import { Platform } from '../../providers/types';
-import type { IssueListEntry } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
+import type { IssueListEntry } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
 vi.mock('../../core', () => ({

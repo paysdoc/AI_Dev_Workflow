@@ -13,9 +13,9 @@
  * publishes.
  */
 
-import type { BoundProviders, RepoIdentifier } from '../providers/types';
-import { BoardStatus } from '../providers/types';
-import type { ForgeProviderDeps, GitHubForgeDeps } from '../providers/forgeProviders';
+import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
+import { BoardStatus } from '@paysdoc/devplatform';
+import type { ForgeProviderDeps, GitHubForgeDeps } from '@paysdoc/devplatform/providers';
 import type { ProviderConfig } from './providerConfig';
 import { notifyReviewTransition, buildNotifierDeps, type NotifierPorts } from '../forge/hitlBoardNotifier';
 import { resolveAdwLabelDefinition } from './adwLabels';

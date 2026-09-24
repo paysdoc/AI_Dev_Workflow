@@ -11,7 +11,7 @@
  * — this helper constructs nothing.
  */
 
-import type { Issue, IssueTracker } from '../providers/types';
+import type { Issue, IssueTracker } from '@paysdoc/devplatform';
 
 /**
  * Delegates to `issueTracker.fetchIssue(issueNumber)` and returns its `Issue`

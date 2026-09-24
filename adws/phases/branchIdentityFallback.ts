@@ -16,7 +16,7 @@ import { AgentStateManager } from '../core/agentState';
 import type { AgentState } from '../types/agentTypes';
 import { branchMatchesIssue } from '../vcs/branchIdentity';
 import { getLastActivityFromState } from '../triggers/cronStageResolver';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 /** Injectable dependencies for the identity-recovery helpers. */
 export interface BranchIdentityFallbackDeps {

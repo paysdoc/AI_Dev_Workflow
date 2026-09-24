@@ -12,10 +12,9 @@ import { resolveWebhookRepo } from '../webhookRepoResolver';
 import type { WebhookRepoResolution } from '../webhookRepoResolver';
 import { buildLaunchGitContext } from '../../core/launchGitContext';
 import type { LaunchGitContextDeps } from '../../core/launchGitContext';
-import { GitContext } from '../../gitContext';
-import type { ExecFn } from '../../gitContext/types';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
-import { Platform } from '../../providers/types';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { ExecFn } from '@paysdoc/devplatform/git';
+import { Platform } from '@paysdoc/devplatform';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -365,6 +364,14 @@ describe('incomplete identity surfaces the GitContext construction error', () =>
 });
 
 // ── buildEventBoundary / selfHostBoundary ────────────────────────────────────
+//
+// Each test below re-mocks '../../core' with vi.doMock and deliberately never
+// vi.doUnmock()s it. vitest only queues doMock/doUnmock; the queue is drained on
+// the next import via Promise.all over per-entry async resolveId RPCs, so an
+// unmock left pending by the previous test can land AFTER the next test's mock
+// and wipe it — the resolver then imports the real core (flaky under load).
+// Re-registering the mock replaces the previous registration and invalidates
+// its cached module, so one doMock per test is both sufficient and race-free.
 
 describe('buildEventBoundary', () => {
   it('returns the boundary buildLaunchBoundary produces', async () => {
@@ -376,7 +383,6 @@ describe('buildEventBoundary', () => {
     });
     const mod = await import('../webhookRepoResolver');
     expect(mod.buildEventBoundary({ owner: 'acme', repo: 'webapp', cloneUrl: 'https://github.com/acme/webapp.git' })).toBe(fakeBoundary);
-    vi.doUnmock('../../core');
     vi.resetModules();
   });
 
@@ -391,7 +397,6 @@ describe('buildEventBoundary', () => {
     const result = mod.buildEventBoundary({ owner: 'acme', repo: 'webapp', cloneUrl: 'https://github.com/acme/webapp.git' });
     expect(result).toBeUndefined();
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('acme/webapp'), 'warn');
-    vi.doUnmock('../../core');
     vi.resetModules();
   });
 });
@@ -410,7 +415,6 @@ describe('selfHostBoundary', () => {
     expect(mod.selfHostBoundary()).toBe(fakeBoundary);
     expect(buildMock).toHaveBeenCalledTimes(1);
     expect(buildMock).toHaveBeenCalledWith(null);
-    vi.doUnmock('../../core');
     vi.resetModules();
   });
 });

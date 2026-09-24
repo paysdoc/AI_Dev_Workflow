@@ -4,7 +4,7 @@
 
 import type { TagProofResult, ScenarioProofResult } from '../phases/scenarioProof';
 import type { UploadOptions, UploadResult } from '../r2/types';
-import type { RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
 
 /** A single image artifact discovered in the proof directory. */
 export interface ProofArtifact {

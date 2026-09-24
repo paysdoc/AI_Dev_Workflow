@@ -5,7 +5,7 @@
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
-import type { Issue } from '../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 const scenarioAgentConfig: CommandAgentConfig<void> = {

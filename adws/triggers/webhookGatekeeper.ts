@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
 import type { LaunchBoundary } from '../core';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../core/adwLabels';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
@@ -25,7 +25,6 @@ import { releaseIssueSpawnLock } from './spawnGate';
 import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
-import type { RepoIdentifier } from '../providers/types';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.

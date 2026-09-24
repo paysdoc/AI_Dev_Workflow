@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 
 let tmpDir = '';
 

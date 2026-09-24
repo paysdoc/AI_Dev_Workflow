@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runCommitAgent, runGenerateBranchNameAgent, extractSlugFromOutput } from '../gitAgent';
 import { AuthRequiredError } from '../../types/agentTypes';
-import type { Issue } from '../../providers/types';
+import type { Issue } from '@paysdoc/devplatform';
 
 // Mock all imports that gitAgent depends on to avoid filesystem/network side effects
 vi.mock('../claudeAgent', async () => {

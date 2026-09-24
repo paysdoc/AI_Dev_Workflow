@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeDepauditSetup, type DepauditSetupDeps } from '../phases/depauditSetup';
 import type { WorkflowConfig } from '../phases/workflowInit';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

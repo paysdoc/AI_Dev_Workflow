@@ -7,7 +7,7 @@
  */
 
 import type { WorkflowStage, RecoveryState } from './index';
-import type { IssueComment } from '../providers/types';
+import type { IssueComment } from '@paysdoc/devplatform';
 
 /** Stage order for determining recovery resume point. */
 export const STAGE_ORDER: WorkflowStage[] = [

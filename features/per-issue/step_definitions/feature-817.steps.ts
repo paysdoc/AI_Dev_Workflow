@@ -38,7 +38,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { resetGuardFixtureTree, getGuardStdout } from './feature-816.steps.ts';
 import { setDeclaredPlatform, getBuiltBoundary } from './feature-794.steps.ts';
-import type { Platform } from '../../../adws/providers/types.ts';
+import type { Platform } from '@paysdoc/devplatform';
 
 const REPO_ROOT = process.cwd();
 

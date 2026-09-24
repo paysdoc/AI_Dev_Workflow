@@ -7,7 +7,7 @@
 
 import { readUnaddressedComments, getLastAdwCommitTimestamp, type UnaddressedCommentReads } from '../core/unaddressedComments';
 import type { LaunchBoundary } from '../core/launchGitContext';
-import type { ReviewComment } from '../providers/types';
+import type { ReviewComment } from '@paysdoc/devplatform';
 
 export function buildUnaddressedCommentReads(
   boundary: Pick<LaunchBoundary, 'providers' | 'gitContext'>,

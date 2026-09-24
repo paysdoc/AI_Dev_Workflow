@@ -27,7 +27,7 @@ import {
   runUnitTestsWithRetry,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 import { reportStackCoherence } from './stackCoherenceReporter';
 
 /**

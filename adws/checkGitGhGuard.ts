@@ -1,26 +1,19 @@
 /**
  * checkGitGhGuard.ts — CI guard: fail on direct git/gh shell-outs outside the
- * two structurally-exempt packages, on cwd-derived repo identity feeding a
- * GitContext construction, on ad-hoc provider/context construction outside
- * the launch-boundary allowlist, and on a framework import reaching into an
- * extractable package.
+ * (empty) exempt set, on cwd-derived repo identity feeding a GitContext
+ * construction, and on ad-hoc provider/context construction outside the
+ * launch-boundary allowlist.
  *
- * Four independent rules:
+ * Three independent rules:
  *
  *  - 'git-gh-shellout' — implemented in this file (`walkNode`/`extractGitGhCommand`).
  *  - 'cwd-derived-identity' (#769) — `adws/guard/identityRule.ts`.
  *  - 'unsanctioned-construction' (#795) — `adws/guard/constructionRule.ts`.
- *  - 'extraction-readiness' (#816) — `adws/guard/extractionRule.ts`. The only
- *    rule whose discovery walks *inside* EXEMPT_PACKAGES: it enforces that
- *    files in EXTRACTION_SCOPE import nothing outside EXTRACTABLE_SET, so the
- *    gitContext library extraction can be a pure file move. See that module's
- *    docblock for the widen-only scope-list contract.
  *
- * The exempt set is closed and named (EXEMPT_PACKAGES, #792): exactly two
- * packages may shell out — the git core (`adws/gitContext`), which may run
- * git commands, and the GitHub forge adapter (`adws/providers/github`), which
- * may issue gh commands by feeding command strings into the core's executor.
- * Any violation exits 1 (build fail).
+ * The git core and the GitHub forge adapter now live in
+ * `@paysdoc/devplatform` (issue #840) — EXEMPT_PACKAGES is deliberately
+ * empty, and NOTHING MAY EVER BE ADDED BACK TO IT: no in-repo package may
+ * shell out to git or gh. Any violation exits 1 (build fail).
  *
  * Run via: bunx tsx adws/checkGitGhGuard.ts
  * Exits 0 if no violations found, 1 if any violations are detected.
@@ -32,8 +25,7 @@ import * as ts from 'typescript';
 import type { Violation, ViolationRule } from './guard/violationTypes';
 import { flagCwdDerivedIdentityUses } from './guard/identityRule';
 import { flagUnsanctionedConstruction, hasGuardedConstruction, findStaleSanctionedEntries } from './guard/constructionRule';
-import { flagFrameworkImports, EXTRACTION_SCOPE } from './guard/extractionRule';
-import { printSanctionedConstructionSites, printExtractionScope } from './guard/guardReport';
+import { printSanctionedConstructionSites } from './guard/guardReport';
 
 export type { Violation, ViolationRule };
 
@@ -49,23 +41,15 @@ const EXEMPT_DIR_NAMES = new Set([
 ]);
 
 /**
- * The closed, CI-enforced set of packages permitted to shell out. Exactly
- * two: the git core, which may run git commands, and the GitHub forge
- * adapter, which may issue gh commands by feeding command strings into the
- * core's executor (GitContext.exec) — never by spawning a process itself.
+ * The closed, CI-enforced set of packages permitted to shell out —
+ * deliberately empty (issue #840): the git core and the GitHub forge adapter
+ * now live in `@paysdoc/devplatform`, outside this repo entirely. NOTHING
+ * MAY EVER BE ADDED BACK TO THIS LIST; every git/gh interaction routes
+ * through `GitContext` (`@paysdoc/devplatform/git`) or the forge ports.
  */
-export const EXEMPT_PACKAGES = [
-  {
-    dir: 'adws/gitContext',
-    role: 'git core — the only package that may run git commands',
-  },
-  {
-    dir: 'adws/providers/github',
-    role: 'GitHub forge adapter — the only package whose gh call sites may feed the core executor',
-  },
-] as const;
+export const EXEMPT_PACKAGES: ReadonlyArray<{ readonly dir: string; readonly role: string }> = [];
 
-/** True when `relPath` is one of EXEMPT_PACKAGES' directories, or a path beneath one. */
+/** True when `relPath` is one of EXEMPT_PACKAGES' directories, or a path beneath one. Always false while the set is empty. */
 export function isExemptPackage(relPath: string): boolean {
   return EXEMPT_PACKAGES.some(({ dir }) => relPath === dir || relPath.startsWith(`${dir}/`));
 }
@@ -90,14 +74,9 @@ export function collectTsFiles(startDir: string, repoRoot: string): string[] {
   return acc;
 }
 
-/** Descend predicate for the whole-repo walk: prunes EXEMPT_PACKAGES so git-gh-shellout/cwd-derived-identity/unsanctioned-construction never see the git core or the GitHub forge adapter. */
+/** Descend predicate for the whole-repo walk: prunes EXEMPT_DIR_NAMES (EXEMPT_PACKAGES is empty and prunes nothing, but stays in the check so a future entry would take effect without a second edit). */
 function pruneExemptPackages(entryName: string, relPath: string): boolean {
   return !EXEMPT_DIR_NAMES.has(entryName) && !isExemptPackage(relPath);
-}
-
-/** Descend predicate for the extraction-scope walk: does NOT prune EXEMPT_PACKAGES — this is the only discovery that looks inside them. */
-function descendIntoScope(entryName: string): boolean {
-  return !EXEMPT_DIR_NAMES.has(entryName);
 }
 
 function visitDir(dir: string, repoRoot: string, acc: string[], descend: (entryName: string, relPath: string) => boolean): void {
@@ -123,33 +102,6 @@ function isScannable(name: string, relPath: string): boolean {
   if (name.endsWith('.test.ts') || name.endsWith('.test.tsx')) return false;
   if (relPath.includes('/__tests__/') || relPath.startsWith('__tests__/')) return false;
   return true;
-}
-
-/** One EXTRACTION_SCOPE entry's files: [] when missing from `repoRoot` (a BDD fixture tree or a renamed package — never a crash), [path] when it is a scannable file, or a full sub-walk when it is a directory. */
-function collectScopeEntry(entryPath: string, repoRoot: string): string[] {
-  const fullPath = path.join(repoRoot, entryPath);
-  if (!fs.existsSync(fullPath)) return [];
-
-  const stat = fs.statSync(fullPath);
-  if (stat.isFile()) {
-    return isScannable(path.basename(entryPath), entryPath) ? [entryPath] : [];
-  }
-
-  const acc: string[] = [];
-  visitDir(fullPath, repoRoot, acc, descendIntoScope);
-  return acc;
-}
-
-/**
- * Exported for tests: collects every scannable file under EXTRACTION_SCOPE's
- * entries, each counted once. The only discovery that walks inside
- * EXEMPT_PACKAGES; a missing entry contributes no files rather than
- * throwing. De-duplicated because scope entries can overlap (since #823,
- * `adws/providers` is a superset of nine earlier `adws/providers/*` entries)
- * and a file must be scanned — and counted in `printExtractionScope` — once.
- */
-export function collectExtractionScopeFiles(repoRoot: string): string[] {
-  return [...new Set(EXTRACTION_SCOPE.flatMap(({ path: entryPath }) => collectScopeEntry(entryPath, repoRoot)))];
 }
 
 // ---------------------------------------------------------------------------
@@ -207,23 +159,6 @@ function extractGitGhCommand(node: ts.Node): string | null {
   return null;
 }
 
-// ── Rule: extraction-readiness ──────────────────────────────────────────────
-
-/** Exported for tests: runs ONLY the extraction-readiness rule over `relPaths`. scanFiles/scanSource (the other three rules) are untouched by this function. */
-export function scanExtractionScope(relPaths: readonly string[], repoRoot: string): ScanResult {
-  const violations: Violation[] = [];
-  let scannedCount = 0;
-
-  for (const relPath of relPaths) {
-    scannedCount++;
-    const source = fs.readFileSync(path.join(repoRoot, relPath), 'utf-8');
-    const sourceFile = ts.createSourceFile(relPath, source, ts.ScriptTarget.Latest, false);
-    violations.push(...flagFrameworkImports(sourceFile, relPath));
-  }
-
-  return { violations, scannedCount };
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -242,25 +177,25 @@ function collectConstructionSeenFiles(relPaths: readonly string[], repoRoot: str
 function main(): void {
   const repoRoot = process.cwd();
   const allFiles = collectTsFiles(repoRoot, repoRoot);
-  const { violations, scannedCount } = scanFiles(allFiles, repoRoot);
+  const { violations: allViolations, scannedCount } = scanFiles(allFiles, repoRoot);
   const staleEntries = findStaleSanctionedEntries(collectConstructionSeenFiles(allFiles, repoRoot));
-  const extraction = scanExtractionScope(collectExtractionScopeFiles(repoRoot), repoRoot);
-  const allViolations = [...violations, ...extraction.violations];
 
   console.log(
     `\nGit/GH CLI Guard — scanned ${scannedCount} files (0 allowlisted)\n`,
   );
-  console.log('  Exempt packages (2):');
+  console.log(
+    EXEMPT_PACKAGES.length === 0
+      ? '  Exempt packages: none — no in-repo code may shell out to git or gh'
+      : `  Exempt packages (${EXEMPT_PACKAGES.length}):`,
+  );
   for (const { dir, role } of EXEMPT_PACKAGES) {
     console.log(`    ${dir} — ${role}`);
   }
   console.log('');
   printSanctionedConstructionSites();
-  printExtractionScope(extraction.scannedCount);
 
   if (allViolations.length === 0 && staleEntries.length === 0) {
-    console.log('  ✔ PASS  No direct git/gh shell-outs outside the exempt packages.');
-    console.log('  ✔ PASS  Extraction scope imports nothing outside adws/gitContext and adws/providers.\n');
+    console.log('  ✔ PASS  No direct git/gh shell-outs outside the exempt packages.\n');
     process.exit(0);
   }
 
@@ -270,10 +205,9 @@ function main(): void {
       console.log(`  ${file}:${line}  [${rule}]  ${command}`);
     }
     console.log(
-      '\n  Remedy (git-gh-shellout): route through GitContext, or place inside adws/gitContext (git) or adws/providers/github (gh).' +
+      '\n  Remedy (git-gh-shellout): route through GitContext (@paysdoc/devplatform/git) or the forge ports — no in-repo package is exempt.' +
       '\n  Remedy (cwd-derived-identity): thread the launch-boundary GitContext instead of re-deriving identity from cwd.' +
-      '\n  Remedy (unsanctioned-construction): receive providers from buildLaunchBoundary(...) instead of constructing them; the boundary is the only sanctioned construction site.' +
-      '\n  Remedy (extraction-readiness): an extractable package may import only Node built-ins, npm packages, and files inside adws/gitContext or adws/providers — inject the dependency through a port (TokenProvider/Logger/config) or move the needed shape into the extractable set; never narrow EXTRACTION_SCOPE.\n',
+      '\n  Remedy (unsanctioned-construction): receive providers from buildLaunchBoundary(...) instead of constructing them; the boundary is the only sanctioned construction site.\n',
     );
   }
 

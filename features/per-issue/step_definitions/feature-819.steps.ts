@@ -20,13 +20,9 @@
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { resetGuardFixtureTree } from './feature-816.steps.ts';
-import { GitContext } from '../../../adws/gitContext/index.ts';
-import type { Logger } from '../../../adws/gitContext/index.ts';
-import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
-import { createGitHubIssueTracker } from '../../../adws/providers/github/githubIssueTracker.ts';
-import { createGitHubCodeHost } from '../../../adws/providers/github/githubCodeHost.ts';
-import { createGitHubBoardManager } from '../../../adws/providers/github/githubBoardManager.ts';
-import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { Logger, TokenProvider } from '@paysdoc/devplatform/git';
+import { createGitHubIssueTracker, createGitHubCodeHost, createGitHubBoardManager, forgeProviders } from '@paysdoc/devplatform/providers';
 import { buildAdwForgeDeps } from '../../../adws/core/forgeWiring.ts';
 import {
   Platform,
@@ -36,8 +32,7 @@ import {
   type CodeHost,
   type BoardManager,
   type BoundProviders,
-} from '../../../adws/providers/types.ts';
-import type { TokenProvider } from '../../../adws/gitContext/index.ts';
+} from '@paysdoc/devplatform';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';

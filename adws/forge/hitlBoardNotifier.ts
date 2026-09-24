@@ -19,7 +19,7 @@
 import { log } from '../core';
 import { postSlack } from '../core/slackNotifier';
 import { bodyLinksIssue } from './issueLinkMarker';
-import type { CodeHost, IssueTracker, RepoIdentifier } from '../providers/types';
+import type { CodeHost, IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 
 // ---------------------------------------------------------------------------
 // Types

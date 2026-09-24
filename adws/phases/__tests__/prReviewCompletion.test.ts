@@ -10,7 +10,7 @@ vi.mock('../../forge/hitlBoardNotifier', async (importOriginal) => {
 
 import { handlePRReviewWorkflowError } from '../prReviewCompletion';
 import { notifyBlockedTransition } from '../../forge/hitlBoardNotifier';
-import { Platform, type RepoContext, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoContext, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from '../workflowInit';
 import type { PRReviewWorkflowConfig } from '../prReviewPhase';
 import type { PRReviewWorkflowContext } from '../../forge/workflowCommentsPR';

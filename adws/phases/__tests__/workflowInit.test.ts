@@ -138,7 +138,7 @@ import { classifyGitHubIssue } from '../../core/issueClassifier';
 import { bindWorkspaceContext } from '../../core/workspaceBinding';
 import { buildLaunchBoundary } from '../../core/launchGitContext';
 import type { LaunchBoundary } from '../../core/launchGitContext';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 const mockFetchIssue = vi.mocked(fetchIssueRecord);

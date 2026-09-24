@@ -14,8 +14,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, REPO_ROOT, buildLaunchBoundary, readLocalRepoIdentity } from './core';
-import type { GitContext } from './gitContext';
-import type { BoundProviders } from './providers/types';
+import type { GitContext } from '@paysdoc/devplatform/git';
+import type { BoundProviders } from '@paysdoc/devplatform';
 import {
   checkEnvironmentVariables,
   checkGitRepository,

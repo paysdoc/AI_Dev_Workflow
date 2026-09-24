@@ -3,7 +3,7 @@ import * as path from 'path';
 import { log } from '../core';
 import { AGENTS_STATE_DIR } from '../core/config';
 import { getProcessStartTime, isProcessLive } from '../core/processLiveness';
-import type { RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
 
 interface IssueSpawnLockRecord {
   readonly pid: number;

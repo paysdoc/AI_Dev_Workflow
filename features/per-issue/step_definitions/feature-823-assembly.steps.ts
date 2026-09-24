@@ -11,7 +11,7 @@ import { splitRepo, w823 } from './feature-823.steps.ts';
 import { getRecordingSeam } from './feature-819.steps.ts';
 import { getCapturedProviders } from './feature-794.steps.ts';
 
-import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
+import { forgeProviders } from '@paysdoc/devplatform/providers';
 
 // ---------------------------------------------------------------------------
 // §1 — assembling a provider set directly over the recording gh seam

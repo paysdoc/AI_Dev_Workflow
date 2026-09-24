@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from '../core/conditionalDocsRegistry';
 import { runDocsGuards, DOC_BLOAT_THRESHOLD_LINES, type DocSize, type GuardFlags, type BloatFlag } from '../core/docsGuards';
 import { log as defaultLog, type LogLevel } from '../core';
-import type { IssueTracker } from '../providers/types';
+import type { IssueTracker } from '@paysdoc/devplatform';
 
 // ---------------------------------------------------------------------------
 // Types

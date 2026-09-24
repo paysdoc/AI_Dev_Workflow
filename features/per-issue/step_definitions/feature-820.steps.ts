@@ -49,10 +49,10 @@ import { fileURLToPath } from 'node:url';
 import { world796, splitRepo, resetWorld, claimBranchName, setClaimBranchOverride } from './feature-796.steps.ts';
 import type { CallRecord } from './feature-796.steps.ts';
 
-import type { ReviewComment, RepoContext, IssueTracker, CodeHost } from '../../../adws/providers/types.ts';
-import { Platform } from '../../../adws/providers/types.ts';
-import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
-import { GitContext } from '../../../adws/gitContext/index.ts';
+import type { ReviewComment, RepoContext, IssueTracker, CodeHost } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
+import { forgeProviders } from '@paysdoc/devplatform/providers';
+import { GitContext } from '@paysdoc/devplatform/git';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 

@@ -10,7 +10,7 @@ import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { postPRStageComment } from './phaseCommentHelpers';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
-import { BoardStatus, Platform } from '../providers/types';
+import { BoardStatus, Platform } from '@paysdoc/devplatform';
 import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';
 import { decidePostReviewOutcome, type PostReviewOutcome } from './decidePostReviewOutcome';
 

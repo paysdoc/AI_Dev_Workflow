@@ -17,7 +17,7 @@ import {
   runCommitAgent,
   runPullRequestAgent,
 } from '../agents';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext } from './workflowRepoIdentity';
 

@@ -20,7 +20,7 @@ import { bodyLinksIssue } from '../forge/issueLinkMarker';
 import { parsePromotionTagState, isPromotionExempt } from '../core/promotionTagState';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
 import type { LaunchBoundary } from '../core';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost } from '@paysdoc/devplatform';
 
 export const RETENTION_DAYS = 14;
 

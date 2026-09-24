@@ -19,9 +19,9 @@
  * `.adw/providers.md`, never from the remote's host.
  */
 
-import { readOriginRemoteUrl } from '../gitContext';
-import { parseOwnerRepoFromUrl } from '../providers/workspaceValidation';
-import { Platform, type RepoIdentifier } from '../providers/types';
+import { readOriginRemoteUrl } from '@paysdoc/devplatform/git';
+import { parseOwnerRepoFromUrl } from '@paysdoc/devplatform/providers';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 
 export interface LocalRepoIdentityDeps {
   /** Defaults to the git core's `readOriginRemoteUrl`. */

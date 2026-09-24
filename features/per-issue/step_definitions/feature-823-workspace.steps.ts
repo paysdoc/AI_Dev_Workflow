@@ -14,7 +14,7 @@ import { splitRepo, w823 } from './feature-823.steps.ts';
 import { getRecordingSeam } from './feature-819.steps.ts';
 
 import { bindWorkspaceContext } from '../../../adws/core/workspaceBinding.ts';
-import type { BoundProviders } from '../../../adws/providers/types.ts';
+import type { BoundProviders } from '@paysdoc/devplatform';
 
 When('a workspace is bound to that git context for the identity {string}', function (repoStr: string) {
   const identity = splitRepo(repoStr);

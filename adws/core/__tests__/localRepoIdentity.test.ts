@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { readLocalRepoIdentity } from '../localRepoIdentity';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 
 describe('readLocalRepoIdentity — injected reader', () => {
   it.each([

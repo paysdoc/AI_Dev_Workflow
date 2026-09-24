@@ -40,7 +40,7 @@ import type * as http from 'http';
 import { world796, resetWorld, record } from './feature-796.steps.ts';
 import { setReconciledStage, setClassificationResult, setUnaddressedComments } from './feature-820.steps.ts';
 
-import type { IssueTracker, IssueListEntry, ReviewComment } from '../../../adws/providers/types.ts';
+import type { IssueTracker, IssueListEntry, ReviewComment } from '@paysdoc/devplatform';
 import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 
 import { checkAndTrigger } from '../../../adws/triggers/trigger_cron.ts';

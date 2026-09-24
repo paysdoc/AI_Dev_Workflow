@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
 import { log, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from '../core';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 /** The six canonical .adw/ config files that /adw_init must produce. */
 export const REQUIRED_ADW_FILES = [

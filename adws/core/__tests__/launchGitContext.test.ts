@@ -14,18 +14,25 @@ vi.mock('../environment', async (importOriginal) => ({
   GITHUB_PAT: 'pat-xyz',
 }));
 
+const { mockReadGitHubAppConfig } = vi.hoisted(() => ({
+  mockReadGitHubAppConfig: vi.fn(() => ({})),
+}));
+
 vi.mock('../githubAppAuth', () => ({
+  readGitHubAppConfig: mockReadGitHubAppConfig,
   isGitHubAppConfigured: () => true,
   getInstallationToken: () => 'app-token',
 }));
 
-import { buildLaunchGitContext, buildLaunchBoundary, createLaunchTokenProvider } from '../launchGitContext';
+import { buildLaunchGitContext, buildLaunchBoundary } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
-import type { TokenProvider, CredentialRequest } from '../../gitContext';
-import type { ForgeProvidersOptions, ForgeProviderDeps } from '../../providers/forgeProviders';
-import type { BoundProviders, RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
+import { createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { TokenProvider, CredentialRequest } from '@paysdoc/devplatform/git';
+import { createForgeCredentials } from '@paysdoc/devplatform/providers';
+import type { ForgeProvidersOptions, ForgeProviderDeps, ForgeCredentialsOptions, ForgeCredentials } from '@paysdoc/devplatform/providers';
+import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform } from '@paysdoc/devplatform';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -271,19 +278,68 @@ describe('TokenProvider port at the launch boundary', () => {
   });
 });
 
-// ── §7b: createLaunchTokenProvider — alternate-identity PAT parity (#819) ────
+// ── §7b: resolveLaunchCredentials — the forgeCredentials seam (#840) ─────────
 
-describe('createLaunchTokenProvider: alternate-identity PAT parity with gitContextForRepo', () => {
-  it('serves GITHUB_PAT to alternateIdentity requests', () => {
-    const provider = createLaunchTokenProvider();
-    const env = provider.credentialEnv({ owner: 'acme', repo: 'webapp', purpose: 'alternateIdentity' });
-    expect(env.GH_TOKEN).toBe('pat-xyz');
+describe('resolveLaunchCredentials: options threading into deps.forgeCredentials', () => {
+  it('mints via the seam with the GitHub-keyed forge, the boundary identity, and deps.github built from readGitHubAppConfig/GITHUB_PAT', () => {
+    mockReadGitHubAppConfig.mockReturnValue({ appId: '1', appSlug: 'bot', privateKeyPath: '/k' });
+    const calls: ForgeCredentialsOptions[] = [];
+    const recorder = (options: ForgeCredentialsOptions): ForgeCredentials => {
+      calls.push(options);
+      return { tokenProvider: createLiteralTokenProvider(TEST_TOKEN), gitIdentity: TEST_IDENTITY };
+    };
+
+    buildLaunchGitContext(
+      makeTargetRepo('acme', 'webapp'),
+      baseDeps({ resolveToken: undefined, resolveGitIdentity: undefined, forgeCredentials: recorder }),
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].forge).toEqual({ codeHost: 'github', issueTracker: 'github' });
+    expect(calls[0].identity).toEqual({ owner: 'acme', repo: 'webapp', platform: Platform.GitHub });
+    expect(calls[0].deps?.github).toEqual({
+      appConfig: { appId: '1', appSlug: 'bot', privateKeyPath: '/k' },
+      pat: 'pat-xyz',
+      alternateIdentityPat: 'pat-xyz',
+    });
   });
+});
 
-  it('serves the App installation token to default requests, unchanged', () => {
-    const provider = createLaunchTokenProvider();
-    const env = provider.credentialEnv({ owner: 'acme', repo: 'webapp', purpose: 'default' });
-    expect(env.GH_TOKEN).toBe('app-token');
+describe('resolveLaunchCredentials: alternate-identity PAT parity through the real factory (#819)', () => {
+  it('serves GITHUB_PAT to alternateIdentity requests and, with the App unconfigured, to default requests too', () => {
+    mockReadGitHubAppConfig.mockReturnValue({});
+    const forgeCredentials = (options: ForgeCredentialsOptions): ForgeCredentials =>
+      createForgeCredentials({
+        ...options,
+        deps: {
+          ...options.deps,
+          env: {
+            GIT_AUTHOR_NAME: 'ADW Test Bot',
+            GIT_AUTHOR_EMAIL: 'bot@test.dev',
+            GIT_COMMITTER_NAME: 'ADW Test Bot',
+            GIT_COMMITTER_EMAIL: 'bot@test.dev',
+          },
+        },
+      });
+
+    const ctx = buildLaunchGitContext(
+      makeTargetRepo('acme', 'webapp'),
+      baseDeps({ resolveToken: undefined, resolveGitIdentity: undefined, forgeCredentials }),
+    );
+
+    expect(ctx.commandEnv({}, 'alternateIdentity').GH_TOKEN).toBe('pat-xyz');
+    expect(ctx.commandEnv({}, 'default').GH_TOKEN).toBe('pat-xyz');
+  });
+});
+
+describe('resolveLaunchCredentials: injected seams win over minting', () => {
+  it('never calls a throwing forgeCredentials when both tokenProvider/resolveToken and resolveGitIdentity are already injected', () => {
+    const throwingForgeCredentials = (): ForgeCredentials => {
+      throw new Error('forgeCredentials should not be called');
+    };
+    expect(() =>
+      buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps({ forgeCredentials: throwingForgeCredentials })),
+    ).not.toThrow();
   });
 });
 

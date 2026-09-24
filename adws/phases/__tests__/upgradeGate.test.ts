@@ -6,7 +6,7 @@ import {
   type UpgradeGateDeps,
   type UpgradeGateParams,
 } from '../upgradeGate';
-import { BoardStatus } from '../../providers/types';
+import { BoardStatus } from '@paysdoc/devplatform';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

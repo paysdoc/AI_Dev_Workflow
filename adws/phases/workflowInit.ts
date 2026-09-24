@@ -36,10 +36,10 @@ import {
   isGitHubAppConfigured,
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { GITHUB_PAT } from '../core/environment';
-import type { BoundProviders, Issue, RepoContext, RepoIdentifier } from '../providers/types';
+import type { BoundProviders, Issue, RepoContext, RepoIdentifier } from '@paysdoc/devplatform';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';

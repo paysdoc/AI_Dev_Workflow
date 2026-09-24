@@ -14,7 +14,7 @@ import { type PhaseCostRecord } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
-import { BoardStatus, Platform } from '../providers/types';
+import { BoardStatus, Platform } from '@paysdoc/devplatform';
 import { appendToPauseQueue } from '../core/pauseQueue';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';

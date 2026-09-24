@@ -59,10 +59,8 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { GitContext } from '../../../adws/gitContext/index.ts';
-import { ensureRepoWorkspace } from '../../../adws/gitContext/index.ts';
-import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
-import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
+import { GitContext, ensureRepoWorkspace, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import { createGhRepoApi } from '@paysdoc/devplatform/providers';
 import {
   type BoundProviders,
   type IssueTracker,
@@ -73,10 +71,10 @@ import {
   type MergedPullRequestRecord,
   type PullRequestSummary,
   type RepoIdentifier,
-} from '../../../adws/providers/types.ts';
+} from '@paysdoc/devplatform';
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import type { ForgeProvidersOptions } from '../../../adws/providers/forgeProviders.ts';
+import type { ForgeProvidersOptions } from '@paysdoc/devplatform/providers';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';

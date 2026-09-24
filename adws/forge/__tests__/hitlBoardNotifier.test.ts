@@ -6,7 +6,7 @@ import {
   type NotifierDeps,
   type NotifierPorts,
 } from '../hitlBoardNotifier';
-import { Platform, type RepoIdentifier, type Issue, type PullRequestRecord } from '../../providers/types';
+import { Platform, type RepoIdentifier, type Issue, type PullRequestRecord } from '@paysdoc/devplatform';
 
 const WEBHOOK_URL = 'https://hooks.slack.com/test';
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };

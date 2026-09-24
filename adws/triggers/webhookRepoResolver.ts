@@ -7,7 +7,7 @@
  */
 
 import type { TargetRepoInfo } from '../types/issueTypes';
-import { Platform, type RepoIdentifier } from '../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import { log, buildLaunchBoundary, type LaunchBoundary } from '../core';
 
 /** Resolution result for a webhook event payload. */

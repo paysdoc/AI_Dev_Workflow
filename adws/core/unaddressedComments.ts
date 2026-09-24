@@ -14,7 +14,7 @@
  */
 
 import { log } from './utils';
-import type { GitContext, Logger } from '../gitContext';
+import type { GitContext, Logger } from '@paysdoc/devplatform/git';
 import { isAdwComment } from './workflowCommentParsing';
 
 /**

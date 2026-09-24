@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
 // Mock all external dependencies before importing the module under test

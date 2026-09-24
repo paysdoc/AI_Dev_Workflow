@@ -7,7 +7,7 @@ import {
   type IssueOpenedRouterDeps,
 } from '../issueOpenedRouter';
 import type { AdwLabelReading } from '../../core/adwLabels';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
 // ── helpers ───────────────────────────────────────────────────────────────────

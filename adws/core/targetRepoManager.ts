@@ -29,7 +29,7 @@ import {
   isRepoCloned,
   cloneRepo,
   ensureRepoWorkspace,
-} from '../gitContext';
+} from '@paysdoc/devplatform/git';
 import { convertToSshUrl } from './sshCloneUrl';
 import { ensureWorkspaceTrusted } from './workspaceTrust';
 

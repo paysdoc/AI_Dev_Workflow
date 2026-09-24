@@ -20,11 +20,10 @@ import { gitLabConfigFromEnv, jiraAuthFromEnv, jiraConfigFrom, adwGitHubForgeDep
 import type { ProviderConfig } from '../providerConfig';
 import { notifyReviewTransition } from '../../forge/hitlBoardNotifier';
 import { isGitHubAppConfigured } from '../githubAppAuth';
-import { forgeProviders } from '../../providers/forgeProviders';
-import { Platform, BoardStatus, type RepoIdentifier, type BoundProviders } from '../../providers/types';
-import { GitContext } from '../../gitContext';
-import type { GitContextOptions, ExecFn } from '../../gitContext';
-import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { forgeProviders } from '@paysdoc/devplatform/providers';
+import { Platform, BoardStatus, type RepoIdentifier, type BoundProviders } from '@paysdoc/devplatform';
+import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import type { GitContextOptions, ExecFn } from '@paysdoc/devplatform/git';
 
 /** A stand-in resolver for tests that never actually invoke it — buildNotifierDeps is mocked module-wide above. */
 const FAKE_RESOLVE_PROVIDERS = (): BoundProviders => ({} as BoundProviders);

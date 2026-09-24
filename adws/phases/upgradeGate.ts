@@ -13,10 +13,10 @@ import { computeFrameworkHash } from '../core/hashComputer';
 import { readRemoteAdwVersion } from '../core/adwVersion';
 import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, ADW_UPGRADE_LABEL } from '../core';
 import { spawnDetached } from '../triggers/webhookGatekeeper';
-import { BoardStatus, type BoundProviders } from '../providers/types';
+import { BoardStatus, type BoundProviders } from '@paysdoc/devplatform';
 import { log, type LogLevel } from '../core/utils';
 import type { UpgradeClaimResult } from '../core/upgradeClaim';
-import type { GitContext } from '../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

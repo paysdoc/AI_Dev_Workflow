@@ -7,7 +7,7 @@ import {
 } from '../webhookHandlers';
 import type { AgentState } from '../../types/agentTypes';
 import type { PullRequestWebhookPayload } from '../../types/issueTypes';
-import { Platform } from '../../providers/types';
+import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

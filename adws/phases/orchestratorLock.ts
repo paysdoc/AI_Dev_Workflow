@@ -12,7 +12,7 @@
  */
 
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../triggers/spawnGate';
-import type { RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { startHeartbeat, stopHeartbeat } from '../core/heartbeat';

@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
-import type { Issue, PullRequest, ReviewComment } from '../providers/types';
+import type { Issue, PullRequest, ReviewComment } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand, AgentResult, AgentLaunchContext } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 

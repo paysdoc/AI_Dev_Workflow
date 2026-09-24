@@ -15,10 +15,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
-import { Platform, type RepoIdentifier } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { AgentState } from '../../types/agentTypes';
 import type { LaunchBoundary } from '../../core';
-import type { GitContext } from '../../gitContext';
+import type { GitContext } from '@paysdoc/devplatform/git';
 
 const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const FAKE_BOUNDARY: LaunchBoundary = {
