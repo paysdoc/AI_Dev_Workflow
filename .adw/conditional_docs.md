@@ -364,6 +364,8 @@
     - .adw/scenarios.md
   - Conditions:
     - When working on root-level configuration: `package.json`, `tsconfig.json`, `biome.json`, `vitest.config.ts`, `README.md`, `.github/` workflows, `UBIQUITOUS_LANGUAGE.md`, `known_issues.md`, or `.adw/` project metadata files
+    - When working on `.github/dependabot.yml` (the `@paysdoc/devplatform` version-update config) or `.github/adw.yml` (the ADW policy switches file)
+    - When troubleshooting why a Dependabot bump PR was or wasn't picked up by ADW's triggers
 
 - app_docs/feature-9gjajh-document-phase.md
   - Owns:
