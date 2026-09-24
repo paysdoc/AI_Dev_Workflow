@@ -1,9 +1,5 @@
 import type { Env, IngestPayload, IngestRecord } from './types.ts';
 
-// ---------------------------------------------------------------------------
-// Payload validation
-// ---------------------------------------------------------------------------
-
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -57,16 +53,11 @@ function validatePayload(body: unknown): ValidationResult {
   return { payload: body as unknown as IngestPayload };
 }
 
-// ---------------------------------------------------------------------------
-// Project resolution
-// ---------------------------------------------------------------------------
-
 interface ProjectRow {
   readonly id: number;
 }
 
 /**
- * Resolves a project by slug, auto-creating it if not found.
  * Uses INSERT OR IGNORE + SELECT to handle concurrent requests safely.
  */
 async function resolveProject(
@@ -91,10 +82,6 @@ async function resolveProject(
   if (!row) throw new Error(`Failed to resolve project slug: ${slug}`);
   return row.id;
 }
-
-// ---------------------------------------------------------------------------
-// D1 inserts
-// ---------------------------------------------------------------------------
 
 interface CostRecordIdRow {
   readonly id: number;
@@ -162,14 +149,6 @@ async function insertTokenUsage(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Handler
-// ---------------------------------------------------------------------------
-
-/**
- * Handles `POST /api/cost` — validates the ingest payload, resolves the
- * project, and batch-inserts cost records + token usage rows into D1.
- */
 export async function handleIngest(request: Request, env: Env): Promise<Response> {
   let body: unknown;
   try {

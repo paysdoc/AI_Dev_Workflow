@@ -1,8 +1,7 @@
 /**
- * ADW label *provisioning* policy — idempotently ensures the adw:* label
- * catalogue exists on a repo. The pure label vocabulary lives in
- * adws/core/adwLabels.ts; `IssueTracker.ensureLabel`/`applyLabel` are their
- * own exact bodies (#819) and are not relocated here.
+ * The pure label vocabulary lives in adws/core/adwLabels.ts;
+ * `IssueTracker.ensureLabel`/`applyLabel` are their own exact bodies and are
+ * not relocated here.
  */
 
 import { log } from '../core/logger';
@@ -11,7 +10,6 @@ import { ADW_LABEL_DEFINITIONS } from '../core/adwLabels';
 import type { IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 
 /**
- * Idempotently ensures all six adw:* labels exist on the target repo.
  * A single label's failure does not abort provisioning of the rest.
  */
 export function ensureAdwLabelsExist(

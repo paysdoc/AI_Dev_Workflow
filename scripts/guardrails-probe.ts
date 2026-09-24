@@ -1,5 +1,5 @@
 /**
- * Guardrails startup probe (issue #762).
+ * Guardrails startup probe.
  *
  * Spawns a real `claude -p` (haiku) against a scratch directory with the exact
  * guardrails `--settings` payload injected on target-repo runs, and asserts the
@@ -31,7 +31,7 @@ function makeScratchDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'adw-guardrails-probe-'));
 }
 
-/** Spawns `claude -p` in the scratch dir with the injected payload and returns its combined output. */
+/** Returns its combined output. */
 function runClaudePrint(scratchDir: string, prompt: string, settingsJson: string, hookLogDir: string): string {
   const claudePath = resolveClaudeCodePath();
   const result = spawnSync(claudePath, [
@@ -51,7 +51,7 @@ function runClaudePrint(scratchDir: string, prompt: string, settingsJson: string
   return `${result.stdout ?? ''}${result.stderr ?? ''}`;
 }
 
-/** True when the CLI's stream-json output contains an errored (denied) tool_result. */
+/** Stream-json output contains an errored (denied) tool_result. */
 function outputDeniesTool(output: string): boolean {
   return /"is_error"\s*:\s*true/.test(output);
 }
@@ -72,7 +72,7 @@ function assertAllowed(label: string, scratchDir: string, prompt: string, settin
   return null;
 }
 
-/** Verifies at least one hook wrote a non-empty session-log directory under hookLogDir. */
+/** Non-empty session-log directory under hookLogDir. */
 function assertHookFired(hookLogDir: string): ProbeFailure | null {
   if (!fs.existsSync(hookLogDir)) {
     return { reason: 'no hook-log directory was created — the injected hooks did not fire' };

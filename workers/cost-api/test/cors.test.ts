@@ -19,10 +19,6 @@ beforeEach(async () => {
   await applySchema();
 });
 
-// ---------------------------------------------------------------------------
-// OPTIONS preflight
-// ---------------------------------------------------------------------------
-
 describe('OPTIONS preflight', () => {
   it('returns 204 with CORS headers for allowed origin', async () => {
     const res = await SELF.fetch(`${BASE_URL}/api/projects`, {
@@ -56,10 +52,6 @@ describe('OPTIONS preflight', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// CORS on GET responses
-// ---------------------------------------------------------------------------
-
 describe('CORS on GET responses', () => {
   it('adds Access-Control-Allow-Origin for allowed origin', async () => {
     const res = await SELF.fetch(`${BASE_URL}/api/projects`, {
@@ -91,10 +83,6 @@ describe('CORS on GET responses', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost');
   });
 });
-
-// ---------------------------------------------------------------------------
-// CORS on POST responses (regression)
-// ---------------------------------------------------------------------------
 
 describe('CORS on POST /api/cost', () => {
   it('adds Access-Control-Allow-Origin for allowed origin', async () => {

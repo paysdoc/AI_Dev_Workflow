@@ -1,12 +1,7 @@
-/**
- * PR review workflow comment formatting and posting functions.
- */
-
 import { PRReviewWorkflowStage } from '../core';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import { WorkflowContext, formatCostSection } from './workflowCommentsIssue';
 
-/** Context for PR review workflow comments. */
 export interface PRReviewWorkflowContext extends WorkflowContext {
   prNumber: number;
   reviewComments: number;
@@ -17,7 +12,6 @@ export interface PRReviewWorkflowContext extends WorkflowContext {
   failedTests?: string[];
 }
 
-/** Formats a PR review workflow comment for the given stage. */
 export function formatPRReviewWorkflowComment(stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext): string {
   const tokenFooter = formatRunningTokenFooter(ctx.runningTokenTotal);
   switch (stage) {
