@@ -2,7 +2,7 @@
 
 ## Core Principles
 
-1. **Clarity over cleverness** — Code should be easy to read and understand. Favor explicit over implicit. Use meaningful variable names and comments to explain non-obvious logic.
+1. **Clarity over cleverness** — Code should be easy to read and understand. Favor explicit over implicit. Use meaningful variable names.
 2. **Modularity** — Each unit (file, function, component) has a single responsibility. Keep files under 300 lines.
 3. **Immutability** — Treat data as immutable. Create new values instead of mutating existing ones.
 4. **Type safety** — Leverage the type system to catch errors at compile time, not runtime.
@@ -59,4 +59,5 @@ Extraction is justified by *reduced nesting and named intent*, not by line count
 - **Continuous integration** — Automate testing and quality checks (e.g., GitHub Actions).
 - **Formatting** — Use Prettier and ESLint for consistent style.
 - **Code hygiene** — Remove unused variables, functions, and imports.
-- **Documentation** — Document public APIs and non-obvious logic with JSDoc. Keep the README and setup instructions current.
+- **Comments** — Comment only what the code cannot say: invariants, ordering constraints, and the reason a non-obvious choice was made. Never restate what the next line does, never add section banners, never cite issue numbers (git blame carries history). Do not JSDoc a field or function whose name already says what it is.
+- **Documentation** — Keep the README and setup instructions current.
