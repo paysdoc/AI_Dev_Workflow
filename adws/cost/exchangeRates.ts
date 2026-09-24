@@ -1,20 +1,12 @@
-/**
- * Exchange rate utilities: fetching live rates with retry and fallback.
- * Moved from adws/core/costReport.ts for modular cost architecture.
- */
-
 import { log } from '../core/utils.ts';
 
-/** Last-resort fallback EUR/USD rate used when the exchange rate API is unreachable after all retries. */
 export const FALLBACK_EUR_RATE = 0.92;
 
 /** Maximum number of retry attempts after the initial fetch (3 total attempts). */
 export const MAX_EXCHANGE_RATE_RETRIES = 2;
 
-/** Timeout in milliseconds for each exchange rate fetch request. */
 export const EXCHANGE_RATE_TIMEOUT_MS = 5000;
 
-/** Maps common currency codes to their symbols. */
 export const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = {
   USD: '$',
   EUR: '\u20ac',
@@ -25,17 +17,13 @@ export const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = {
   CHF: 'CHF',
 } as const;
 
-/** Known fallback rates keyed by currency code. */
 export const FALLBACK_RATES: Readonly<Record<string, number>> = { EUR: FALLBACK_EUR_RATE };
 
-/** Cache of the most recently fetched live rates, seeded from FALLBACK_RATES. */
 export const lastKnownRates: Record<string, number> = { ...FALLBACK_RATES };
 
 /**
- * Fetches exchange rates from the free ExchangeRate-API with retry,
- * timeout, and fallback. Retries up to {@link MAX_EXCHANGE_RATE_RETRIES}
- * additional times with exponential backoff. Falls back to approximate
- * hardcoded rates when all attempts are exhausted.
+ * Retries up to {@link MAX_EXCHANGE_RATE_RETRIES} additional times with exponential
+ * backoff. Falls back to approximate hardcoded rates when all attempts are exhausted.
  */
 export async function fetchExchangeRates(targetCurrencies: string[]): Promise<Record<string, number>> {
   if (targetCurrencies.length === 0) return {};
@@ -76,7 +64,6 @@ export async function fetchExchangeRates(targetCurrencies: string[]): Promise<Re
     }
   }
 
-  // All retries exhausted — return fallback rates for known currencies
   log('All exchange rate fetch attempts failed, using fallback rates', 'error');
   const fallbackRates: Record<string, number> = {};
   for (const currency of targetCurrencies) {

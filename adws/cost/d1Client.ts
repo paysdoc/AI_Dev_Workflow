@@ -1,10 +1,6 @@
 /**
- * D1 HTTP client for posting phase cost records to the Cost API Worker.
- *
- * Transforms ADW's PhaseCostRecord (camelCase) into the Worker's IngestPayload (snake_case)
- * and POSTs it to the configured COST_API_URL. When COST_API_URL is not set, writes are
- * silently skipped. All errors are caught and logged as warnings — D1 failures never crash
- * the workflow.
+ * When COST_API_URL is not set, writes are silently skipped. All errors are caught and
+ * logged as warnings — D1 failures never crash the workflow.
  */
 
 import { COST_API_URL, COST_API_TOKEN } from '../core/environment';
@@ -18,14 +14,9 @@ export interface IngestPayloadOptions {
   readonly name?: string;
   /** GitHub/GitLab repo URL; used only during auto-creation. */
   readonly repoUrl?: string;
-  /** Phase cost records to ingest. */
   readonly records: readonly PhaseCostRecord[];
 }
 
-/**
- * Transforms IngestPayloadOptions into the Worker's snake_case IngestPayload shape.
- * Pure function — no side effects.
- */
 export function transformToIngestPayload(options: IngestPayloadOptions): object {
   const { project, name, repoUrl, records } = options;
 
@@ -54,8 +45,6 @@ export function transformToIngestPayload(options: IngestPayloadOptions): object 
 }
 
 /**
- * Posts phase cost records to the Cost API Worker's D1 database.
- *
  * Silently returns when COST_API_URL is not set or when records is empty.
  * Logs a warning on non-2xx responses or network errors, but never throws.
  */

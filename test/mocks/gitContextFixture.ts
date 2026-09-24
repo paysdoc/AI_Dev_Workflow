@@ -1,9 +1,7 @@
 /**
- * ADW-owned since the `@paysdoc/devplatform` switchover (#840): the exec-fake
- * fixture for tests that need a real `GitContext` over a spy `exec`, plus a
- * capturing logger. Lives under `test/` because that directory is in the
- * guard's `EXEMPT_DIR_NAMES`, so the `new GitContext` inside it is never
- * walked by the construction rule.
+ * Lives under `test/` because that directory is in the guard's
+ * `EXEMPT_DIR_NAMES`, so the `new GitContext` inside it is never walked by
+ * the construction rule.
  */
 
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';

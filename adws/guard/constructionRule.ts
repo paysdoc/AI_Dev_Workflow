@@ -1,6 +1,4 @@
 /**
- * constructionRule.ts — the 'unsanctioned-construction' rule (#795).
- *
  * Flags direct construction of a forge provider (IssueTracker / CodeHost /
  * BoardManager implementation), the RepoContext factory, or a GitContext
  * factory, anywhere outside a file-scoped allowlist of sanctioned
@@ -22,29 +20,22 @@
  *
  * The flagged callees (`createGitHub*`, `createGitLab*`, `createJira*`,
  * `forgeProviders`, `new GitContext`) are no longer declared in this repo at
- * all (issue #840): they are names IMPORTED from `@paysdoc/devplatform/providers`
+ * all: they are names IMPORTED from `@paysdoc/devplatform/providers`
  * and `@paysdoc/devplatform/git`, matched here by identifier text, exactly as
- * before the library extraction. The launch boundary
- * (`adws/core/launchGitContext.ts`) is the only place they may be called.
+ * before the library extraction.
  *
- * ONE SHAPE IS NOT THIS RULE'S TO JUDGE (#844): a context constructor whose
+ * ONE SHAPE IS NOT THIS RULE'S TO JUDGE: a context constructor whose
  * identity argument is a direct identity read —
  * `gitContextForRepo(readLocalRepoIdentity(root))` — belongs to
  * `cwd-derived-identity`, which inspects that argument rather than the callee
  * name and fails a zero-argument read while passing an explicit root. This
  * rule defers via `isIdentityReadComposite` (identityRule.ts) so that
- * verdict stands either way; nothing else about the callee-name match
- * changes, and a construction fed anything but an identity read is flagged
- * exactly as before.
+ * verdict stands either way.
  */
 
 import * as ts from 'typescript';
 import type { Violation } from './violationTypes';
 import { isIdentityReadComposite } from './identityRule';
-
-// ---------------------------------------------------------------------------
-// Flagged callee name sets
-// ---------------------------------------------------------------------------
 
 /** Forge provider implementation factories — an explicit name set, never a `create*` pattern. */
 export const PROVIDER_CONSTRUCTORS: ReadonlySet<string> = new Set([
@@ -60,10 +51,10 @@ export const PROVIDER_CONSTRUCTORS: ReadonlySet<string> = new Set([
 /**
  * The RepoContext factory, the GitContext factories, and the assembly
  * function — the retired names (`createRepoContext`, `mintBoundProviders`,
- * `gitContextFor*`) stay after #823 deletes their declarations: this is a
- * NAME-based AST match, not a file reference, and keeping them is what stops
- * a boundary-free construction path reintroduced under a familiar name
- * (PRD story 24; see `identityRule.ts`'s `getRepoInfo` precedent).
+ * `gitContextFor*`) stay: this is a NAME-based AST match, not a file
+ * reference, and keeping them is what stops a boundary-free construction
+ * path reintroduced under a familiar name (see `identityRule.ts`'s
+ * `getRepoInfo` precedent).
  */
 export const CONTEXT_CONSTRUCTORS: ReadonlySet<string> = new Set([
   'createRepoContext',
@@ -77,36 +68,20 @@ export const CONTEXT_CONSTRUCTORS: ReadonlySet<string> = new Set([
 /** Matched only as a `ts.NewExpression` callee — `new GitContext(…)`. */
 export const GIT_CONTEXT_CLASS_NAME = 'GitContext';
 
-// ---------------------------------------------------------------------------
-// Sanctioned-site allowlist
-// ---------------------------------------------------------------------------
-
 /**
  * The file-scoped allowlist of sites permitted to construct a provider or a
  * context — exactly one PERMANENT entry (no `owner`), the launch boundary.
  * Nothing will ever remove it, and NOTHING MAY EVER BE ADDED TO THIS LIST —
  * a new construction site must call `buildLaunchBoundary`, not join it.
- *
- * Since #840, the assembly module (`forgeProviders.ts`) and every adapter
- * factory it used to call live in `@paysdoc/devplatform`, outside this repo
- * entirely — there is no second in-repo site left to sanction. The SUNSET
- * half has been zero since #823: `adws/providers/repoContext.ts` and
- * `adws/github/gitContextFactory.ts` were deleted then, their construction
- * role absorbed into the library. No entry in this list is owned by any
- * migration wave any longer.
  */
 export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/core/launchGitContext.ts', reason: 'the launch boundary: constructs the one GitContext and calls forgeProviders (PRD story 6)' },
 ] as const;
 
-/** True when `relPath` exactly matches a sanctioned site. Exact path match only — a directory prefix is never sanctioned. */
+/** Exact path match only — a directory prefix is never sanctioned. */
 export function isSanctionedConstructionSite(relPath: string): boolean {
   return SANCTIONED_CONSTRUCTION_SITES.some(({ file }) => file === relPath);
 }
-
-// ---------------------------------------------------------------------------
-// AST detection
-// ---------------------------------------------------------------------------
 
 function isFlaggedProviderOrContextCallee(expression: ts.Expression): boolean {
   return ts.isIdentifier(expression) && (PROVIDER_CONSTRUCTORS.has(expression.text) || CONTEXT_CONSTRUCTORS.has(expression.text));
@@ -116,7 +91,6 @@ function isGitContextClassCallee(expression: ts.Expression): boolean {
   return ts.isIdentifier(expression) && expression.text === GIT_CONTEXT_CLASS_NAME;
 }
 
-/** Returns the violation's `command` description when `node` is a flagged construction, else null. */
 function describeUnsanctionedConstructionNode(node: ts.Node): string | null {
   if (ts.isNewExpression(node) && isGitContextClassCallee(node.expression)) {
     return 'new GitContext(…)';
@@ -132,11 +106,7 @@ function describeUnsanctionedConstructionNode(node: ts.Node): string | null {
   return `${(node.expression as ts.Identifier).text}(…)`;
 }
 
-/**
- * Flags unsanctioned provider/context construction in `sourceFile`. Guard
- * clause first: a sanctioned site is never walked, keeping the allowlist a
- * single, greppable decision.
- */
+/** Guard clause first: a sanctioned site is never walked, keeping the allowlist a single, greppable decision. */
 export function flagUnsanctionedConstruction(sourceFile: ts.SourceFile, relPath: string): Violation[] {
   if (isSanctionedConstructionSite(relPath)) return [];
 

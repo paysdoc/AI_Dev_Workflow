@@ -9,14 +9,9 @@ afterEach(async () => {
   await teardownMockInfrastructure();
 });
 
-/** Resolves once fetch succeeds, false if it rejects (i.e. nothing is listening). */
 async function isListening(url: string): Promise<boolean> {
   return fetch(url).then(() => true).catch(() => false);
 }
-
-// ---------------------------------------------------------------------------
-// Bug 1 — the git-mock wrapper dir must be writable scratch space, not cwd
-// ---------------------------------------------------------------------------
 
 describe('setupMockInfrastructure — git-mock wrapper location', () => {
   it('installs the git wrapper under a writable directory outside process.cwd()', async () => {
@@ -32,12 +27,6 @@ describe('setupMockInfrastructure — git-mock wrapper location', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Bug 2a — teardown must always close a listening server, even when isSetUp
-// was never flipped true (the exact partial-setup state a mid-setup crash
-// leaves behind)
-// ---------------------------------------------------------------------------
-
 describe('teardownMockInfrastructure — unconditional cleanup', () => {
   it('stops a mock server left listening by a partial setup', async () => {
     const { url } = await startMockServer(0);
@@ -48,11 +37,6 @@ describe('teardownMockInfrastructure — unconditional cleanup', () => {
     expect(await isListening(url)).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Bug 2b — setup must stop a server it started before rethrowing, even when
-// the failing step is one only setupMockInfrastructure itself would trigger
-// ---------------------------------------------------------------------------
 
 describe('setupMockInfrastructure — crash safety', () => {
   it('stops the server it started when a later setup step throws', async () => {
