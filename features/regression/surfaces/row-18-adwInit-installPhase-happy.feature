@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwInit — installPhase — happy path
 
-  # Row 18: init orchestrator runs install phase; state advances to awaiting_merge.
   Scenario: init orchestrator completes install phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1018 exists in the mock issue tracker

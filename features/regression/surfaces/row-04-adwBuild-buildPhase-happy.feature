@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwBuild — buildPhase — happy path
 
-  # Row 4: build orchestrator runs with stub fixture; state advances to awaiting_merge.
   Scenario: build orchestrator completes build phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1004 exists in the mock issue tracker

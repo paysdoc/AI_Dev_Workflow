@@ -1,17 +1,3 @@
-/**
- * BDD step definitions for feature-537.feature
- * hashComputer deep module — framework content hash
- *
- * Steps NOT defined here (already defined elsewhere):
- *   - Given 'the ADW codebase is checked out'      → ensureCronOnEveryEventSteps.ts
- *   - Then  'the ADW TypeScript type-check passes'  → feature-504.steps.ts
- *
- * Fixture approach: each scenario that needs a fixture framework creates a
- * temporary directory. Given steps write files into it; When steps invoke
- * computeFrameworkHash and append the result to recordedHashes. After hook
- * cleans up the temp dirs.
- */
-
 import { Before, After, Given, When, Then } from '@cucumber/cucumber';
 import type { DataTable } from '@cucumber/cucumber';
 import assert from 'assert';
@@ -19,10 +5,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { computeFrameworkHash } from '../../../adws/core/hashComputer.ts';
-
-// ---------------------------------------------------------------------------
-// Per-scenario mutable state
-// ---------------------------------------------------------------------------
 
 interface Ctx537 {
   fixtureRoot: string | null;
@@ -37,10 +19,6 @@ const ctx: Ctx537 = {
   recordedHashes: [],
   lastError: null,
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeAdwInitContent(hashInputs: string[]): string {
   const list = hashInputs.map((p) => `  - ${p}`).join('\n');
@@ -69,10 +47,6 @@ function cleanup(tmpDir: string | null): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Before / After hooks
-// ---------------------------------------------------------------------------
-
 Before({ tags: '@adw-537' }, function () {
   ctx.fixtureRoot = null;
   ctx.secondFixtureRoot = null;
@@ -86,10 +60,6 @@ After({ tags: '@adw-537' }, function () {
   ctx.fixtureRoot = null;
   ctx.secondFixtureRoot = null;
 });
-
-// ---------------------------------------------------------------------------
-// Given — primary fixture setup
-// ---------------------------------------------------------------------------
 
 Given(
   'a fixture framework whose adw_init spec declares hash inputs:',
@@ -119,10 +89,6 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// Given — second fixture setup
-// ---------------------------------------------------------------------------
-
 Given(
   'a second fixture framework whose adw_init spec declares hash inputs:',
   function (dataTable: DataTable) {
@@ -139,10 +105,6 @@ Given(
     writeFixtureFile(ctx.secondFixtureRoot, filePath, content);
   },
 );
-
-// ---------------------------------------------------------------------------
-// When — hash computation
-// ---------------------------------------------------------------------------
 
 When('the framework content hash is computed for the fixture framework', function () {
   assert.ok(ctx.fixtureRoot, 'fixture root must be set');
@@ -195,10 +157,6 @@ When('the framework content hash is computed for the ADW framework under test', 
   const hash = computeFrameworkHash(process.cwd());
   ctx.recordedHashes.push(hash);
 });
-
-// ---------------------------------------------------------------------------
-// Then — assertions
-// ---------------------------------------------------------------------------
 
 Then(
   'the most recent computed hash is a 64-character lowercase hexadecimal SHA256 digest',

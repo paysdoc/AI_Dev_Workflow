@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwChore — reviewPhase — happy path
 
-  # Row 15: review phase within chore flow; orchestrator posts comment.
   Scenario: chore orchestrator completes review phase and posts a comment
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1015 exists in the mock issue tracker

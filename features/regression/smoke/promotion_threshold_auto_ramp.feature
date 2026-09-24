@@ -1,18 +1,6 @@
 @regression @smoke
 Feature: Promotion Threshold — Auto-Ramp N from 90-day Activity Ratio
 
-  # Smoke: two scenarios verifying that the auto-ramping threshold N changes
-  # based on the repo's 90-day promotion-activity ratio.
-  # Background: G1, G4 (issue 512), G11 worktree at branch feature-512.
-  # Manifests pre-seed per-issue feature files and synthetic git history.
-  #
-  # Both scenarios use a borderline-score scenario (score = 4):
-  #   young repo:  N = 3 (bootstrap) → 4 ≥ 3 → scenario IS tagged
-  #   mature repo: N = 5 (ratio 5/20 = 0.25) → 4 < 5 → scenario is NOT tagged
-  #
-  # The W1 step stays pending behind the ISSUE-3-CUTOVER stub in whenSteps.ts.
-  # The scenario shape is the documented contract for the next cutover.
-
   Background:
     Given the mock GitHub API is configured to accept issue comments
     And an issue 512 exists in the mock issue tracker

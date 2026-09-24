@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwPlan — planPhase — error: stub failure
 
-  # Row 3: stub exits non-zero; orchestrator captures error; state records no partial stage.
   Scenario: orchestrator handles stub failure and records no error in state
     Given an issue 1003 exists in the mock issue tracker
     And the worktree for adwId "surface-03" is initialised at branch "surface-03"
