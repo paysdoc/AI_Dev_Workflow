@@ -1,7 +1,4 @@
 /**
- * Review Agent - Reviews implemented features against their spec files.
- * Uses the /review slash command from .claude/commands/review.md
- *
  * Passive judge: reads scenario_proof.md artifact, calls a single agent,
  * returns reviewIssues + passed. Does not run tests, start a dev server, or
  * take screenshots.
@@ -12,10 +9,7 @@ import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from 
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
-/**
- * Individual review issue from the /review command.
- * Matches the JSON output structure defined in .claude/commands/review.md
- */
+/** Matches the JSON output structure defined in .claude/commands/review.md */
 export interface ReviewIssue {
   reviewIssueNumber: number;
   issueDescription: string;
@@ -24,10 +18,7 @@ export interface ReviewIssue {
   remediationStrategy?: 'refactor' | 'patch';
 }
 
-/**
- * Review result from the /review command.
- * Matches the JSON output structure defined in .claude/commands/review.md
- */
+/** Matches the JSON output structure defined in .claude/commands/review.md */
 export interface ReviewResult {
   success: boolean;
   reviewSummary: string;
@@ -35,15 +26,10 @@ export interface ReviewResult {
   screenshots: string[];
 }
 
-/**
- * Aggregated result from running the /review command.
- */
 export interface ReviewAgentResult extends AgentResult {
-  /** Parsed review result from the JSON output */
   reviewResult: ReviewResult | null;
   /** Whether the review passed (no blocker issues) */
   passed: boolean;
-  /** Blocker issues that need patching */
   blockerIssues: ReviewIssue[];
 }
 
@@ -71,9 +57,6 @@ export const reviewResultSchema: Record<string, unknown> = {
   },
 };
 
-/**
- * Extracts ReviewResult from raw agent output.
- */
 function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
   const parsed = extractJson<ReviewResult>(output);
   if (!parsed || typeof parsed.success !== 'boolean') {
@@ -85,10 +68,7 @@ function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
   return { success: true, data: parsed };
 }
 
-/**
- * Formats structured args for the /review skill.
- * Args: adwId ($0), specFile ($1), agentName ($2), scenarioProofPath ($3 if provided)
- */
+/** Args: adwId ($0), specFile ($1), agentName ($2), scenarioProofPath ($3 if provided) */
 export function formatReviewArgs(
   adwId: string,
   specFile: string,
@@ -100,18 +80,6 @@ export function formatReviewArgs(
     : [adwId, specFile, agentName];
 }
 
-/**
- * Runs the /review command and returns parsed review results.
- * Single agent invocation — no parallelism.
- *
- * @param adwId - ADW session identifier
- * @param specFile - Path to the spec file to review against
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory
- * @param cwd - Optional working directory for the agent
- * @param issueBody - Optional issue body for fast/cheap model selection
- * @param scenarioProofPath - Path to the scenario_proof.md file produced by scenarioTestPhase
- */
 export async function runReviewAgent(
   adwId: string,
   specFile: string,

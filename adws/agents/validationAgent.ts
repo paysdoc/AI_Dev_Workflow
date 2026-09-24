@@ -1,6 +1,3 @@
-/**
- * Validation Agent - Compares an implementation plan against BDD scenarios.
- */
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { AgentResult, AgentLaunchContext } from "./claudeAgent";
@@ -43,9 +40,6 @@ export const validationResultSchema: Record<string, unknown> = {
   },
 };
 
-/**
- * Scans recursively for .feature files containing the @adw-{issueNumber} tag.
- */
 export function findScenarioFiles(issueNumber: number, worktreePath: string): string[] {
   const tag = `@adw-${issueNumber}`;
   const results: string[] = [];
@@ -74,9 +68,6 @@ export function findScenarioFiles(issueNumber: number, worktreePath: string): st
   return results;
 }
 
-/**
- * Reads the content of scenario files and formats them for prompt inclusion.
- */
 export function readScenarioContents(scenarioPaths: string[]): string {
   return scenarioPaths
     .map((p) => {
@@ -90,9 +81,6 @@ export function readScenarioContents(scenarioPaths: string[]): string {
     .join("\n\n");
 }
 
-/**
- * Returns positional args for the /validate_plan_scenarios command.
- */
 function formatValidationArgs(
   adwId: string,
   issueNumber: number,
@@ -102,10 +90,6 @@ function formatValidationArgs(
   return [adwId, String(issueNumber), planFilePath, scenarioGlob];
 }
 
-/**
- * Extracts and validates the JSON output from the validation agent.
- * Returns a structured error if parsing fails (retry loop handles recovery).
- */
 function extractValidationResult(agentOutput: string): ExtractionResult<ValidationResult> {
   const parsed = extractJson<ValidationResult>(agentOutput);
   if (!parsed || typeof parsed.aligned !== "boolean") {
@@ -133,11 +117,7 @@ const validationAgentConfig: CommandAgentConfig<ValidationResult> = {
   outputSchema: validationResultSchema,
 };
 
-/**
- * Runs the Validation Agent to compare a plan against BDD scenarios.
- * Output validation retries are handled by the commandAgent retry loop.
- * On exhaustion, throws OutputValidationError; callers catch and handle gracefully.
- */
+/** On exhaustion, throws OutputValidationError; callers catch and handle gracefully. */
 export async function runValidationAgent(
   adwId: string,
   issueNumber: number,

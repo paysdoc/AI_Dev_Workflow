@@ -1,8 +1,3 @@
-/**
- * Scenario Agent - Generates and maintains BDD scenarios from GitHub issues.
- * Uses the /scenario_writer slash command from .claude/commands/scenario_writer.md
- */
-
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 import type { Issue } from '@paysdoc/devplatform';
@@ -14,17 +9,7 @@ const scenarioAgentConfig: CommandAgentConfig<void> = {
   outputFileName: 'scenario-agent.jsonl',
 };
 
-/**
- * Runs the /scenario_writer skill to generate and maintain BDD scenarios.
- * CWD is set to the worktree so the agent writes scenario files to the target repo.
- *
- * @param issue - GitHub issue to generate scenarios for
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory
- * @param cwd - Optional working directory for the agent (worktree path)
- * @param adwId - Optional ADW workflow ID
- * @param contextPreamble - Optional context preamble for the agent
- */
+/** CWD is set to the worktree so the agent writes scenario files to the target repo. */
 export async function runScenarioAgent(
   issue: Issue,
   logsDir: string,
