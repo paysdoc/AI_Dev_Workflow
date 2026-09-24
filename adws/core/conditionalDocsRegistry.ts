@@ -22,10 +22,6 @@ export interface ConditionalDocsRegistry {
   entries: ConditionalDocEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Glob matcher (pure, no dependency)
-// ---------------------------------------------------------------------------
-
 function escapeRegexLiteral(ch: string): string {
   return /[.+^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
 }
@@ -56,10 +52,6 @@ function globToRegExp(glob: string): RegExp {
 export function matchesGlob(glob: string, filePath: string): boolean {
   return globToRegExp(glob).test(filePath);
 }
-
-// ---------------------------------------------------------------------------
-// Parser
-// ---------------------------------------------------------------------------
 
 function applyListItem(
   entry: ConditionalDocEntry,
@@ -115,10 +107,6 @@ export function parseConditionalDocs(content: string): ConditionalDocsRegistry {
   return { preamble, entries };
 }
 
-// ---------------------------------------------------------------------------
-// Serializer
-// ---------------------------------------------------------------------------
-
 function serializeEntry(entry: ConditionalDocEntry): string {
   let s = `- ${entry.docPath}`;
   if (entry.ownedGlobs.length > 0) {
@@ -140,10 +128,6 @@ export function serializeConditionalDocs(registry: ConditionalDocsRegistry): str
   }
   return registry.preamble + registry.entries.map(serializeEntry).join('\n\n') + '\n';
 }
-
-// ---------------------------------------------------------------------------
-// Ownership query
-// ---------------------------------------------------------------------------
 
 export function findOwningEntry(
   registry: ConditionalDocsRegistry,
@@ -167,10 +151,6 @@ export function findOwningEntries(
       entry.ownedGlobs.some((glob) => changedFilePaths.some((p) => matchesGlob(glob, p))),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Collapse (pure / immutable)
-// ---------------------------------------------------------------------------
 
 function unionGlobs(globLists: string[][]): string[] {
   const seen = new Set<string>();
@@ -222,10 +202,6 @@ export function collapseEntries(
   const prunedDocPaths = docPathsToCollapse.filter((p) => p !== merged.docPath);
   return { registry: { ...registry, entries: kept }, prunedDocPaths };
 }
-
-// ---------------------------------------------------------------------------
-// Upsert (pure / immutable)
-// ---------------------------------------------------------------------------
 
 export function upsertEntry(
   registry: ConditionalDocsRegistry,

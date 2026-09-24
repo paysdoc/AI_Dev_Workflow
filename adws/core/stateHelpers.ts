@@ -1,14 +1,3 @@
-/**
- * State Helper Functions
- *
- * Standalone functions extracted from AgentStateManager:
- * - findOrchestratorStatePath
- * - isAgentProcessRunning
- * - isProcessAlive
- * - createExecutionState
- * - completeExecution
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
@@ -16,10 +5,7 @@ import { AgentExecutionState } from '../types/agentTypes';
 import { isProcessLive } from './processLiveness';
 import { orchestratorNamesForScript } from './orchestratorNames';
 
-/**
- * @deprecated Use `isProcessLive` from `adws/core/processLiveness`. Kept for
- * out-of-scope call sites pending migration in subsequent issues.
- */
+/** @deprecated Use `isProcessLive` from `adws/core/processLiveness`. */
 export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -29,12 +15,6 @@ export function isProcessAlive(pid: number): boolean {
   }
 }
 
-/**
- * Creates an initial execution state.
- *
- * @param status - The initial status (defaults to 'running')
- * @returns A new AgentExecutionState object
- */
 export function createExecutionState(status: AgentExecutionState['status'] = 'running'): AgentExecutionState {
   return {
     status,
@@ -42,14 +22,6 @@ export function createExecutionState(status: AgentExecutionState['status'] = 'ru
   };
 }
 
-/**
- * Updates execution state to mark completion.
- *
- * @param execution - The existing execution state
- * @param success - Whether the execution was successful
- * @param errorMessage - Optional error message if failed
- * @returns Updated execution state
- */
 export function completeExecution(
   execution: AgentExecutionState,
   success: boolean,
@@ -64,7 +36,6 @@ export function completeExecution(
 }
 
 /**
- * Reads agent state from a state.json file at the given path.
  * This is a minimal read used internally by findOrchestratorStatePath
  * and isAgentProcessRunning to avoid circular dependencies.
  */
@@ -82,10 +53,7 @@ function readStateFile(statePath: string): Record<string, unknown> | null {
   }
 }
 
-/**
- * Returns the candidate state path owned by the top-level state's
- * orchestratorScript, or null when there is no such field or no match.
- */
+/** Returns null when there is no such field or no match. */
 function preferByTopLevelScript(
   adwDir: string,
   candidates: ReadonlyArray<{ statePath: string; agentName: string }>,
@@ -103,15 +71,9 @@ function preferByTopLevelScript(
 }
 
 /**
- * Finds the orchestrator state path for a given ADW ID.
- * Scans `agents/{adwId}/` for a subdirectory whose state.json
- * contains an agent name ending in `-orchestrator`. When multiple
- * orchestrator directories exist (e.g. a failed init-orchestrator and
- * the real sdlc-orchestrator), prefers the one matching the top-level
- * state's orchestratorScript. (#529)
- *
- * @param adwId - The ADW session identifier
- * @returns The orchestrator state directory path, or null if not found
+ * When multiple orchestrator directories exist (e.g. a failed init-orchestrator
+ * and the real sdlc-orchestrator), prefers the one matching the top-level
+ * state's orchestratorScript.
  */
 export function findOrchestratorStatePath(adwId: string): string | null {
   const adwDir = path.join(AGENTS_STATE_DIR, adwId);
@@ -129,10 +91,8 @@ export function findOrchestratorStatePath(adwId: string): string | null {
 
     if (candidates.length === 0) return null;
 
-    // Disambiguate a reused adwId (e.g. a failed init-orchestrator shadowing the
-    // real run): prefer the dir owned by the script recorded in top-level state.
-    // Fall back to the first candidate when there is no orchestratorScript or no
-    // candidate matches it. (#529)
+    // Fall back to the first candidate when there is no orchestratorScript or
+    // no candidate matches it.
     const preferred = preferByTopLevelScript(adwDir, candidates);
     return preferred ?? candidates[0].statePath;
   } catch {
@@ -140,13 +100,6 @@ export function findOrchestratorStatePath(adwId: string): string | null {
   }
 }
 
-/**
- * Checks if the agent process for a given ADW ID is still running.
- * Locates the orchestrator state, reads the PID, and checks OS liveness.
- *
- * @param adwId - The ADW session identifier
- * @returns True if the agent process is alive, false otherwise
- */
 export function isAgentProcessRunning(adwId: string): boolean {
   const statePath = findOrchestratorStatePath(adwId);
   if (!statePath) return false;

@@ -1,9 +1,6 @@
 /**
- * Dev server lifecycle helper.
- *
  * Encapsulates the full spawn → probe → retry → work → cleanup lifecycle for
- * a development server process. Exposes a single deep-module interface:
- * `withDevServer(config, work)`.
+ * a development server process.
  *
  * No production consumers are wired yet — this is pure infrastructure.
  */
@@ -14,10 +11,6 @@ import { killProcessGroup } from './processKill';
 // Re-export so existing imports from devServerLifecycle keep working.
 export { killProcessGroup } from './processKill';
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
 export interface DevServerConfig {
   startCommand: string;
   port: number;
@@ -25,26 +18,16 @@ export interface DevServerConfig {
   cwd: string;
 }
 
-// ---------------------------------------------------------------------------
-// Constants (exported for test inspection)
-// ---------------------------------------------------------------------------
-
 export const PROBE_INTERVAL_MS = 1000;
 export const PROBE_TIMEOUT_MS = 20000;
 export const MAX_START_ATTEMPTS = 3;
 export const KILL_GRACE_MS = 5000;
 
-// ---------------------------------------------------------------------------
-// Internal helpers (exported for unit-test access)
-// ---------------------------------------------------------------------------
-
-/** Replaces every `{PORT}` occurrence in `command` with the numeric `port`. */
 export function substitutePort(command: string, port: number): string {
   return command.split('{PORT}').join(String(port));
 }
 
 /**
- * Spawns `command` as a detached shell process in `cwd`.
  * Returns the `ChildProcess` — caller is responsible for cleanup.
  */
 export function spawnServer(command: string, cwd: string): ChildProcess {
@@ -61,12 +44,6 @@ export function spawnServer(command: string, cwd: string): ChildProcess {
 const sleep = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Polls `url` with HTTP GET at `intervalMs` intervals until a 2xx response
- * is received or `timeoutMs` has elapsed.
- *
- * Returns `true` when healthy, `false` on timeout.
- */
 export async function probeHealth(
   url: string,
   intervalMs: number,
@@ -87,25 +64,12 @@ export async function probeHealth(
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
-
 /**
  * Starts a dev server, runs `work`, then tears down the server.
  *
- * Lifecycle:
- * 1. Substitute `{PORT}` in `startCommand` with `config.port`.
- * 2. Loop up to `MAX_START_ATTEMPTS` times:
- *    a. Spawn the server.
- *    b. Probe the health endpoint at `PROBE_INTERVAL_MS` intervals for up to
- *       `PROBE_TIMEOUT_MS`.
- *    c. If healthy — break; proceed to `work`.
- *    d. If timed-out — kill the attempt and retry.
- * 3. If all attempts fail, log a warning and fall back to running `work` anyway.
- * 4. Run `work()` inside a `try` block.
- * 5. In the `finally` block, kill the process group (SIGTERM → SIGKILL after
- *    `KILL_GRACE_MS`) regardless of whether `work` threw.
+ * If all attempts fail, log a warning and fall back to running `work` anyway.
+ * In the `finally` block, kill the process group (SIGTERM → SIGKILL after
+ * `KILL_GRACE_MS`) regardless of whether `work` threw.
  */
 export async function withDevServer<T>(
   config: DevServerConfig,

@@ -3,15 +3,11 @@ import { classifyStage, classifyStageString } from '../stageClassifier';
 import type { StageClass } from '../stageClassifier';
 import type { WorkflowStage } from '../../types/workflowTypes';
 
-// ── Per-literal exhaustive map ────────────────────────────────────────────────
-//
 // Record<WorkflowStage, StageClass> forces a compile error if a WorkflowStage
 // literal is added without a corresponding entry here — a second exhaustiveness
-// backstop alongside the `never` guard in classifyStage itself. The type-check
-// proof is Step 9 of the plan (bunx tsc --noEmit), not a runtime assertion.
+// backstop alongside the `never` guard in classifyStage itself.
 
 const EXPECTED: Record<WorkflowStage, StageClass> = {
-  // active
   starting:           'active',
   resuming:           'active',
   build_running:      'active',
@@ -20,24 +16,19 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
   document_running:   'active',
   install_running:    'active',
 
-  // awaiting_merge
   awaiting_merge:     'awaiting_merge',
 
-  // retriable
   abandoned:          'retriable',
 
-  // terminal
   completed:          'terminal',
   discarded:          'terminal',
   paused:             'terminal',
   paused_auth:        'terminal',
 
-  // human_gated
   merge_blocked:      'human_gated',
   human_gated:        'human_gated',
   review_failed:      'human_gated',
 
-  // resumable
   classified:              'resumable',
   branch_created:          'resumable',
   plan_building:           'resumable',
@@ -83,8 +74,6 @@ describe('classifyStage — one class per WorkflowStage literal', () => {
     });
   }
 });
-
-// ── classifyStageString — dynamic and edge-case strings ───────────────────────
 
 describe('classifyStageString — dynamic phaseRunner strings', () => {
   it("routes '*_running' dynamic string to 'active'", () => {
