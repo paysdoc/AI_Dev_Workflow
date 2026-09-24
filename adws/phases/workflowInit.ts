@@ -1,8 +1,3 @@
-/**
- * Workflow initialization: sets up worktree, fetches issue, classifies type,
- * detects recovery mode, and returns a WorkflowConfig for all subsequent phases.
- */
-
 import { accessSync, constants as fsConstants } from 'fs';
 import {
   log,
@@ -53,10 +48,6 @@ import path from 'node:path';
 // Re-export worktree setup helpers so imports from this module still work
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeAssetsToWorktree } from './worktreeSetup';
 
-/**
- * Configuration shared across all workflow phase functions.
- * Created by initializeWorkflow() and passed to every phase.
- */
 export interface WorkflowConfig {
   issueNumber: number;
   adwId: string;
@@ -88,8 +79,7 @@ export interface WorkflowConfig {
 }
 
 /**
- * Resolves the provider set a workflow's RepoContext must use. The boundary is the
- * only source: with no caller-supplied identity, both the identity and the provider
+ * The boundary is the only source: with no caller-supplied identity, both the identity and the provider
  * instances come straight from the boundary — no repository is read a second time.
  * A caller-supplied identity that contradicts the boundary is refused rather than
  * served a second, ad-hoc-minted provider set naming a repository the boundary
@@ -109,24 +99,12 @@ export function resolveWorkflowProviders(
   return { repoId, providers: boundary.providers };
 }
 
-/**
- * Initializes a workflow: fetches issue, classifies type, sets up worktree,
- * initializes state, and detects recovery mode.
- * @param issueNumber - The GitHub issue number to process
- * @param adwId - Optional ADW workflow ID (recovered from prior run or generated if null)
- * @param orchestratorName - Identifier for the orchestrator agent running the workflow
- * @param options - Optional configuration overrides
- * @param options.cwd - Optional working directory override
- * @param options.issueType - Optional pre-classified issue type
- * @param options.targetRepo - Optional target repository info for operating on an external git repository
- */
 export async function initializeWorkflow(
   issueNumber: number,
   adwId: string | null,
   orchestratorName: AgentIdentifier,
   options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo; repoId?: RepoIdentifier }
 ): Promise<WorkflowConfig> {
-  // Pre-flight: verify Claude CLI is present and executable before starting the pipeline
   const claudePath = resolveClaudeCodePath();
   try {
     accessSync(claudePath, fsConstants.X_OK);
@@ -137,7 +115,6 @@ export async function initializeWorkflow(
     );
   }
 
-  // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
 
   // Construct exactly one launch boundary for this orchestrator process — a GitContext
@@ -154,7 +131,6 @@ export async function initializeWorkflow(
   const gitCtx = boundary.gitContext;
   const branchIdentityDeps = buildDefaultBranchIdentityFallbackDeps(boundary.gitContext);
 
-  // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
     throw new Error(
       'GitHub App is configured but GITHUB_PAT is not set. GITHUB_PAT is required for PR approval when using a GitHub App. Set GITHUB_PAT in your .env file.',
@@ -177,7 +153,6 @@ export async function initializeWorkflow(
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
-  // Fetch issue (targeting external repo if specified) — through the boundary's IssueTracker.
   log('Fetching issue...', 'info');
   const issue = await fetchIssueRecord(boundary.providers.issueTracker, issueNumber);
   log(`Fetched issue: ${issue.title}`, 'success');
@@ -207,8 +182,6 @@ export async function initializeWorkflow(
   } else if (recoveryState.adwId) {
     resolvedAdwId = recoveryState.adwId;
   } else {
-    // Deterministic-branch fallback: find an existing branch for this issue/classifier
-    // and recover the adwId from the persisted state store.
     const existingBranch = findExistingBranchForIssue(issueType, issueNumber, branchIdentityDeps);
     const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch, branchIdentityDeps) : null;
     if (recoveredId) {
@@ -245,7 +218,7 @@ export async function initializeWorkflow(
   // local .adw-version cannot produce a false mismatch — the authoritative source is
   // origin/<default>:.adw-version on the remote. Losers park without ever creating a
   // feature worktree; the winner's claim push uses a temp worktree created inside
-  // targetRepoWorkspacePath (existing invariant from 94059b5, unchanged).
+  // targetRepoWorkspacePath.
   if (targetRepo && targetRepoWorkspacePath) {
     const targetRepoArgs = [
       '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
@@ -271,7 +244,6 @@ export async function initializeWorkflow(
     }
   }
 
-  // Setup worktree with branch sync
   let worktreePath: string;
   let branchName = '';
   if (options?.cwd) {
@@ -279,7 +251,6 @@ export async function initializeWorkflow(
     worktreePath = options.cwd;
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
-    // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath, gitCtx);
@@ -313,7 +284,7 @@ export async function initializeWorkflow(
 
   // Create RepoContext early so it is available to board setup and subsequent phases.
   // When the resolved repoId matches the launch boundary's identity, reuse the
-  // boundary-minted providers instead of resolving a second set (#794).
+  // boundary-minted providers instead of resolving a second set.
   let repoContext: RepoContext | undefined;
   let repoIdForContext: RepoIdentifier | undefined;
   try {
@@ -329,7 +300,6 @@ export async function initializeWorkflow(
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
 
-  // Derive launch identity from the boundary — the sole identity source for this run.
   const launchRepoIdentity: RepoIdentity = { owner: boundary.repoId.owner, repo: boundary.repoId.repo };
 
   // Cross-check (not source of truth): if a prior run persisted a divergent identity for
@@ -337,7 +307,6 @@ export async function initializeWorkflow(
   const priorTopLevel = AgentStateManager.readTopLevelState(resolvedAdwId);
   crossCheckRepoIdentity(launchRepoIdentity, priorTopLevel?.repoIdentity);
 
-  // Initialize top-level workflow state file
   AgentStateManager.writeTopLevelState(resolvedAdwId, {
     adwId: resolvedAdwId,
     issueNumber,
@@ -354,7 +323,7 @@ export async function initializeWorkflow(
     agentName: orchestratorName,
     pid: process.pid,
     execution: AgentStateManager.createExecutionState('running'),
-    // Mirror the top-level write so both stores agree on branchName for new runs (#530).
+    // Mirror the top-level write so both stores agree on branchName for new runs.
     ...(branchName ? { branchName } : {}),
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);
@@ -379,14 +348,12 @@ export async function initializeWorkflow(
     });
   }
 
-  // Initialize workflow context
   const ctx: WorkflowContext = {
     issueNumber,
     adwId: resolvedAdwId,
     issueType,
   };
 
-  // Read completedPhases from existing orchestrator state (populated by pause mechanism)
   let completedPhases: string[] | undefined;
   if (recoveryState.adwId) {
     // Prefer top-level phases map (new format) over metadata string array (legacy format)
@@ -415,7 +382,6 @@ export async function initializeWorkflow(
     }
   }
 
-  // Handle recovery mode
   if (recoveryState.canResume && recoveryState.lastCompletedStage) {
     log(`Recovery mode active: last completed stage was '${recoveryState.lastCompletedStage}'`, 'info');
     if (gitCtx.hasUncommittedChanges(worktreePath)) {
@@ -435,7 +401,6 @@ export async function initializeWorkflow(
     }
   }
 
-  // Load project configuration from target repo's .adw/ directory
   const projectConfig = loadProjectConfig(worktreePath);
   if (projectConfig.hasAdwDir) {
     log('Loaded project config from .adw/ directory', 'info');
@@ -443,11 +408,9 @@ export async function initializeWorkflow(
     log('No .adw/ directory found, using default project config', 'info');
   }
 
-  // Read .github/adw.yml for the unit-test gate and upgrade auto-merge policy
   const adwYmlConfig = readAdwYmlConfig(worktreePath);
   log(`adw.yml unit-test gate: ${adwYmlConfig.unitTests ? 'enabled' : 'disabled'}`, 'info');
 
-  // Allocate a random port for the dedicated dev server instance
   const port = await allocateRandomPort();
   const applicationUrl = `http://localhost:${port}`;
   log(`Allocated port ${port} for dev server (${applicationUrl})`, 'info');
