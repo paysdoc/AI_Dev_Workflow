@@ -92,6 +92,7 @@ Rules:
 - Write scenarios as Gherkin `.feature` files
 - Each scenario must have a clear Given/When/Then structure
 - Scenario names should be specific and descriptive
+- Feature files carry no commentary. Scenario titles and steps are the explanation. At most one short line under `Feature:` if the domain term is not self-evident.
 
 ### 6. `@regression` tag maintenance sweep
 
