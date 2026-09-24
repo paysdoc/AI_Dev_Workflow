@@ -1,0 +1,23 @@
+# Dependabot version updates for ADW.
+# Only @paysdoc/devplatform (the extracted git core + forge adapters, published to
+# the npm registry) is watched. Bump PRs are merged by hand: they have no backing
+# issue and sit outside the issue-keyed ADW pipeline (see adws/README.md,
+# "Dependabot bump PRs"). Never label them adw:*.
+#
+# package-ecosystem "bun" resolves from the npm registry and also regenerates
+# bun.lock (this repo has no package-lock.json), so bump PRs stay installable.
+version: 2
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "dev"
+    allow:
+      - dependency-name: "@paysdoc/devplatform"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 5
