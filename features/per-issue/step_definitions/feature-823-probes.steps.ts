@@ -1,8 +1,3 @@
-/**
- * feature-823.feature step definitions — §2/§5 type-probe verdicts. Entry
- * file: feature-823.steps.ts (state, Before/After hooks, splitRepo).
- */
-
 import { Then } from '@cucumber/cucumber';
 import assert from 'assert';
 

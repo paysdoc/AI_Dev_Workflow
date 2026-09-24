@@ -1,18 +1,14 @@
 /**
- * Step definitions for feature-846.feature
- *
  * Drives the real `ensureTargetRepoWorkspace` (adws/core/targetRepoManager.ts)
  * in a child process (features/per-issue/support/feature-846-ensure-driver.ts)
  * against a temporary HOME and a temporary TARGET_REPOS_DIR, and asserts the
  * `~/.claude.json` workspace-trust entry `ensureWorkspaceTrusted` writes.
  *
- * A fresh temp home + temp target-repos root + bare git remote are built via
- * the Background's own Given steps, reset by this file's `@adw-846`-scoped
- * `Before`/`After` hooks. The bare remote is real git plumbing (git init
- * --bare + one commit on main), so the clone/fetch the driver performs is
- * real, not stubbed. `HOME` is overridden in the child's env because
- * `os.homedir()` honours it on POSIX; `TARGET_REPOS_DIR` because
- * `adws/core/environment.ts` binds it at import time.
+ * The bare remote is real git plumbing (git init --bare + one commit on
+ * main), so the clone/fetch the driver performs is real, not stubbed.
+ * `HOME` is overridden in the child's env because `os.homedir()` honours it
+ * on POSIX; `TARGET_REPOS_DIR` because `adws/core/environment.ts` binds it
+ * at import time.
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -26,10 +22,6 @@ const REPO_ROOT = process.cwd();
 const OWNER = 'adw-fixture';
 const REPO = 'void-846';
 const DRIVER_PATH = 'features/per-issue/support/feature-846-ensure-driver.ts';
-
-// ---------------------------------------------------------------------------
-// World
-// ---------------------------------------------------------------------------
 
 interface World846 {
   tempHome: string | null;
@@ -68,15 +60,11 @@ After({ tags: '@adw-846' }, function () {
   w = freshWorld846();
 });
 
-// ---------------------------------------------------------------------------
-// Git + fs helpers
-// ---------------------------------------------------------------------------
-
 function git(cmd: string, cwd: string): string {
   return execSync(cmd, { cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
 }
 
-/** Seeds a real bare remote + one commit on a branch literally named "main"; a filesystem path passes through convertToSshUrl untouched, so the driver's clone/fetch is local and network-free. */
+/** a filesystem path passes through convertToSshUrl untouched, so the driver's clone/fetch is local and network-free. */
 function seedBareRemote(): string {
   const bareRemote = mkdtempSync(path.join(tmpdir(), 'adw-846-bare-'));
   git('git init --bare', bareRemote);
@@ -112,7 +100,7 @@ function readProjects(home: string): Record<string, Record<string, unknown>> {
   return (config.projects as Record<string, Record<string, unknown>>) ?? {};
 }
 
-/** Runs the driver and records stdout/stderr/exit code; on success, extracts the workspace path from the LAST line of stdout — ensureWorkspaceTrusted's own info/warn logs share stdout and precede it. */
+/** on success, extracts the workspace path from the LAST line of stdout — ensureWorkspaceTrusted's own info/warn logs share stdout and precede it. */
 function runDriver(cloneUrl: string): void {
   assert.ok(w.tempHome, 'Expected a temporary home to have been created first');
   assert.ok(w.targetReposDir, 'Expected a temporary target repositories root to have been created first');
@@ -135,10 +123,6 @@ function runDriver(cloneUrl: string): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Background
-// ---------------------------------------------------------------------------
-
 Given('a temporary home directory for workspace trust', function () {
   w.tempHome = mkdtempSync(path.join(tmpdir(), 'adw-846-home-'));
 });
@@ -150,10 +134,6 @@ Given('a temporary target repositories root for workspace trust', function () {
 Given('a real git remote seeded for workspace trust', function () {
   w.bareRemote = seedBareRemote();
 });
-
-// ---------------------------------------------------------------------------
-// When / shared Then
-// ---------------------------------------------------------------------------
 
 When('the target repository workspace is ensured from a child process bound to that home', function () {
   assert.ok(w.bareRemote, 'Expected a bare git remote to have been seeded first');
@@ -178,10 +158,6 @@ Then('no .claude.json.tmp file remains in the home', function () {
   assert.ok(!existsSync(`${claudeConfigPathFor(w.tempHome)}.tmp`), 'Expected no .claude.json.tmp sibling to remain');
 });
 
-// ---------------------------------------------------------------------------
-// Scenario 1 — never-cloned repo, fresh config with no projects key
-// ---------------------------------------------------------------------------
-
 Given('the home\'s .claude.json holds a fresh config with no projects key', function () {
   assert.ok(w.tempHome, 'Expected a temporary home to exist');
   writeClaudeConfig(w.tempHome, { numStartups: 1 });
@@ -202,10 +178,6 @@ Then('the home\'s .claude.json still has the fresh config\'s sibling key intact'
   const config = readClaudeConfig(w.tempHome);
   assert.strictEqual(config.numStartups, 1);
 });
-
-// ---------------------------------------------------------------------------
-// Scenario 2 — already-cloned repo (fetch branch), sibling data preserved
-// ---------------------------------------------------------------------------
 
 Given('the workspace has already been cloned by an earlier ensure', function () {
   assert.ok(w.bareRemote, 'Expected a bare git remote to have been seeded first');
@@ -238,10 +210,6 @@ Then('the home\'s .claude.json left the sibling project untouched', function () 
   assert.deepStrictEqual(projects['/elsewhere/other'], { hasTrustDialogAccepted: true });
 });
 
-// ---------------------------------------------------------------------------
-// Scenario 3 — the trusted key is the exact reported workspace path
-// ---------------------------------------------------------------------------
-
 Given('the home\'s .claude.json holds an empty projects map', function () {
   assert.ok(w.tempHome, 'Expected a temporary home to exist');
   writeClaudeConfig(w.tempHome, { projects: {} });
@@ -253,10 +221,6 @@ Then('the home\'s .claude.json project keys contain exactly the reported workspa
   const projects = readProjects(w.tempHome);
   assert.deepStrictEqual(Object.keys(projects), [w.workspacePath]);
 });
-
-// ---------------------------------------------------------------------------
-// Scenario 4 — missing ~/.claude.json never blocks the ensure
-// ---------------------------------------------------------------------------
 
 Given('the home has no .claude.json file', function () {
   assert.ok(w.tempHome, 'Expected a temporary home to exist');
@@ -280,10 +244,6 @@ Then('the home still has no .claude.json file', function () {
   assert.ok(w.tempHome, 'Expected a temporary home to exist');
   assert.ok(!existsSync(claudeConfigPathFor(w.tempHome)), 'Expected .claude.json still not to exist');
 });
-
-// ---------------------------------------------------------------------------
-// Scenario 5 — already-trusted workspace leaves the file byte-identical
-// ---------------------------------------------------------------------------
 
 Given('the home\'s .claude.json already trusts the cloned workspace', function () {
   assert.ok(w.tempHome, 'Expected a temporary home to exist');

@@ -7,10 +7,6 @@ import {
 } from './feature-533.steps.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
-// ---------------------------------------------------------------------------
-// Given — review-agent output seeding (§§1–6)
-// ---------------------------------------------------------------------------
-
 Given(
   'the review-agent output for adwId {string} carries one blocker with remediationStrategy {string} listing files {string} and rule {string}',
   function (this: RegressionWorld, adwId: string, strategy: string, files: string, rule: string) {
@@ -147,10 +143,6 @@ Given(
   },
 );
 
-// ---------------------------------------------------------------------------
-// Given — PR mock state (§6)
-// ---------------------------------------------------------------------------
-
 Given(
   'the mock GitHub API is configured to return an open PR {int} for issue {int} with an unaddressed coding-guideline review comment',
   async function (this: RegressionWorld, prNumber: number, issueNumber: number) {
@@ -196,10 +188,6 @@ Given(
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
-
-// ---------------------------------------------------------------------------
-// Given — pr-review-agent output seeding (§6)
-// ---------------------------------------------------------------------------
 
 Given(
   'the pr-review-agent output for adwId {string} carries one blocker with remediationStrategy {string}',
