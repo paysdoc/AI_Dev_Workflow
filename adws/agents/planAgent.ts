@@ -1,8 +1,3 @@
-/**
- * Plan Agent - Generates implementation plans from GitHub issues.
- * Uses slash commands from .claude/commands/ for consistent prompt templates.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
@@ -10,10 +5,6 @@ import type { Issue, PullRequest, ReviewComment } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand, AgentResult, AgentLaunchContext } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
-/**
- * Formats issue context as arguments for plan commands.
- * Filters out ADW bot comments and surfaces actionable comment content prominently.
- */
 export function formatIssueContextAsArgs(issue: Issue): string {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
 
@@ -45,25 +36,18 @@ ${issue.body || 'No description provided.'}${actionableSection}
 ${commentsSection}`;
 }
 
-/**
- * Finds the actual plan file path for an issue.
- * Plan files follow the naming convention: issue-{number}-adw-{adwId}-sdlc_planner-{descriptiveName}.md
- * Falls back to legacy naming: issue-{number}-plan.md
- */
 function findPlanFile(issueNumber: number, worktreePath?: string): string | null {
   const specsDir = worktreePath ? path.join(worktreePath, 'specs') : 'specs';
 
   try {
     const files = fs.readdirSync(specsDir);
 
-    // Look for new naming convention: issue-{number}-adw-{adwId}-sdlc_planner-*.md
     const pattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
     const matchingFile = files.find(file => pattern.test(file));
     if (matchingFile) {
       return path.join('specs', matchingFile);
     }
 
-    // Fall back to legacy naming: issue-{number}-plan.md
     const legacyPath = `specs/issue-${issueNumber}-plan.md`;
     const fullLegacyPath = worktreePath ? path.join(worktreePath, legacyPath) : legacyPath;
     try {
@@ -77,27 +61,15 @@ function findPlanFile(issueNumber: number, worktreePath?: string): string | null
   }
 }
 
-/**
- * Gets the path to the plan file for an issue.
- * Returns the actual plan file path if it exists, otherwise returns the legacy path.
- * @param issueNumber - The issue number to find the plan file for
- * @param worktreePath - Optional worktree path to locate the plan file in.
- */
 export function getPlanFilePath(issueNumber: number, worktreePath?: string): string {
   const foundPath = findPlanFile(issueNumber, worktreePath);
   if (foundPath) {
     return foundPath;
   }
-  // Fall back to legacy naming if no file is found
   return `specs/issue-${issueNumber}-plan.md`;
 }
 
-/**
- * Checks if the plan file exists for an issue.
- * Returns true if the file exists and has content.
- * @param issueNumber - The issue number to check for
- * @param worktreePath - Optional worktree path to locate the plan file in.
- */
+/** Returns true if the file exists and has content. */
 export function planFileExists(issueNumber: number, worktreePath?: string): boolean {
   const planPath = getPlanFilePath(issueNumber, worktreePath);
   const fullPath = worktreePath ? path.join(worktreePath, planPath) : planPath;
@@ -109,12 +81,6 @@ export function planFileExists(issueNumber: number, worktreePath?: string): bool
   }
 }
 
-/**
- * Reads the plan file content for an issue.
- * Returns the file content string on success, or null on any error.
- * @param issueNumber - The issue number to read the plan for
- * @param worktreePath - Optional worktree path to locate the plan file in.
- */
 export function readPlanFile(issueNumber: number, worktreePath?: string): string | null {
   const planPath = getPlanFilePath(issueNumber, worktreePath);
   const fullPath = worktreePath ? path.join(worktreePath, planPath) : planPath;
@@ -125,25 +91,16 @@ export function readPlanFile(issueNumber: number, worktreePath?: string): string
   }
 }
 
-/**
- * Detects and corrects plan files with swapped issueNumber/adwId in the filename.
- * The plan agent sometimes swaps $1 (issueNumber) and $2 (adwId), producing
- * `issue-{adwId}-adw-{issueNumber}-...` instead of `issue-{issueNumber}-adw-{adwId}-...`.
- * This function detects and renames such files to the correct convention.
- *
- * @returns The corrected relative path if a rename was performed, or null if no correction was needed.
- */
+/** The plan agent sometimes swaps $1 (issueNumber) and $2 (adwId), producing `issue-{adwId}-adw-{issueNumber}-...` instead of `issue-{issueNumber}-adw-{adwId}-...`. */
 export function correctPlanFileNaming(issueNumber: number, worktreePath?: string): string | null {
   const specsDir = worktreePath ? path.join(worktreePath, 'specs') : 'specs';
 
   try {
     const files = fs.readdirSync(specsDir);
 
-    // Already correctly named? No correction needed.
     const correctPattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
     if (files.some(file => correctPattern.test(file))) return null;
 
-    // Look for swapped naming: adwId placed in issue- position, issueNumber placed in adw- position
     const swappedPattern = new RegExp(`^issue-(.+)-adw-${issueNumber}-sdlc_planner-(.+\\.md)$`);
     const swappedFile = files.find(file => swappedPattern.test(file));
     if (swappedFile) {
@@ -164,12 +121,8 @@ export function correctPlanFileNaming(issueNumber: number, worktreePath?: string
   return null;
 }
 
-/** The port-typed PR fields the pr-review prompt needs. */
 export type PrReviewPullRequest = Pick<PullRequest, 'number' | 'title' | 'url' | 'sourceBranch'>;
 
-/**
- * Formats PR review comments for inclusion in a prompt.
- */
 function formatPrReviewComments(comments: readonly ReviewComment[]): string {
   return comments
     .map(c => {
@@ -181,9 +134,6 @@ function formatPrReviewComments(comments: readonly ReviewComment[]): string {
     .join('\n\n---\n\n');
 }
 
-/**
- * Formats PR review context as arguments for the /pr_review command.
- */
 function formatPrReviewContextAsArgs(
   pr: PrReviewPullRequest,
   comments: readonly ReviewComment[],
@@ -202,17 +152,6 @@ ${existingPlanContent}
 ${commentsSection}`;
 }
 
-/**
- * Runs the Plan Agent to create a revision plan for PR review comments.
- * Uses the /pr_review slash command from .claude/commands/pr_review.md
- *
- * @param pr - PR fields including number, title, branch, etc.
- * @param comments - PR review comments to address
- * @param existingPlanContent - Existing plan content or PR body for context
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- */
 export async function runPrReviewPlanAgent(
   pr: PrReviewPullRequest,
   comments: readonly ReviewComment[],
@@ -230,17 +169,6 @@ export async function runPrReviewPlanAgent(
   return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), getEffortForCommand('/pr_review', issueBody), undefined, statePath, cwd, contextPreamble, undefined, undefined, launchContext);
 }
 
-/**
- * Runs the Plan Agent to generate an implementation plan.
- * Uses the appropriate slash command (/feature, /bug, /chore, /pr_review) based on issue type.
- *
- * @param issue - GitHub issue to generate a plan for
- * @param logsDir - Directory to write agent logs
- * @param issueType - Type of issue (determines which slash command to use)
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- * @param adwId - Optional ADW workflow ID for plan file naming
- */
 export async function runPlanAgent(
   issue: Issue,
   logsDir: string,
@@ -275,6 +203,5 @@ export async function runPlanAgent(
   const args = [String(issue.number), adwId || 'adw-unknown', issueJson];
   const outputFile = path.join(logsDir, 'plan-agent.jsonl');
 
-  // Use the issueType directly as the command (e.g., '/feature', '/bug', '/chore', '/pr_review')
   return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd, contextPreamble, undefined, undefined, launchContext);
 }

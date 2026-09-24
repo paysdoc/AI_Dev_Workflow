@@ -1,8 +1,3 @@
-/**
- * Shared test retry logic for unit and E2E tests.
- * Used by both adwTest.tsx and adwPrReview.tsx workflows.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, type ModelUsageMap, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts } from '../core';
@@ -37,20 +32,14 @@ export interface TestRetryOptions {
   onTestFailed?: (attempt: number, maxAttempts: number) => void;
   /** Called when a test resolution agent's context is compacted; continuation number is 1-based */
   onCompactionDetected?: (continuationNumber: number) => void;
-  /** Optional working directory for agent operations (defaults to process.cwd()) */
   cwd?: string;
-  /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
-  /** Optional issue body for fast/cheap model selection */
   issueBody?: string;
-  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
+  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection. */
   launchContext?: AgentLaunchContext;
 }
 
-/**
- * Runs unit tests with automatic retry and resolution attempts on failure.
- * Derives pass/fail from the JUnit report emitted to `unitReportPath`.
- */
+/** Derives pass/fail from the JUnit report emitted to `unitReportPath`. */
 export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
   const {
     logsDir,
@@ -65,7 +54,6 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     launchContext,
   } = opts;
 
-  // Ensure the report directory exists and clear any stale report.
   fs.mkdirSync(path.dirname(unitReportPath), { recursive: true });
   fs.rmSync(unitReportPath, { force: true });
 
@@ -77,7 +65,6 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     statePath,
     label: 'unit tests',
     run: async () => {
-      // Clear stale report before each attempt.
       fs.rmSync(unitReportPath, { force: true });
       const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody, launchContext);
       reportRef.value = readJUnitReport(unitReportPath);

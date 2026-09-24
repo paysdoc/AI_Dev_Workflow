@@ -1,6 +1,3 @@
-/**
- * Claude Code agent runner for executing AI agents.
- */
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,15 +21,10 @@ export type {
   JsonlMessage, JsonlAssistantMessage, JsonlResultMessage,
 } from '../core/claudeStreamParser';
 
-// AgentResult, RateLimitError, and AuthRequiredError live in types/agentTypes.ts.
 // Re-exported here for backward compatibility.
 export type { AgentResult } from '../types/agentTypes';
 export { RateLimitError, AuthRequiredError } from '../types/agentTypes';
 
-/**
- * Saves the prompt to a file in the agent's state directory for replay and audit.
- * Extracts the slash command name from the prompt start for the filename.
- */
 function savePrompt(prompt: string, statePath: string): void {
   const promptsDir = path.join(statePath, 'prompts');
   fs.mkdirSync(promptsDir, { recursive: true });
@@ -43,16 +35,11 @@ function savePrompt(prompt: string, statePath: string): void {
   fs.writeFileSync(path.join(promptsDir, filename), prompt, 'utf-8');
 }
 
-/** Delay helper for retry logic. */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Launch-boundary facts threaded into a spawned agent. `gitContext` narrows to
- * `mainRepoPath` only — the seam a spawned agent needs to learn its main repo
- * path without constructing a GitContext of its own (#822).
- */
+/** `gitContext` narrows to `mainRepoPath` only — the seam a spawned agent needs to learn its main repo path without constructing a GitContext of its own. */
 export interface AgentLaunchContext {
   selfHost: boolean;
   adwId: string;
@@ -60,22 +47,11 @@ export interface AgentLaunchContext {
 }
 
 /**
- * Runs a Claude Code agent with a slash command.
  * The command is passed as a CLI argument rather than via stdin.
  *
- * @param command - The slash command to invoke (e.g., '/implement', '/feature')
  * @param args - Arguments to pass to the command. A string replaces $ARGUMENTS; an array passes each element as a separate positional argument ($1, $2, $3, ...).
- * @param agentName - Human-readable name for logging
- * @param outputFile - Path to write JSONL output
- * @param model - The model to use ('opus', 'sonnet', 'haiku')
- * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
- * @param onProgress - Optional callback for progress updates
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
- * @param phaseName - Optional phase name used to look up the per-phase watchdog timeout.
  * @param launchContext - Optional launch-boundary facts used to decide guardrails `--settings`
- *   injection (issue #762) and to resolve ADW_MAIN_REPO_PATH via its `gitContext` (issue #822).
+ *   injection and to resolve ADW_MAIN_REPO_PATH via its `gitContext`.
  *   Absent → treated as self-host, so an un-threaded caller never injects (fail-safe = today's
  *   behaviour).
  */
@@ -94,7 +70,6 @@ export async function runClaudeAgentWithCommand(
   subprocessEnv?: NodeJS.ProcessEnv,
   launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
-  // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
   const escapeArg = (a: string): string => `'${a.replace(/'/g, "'\\''")}'`;
   const quotedArgs = typeof args === 'string'
@@ -104,7 +79,6 @@ export async function runClaudeAgentWithCommand(
     ? `${contextPreamble}\n\n${command} ${quotedArgs}`
     : `${command} ${quotedArgs}`;
 
-  // Write initial state if state path provided
   if (statePath) {
     AgentStateManager.appendLog(statePath, `Starting ${agentName} agent with command: ${command}`, prompt);
     AgentStateManager.appendLog(statePath, `Model: ${model}`);
@@ -139,7 +113,6 @@ export async function runClaudeAgentWithCommand(
   // ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned
   // agent. A worktree resolves to the same project key as the framework checkout, so
   // without this the operator's interactive-session memories are read as instructions
-  // (#797 plan agent re-ran /install from a memory note and blew its context budget).
   // Set after the overlay so no caller can re-enable it.
   spawnEnv['CLAUDE_CODE_DISABLE_AUTO_MEMORY'] = '1';
   const resolvedCwd = cwd || process.cwd();
@@ -153,7 +126,7 @@ export async function runClaudeAgentWithCommand(
     }
   }
 
-  // Guardrails --settings injection (issue #762) — target-repo runs only. An absent
+  // Guardrails --settings injection — target-repo runs only. An absent
   // launchContext defaults selfHost to true, so an un-threaded caller never injects
   // (fail-safe = today's behaviour).
   const guardrailsDecision = await resolveGuardrailsDecisionForSpawn(
@@ -201,7 +174,6 @@ export async function runClaudeAgentWithCommand(
       log(`Claude CLI ENOENT retry (attempt ${attempt + 2}/3), re-resolved path: ${newPath}`, 'warn');
       const retryProcess = spawn(newPath, cliArgs, spawnOptions);
 
-      // Mirror the watchdog setup for the retry path.
       let retryWatchdogFired = false;
       const retryWatchdog = setTimeout(() => {
         retryWatchdogFired = true;
@@ -228,7 +200,6 @@ export async function runClaudeAgentWithCommand(
     throw new RateLimitError(agentName);
   }
 
-  // Retry once on expired OAuth token — verify auth is still valid then respawn the agent.
   // A fresh CLI process handles OAuth token refresh automatically on startup.
   if (!result.success && result.authExpired) {
     log(`${agentName}: OAuth token expired. Checking auth status before retry...`, 'warn');
