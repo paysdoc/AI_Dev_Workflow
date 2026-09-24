@@ -13,8 +13,6 @@ import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError, 
 import type { CreatePROptions } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const MOCK_HASH = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const FRAMEWORK_ROOT = '/framework';
@@ -51,8 +49,6 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     ...overrides,
   };
 }
-
-// ── Pure helpers ──────────────────────────────────────────────────────────────
 
 describe('buildUpgradePrBody', () => {
   it('begins with Implements #<issueNumber>', () => {
@@ -98,8 +94,6 @@ describe('buildUpgradeFailureComment', () => {
     expect(comment).toContain('541');
   });
 });
-
-// ── Success path ──────────────────────────────────────────────────────────────
 
 describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () => {
   it('no-ops with reason=pr_already_exists when a PR already exists for the claim branch', async () => {
@@ -207,8 +201,6 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
   });
 });
 
-// ── HITL opt-in paths ─────────────────────────────────────────────────────────
-
 describe('executeUpgrade — hitl:true path', () => {
   it('does not call mergePR when hitl: true', async () => {
     const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
@@ -268,8 +260,6 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
   });
 });
 
-// ── Claim-lost path (non-fast-forward push) ───────────────────────────────────
-
 describe('executeUpgrade — non-fast-forward push parks instead of crashing', () => {
   function rejectingDeps(extra: Partial<UpgradeDeps> = {}): UpgradeDeps {
     const nonFf = Object.assign(new Error('failed to push some refs'), {
@@ -313,8 +303,6 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
     expect(result.reason).toBe('push_error');
   });
 });
-
-// ── Step 6 no-throw: commit/push failures return, not throw (issue #730) ─────
 
 describe('executeUpgrade — step 6 commit/push failures', () => {
   it('commitChanges throw → outcome=failed, reason=commit_error, one counted failure comment, no push/PR', async () => {
@@ -410,8 +398,6 @@ describe('parseAdwYml — malformed state flows through default path', () => {
   });
 });
 
-// ── Non-workflow comment helpers ──────────────────────────────────────────────
-
 describe('buildUpgradeHitlComment', () => {
   it('is NOT an ADW workflow comment', () => {
     const comment = buildUpgradeHitlComment(99, 'test-adw-id');
@@ -446,8 +432,6 @@ describe('buildUpgradeMergeFailedComment', () => {
   });
 });
 
-// ── Branch derivation ─────────────────────────────────────────────────────────
-
 describe('executeUpgrade — branch derivation', () => {
   it('calls ensureWorktree with adw-upgrade-<hash> (matches buildClaimBranchName)', async () => {
     const deps = makeDeps();
@@ -460,8 +444,6 @@ describe('executeUpgrade — branch derivation', () => {
     );
   });
 });
-
-// ── LLM failure path ──────────────────────────────────────────────────────────
 
 describe('executeUpgrade — LLM failure path', () => {
   it('returns outcome=failed with reason=llm_failed', async () => {
@@ -507,8 +489,6 @@ describe('executeUpgrade — LLM failure path', () => {
   });
 });
 
-// ── Worktree error path ───────────────────────────────────────────────────────
-
 describe('executeUpgrade — worktree error path', () => {
   it('returns outcome=failed with reason=worktree_error when ensureWorktree throws', async () => {
     const deps = makeDeps({
@@ -538,8 +518,6 @@ describe('executeUpgrade — worktree error path', () => {
     expect(deps.createPullRequest).not.toHaveBeenCalled();
   });
 });
-
-// ── E1: anti-brick gate — regen_incomplete path ───────────────────────────────
 
 describe('executeUpgrade — anti-brick verification gate (E1)', () => {
   it('returns outcome=failed, reason=regen_incomplete when verifyAdwRegen returns ok:false', async () => {
@@ -576,8 +554,6 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
     expect(isAdwComment(body)).toBe(false);
   });
 });
-
-// ── Validity gate — single-arg signature ─────────────────────────────────────
 
 describe('executeUpgrade — validity gate', () => {
   it('calls verifyAdwRegen with (worktreePath) — one-arg validity-only signature', async () => {
@@ -619,8 +595,6 @@ describe('executeUpgrade — validity gate', () => {
   });
 });
 
-// ── E2: gate pass — proceeds to stamp + PR ────────────────────────────────────
-
 describe('executeUpgrade — gate passes (E2)', () => {
   it('calls writeAdwVersion when verifyAdwRegen returns ok:true', async () => {
     const deps = makeDeps(); // verifyAdwRegen returns ok:true by default
@@ -637,8 +611,6 @@ describe('executeUpgrade — gate passes (E2)', () => {
     expect(result.reason).toBe('pr_merged');
   });
 });
-
-// ── E3: ordering — copyInitCommandToWorktree before runInitCommand ─────────────
 
 describe('executeUpgrade — copy-before-init ordering (E3)', () => {
   it('calls copyInitCommandToWorktree before runInitCommand', async () => {
@@ -663,8 +635,6 @@ describe('executeUpgrade — copy-before-init ordering (E3)', () => {
     );
   });
 });
-
-// ── Starter guardrails settings copy (#763) ───────────────────────────────────
 
 describe('executeUpgrade — starter guardrails settings copy (#763)', () => {
   it('calls copyStarterSettings exactly once with (worktreePath, frameworkRepoRoot)', async () => {
@@ -723,8 +693,6 @@ describe('executeUpgrade — starter guardrails settings copy (#763)', () => {
   });
 });
 
-// ── Hash error path ───────────────────────────────────────────────────────────
-
 describe('executeUpgrade — hash error path', () => {
   it('returns outcome=failed with reason=hash_error when computeFrameworkHash throws', async () => {
     const deps = makeDeps({
@@ -755,8 +723,6 @@ describe('executeUpgrade — hash error path', () => {
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
   });
 });
-
-// ── Failure-cap escalation (Part B) ──────────────────────────────────────────
 
 describe('executeUpgrade — failure-cap escalation', () => {
   function makeEscalateDeps(failureCommentCount: number, cap: number, overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
@@ -828,8 +794,6 @@ describe('executeUpgrade — failure-cap escalation', () => {
   });
 });
 
-// ── Entry gate: already-escalated ─────────────────────────────────────────────
-
 describe('executeUpgrade — entry gate (already-escalated issue)', () => {
   it('returns outcome=escalated immediately when terminal label is present', async () => {
     const deps = makeDeps({
@@ -874,8 +838,6 @@ describe('executeUpgrade — entry gate (already-escalated issue)', () => {
   });
 });
 
-// ── Scoped regen commit (Part D) ──────────────────────────────────────────────
-
 describe('executeUpgrade — scoped regen commit (Part D)', () => {
   it('calls commitChanges with excludePaths for adw_init.md', async () => {
     const deps = makeDeps();
@@ -888,8 +850,6 @@ describe('executeUpgrade — scoped regen commit (Part D)', () => {
     );
   });
 });
-
-// ── Reconcile-before-regen (stale worktree) ───────────────────────────────────
 
 describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
   it('calls reconcileWorktreeToRemote once with the worktreePath and claim branch', async () => {

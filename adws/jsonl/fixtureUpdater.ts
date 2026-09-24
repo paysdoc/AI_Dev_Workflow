@@ -1,5 +1,4 @@
 /**
- * Programmatic fixture envelope updater.
  * Updates envelope fields in fixture files to match the probed schema while
  * preserving hand-maintained payload content.
  *
@@ -16,12 +15,7 @@ const __dirname = path.dirname(__filename);
 const DEFAULT_SCHEMA_PATH = path.join(__dirname, 'schema.json');
 const DEFAULT_FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
-// ---------------------------------------------------------------------------
-// Envelope / payload boundary definitions
-// ---------------------------------------------------------------------------
-
 /**
- * Top-level envelope field names for each message type.
  * These are structural fields whose presence/absence is controlled by the schema.
  * Payload fields (result text, cost figures, content values) are always preserved.
  */
@@ -30,12 +24,7 @@ const ENVELOPE_FIELDS: Record<string, ReadonlySet<string>> = {
   assistant: new Set(['type', 'message']),
 };
 
-/** Envelope sub-fields within `message` for assistant messages. */
 const ASSISTANT_MESSAGE_ENVELOPE_FIELDS = new Set(['id', 'model', 'usage']);
-
-// ---------------------------------------------------------------------------
-// Default value helpers
-// ---------------------------------------------------------------------------
 
 function defaultValue(type: SchemaField['type']): unknown {
   switch (type) {
@@ -48,11 +37,6 @@ function defaultValue(type: SchemaField['type']): unknown {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Per-message-type envelope merge
-// ---------------------------------------------------------------------------
-
-/** Merges envelope fields for a `result` message. */
 function mergeResultEnvelope(
   fixture: Record<string, unknown>,
   schemaFields: SchemaField[]
@@ -69,7 +53,6 @@ function mergeResultEnvelope(
     }
   }
 
-  // Remove envelope fields no longer in schema
   const schemaEnvelopeNames = new Set(
     schemaFields.filter(f => envelopeSet.has(f.name)).map(f => f.name)
   );
@@ -83,7 +66,6 @@ function mergeResultEnvelope(
   return { merged, changes };
 }
 
-/** Merges envelope sub-fields within `message.usage` for an assistant message. */
 function mergeUsageEnvelope(
   usage: Record<string, unknown>,
   usageSchemaFields: SchemaField[]
@@ -91,7 +73,6 @@ function mergeUsageEnvelope(
   const merged: Record<string, unknown> = { ...usage };
   const changes: string[] = [];
 
-  // Add missing usage fields
   for (const field of usageSchemaFields) {
     if (!(field.name in merged)) {
       merged[field.name] = defaultValue(field.type);
@@ -99,7 +80,6 @@ function mergeUsageEnvelope(
     }
   }
 
-  // Remove usage fields no longer in schema
   const schemaNames = new Set(usageSchemaFields.map(f => f.name));
   for (const key of Object.keys(merged)) {
     if (!schemaNames.has(key)) {
@@ -111,7 +91,6 @@ function mergeUsageEnvelope(
   return { merged, changes };
 }
 
-/** Merges envelope fields for an `assistant` message. */
 function mergeAssistantEnvelope(
   fixture: Record<string, unknown>,
   schemaFields: SchemaField[]
@@ -129,7 +108,6 @@ function mergeAssistantEnvelope(
 
   const message: Record<string, unknown> = { ...(existingMessage as Record<string, unknown>) };
 
-  // Add missing message envelope sub-fields
   for (const field of msgSchemaSubFields) {
     if (!ASSISTANT_MESSAGE_ENVELOPE_FIELDS.has(field.name)) continue;
     if (!(field.name in message)) {
@@ -138,7 +116,6 @@ function mergeAssistantEnvelope(
     }
   }
 
-  // Merge usage sub-fields if schema has them
   const usageSchemaField = msgSchemaSubFields.find(f => f.name === 'usage');
   if (usageSchemaField?.fields && usageSchemaField.fields.length > 0) {
     const existingUsage = message['usage'];
@@ -158,18 +135,6 @@ function mergeAssistantEnvelope(
   return { merged, changes };
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Updates envelope fields in all fixture files to match the probed schema,
- * preserving payload content.
- *
- * @param schemaPath - Path to schema.json (defaults to adws/jsonl/schema.json).
- * @param fixturesDir - Path to fixtures directory (defaults to adws/jsonl/fixtures/).
- * @returns Array of UpdateResult, one per fixture file.
- */
 export function updateFixtureEnvelopes(
   schemaPath: string = DEFAULT_SCHEMA_PATH,
   fixturesDir: string = DEFAULT_FIXTURES_DIR
@@ -232,10 +197,6 @@ export function updateFixtureEnvelopes(
     return { fixturePath: relPath, changed: true, changes };
   });
 }
-
-// ---------------------------------------------------------------------------
-// Standalone entry point
-// ---------------------------------------------------------------------------
 
 const isMain = path.resolve(process.argv[1] ?? '') === path.resolve(__filename);
 if (isMain) {
