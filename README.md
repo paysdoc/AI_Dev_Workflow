@@ -663,8 +663,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
 │   │   ├── branchOperations.test.ts
-│   │   ├── commitOperations.test.ts
-│   │   ├── fetchAndResetToRemote.test.ts
 │   │   ├── pushBranch.integration.test.ts
 │   │   ├── worktreeProbe.test.ts
 │   │   ├── worktreeReset.test.ts
@@ -723,6 +721,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
+│   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
@@ -884,6 +883,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── guardReport.ts       # Formats collected violations into a guard report
 │   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside a one-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts only; the library's own forgeProviders.ts is no longer a second in-repo site to sanction since #840)
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
+├── checkCommentOnly.ts  # CI guard: flags comment-only diff hunks that violate the comment-discipline guideline
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
@@ -911,6 +911,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 .adw-version                # Framework content hash — read by upgradeGate on every workflow start
 .github/
 ├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
+├── dependabot.yml       # Watches @paysdoc/devplatform on npm, weekly, against dev — merged by hand, outside the ADW pipeline
 └── workflows/
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
     ├── git-cli-guard.yml   # CI guard: rejects direct git/gh shell-outs that bypass GitContext
@@ -970,6 +971,7 @@ test/                   # Integration test infrastructure
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
+│   ├── gitContextFixture.ts    # Fixture GitContext builder for tests
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
