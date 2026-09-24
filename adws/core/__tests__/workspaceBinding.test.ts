@@ -10,8 +10,6 @@ function repoId(overrides: Partial<RepoIdentifier> = {}): RepoIdentifier {
   return { owner: 'acme', repo: 'webapp', platform: Platform.GitHub, ...overrides };
 }
 
-// ── validateGitRemote ─────────────────────────────────────────────────────────
-
 describe('validateGitRemote', () => {
   it('accepts an HTTPS remote matching the declared identity', () => {
     const ctx = { remoteUrl: () => 'https://github.com/acme/webapp.git' };
@@ -59,8 +57,6 @@ describe('validateGitRemote', () => {
     expect(seenCwd).toBe('/a/specific/dir');
   });
 });
-
-// ── bindWorkspaceContext ──────────────────────────────────────────────────────
 
 function makeProviders(): BoundProviders {
   return Object.freeze({
