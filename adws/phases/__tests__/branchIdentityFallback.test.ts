@@ -6,10 +6,6 @@ import {
 } from '../branchIdentityFallback';
 import type { AgentState } from '../../types/agentTypes';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function makeDeps(overrides: Partial<BranchIdentityFallbackDeps>): BranchIdentityFallbackDeps {
   return {
     listCandidateBranches: () => [],
@@ -31,10 +27,6 @@ function stateWith(branchName: string, lastActivity?: string): AgentState {
     phases,
   } as unknown as AgentState;
 }
-
-// ---------------------------------------------------------------------------
-// findExistingBranchForIssue
-// ---------------------------------------------------------------------------
 
 describe('findExistingBranchForIssue', () => {
   it('returns a matching branch when one exists', () => {
@@ -86,10 +78,6 @@ describe('findExistingBranchForIssue', () => {
     expect(findExistingBranchForIssue('/feature', 641, deps)).toBe('feature-issue-641-first');
   });
 });
-
-// ---------------------------------------------------------------------------
-// recoverAdwIdForBranch
-// ---------------------------------------------------------------------------
 
 describe('recoverAdwIdForBranch', () => {
   it('returns the adwId whose persisted branchName matches', () => {

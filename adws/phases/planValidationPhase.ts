@@ -1,8 +1,3 @@
-/**
- * Plan Validation phase execution for workflows.
- * Validates implementation plan against BDD scenarios and resolves mismatches.
- */
-
 import {
   log,
   AgentStateManager,
@@ -25,10 +20,6 @@ import {
 import type { ValidationResult } from "../agents";
 import type { WorkflowConfig } from "./workflowInit";
 
-/**
- * Executes the Plan Validation phase: compares plan against BDD scenarios,
- * resolves mismatches, and optionally commits updated artifacts.
- */
 export async function executePlanValidationPhase(
   config: WorkflowConfig
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
@@ -57,7 +48,6 @@ export async function executePlanValidationPhase(
   log("Phase: Plan Validation", "info");
   AgentStateManager.appendLog(orchestratorStatePath, "Starting plan validation phase");
 
-  // Step 1: Verify plan file exists
   const planContent = readPlanFile(issueNumber, worktreePath);
   if (!planContent) {
     const planPath = getPlanFilePath(issueNumber, worktreePath);
@@ -66,7 +56,6 @@ export async function executePlanValidationPhase(
 
   const planFilePath = getPlanFilePath(issueNumber, worktreePath);
 
-  // Step 2: Discover scenario files
   const scenarioPaths = findScenarioFiles(issueNumber, worktreePath);
   if (scenarioPaths.length === 0) {
     log(`No BDD scenario files tagged @adw-${issueNumber} found. Skipping plan validation.`, "info");
@@ -75,12 +64,10 @@ export async function executePlanValidationPhase(
   }
   log(`Found ${scenarioPaths.length} scenario file(s) for validation`, "info");
 
-  // Step 3: Post plan_validating stage comment
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, "plan_validating", ctx);
   }
 
-  // Step 4: Run initial Validation Agent
   const validationAgentStatePath = AgentStateManager.initializeState(adwId, "validation-agent", orchestratorStatePath);
   AgentStateManager.writeState(validationAgentStatePath, {
     adwId,
@@ -110,7 +97,6 @@ export async function executePlanValidationPhase(
   } catch (err) {
     if (err instanceof OutputValidationError) {
       log(`Validation agent output validation exhausted: ${err.lastValidationError}`, 'warn');
-      // Return a failed validation result so the orchestrator can handle it
       return { costUsd, modelUsage };
     }
     throw err;
@@ -129,7 +115,6 @@ export async function executePlanValidationPhase(
     ),
   });
 
-  // Step 5: If aligned, we're done
   if (initialValidation.validationResult.aligned) {
     log("Plan validation passed: plan and scenarios are aligned.", "success");
     AgentStateManager.appendLog(orchestratorStatePath, "Plan validation passed: aligned");
@@ -139,7 +124,6 @@ export async function executePlanValidationPhase(
     return { costUsd, modelUsage };
   }
 
-  // Step 6: Mismatch found — enter resolve loop
   log(`Plan validation found ${initialValidation.validationResult.mismatches.length} mismatch(es). Entering resolution loop.`, "info");
   AgentStateManager.appendLog(orchestratorStatePath, `Plan validation found mismatches: ${initialValidation.validationResult.summary}`);
 
@@ -149,12 +133,10 @@ export async function executePlanValidationPhase(
   for (let attempt = 1; attempt <= MAX_VALIDATION_RETRY_ATTEMPTS; attempt++) {
     log(`Resolution attempt ${attempt}/${MAX_VALIDATION_RETRY_ATTEMPTS}`, "info");
 
-    // Post plan_resolving stage comment
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, "plan_resolving", ctx);
     }
 
-    // Run Resolution Agent
     const resolutionAgentStatePath = AgentStateManager.initializeState(adwId, "resolution-agent", orchestratorStatePath);
     AgentStateManager.writeState(resolutionAgentStatePath, {
       adwId,
@@ -208,15 +190,12 @@ export async function executePlanValidationPhase(
 
     artifactsChanged = resolution.resolutionResult.decisions.length > 0;
 
-    // Log resolution decisions to ADW state
     AgentStateManager.appendLog(orchestratorStatePath, `Resolution ${attempt}: ${resolution.resolutionResult.decisions.length} decision(s)`);
 
-    // Post plan_resolved stage comment
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, "plan_resolved", ctx);
     }
 
-    // Re-run Validation Agent
     const reValidationStatePath = AgentStateManager.initializeState(adwId, "validation-agent", orchestratorStatePath);
     AgentStateManager.writeState(reValidationStatePath, {
       adwId,
@@ -281,7 +260,6 @@ export async function executePlanValidationPhase(
     }
   }
 
-  // Commit updated artifacts if any changes were made
   if (artifactsChanged) {
     log("Committing updated plan/scenario artifacts...", "info");
     await runCommitAgent("validation-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, launchContext);

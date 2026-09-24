@@ -4,10 +4,6 @@ import { runDocsGuards, DOC_BLOAT_THRESHOLD_LINES, type DocSize, type GuardFlags
 import { log as defaultLog, type LogLevel } from '../core';
 import type { IssueTracker } from '@paysdoc/devplatform';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface RefactorFollowUp {
   docPath: string;
   ownedGlobs: string[];
@@ -32,10 +28,6 @@ export interface DocsSelfCheckParams {
   threshold?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Default deps factory
-// ---------------------------------------------------------------------------
-
 function findExistingRefactorIssueDefault(tracker: IssueTracker, docPath: string): number | null {
   try {
     const results = tracker.searchOpenIssues(`docs-bloat: ${docPath}`, 5);
@@ -54,10 +46,6 @@ export function buildDefaultDocsSelfCheckDeps(issueTracker: IssueTracker): DocsS
     log: defaultLog,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Bloat routing helper
-// ---------------------------------------------------------------------------
 
 function routeBloatFlag(
   flag: BloatFlag,
@@ -96,10 +84,6 @@ function routeBloatFlag(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 export function executeDocsPostWriteSelfCheck(
   params: DocsSelfCheckParams,
   deps: DocsSelfCheckDeps,
@@ -107,7 +91,6 @@ export function executeDocsPostWriteSelfCheck(
   const { worktreePath, producedDocPaths } = params;
   const threshold = params.threshold ?? DOC_BLOAT_THRESHOLD_LINES;
 
-  // 1. Parse the registry
   let registryContent = '';
   try {
     registryContent = deps.readFile(`${worktreePath}/.adw/conditional_docs.md`);
@@ -116,7 +99,6 @@ export function executeDocsPostWriteSelfCheck(
   }
   const registry = parseConditionalDocs(registryContent);
 
-  // 2. Measure produced doc sizes
   const sizes: DocSize[] = [];
   for (const docPath of producedDocPaths) {
     try {
@@ -127,10 +109,8 @@ export function executeDocsPostWriteSelfCheck(
     }
   }
 
-  // 3. Run guards
   const flags = runDocsGuards(registry.entries, sizes, threshold);
 
-  // 4. Log both flag sets
   for (const f of flags.bloat) {
     const owning = registry.entries.find((e) => e.docPath === f.docPath);
     const area = owning?.ownedGlobs.join(', ') ?? f.docPath;
@@ -143,7 +123,6 @@ export function executeDocsPostWriteSelfCheck(
     );
   }
 
-  // 5. Route each bloat flag
   const routed: RefactorFollowUp[] = flags.bloat.map((f) =>
     routeBloatFlag(f, registry, deps),
   );

@@ -1,6 +1,4 @@
 /**
- * Orchestrator-lifetime spawn lock helper.
- *
  * Contract: call acquireOrchestratorLock immediately after initializeWorkflow returns.
  * Call releaseOrchestratorLock in a finally block on normal exit.
  *

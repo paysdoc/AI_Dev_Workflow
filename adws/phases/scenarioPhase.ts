@@ -1,9 +1,3 @@
-/**
- * Scenario phase execution for workflows.
- * Uses the /scenario_writer skill via a Claude agent.
- * Non-fatal: errors are caught and logged without blocking workflow completion.
- */
-
 import {
   log,
   AgentStateManager,
@@ -16,19 +10,14 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runScenarioAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 
-/**
- * Executes the Scenario phase: generate and maintain BDD scenarios for the current issue.
- * This phase is non-fatal — errors are caught and logged, never thrown.
- *
- * @param config - Workflow configuration
- */
+/** This phase is non-fatal — errors are caught and logged, never thrown. */
 export async function executeScenarioPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
 
   // Promotion issues must never author scenarios: a junk feature-<promotionIssueN>.feature
-  // would redden the run and become its own future promotion candidate. See PRD user story 11.
+  // would redden the run and become its own future promotion candidate.
   // An `adw:none` issue opted out of ADW automation, so it gets no authoring agent either.
   // Both are pure label reads over `config.issue` — no forge call.
   const skipReason = scenarioAuthoringSkipReason(issue.labels);

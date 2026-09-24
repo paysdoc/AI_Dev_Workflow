@@ -1,14 +1,11 @@
 /**
- * Branch-name resolution for ADW workflows.
- *
- * Priority: persisted state → recovery comment → LLM generation.
  * Once resolved for an adwId, the name is persisted in agents/{adwId}/state.json
  * and reused on every subsequent initializeWorkflow call — the LLM is invoked
  * at most once per adwId.
  *
  * If the LLM is somehow invoked and returns a name that disagrees with a
  * concurrently-written persisted value (race condition), this module aborts
- * instead of silently forking into an orphan worktree (issue #524).
+ * instead of silently forking into an orphan worktree.
  */
 
 import { AgentStateManager, log } from '../core';
@@ -20,7 +17,6 @@ import { deterministicBranchName } from '../vcs/branchIdentity';
 import { findExistingBranchForIssue } from './branchIdentityFallback';
 import type { BranchIdentityFallbackDeps } from './branchIdentityFallback';
 
-/** Returns the branch name stored in agents/{adwId}/state.json, or undefined. */
 export function readPersistedBranchName(adwId: string): string | undefined {
   return AgentStateManager.readTopLevelState(adwId)?.branchName ?? undefined;
 }
@@ -63,9 +59,8 @@ async function resolveInternal(
     return recoveryState.branchName;
   }
 
-  // Deterministic fallback: find an existing branch that belongs to this issue
-  // without relying on the LLM. Inserted between recovery-comment reuse and LLM
-  // generation so a lost-comment run reuses the existing branch, not a new one.
+  // Inserted between recovery-comment reuse and LLM generation so a lost-comment run
+  // reuses the existing branch, not a new one.
   const found = finderFn(issueType, issue.number, deps);
   if (found) {
     log(`Reusing existing branch found by deterministic identity fallback: ${found}`, 'info');
@@ -108,8 +103,6 @@ async function resolveInternal(
 }
 
 /**
- * Resolves the branch name for a workflow run.
- *
  * Resolution priority:
  *   1. Persisted top-level state (agents/{adwId}/state.json → branchName)
  *   2. Recovery comment (recoveryState.branchName)
