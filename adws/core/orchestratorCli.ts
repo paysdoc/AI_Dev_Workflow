@@ -1,21 +1,9 @@
-/**
- * Shared CLI parsing utilities for ADW orchestrator scripts.
- *
- * Provides composable functions for argument parsing, option extraction,
- * and usage printing that are shared across all orchestrator entry points.
- * Also owns parseTargetRepoArgs (moved from utils.ts) since it logically
- * belongs with orchestrator CLI utilities.
- */
-
 import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/issueTypes';
 import { VALID_ISSUE_TYPES } from '../types/issueTypes';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
 import { readLocalRepoIdentity } from './localRepoIdentity';
 
-/**
- * Parsed orchestrator arguments returned by {@link parseOrchestratorArguments}.
- */
 export interface OrchestratorArgs {
   readonly issueNumber: number;
   readonly adwId: string | null;
@@ -23,9 +11,6 @@ export interface OrchestratorArgs {
   readonly providedIssueType: IssueClassSlashCommand | null;
 }
 
-/**
- * Configuration for {@link parseOrchestratorArguments}.
- */
 interface ParseOptions {
   readonly scriptName: string;
   readonly usagePattern: string;
@@ -63,7 +48,6 @@ function extractIssueTypeOption(args: string[]): IssueClassSlashCommand | null {
 }
 
 /**
- * Validates and parses a string as an issue number.
  * Exits with an error message if invalid.
  */
 function parseIssueNumber(value: string): number {
@@ -75,9 +59,6 @@ function parseIssueNumber(value: string): number {
   return issueNumber;
 }
 
-/**
- * Prints orchestrator usage information and exits with code 1.
- */
 export function printUsageAndExit(scriptName: string, usagePattern: string, options?: readonly string[]): never {
   console.error(`Usage: bunx tsx adws/${scriptName} ${usagePattern}`);
   console.error('');
@@ -132,9 +113,6 @@ export function parseOrchestratorArguments(args: string[], options: ParseOptions
 /**
  * Builds a RepoIdentifier from CLI-parsed target repo info or local git remote.
  * Centralizes repo identity resolution for all orchestrator entry points.
- *
- * @param targetRepo - Parsed --target-repo info, or null for local repo
- * @returns A RepoIdentifier with owner, repo, and platform
  */
 export function buildRepoIdentifier(targetRepo: TargetRepoInfo | null): RepoIdentifier {
   if (targetRepo) {
@@ -147,11 +125,6 @@ export function buildRepoIdentifier(targetRepo: TargetRepoInfo | null): RepoIden
 /**
  * Parses --target-repo and --clone-url CLI arguments from the given args array.
  * Mutates the args array by removing the consumed arguments.
- *
- * Moved from utils.ts — logically belongs with orchestrator CLI utilities.
- *
- * @param args - The CLI arguments array (will be mutated)
- * @returns A TargetRepoInfo object if --target-repo was provided, null otherwise
  */
 export function parseTargetRepoArgs(args: string[]): TargetRepoInfo | null {
   const targetRepoIndex = args.indexOf('--target-repo');
@@ -169,10 +142,8 @@ export function parseTargetRepoArgs(args: string[]): TargetRepoInfo | null {
     process.exit(1);
   }
 
-  // Remove --target-repo and its value
   args.splice(targetRepoIndex, 2);
 
-  // Parse optional --clone-url
   let cloneUrl = `https://github.com/${fullName}.git`;
   const cloneUrlIndex = args.indexOf('--clone-url');
   if (cloneUrlIndex !== -1 && args[cloneUrlIndex + 1]) {

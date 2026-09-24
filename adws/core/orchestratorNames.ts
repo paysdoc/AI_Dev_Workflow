@@ -1,6 +1,4 @@
 /**
- * Static orchestrator name / script mappings.
- *
  * Extracted from orchestratorLib.ts so that stateHelpers.ts can import
  * these pure functions without pulling in orchestratorLib's transitive
  * dependencies (the launch-boundary construction path), which would create

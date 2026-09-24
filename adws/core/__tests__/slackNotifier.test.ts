@@ -21,10 +21,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// ---------------------------------------------------------------------------
-// postSlack — delivery log (Fix #2)
-// ---------------------------------------------------------------------------
-
 describe('postSlack', () => {
   it('logs delivered at info level on a 2xx response', async () => {
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
@@ -36,7 +32,6 @@ describe('postSlack', () => {
     const deliveredCall = logMock.mock.calls.find(
       ([msg, lvl]) => msg.includes('delivered') && lvl === 'info',
     );
-    // RED before Fix #2: no success log is emitted
     expect(deliveredCall).toBeDefined();
   });
 

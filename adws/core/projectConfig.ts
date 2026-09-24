@@ -1,20 +1,6 @@
-/**
- * Project configuration loader for target repositories.
- *
- * Reads `.adw/commands.md`, `.adw/project.md`, `.adw/conditional_docs.md`,
- * `.adw/review_proof.md`, and `.adw/scenarios.md` from a target repository to determine
- * project-specific commands, file structure, conditional documentation,
- * review proof requirements, and BDD scenario configuration. Falls back to sensible
- * defaults when files are absent.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from './conditionalDocsRegistry';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export type ApplicationType = 'cli' | 'web';
 
@@ -40,15 +26,15 @@ export interface ScenariosConfig {
   scenarioDirectory: string;
   runByTag: string;
   runRegression: string;
-  /** Directory for per-issue agent-input scenarios. Absent ⇒ undefined (legacy behaviour). */
+  /** Absent ⇒ undefined (legacy behaviour). */
   perIssueScenarioDirectory?: string;
-  /** Directory for promoted regression scenarios. Absent ⇒ undefined (legacy behaviour). */
+  /** Absent ⇒ undefined (legacy behaviour). */
   regressionScenarioDirectory?: string;
-  /** Path to the vocabulary registry file. Absent ⇒ undefined (legacy behaviour). */
+  /** Absent ⇒ undefined (legacy behaviour). */
   vocabularyRegistry?: string;
-  /** Step definition directory for the project (relative to cwd). Defaults to 'features/step_definitions'. */
+  /** Defaults to 'features/step_definitions'. */
   stepDefDirectory: string;
-  /** BDD framework name (e.g. 'cucumber-js', 'behave'). Empty string ⇒ default .ts extensions. */
+  /** Empty string ⇒ default .ts extensions. */
   bddFramework: string;
 }
 
@@ -61,7 +47,6 @@ export interface ProvidersConfig {
 }
 
 export interface ReviewTagEntry {
-  /** Tag pattern, e.g. `@review-proof`, `@adw-{issueNumber}`. */
   tag: string;
   severity: 'blocker' | 'tech-debt';
   /** When true, gracefully skip if no matching scenarios exist. */
@@ -70,7 +55,6 @@ export interface ReviewTagEntry {
 
 export interface SupplementaryCheck {
   name: string;
-  /** Shell command to run, e.g. `bunx tsc --noEmit`. */
   command: string;
   severity: 'blocker' | 'tech-debt';
 }
@@ -82,31 +66,18 @@ export interface ReviewProofConfig {
 
 export interface ProjectConfig {
   commands: CommandsConfig;
-  /** Raw content of `.adw/project.md` (empty string when absent). */
   projectMd: string;
-  /** Raw content of `.adw/conditional_docs.md` (empty string when absent). */
   conditionalDocsMd: string;
-  /** Parsed structured registry from `.adw/conditional_docs.md`. */
   conditionalDocs: ConditionalDocsRegistry;
-  /** Raw content of `.adw/review_proof.md` (empty string when absent). */
   reviewProofMd: string;
-  /** Whether the `.adw/` directory was found. */
   hasAdwDir: boolean;
-  /** Provider configuration from `.adw/providers.md`. */
   providers: ProvidersConfig;
-  /** BDD scenario configuration from `.adw/scenarios.md`. */
   scenarios: ScenariosConfig;
-  /** Raw content of `.adw/scenarios.md` (empty string when absent). */
   scenariosMd: string;
-  /** Parsed review proof config from `.adw/review_proof.md`. */
   reviewProofConfig: ReviewProofConfig;
-  /** Application type from `.adw/project.md` `## Application Type` section. Defaults to `'cli'`. */
+  /** Defaults to `'cli'`. */
   applicationType: ApplicationType;
 }
-
-// ---------------------------------------------------------------------------
-// Section heading → CommandsConfig key mapping
-// ---------------------------------------------------------------------------
 
 const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
   'scenario directory': 'scenarioDirectory',
@@ -145,10 +116,6 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'test directory': 'testDirectory',
   'test framework': 'testFramework',
 };
-
-// ---------------------------------------------------------------------------
-// Defaults (backward-compatible with current hardcoded values)
-// ---------------------------------------------------------------------------
 
 export function getDefaultCommandsConfig(): CommandsConfig {
   return {
@@ -213,10 +180,6 @@ export function getDefaultProjectConfig(): ProjectConfig {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Markdown parsing helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Parses a markdown file with `## Heading` sections and returns a map of
  * lowercased heading text → trimmed body content.
@@ -275,7 +238,6 @@ export function parseUnitTestsEnabled(projectMd: string): boolean {
 }
 
 /**
- * Parses the `## Application Type` section from `.adw/project.md`.
  * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
  * Defaults to `'cli'` when the section is absent or has any other value.
  */
@@ -286,10 +248,6 @@ export function parseApplicationType(projectMd: string): ApplicationType {
   return 'cli';
 }
 
-/**
- * Parses `.adw/commands.md` into a `CommandsConfig` object.
- * Missing sections fall back to defaults.
- */
 export function parseCommandsMd(content: string): CommandsConfig {
   const defaults = getDefaultCommandsConfig();
   if (!content.trim()) return defaults;
@@ -306,11 +264,7 @@ export function parseCommandsMd(content: string): CommandsConfig {
   return result;
 }
 
-/**
- * Parses `.adw/providers.md` into a `ProvidersConfig` object.
- * Missing sections fall back to defaults. Platform names are lowercased;
- * URL values preserve their original case.
- */
+/** Platform names are lowercased; URL values preserve their original case. */
 export function parseProvidersMd(content: string): ProvidersConfig {
   const defaults = getDefaultProvidersConfig();
   if (!content.trim()) return defaults;
@@ -332,10 +286,6 @@ export function parseProvidersMd(content: string): ProvidersConfig {
   return result;
 }
 
-/**
- * Parses `.adw/scenarios.md` into a `ScenariosConfig` object.
- * Missing sections fall back to defaults.
- */
 export function parseScenariosMd(content: string): ScenariosConfig {
   const defaults = getDefaultScenariosConfig();
   if (!content.trim()) return defaults;
@@ -352,7 +302,6 @@ export function parseScenariosMd(content: string): ScenariosConfig {
   return result;
 }
 
-/** Returns true for markdown table separator rows (e.g. `|---|---|`). */
 function isSeparatorRow(line: string): boolean {
   return /^[|:\-\s]+$/.test(line);
 }
@@ -364,7 +313,6 @@ function parseMarkdownTableRows(content: string): string[][] {
     .map(line => line.trim())
     .filter(line => line.startsWith('|') && !isSeparatorRow(line))
     .map(line => line.split('|').slice(1, -1).map(cell => cell.trim()));
-  // First row is the header — skip it
   return dataRows.slice(1);
 }
 
@@ -386,10 +334,7 @@ function parseSupplementaryChecksTable(content: string): SupplementaryCheck[] {
     });
 }
 
-/**
- * Parses `.adw/review_proof.md` into a `ReviewProofConfig`.
- * Falls back to defaults when the file is absent, empty, or has no `## Tags` section.
- */
+/** Falls back to defaults when the file is absent, empty, or has no `## Tags` section. */
 export function parseReviewProofMd(content: string): ReviewProofConfig {
   const defaults = getDefaultReviewProofConfig();
   if (!content.trim()) return defaults;
@@ -405,14 +350,6 @@ export function parseReviewProofMd(content: string): ReviewProofConfig {
   return { tags, supplementaryChecks };
 }
 
-// ---------------------------------------------------------------------------
-// Main loader
-// ---------------------------------------------------------------------------
-
-/**
- * Loads the project configuration from `<targetRepoPath>/.adw/`.
- * Returns defaults when the directory or individual files are absent.
- */
 export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
   const adwDir = path.join(targetRepoPath, '.adw');
 
@@ -420,7 +357,6 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     return getDefaultProjectConfig();
   }
 
-  // commands.md
   const commandsPath = path.join(adwDir, 'commands.md');
   let commands: CommandsConfig;
   try {
@@ -430,35 +366,31 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     commands = getDefaultCommandsConfig();
   }
 
-  // project.md
   const projectPath = path.join(adwDir, 'project.md');
   let projectMd = '';
   try {
     projectMd = fs.readFileSync(projectPath, 'utf-8');
   } catch {
-    // file missing — keep empty
+    // default above already covers a missing file
   }
 
-  // conditional_docs.md
   const conditionalDocsPath = path.join(adwDir, 'conditional_docs.md');
   let conditionalDocsMd = '';
   try {
     conditionalDocsMd = fs.readFileSync(conditionalDocsPath, 'utf-8');
   } catch {
-    // file missing — keep empty
+    // default above already covers a missing file
   }
 
-  // review_proof.md
   const reviewProofPath = path.join(adwDir, 'review_proof.md');
   let reviewProofMd = '';
   try {
     reviewProofMd = fs.readFileSync(reviewProofPath, 'utf-8');
   } catch {
-    // file missing — keep empty
+    // default above already covers a missing file
   }
   const reviewProofConfig = parseReviewProofMd(reviewProofMd);
 
-  // providers.md
   const providersPath = path.join(adwDir, 'providers.md');
   let providers: ProvidersConfig;
   try {
@@ -468,7 +400,6 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     providers = getDefaultProvidersConfig();
   }
 
-  // scenarios.md
   const scenariosPath = path.join(adwDir, 'scenarios.md');
   let scenarios: ScenariosConfig;
   let scenariosMd = '';

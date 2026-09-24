@@ -1,7 +1,4 @@
 /**
- * docsIndexReportBody.ts — pure builder + parser for the docs-index sweep's
- * single judgement-required report issue.
- *
  * The sweep reconciles against an already-open tracker through a back-link
  * marker in the issue body plus a violation-set fingerprint — the shape
  * `promotionReconcileLink.ts` established for the promotion sweep. No I/O:
@@ -38,19 +35,11 @@ const VIOLATION_SECTION_ORDER: readonly DocsIndexViolation['kind'][] = [
 const RESOLUTION_RULE =
   'Resolution rule: the module doc keeps its package globs; the feature doc loses the overlapping glob; a feature-vs-feature overlap goes to the newest doc.';
 
-// ---------------------------------------------------------------------------
-// Fingerprint
-// ---------------------------------------------------------------------------
-
 /** Order-independent: sorts the formatted violation lines before hashing, so reordering the same violation set never changes the fingerprint. */
 export function docsIndexViolationFingerprint(violations: readonly DocsIndexViolation[]): string {
   const lines = violations.map(formatViolation).sort();
   return createHash('sha1').update(lines.join('\n')).digest('hex').slice(0, FINGERPRINT_LENGTH);
 }
-
-// ---------------------------------------------------------------------------
-// Issue body builder
-// ---------------------------------------------------------------------------
 
 export interface BuildDocsIndexReportIssueInput {
   readonly violations: readonly DocsIndexViolation[];
@@ -98,15 +87,10 @@ export function buildDocsIndexReportIssue(input: BuildDocsIndexReportIssueInput)
   return { title, body, labels: ['hitl', ADW_NONE_LABEL] };
 }
 
-// ---------------------------------------------------------------------------
-// Marker parsing + reconcile
-// ---------------------------------------------------------------------------
-
 export interface DocsIndexReportMarker {
   readonly fingerprint: string;
 }
 
-/** Extracts the back-link marker + fingerprint from an issue body, or null when the marker is absent. */
 export function parseDocsIndexReportMarker(body: string): DocsIndexReportMarker | null {
   if (!MARKER_RE.test(body)) return null;
   const match = FINGERPRINT_RE.exec(body);

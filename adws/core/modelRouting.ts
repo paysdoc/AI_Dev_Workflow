@@ -1,79 +1,42 @@
-/**
- * Model and effort routing for ADW slash commands.
- *
- * Contains all model-tier and reasoning-effort maps, plus helpers to
- * select the right values based on whether fast/cheap mode is active.
- * Extracted from config.ts to keep the god module under 300 lines and
- * to give this routing logic a dedicated home with a single responsibility.
- */
-
 import type { SlashCommand } from '../types/issueTypes';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** Model tier identifiers supported by the Claude CLI `--model` flag. */
 type ModelTier = 'fable' | 'opus' | 'sonnet' | 'haiku';
 
-/** Reasoning effort level for Claude CLI `--effort` flag. */
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-// ---------------------------------------------------------------------------
-// Model routing maps
-// ---------------------------------------------------------------------------
-
-/** Centralized model routing map. Maps every slash command to its model. */
 export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
-  // Classification
   '/classify_issue': 'sonnet',
-  // Planning (complex reasoning)
   '/feature': 'fable',
   '/bug': 'fable',
   '/chore': 'opus',
   '/pr_review': 'opus',
-  // Implementation (plan execution)
   '/implement': 'sonnet',
   '/implement-tdd': 'sonnet',
   '/patch': 'fable',
-  // Review (complex reasoning)
   '/review': 'fable',
-  // Test running (structured, cheap)
   '/test': 'haiku',
-  // Test resolution (complex reasoning)
   '/resolve_failed_test': 'opus',
   '/resolve_failed_scenario': 'opus',
-  // Git operations (structured, cheap)
   '/generate_branch_name': 'sonnet',
   '/commit': 'sonnet',
   '/pull_request': 'sonnet',
-  // Documentation
   '/document': 'sonnet',
-  // Utility
   '/find_plan_file': 'sonnet',
-  // Dependency checking
   '/find_issue_dependencies': 'sonnet',
   '/extract_dependencies': 'haiku',
-  // ADW initialization
   '/adw_init': 'sonnet',
-  // Scenario writing
   '/scenario_writer': 'opus',
-  // Step definition generation
   '/generate_step_definitions': 'sonnet',
-  // Plan validation (complex reasoning, no downgrade)
+  // no downgrade
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
-  // Single-pass alignment (complex reasoning, no downgrade)
+  // no downgrade
   '/align_plan_scenarios': 'opus',
-  // Scenario fidelity re-check (complex reasoning, mirrors validate_plan_scenarios)
+  // mirrors validate_plan_scenarios
   '/validate_scenario_fidelity': 'opus',
-  // Install and prime
   '/install': 'sonnet',
-  // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': 'haiku',
-  // Refactor (targeted guideline application)
   '/refactor': 'sonnet',
-  // Promotion rot/reuse advisory analysis
   '/promote_regression_vocabulary': 'sonnet',
 };
 
@@ -99,33 +62,23 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/find_issue_dependencies': 'haiku',
   '/extract_dependencies': 'haiku',
   '/adw_init': 'haiku',
-  // Scenario writing
   '/scenario_writer': 'sonnet',
-  // Step definition generation
   '/generate_step_definitions': 'sonnet',
-  // Plan validation (complex reasoning, no downgrade)
+  // no downgrade
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
-  // Single-pass alignment (complex reasoning, no downgrade)
+  // no downgrade
   '/align_plan_scenarios': 'sonnet',
-  // Scenario fidelity re-check (mirrors validate_plan_scenarios fast tier)
+  // mirrors validate_plan_scenarios fast tier
   '/validate_scenario_fidelity': 'opus',
-  // Install and prime
   '/install': 'sonnet',
-  // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': 'haiku',
-  // Refactor (targeted guideline application)
   '/refactor': 'sonnet',
-  // Promotion rot/reuse advisory analysis
   '/promote_regression_vocabulary': 'haiku',
 };
 
-// ---------------------------------------------------------------------------
-// Effort routing maps
-// ---------------------------------------------------------------------------
-
 /**
- * Default reasoning effort per slash command. `undefined` means no flag is passed.
+ * `undefined` means no flag is passed.
  *
  * Effort-parameter support by model (Claude API):
  * - Opus 4.7 (`opus`): low, medium, high, xhigh, max
@@ -155,24 +108,17 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/find_issue_dependencies': 'low',
   '/extract_dependencies': undefined,
   '/adw_init': 'medium',
-  // Scenario writing
   '/scenario_writer': 'max',
-  // Step definition generation
   '/generate_step_definitions': 'max',
-  // Plan validation (complex reasoning, no downgrade)
+  // no downgrade
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'max',
-  // Single-pass alignment
   '/align_plan_scenarios': 'max',
-  // Scenario fidelity re-check (mirrors validate_plan_scenarios effort)
+  // mirrors validate_plan_scenarios effort
   '/validate_scenario_fidelity': 'high',
-  // Install and prime
   '/install': 'medium',
-  // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': undefined,
-  // Refactor (targeted guideline application)
   '/refactor': 'high',
-  // Promotion rot/reuse advisory analysis
   '/promote_regression_vocabulary': 'medium',
 };
 
@@ -198,44 +144,25 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/find_issue_dependencies': undefined,
   '/extract_dependencies': undefined,
   '/adw_init': undefined,
-  // Scenario writing
   '/scenario_writer': 'medium',
-  // Step definition generation
   '/generate_step_definitions': 'low',
-  // Plan validation (complex reasoning, no downgrade)
+  // no downgrade
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
-  // Single-pass alignment
   '/align_plan_scenarios': 'medium',
-  // Scenario fidelity re-check
   '/validate_scenario_fidelity': 'high',
-  // Install and prime
   '/install': 'low',
-  // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': undefined,
-  // Refactor (targeted guideline application)
   '/refactor': 'high',
-  // Promotion rot/reuse advisory analysis
   '/promote_regression_vocabulary': 'medium',
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Detects whether `/fast` or `/cheap` keywords appear in text.
- * Returns true if the text contains either keyword.
- */
 export function isFastMode(issueBody?: string): boolean {
   if (!issueBody) return false;
   return /\/fast\b|\/cheap\b/i.test(issueBody);
 }
 
-/**
- * Returns the model for a given slash command, selecting the fast/cheap map
- * when the issue body contains `/fast` or `/cheap` keywords.
- */
+/** Selects the fast/cheap map when the issue body contains `/fast` or `/cheap` keywords. */
 export function getModelForCommand(
   command: SlashCommand,
   issueBody?: string,
@@ -246,10 +173,6 @@ export function getModelForCommand(
   return map[command];
 }
 
-/**
- * Returns the reasoning effort for a given slash command, selecting the fast/cheap map
- * when the issue body contains `/fast` or `/cheap` keywords.
- */
 export function getEffortForCommand(
   command: SlashCommand,
   issueBody?: string,

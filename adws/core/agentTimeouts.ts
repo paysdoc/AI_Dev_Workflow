@@ -4,8 +4,6 @@
  * Extend AGENT_PHASE_TIMEOUT_MAP when a phase needs a non-default watchdog.
  * Per-phase overrides can also be set via env vars:
  *   AGENT_PHASE_TIMEOUT_STEP_DEF=5000  (phase name uppercased, hyphens → underscores)
- *
- * Mirrors the structure of modelRouting.ts — one obvious place to extend.
  */
 
 // Compute independently of config.ts so tests that partially mock config don't break.
@@ -13,11 +11,9 @@
 const DEFAULT_TIMEOUT_MS =
   Math.max(1, parseInt(process.env.AGENT_DEFAULT_TIMEOUT_MS || '1800000', 10)) || 1_800_000;
 
-// Re-export for consumers that import via this module.
 export { AGENT_DEFAULT_TIMEOUT_MS } from './config';
 
 /**
- * Static per-phase timeout overrides.
  * 'step-def' is the canonical first entry — it uses DEFAULT_TIMEOUT_MS
  * so the map is visibly extensible even before tuning is needed.
  */

@@ -1,6 +1,4 @@
 /**
- * upgradeClaim — atomic upgrade-claim primitive using the GitHub branch namespace.
- *
  * Uses GitHub's branch namespace as the only create-if-not-exists atomic primitive
  * visible to distributed, single-host-uncoordinated orchestrators:
  *
@@ -28,8 +26,6 @@ import type { CodeHost, PullRequestSummary } from '@paysdoc/devplatform';
 import { log, type LogLevel } from './utils';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export type UpgradeClaimResult =
   | { readonly won: true; readonly branch: string }
   | { readonly won: false; readonly existingIssueNumber: number | null; readonly existingBranch: string };
@@ -40,8 +36,6 @@ export interface UpgradeClaimDeps {
   readonly resolveIssueNumberFromPR: (prNumber: number) => number | null;
   readonly log: (message: string, level?: LogLevel) => void;
 }
-
-// ── Pure helpers ──────────────────────────────────────────────────────────────
 
 export function buildClaimBranchName(hash: string): string {
   if (!hash || !hash.trim()) {
@@ -59,8 +53,6 @@ export function buildClaimResult(
   return { won: false, existingIssueNumber: resolvedIssueNumber, existingBranch: branch };
 }
 
-// ── Orchestration function ────────────────────────────────────────────────────
-
 export async function claimUpgradeOrFindExisting(
   hash: string,
   deps: UpgradeClaimDeps,
@@ -76,8 +68,6 @@ export async function claimUpgradeOrFindExisting(
     : null;
   return { won: false, existingIssueNumber, existingBranch: branch };
 }
-
-// ── Default implementation ────────────────────────────────────────────────────
 
 const REJECTION_PATTERNS = [
   'rejected',

@@ -51,8 +51,8 @@ export function validateGitRemote(ctx: Pick<GitContext, 'remoteUrl'>, cwd: strin
 
 /**
  * Binds the boundary's providers to a validated workspace directory —
- * `{ ...boundary.providers, cwd, repoId }`, the same cwd/`origin` validation
- * as today. `repoId` (default: the boundary's) must name the boundary's
+ * `{ ...boundary.providers, cwd, repoId }`, the same cwd/`origin` validation.
+ * `repoId` (default: the boundary's) must name the boundary's
  * repository — a caller-supplied identity for a DIFFERENT repository is
  * refused before `boundary.providers` is ever touched (no mint, no config
  * read).

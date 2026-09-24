@@ -14,7 +14,7 @@ describe('getWorkflowScript', () => {
     expect(getWorkflowScript('/unknown' as IssueClassSlashCommand)).toBe('adws/adwPlanBuildTest.tsx');
   });
 
-  // /adw_init lost its dedicated orchestrator when adwInit.tsx was deleted (#547),
+  // /adw_init lost its dedicated orchestrator when adwInit.tsx was deleted,
   // so it is no longer in issueTypeToOrchestratorMap and now falls back.
   it('falls back to adwPlanBuildTest.tsx for /adw_init (orchestrator removed in #547)', () => {
     expect(getWorkflowScript('/adw_init')).toBe('adws/adwPlanBuildTest.tsx');

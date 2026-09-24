@@ -1,13 +1,5 @@
-/**
- * The ADW label policy — pure constants and readers, no I/O. Moved out of
- * `adws/github/labelManager.ts` (#820); the gh-issuing half stays there
- * until #821.
- */
-
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import type { Issue } from '@paysdoc/devplatform';
-
-// ── Canonical label data ──────────────────────────────────────────────────────
 
 export const ADW_NONE_LABEL = 'adw:none';
 export const ADW_UPGRADE_LABEL = 'adw:upgrade';
@@ -25,7 +17,7 @@ export const ADW_BLOCKED_LABEL = 'adw:blocked';
 export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
 
 /**
- * Gates the promotion-only rot/reuse advisory step (User Story 12/13). Detection keys
+ * Gates the promotion-only rot/reuse advisory step. Detection keys
  * off the *issue* label, not a PR-label fetch — promotion issues carry
  * `regression-promotion` (`buildPromotionIssue`), and that label is already on
  * `config.issue.labels` with no extra I/O.
@@ -71,12 +63,6 @@ export interface AdwLabelReading {
   conflict: boolean;
 }
 
-// ── Pure read-side ────────────────────────────────────────────────────────────
-
-/**
- * Reads ADW classification state from a plain array of label name strings.
- * Pure function — no I/O, no logging.
- */
 export function readAdwLabelNames(labelNames: readonly string[]): AdwLabelReading {
   const nameSet = new Set(labelNames);
   const optOut = nameSet.has(ADW_NONE_LABEL);
@@ -88,10 +74,6 @@ export function readAdwLabelNames(labelNames: readonly string[]): AdwLabelReadin
   return { optOut, classification, conflict };
 }
 
-/**
- * Reads an issue's labels and returns the structured ADW classification shape.
- * Pure function — no I/O, no logging.
- */
 export function readAdwLabels(issue: Pick<Issue, 'labels'>): AdwLabelReading {
   return readAdwLabelNames(issue.labels);
 }
@@ -105,7 +87,6 @@ export function issueTypeToAdwLabel(issueType: IssueClassSlashCommand): string |
   return entry ? entry[0] : null;
 }
 
-/** The label that decided scenario authoring must be skipped. */
 export type ScenarioAuthoringSkipReason = typeof ADW_REGRESSION_PROMOTION_LABEL | typeof ADW_NONE_LABEL;
 
 /**
@@ -132,7 +113,6 @@ export function scenarioAuthoringSkipReason(
   return null;
 }
 
-/** Boolean face of {@link scenarioAuthoringSkipReason} for callers that need no reason. */
 export function shouldSkipScenarioAuthoring(labels: readonly string[]): boolean {
   return scenarioAuthoringSkipReason(labels) !== null;
 }

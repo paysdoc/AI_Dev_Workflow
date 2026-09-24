@@ -157,7 +157,6 @@ describe('parseJUnitXml — large report with > 1000 XML entity expansions', () 
     expect(report).not.toBeNull();
     expect(report!.total).toBe(500);
     expect(report!.failed).toBe(0);
-    // Entity decoding still applied: &gt; → '>' and &amp; → '&' and &lt; → '<'
     expect(report!.cases[0].name).toBe('a > b & c < 0');
   });
 
@@ -209,7 +208,6 @@ describe('parseJUnitXml — large report with > 1000 XML entity expansions', () 
     expect(report!.total).toBe(350);
     expect(report!.passed).toBe(350);
     expect(report!.failed).toBe(0);
-    // Entity decoding preserved in testcase name
     expect(report!.cases[0].name).toBe('mod > case 0');
   });
 });
