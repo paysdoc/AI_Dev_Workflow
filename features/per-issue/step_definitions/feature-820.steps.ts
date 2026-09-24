@@ -1,32 +1,12 @@
 /**
- * BDD step definitions for feature-820.feature
+ * `Before`/`After` are tag-scoped to `@adw-820` because feature-796's own
+ * hooks are scoped to `@adw-796` and do not fire here; this file resets the
+ * same shared world and cleans up its own agent-state dirs.
  *
- * Orchestrators, phases, core utilities and the proof publisher reach the
- * forge through the boundary's providers alone (#820).
- *
- * §1  the comment-clearing orchestrator (adwClearComments)
- * §2  the proof publisher and proof publish phase
- * §3  the remaining wrong-repo fallbacks (orchestrator lock, depaudit setup)
- * §4  the branch lookups in core/ and the pr-review ordering
- * §5  the label-override chokepoint (issueClassifier)
- * §6  the approval capability gate (reviewPhase)
- * §7  the label-write policy (unverified verdict)
- * §8  the unaddressed-comment read
- * §9  a forge that is not GitHub refuses by name
- * §10 what does not move (pure predicates) + the wontfix escape hatch
- * §11 structural backstops → feature-691.steps.ts (guard), feature-504.steps.ts (type-check)
- *
- * Reuses feature-796's recording-boundary harness (`world796()`) throughout —
- * every phrase feature-796/794/691/504/797 already registers is reused, never
- * redefined. `Before`/`After` are tag-scoped to `@adw-820` because
- * feature-796's own hooks are scoped to `@adw-796` and do not fire here; this
- * file resets the same shared world and cleans up its own agent-state dirs.
- *
- * §6/§10(first) route through `test/mocks/claude-cli-stub.ts` exactly as
- * feature-762.steps.ts does (save/restore `CLAUDE_CODE_PATH`,
- * `clearClaudeCodePathCache()`), so the review/scenario agent calls the
- * phases make are real subprocess spawns of a fast, canned stub rather than
- * the real Claude CLI.
+ * §6/§10(first) route through `test/mocks/claude-cli-stub.ts` (save/restore
+ * `CLAUDE_CODE_PATH`, `clearClaudeCodePathCache()`), so the review/scenario
+ * agent calls the phases make are real subprocess spawns of a fast, canned
+ * stub rather than the real Claude CLI.
  *
  * §2's "object storage is configured" row needs `CLOUDFLARE_ACCOUNT_ID`,
  * `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` to be non-empty in
@@ -89,8 +69,6 @@ const CLAUDE_CLI_STUB_PATH = path.resolve(FRAMEWORK_REPO_ROOT, 'test/mocks/claud
  */
 const FROZEN_CLAIM_BRANCH = buildClaimBranchName('abc123');
 const FIXED_ADW_ID = 'wgg98x-void';
-
-// ── §820-local world state — transient results not already on World796 ────────
 
 interface UploaderCall {
   owner: string;
@@ -168,11 +146,11 @@ function requireConfig(): WorkflowConfig {
 }
 
 /**
- * Cross-file setters (feature-796's `noteBranchHasNoPullRequest` precedent) so
- * feature-821's own When steps can drive this file's Then phrases — "the
- * reconciled stage is …", "the classification is …", "the unaddressed comments
- * are exactly …" — through a takeover/gatekeeper/prCommentDetector entry point
- * without redefining the (already-registered) Then steps that read `s`.
+ * Cross-file setters so feature-821's own When steps can drive this file's
+ * Then phrases — "the reconciled stage is …", "the classification is …",
+ * "the unaddressed comments are exactly …" — through a
+ * takeover/gatekeeper/prCommentDetector entry point without redefining the
+ * (already-registered) Then steps that read `s`.
  */
 export function setReconciledStage(stage: string | null): void {
   s.reconciledStage = stage;
@@ -184,13 +162,13 @@ export function setUnaddressedComments(comments: ReviewComment[]): void {
   s.unaddressedComments = comments;
 }
 
-/** #848: lets a sibling step file reset this file's local state and stub from its own hooks. */
+/** Lets a sibling step file reset this file's local state and stub from its own hooks. */
 export function resetFeature820State(): void {
   restoreClaudeCliStub();
   resetLocalState();
 }
 
-/** #848: the configuration the last "a workflow configuration bound to that boundary …" step built. */
+/** The configuration the last "a workflow configuration bound to that boundary …" step built. */
 export function currentWorkflowConfig(): WorkflowConfig {
   return requireConfig();
 }
@@ -254,13 +232,12 @@ After({ tags: '@adw-820' }, function () {
   resetLocalState();
 });
 
-// ── Shared WorkflowConfig fixture builder ──────────────────────────────────────
-// Minimal-but-real WorkflowConfig, bound to the boundary's own recording
-// providers (never a GitHubIssueTracker/GitHubCodeHost instance) so every
-// phase reads the SAME identity `resolveWorkflowRepoId` would resolve.
-// Also registered as `w.autoMergeConfig` so feature-796's reused
-// 'no GitHub provider was constructed during the phase' assertion (which
-// reads that field) is meaningful for §11's backstop row.
+// Bound to the boundary's own recording providers (never a
+// GitHubIssueTracker/GitHubCodeHost instance) so every phase reads the SAME
+// identity `resolveWorkflowRepoId` would resolve. Also registered as
+// `w.autoMergeConfig` so feature-796's reused 'no GitHub provider was
+// constructed during the phase' assertion (which reads that field) is
+// meaningful for §11's backstop row.
 
 function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; labels?: string[] } = {}): WorkflowConfig {
   const w = world796();
@@ -329,8 +306,6 @@ function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; l
   return config;
 }
 
-// ── §1 THE COMMENT-CLEARING ORCHESTRATOR ───────────────────────────────────────
-
 function seedIssueComments(issueNumber: number, ids: string[]): void {
   const w = world796();
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -391,8 +366,6 @@ Then('the comment-clearing orchestrator reported the issue title {string}', func
   assert.ok(s.clearCommentsResult, 'Expected the comment-clearing orchestrator to have run');
   assert.strictEqual(s.clearCommentsResult!.issueTitle, title);
 });
-
-// ── §2 THE PROOF PUBLISHER ──────────────────────────────────────────────────────
 
 function buildScenarioProof(passed: number, failed: number, artifactsDir: string): ScenarioProofResult {
   return {
@@ -500,8 +473,6 @@ When('the proof publish phase runs for that configuration', async function () {
   await executeProofPublishPhase(config);
 });
 
-// ── §3 THE REMAINING WRONG-REPO FALLBACKS ──────────────────────────────────────
-
 Given('a workflow configuration bound to that boundary for issue {int} with no target repository', function (issueNumber: number) {
   s.workflowConfig = buildWorkflowConfig(issueNumber);
 });
@@ -552,8 +523,6 @@ Then('the reported skipped-secret warnings name the repository {string}', functi
   );
 });
 
-// ── §4 THE BRANCH LOOKUPS IN core/ AND THE PR-REVIEW ORDERING ──────────────────
-
 Given('pull request {int} in the recording code host implements issue {int}', function (prNumber: number, issueNumber: number) {
   const w = world796();
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -582,12 +551,6 @@ Then('the boundary\'s code host was asked for the pull request on branch {string
   const call = w.activeCallLog.find((c) => c.operation === 'findPullRequestByBranch' && c.args[0] === branchName);
   assert.ok(call, `Expected a findPullRequestByBranch call for branch "${branchName}"`);
 });
-
-// 'a state file for adw id {string} recording branch {string}' is already
-// registered by feature-797.steps.ts — reused, not redefined here (its
-// adwId is tracked for cleanup via the fixed FIXED_ADW_ID entry the After
-// hook always sweeps, since that registration writes into feature-797's own
-// world, not world796()).
 
 When(
   'the pr-review orchestrator resolves its invocation for adw id {string} from that boundary',
@@ -623,8 +586,6 @@ When(
 Then('the reconciled stage is {string}', function (stage: string) {
   assert.strictEqual(s.reconciledStage, stage);
 });
-
-// ── §5 THE LABEL-OVERRIDE CHOKEPOINT ────────────────────────────────────────────
 
 Given('issue {int} in the recording tracker carries the label {string}', function (issueNumber: number, label: string) {
   const w = world796();
@@ -668,8 +629,6 @@ Then('the trigger classifier invoked the language model', function () {
   assert.strictEqual(s.classifyWithCalled, true);
 });
 
-// ── §6 THE APPROVAL CAPABILITY GATE ─────────────────────────────────────────────
-
 Given('the recording code host reports that it can approve pull requests', function () {
   const w = world796();
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
@@ -710,11 +669,9 @@ Then('the review phase reported the review as passed', function () {
   assert.strictEqual(s.reviewPhaseResult!.reviewPassed, true);
 });
 
-// ── §7 THE LABEL-WRITE POLICY ────────────────────────────────────────────────────
 // unitTestPhase's warn-branch label write is re-composed here rather than driven
 // through executeUnitTestPhase itself, which runs the real /test agent with
-// retries and is not hermetically drivable — the same reasoning feature-770's
-// step definitions document for the sibling verdict-to-comment mapping.
+// retries and is not hermetically drivable.
 
 Given('the recording tracker has no {string} label defined', function (label: string) {
   const w = world796();
@@ -738,8 +695,6 @@ Then('the boundary\'s providers recorded the label {string} being created', func
   const call = w.activeCallLog.find((c) => c.operation === 'createLabel' && c.args[0] === label);
   assert.ok(call, `Expected a createLabel call for "${label}"`);
 });
-
-// ── §8 THE UNADDRESSED-COMMENT READ ─────────────────────────────────────────────
 
 Given('pull request {int} in the recording code host is on branch {string}', function (prNumber: number, branchName: string) {
   const w = world796();
@@ -822,8 +777,6 @@ Then('the unaddressed comments are empty', function () {
   assert.strictEqual(s.unaddressedComments!.length, 0);
 });
 
-// ── §9 A FORGE THAT IS NOT GITHUB REFUSES BY NAME ──────────────────────────────
-//
 // The GitLab/Jira ports are obtained the sanctioned way — through
 // forgeProviders() — rather than constructing an adapter class directly, over
 // a fixture GitContext whose exec is never actually invoked: every refusal
@@ -895,8 +848,6 @@ Then('it fails with a message naming {string}', function (qualifiedName: string)
   );
 });
 
-// ── §10 WHAT DOES NOT MOVE + THE WONTFIX ESCAPE HATCH ──────────────────────────
-
 Given('the configuration\'s issue carries the label {string}', function (label: string) {
   const config = requireConfig();
   config.issue.labels.push(label);
@@ -952,9 +903,3 @@ Then('the boundary\'s code host was asked for the pull request on branch {string
   const calls = w.activeCallLog.filter((c) => c.operation === 'findPullRequestByBranch' && c.args[0] === branchName);
   assert.strictEqual(calls.length, 1, `Expected exactly one findPullRequestByBranch("${branchName}") call, got ${calls.length}`);
 });
-
-// §11 reuses 'the git\/gh guard is run across the repository' / 'the git\/gh
-// guard reports no violations' (feature-691.steps.ts), 'no GitHub provider was
-// constructed during the phase' (feature-796.steps.ts, driven off
-// w.autoMergeConfig — see buildWorkflowConfig above) and 'the ADW TypeScript
-// type-check passes' (feature-504.steps.ts) — no new step definitions.
