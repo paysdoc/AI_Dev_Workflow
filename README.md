@@ -42,6 +42,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **DDD ubiquitous language** — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.) are formalized in `UBIQUITOUS_LANGUAGE.md` and used consistently across code, docs, and agent prompts.
 - **Operator health check** — `adws/healthCheck.tsx` validates required environment variables, git repository configuration, and Claude Code CLI functionality, returning a structured `HealthCheckResult`.
 - **Issue comment reset** — `adws/adwClearComments.tsx` deletes all comments on a GitHub issue, for recovering an issue whose workflow state has gone wrong.
+- **Comment-discipline guideline and guard** — `.adw/coding_guidelines.md`'s **Comments** entry restricts comments to invariants, ordering constraints, and non-obvious rationale (no restated lines, section banners, issue-number citations, or name-echoing JSDoc); `adws/checkCommentOnly.ts` (`bun run lint:comment-only [--base <ref>] <files...>`) proves a batch of `.ts`/`.tsx`/`.feature` files differs from a base ref only in comments/JSDoc/whitespace via TypeScript-parser and Gherkin-DocString-aware token comparison, backing comment de-bloat sweep batches rather than running as a permanent CI gate.
 
 *Built solo over roughly two months as a way to think seriously about how AI-assisted software systems should be designed, governed, and verified. Self-hosting from week one. The decisions and failure modes below are the substance of what I learned.*
 
@@ -663,6 +664,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
 │   │   ├── branchOperations.test.ts
+│   │   ├── commitOperations.test.ts
+│   │   ├── fetchAndResetToRemote.test.ts
 │   │   ├── pushBranch.integration.test.ts
 │   │   ├── worktreeProbe.test.ts
 │   │   ├── worktreeReset.test.ts
@@ -721,7 +724,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
-│   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
@@ -883,8 +885,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── guardReport.ts       # Formats collected violations into a guard report
 │   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside a one-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts only; the library's own forgeProviders.ts is no longer a second in-repo site to sanction since #840)
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
-├── checkCommentOnly.ts  # CI guard: flags comment-only diff hunks that violate the comment-discipline guideline
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
+├── checkCommentOnly.ts  # Comment-discipline guard: proves a batch of files differs from a base ref only in comments/JSDoc/whitespace (`bun run lint:comment-only`), backing comment de-bloat sweep batches
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff). Exported buildDefaultDeps(boundary) sources findPRByBranch/issueHasLabel/fetchPRApprovalState/commentOnIssue from the launch boundary's providers — no repoInfo parameter, no ad-hoc GitHub construction (#796)
@@ -911,7 +913,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 .adw-version                # Framework content hash — read by upgradeGate on every workflow start
 .github/
 ├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
-├── dependabot.yml       # Watches @paysdoc/devplatform on npm, weekly, against dev — merged by hand, outside the ADW pipeline
+├── dependabot.yml       # Weekly @paysdoc/devplatform bump PRs against dev, merged by hand (outside the ADW pipeline)
 └── workflows/
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
     ├── git-cli-guard.yml   # CI guard: rejects direct git/gh shell-outs that bypass GitContext
@@ -971,7 +973,6 @@ test/                   # Integration test infrastructure
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
-│   ├── gitContextFixture.ts    # Fixture GitContext builder for tests
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
