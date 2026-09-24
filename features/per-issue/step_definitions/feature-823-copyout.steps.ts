@@ -1,9 +1,3 @@
-/**
- * feature-823.feature step definitions — §7 the extraction gate: both
- * packages copied side by side, imported. Entry file: feature-823.steps.ts
- * (state, Before/After hooks, splitRepo).
- */
-
 import { Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import { mkdtempSync, mkdirSync, readdirSync, copyFileSync, type Dirent } from 'node:fs';

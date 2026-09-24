@@ -150,14 +150,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1 THE WIDENED SCOPE ENFORCES THE TWO NAMED ENTRIES (AC1, AC4) ─────────────────────
-  #
-  # The load-bearing RED. `adws/providers/github/` is an EXEMPT_PACKAGES entry that `visitDir` prunes
-  # as a directory, so `mappers.ts` reaches the guard today only if #817 puts it in EXTRACTION_SCOPE
-  # explicitly — the same file-entry mechanism `adws/providers/types.ts` already uses. Until then
-  # this fixture passes, which is why it is the pivot: an implementation that moves the types but
-  # forgets the scope widening leaves AC1 unenforced and this scenario red.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A framework import from the mappers module fails the guard by name
     Given a guard fixture tree holding the file "adws/providers/github/mappers.ts":
@@ -171,13 +163,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree fails naming "adws/providers/github/mappers.ts"
     And the guard failure over the guard fixture tree cites the extraction-readiness rule
-
-  # The four specifiers below are not invented: they are the exact four framework imports
-  # `mappers.ts` carries at lines 7-11 today, and the four this issue exists to remove. Every one is
-  # `import type`, which is the whole character of this issue — the imports erase at runtime, so no
-  # test that executes code can see them, and an extraction rule that inspected only value imports
-  # would report the adapter clean while the file move still fails to compile in the library's new
-  # home.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: Every framework import the mappers module carries today fails the guard
@@ -198,12 +183,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | ../../github/githubApi     |
       | ../../github/prApi         |
 
-  # The domain modules are the other half of AC4. The issue fixes the DIRECTORY
-  # (`adws/providers/github/domain/`) and leaves the filenames to the implementer, so the scope entry
-  # has to be the directory — which is also what keeps this scenario true whatever the modules end up
-  # being called. A per-file scope entry for whatever files exist on merge day passes this scenario
-  # only by accident and silently stops covering the next module added beside them.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A framework import from a module in the adapter's domain directory fails the guard by name
     Given a guard fixture tree holding the file "<path>":
@@ -220,12 +199,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | path                                              |
       | adws/providers/github/domain/issueShapes.ts       |
       | adws/providers/github/domain/pullRequestShapes.ts |
-
-  # The intra-set direction, and the shape the migrated `mappers.ts` actually takes: it keeps
-  # importing `RepoIdentifier` from `../types` and picks the raw shapes up from `./domain/…`. Both
-  # resolve inside the extractable set, so both are the library's own wiring rather than an
-  # entanglement. A rule or a scope entry that flagged any specifier leaving the file's own directory
-  # would fail the build on the very file this issue rewrites.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The migrated mappers module reaching its own domain modules and provider types passes the guard
@@ -255,15 +228,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # TRAP 4, in both directions. #819 cleaned and widened the scope by the whole `adws/providers/github`
-  # directory, so `githubIssueTracker.ts`/`githubCodeHost.ts`/`githubBoardManager.ts` are no longer
-  # the still-entangled neighbours this scenario pinned. #823 went further still: it replaced the last
-  # out-of-scope provider file, `repoContext.ts`, with `forgeProviders()` and widened EXTRACTION_SCOPE
-  # to the whole `adws/providers` directory, so there is no longer any file inside the extractable set
-  # that this rule does not check. What remains provable here is the other side of that same boundary
-  # — a framework file BESIDE the extractable set, in `adws/core/`, is never checked regardless of what
-  # it imports.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A framework file beside the extractable set is never checked
     Given a guard fixture tree holding the file "<path>":
@@ -281,13 +245,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | path                          | specifier      |
       | adws/core/forgeWiring.ts      | ./environment  |
       | adws/core/launchGitContext.ts | ./providerConfig |
-
-  # #818 cleaned `providers/gitlab` and `providers/jira` and widened the scope by both; #823 finished
-  # the job by replacing `providers/repoContext.ts` with `forgeProviders()` and widening the scope to
-  # the whole provider package (EXTRACTION_SCOPE == EXTRACTABLE_SET). #816's §3 pinned the
-  # not-yet-widened case and it has been retired in turn now that there is nothing left un-widened;
-  # this row keeps proving the boundary from the other side — a framework file's own package is never
-  # in scope, however similarly it is imported.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A framework file beside the extractable set is never checked
@@ -307,11 +264,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | adws/core/forgeWiring.ts       | ./environment         |
       | adws/core/launchGitContext.ts  | ./providerConfig      |
 
-  # WIDEN ONLY, NEVER NARROW — the machine-checkable half. #816 seeded the scope with two entries;
-  # #817 appends to that list, it does not replace it. Both of #816's entries must still fire
-  # afterwards, so an implementer who rewrites `EXTRACTION_SCOPE` around the new entries rather than
-  # appending to it turns one of these two rows red.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: The scope entries #816 seeded still fail on a framework import
     Given a guard fixture tree holding the file "<path>":
@@ -329,12 +281,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | adws/gitContext/branchOps.ts | ../core                |
       | adws/providers/types.ts      | ../types/workflowTypes |
 
-  # ── §2 `RepoInfo` IS GONE FROM THE TREE, IN BOTH OF ITS HOMES (AC2) ────────────────────
-  #
-  # The headline of the second group, and the assertion no other instrument can make. `adws/github/`
-  # was deleted outright in #821 (it no longer holds even a lightened `githubApi.ts`), so the module
-  # itself — not merely the `RepoInfo` member — is what is now gone; the probe pins the stronger claim.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A module importing RepoInfo from the framework GitHub API no longer compiles
     Given a type probe module that reads:
@@ -346,12 +292,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile reporting the unresolvable module "../github/githubApi"
 
-  # TRAP 1. `adws/providers/github/githubIdentity.ts:20` declares the SECOND `RepoInfo`, and it is
-  # the live one — `parseGitHubRemoteUrl` and `readLocalRepoInfo` both return it, and
-  # `githubApi.getRepoInfo` merely forwards. It is invisible to AC1 (a provider file declaring its
-  # own type imports nothing) and invisible to the guard for the same reason, so this probe is the
-  # only thing standing between "RepoInfo is gone" and "one of the two RepoInfos is gone".
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A module importing RepoInfo from the GitHub identity module no longer compiles
     Given a type probe module that reads:
@@ -362,11 +302,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile naming the missing member "RepoInfo"
-
-  # The positive half: the collapse target exists, is exported from the provider package, and the two
-  # remote-parsing functions that used to answer in `RepoInfo` now answer in it. Driving the two
-  # functions rather than the bare type is what makes this more than a re-statement of the interface
-  # — it is the assertion that the collapse reached the call sites, not just the declaration.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The GitHub identity readers answer in RepoIdentifier
@@ -380,13 +315,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
     When the type probe is compiled against the ADW project
     Then the type probe compiles
-
-  # The over-reach control, and the reason AC2's "the only repo-identity shape" needs reading with
-  # care. `TargetRepoInfo` (`adws/types/issueTypes.ts:182`) is `{ owner, repo, cloneUrl,
-  # workspacePath? }` — repo-identity-SHAPED, named like the type being deleted, and the first
-  # parameter of `buildLaunchBoundary`. It carries a clone URL and a workspace path that
-  # `RepoIdentifier` has nowhere to put, so collapsing it too is a lossy change dressed as
-  # consistency. It stays exactly where it is.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The target-repo descriptor is untouched by the collapse
@@ -402,13 +330,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
     When the type probe is compiled against the ADW project
     Then the type probe compiles
-
-  # ── §3 THE RAW SHAPES ARE ADAPTER-OWNED (AC3) ──────────────────────────────────────────
-  #
-  # All eleven shapes, resolved through the adapter's public barrel rather than through whatever
-  # file layout `domain/` ends up with — the barrel is the surface AC3's "exported from the adapter"
-  # actually means, and the one the framework imports from. `adws/providers/github/index.ts` already
-  # re-exports `./mappers`; the domain modules join it there.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: Every raw GitHub shape is exported from the adapter package
@@ -437,12 +358,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the type probe is compiled against the ADW project
     Then the type probe compiles
 
-  # "Leave `adws/types/issueTypes.ts`, `adws/types/workflowTypes.ts` and `adws/github/prApi.ts`" is
-  # the issue's own wording, and TRAP 3 is why it has to be tested one old home at a time: a
-  # re-export left behind in any of the three keeps the framework importing its domain model from
-  # `adws/types/`, which is the exact state AC3 exists to end, and it is invisible to the guard
-  # because the guard only ever looks at the provider side of the boundary.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A raw GitHub shape is no longer available from the module it left
     Given a type probe module that reads:
@@ -467,10 +382,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | PRReviewComment      | ../types/workflowTypes     |
       | PRListItem           | ../types/workflowTypes     |
 
-  # `RawPR`'s old home, `adws/github/prApi.ts`, does not merely lack the member — #821 deleted the
-  # whole file (and the rest of `adws/github/`) once every caller had walked onto the launch boundary.
-  # The module-not-found diagnostic is the stronger, now-accurate form of the same claim.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: RawPR is no longer available from the module it left
     Given a type probe module that reads:
@@ -481,13 +392,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile reporting the unresolvable module "../github/prApi"
-
-  # The over-move control. `issueTypes.ts` and `workflowTypes.ts` are lightened, not emptied:
-  # `issueTypes.ts` keeps the slash-command union, the webhook payload and `TargetRepoInfo`;
-  # `workflowTypes.ts` keeps the workflow-stage vocabulary and `RecoveryState`. `prApi.ts`'s half of
-  # this control (the PR functions that merely consumed `RawPR`) is moot since #821 deleted that
-  # module outright rather than merely lightening it — there is no bare-function home left to over-move
-  # framework vocabulary out of.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The framework vocabulary sharing those modules stays where it is
@@ -501,15 +405,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the type probe is compiled against the ADW project
     Then the type probe compiles
 
-  # ── §4 THE PLATFORM DISCRIMINATOR SURVIVES THE COLLAPSE (TRAP 2) ───────────────────────
-  #
-  # The one scenario that stands between this issue and a silent production regression. `platform` is
-  # required today; the pressure to relax it is 443 references wide, and relaxing it is invisible to
-  # `tsc`, to the guard, and to every existing test — the three `repoId.platform === Platform.GitHub`
-  # gates simply stop matching, and HITL blocked-transition notifications stop being sent with no
-  # error anywhere. The probe is the cheapest complete statement of "required", asserted as the
-  # compiler's own refusal rather than as a property of the declaration's text.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: An owner/repo pair alone is still not a RepoIdentifier
     Given a type probe module that reads:
@@ -520,13 +415,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile reporting the missing property "platform"
-
-  # The behavioural half, at the one place identity selection is allowed to happen. The boundary
-  # declares the platform; the collapse hands its identity reader a platform-bearing shape for the
-  # first time, and the obvious simplification — return the reader's identifier straight through
-  # instead of re-stamping the declared platform onto owner/repo — makes the GitHub-specific
-  # `readLocalRepoInfo` the de facto authority on which forge ADW is talking to. The self-host row is
-  # the one that goes wrong: it is the only path that reads identity through the reader at all.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The boundary's declared platform wins over the identity reader's on the self-host path
@@ -544,25 +432,12 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the launch boundary is asked for the repository "acme/webapp"
     Then the boundary's repo identity declares the platform "gitlab"
 
-  # No declaration means GitHub, which is what makes the collapse safe for the sixty-odd files that
-  # never mention a platform at all. This is the row that fails if the default is dropped in the
-  # rename — every one of those files would then mint an identifier the three gates reject.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: An undeclared platform still defaults to GitHub
     Given a launch boundary rooted in throwaway framework and target-repos directories
     And the local git remote at the launch boundary answers "acme/webapp"
     When the launch boundary is asked with no target repository
     Then the boundary's repo identity declares the platform "github"
-
-  # ── §5 THE OTHER GUARD RULES STILL FIRE AFTER THE RENAME (AC5) ─────────────────────────
-  #
-  # `cwd-derived-identity` (#769) matches on FUNCTION NAMES —
-  # `CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo'])`. This issue renames a
-  # TYPE, but `getRepoInfo` is now a function named after a type that no longer exists, and a sweeping
-  # rename to `getRepoIdentifier` is the natural tidy-up. It compiles, every test passes, and the
-  # #769 rule stops matching anything at all — the guard goes quietly dead rather than red, which is
-  # the failure mode a guard has instead of a bug.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A cwd-derived identity composition still fails under its own rule after the rename
@@ -580,11 +455,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     Then the guard run over the guard fixture tree fails naming "adws/core/probeOps.ts"
     And the guard failure over the guard fixture tree cites the "cwd-derived-identity" rule
 
-  # And the shell-out rule is still the rule an ordinary framework shell-out fails under — the same
-  # anti-leak row #816 §6 carries, re-run because #817 is the first slice to change EXTRACTION_SCOPE
-  # after it, and a widening applied to collection rather than to the extraction rule alone would
-  # relabel or swallow this.
-
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A framework shell-out still fails under the shell-out rule, not the extraction rule
     Given a guard fixture tree holding the file "adws/core/worktreeHelper.ts":
@@ -598,17 +468,6 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree fails naming "adws/core/worktreeHelper.ts"
     And the guard failure over the guard fixture tree cites no extraction-readiness rule
-
-  # ── §6 THE RATCHET (AC4, AC5) ──────────────────────────────────────────────────────────
-  #
-  # AC4's "guard green" and AC5's `bun run test` in the two forms the repository actually runs them.
-  # The whole-repo guard run is the scenario that fails if the scope was widened past the two paths
-  # AC4 names — the same eight framework entanglements #816 documented are still there, minus the
-  # ones this issue removes — and equally if the domain move left the adapter reaching back into
-  # `adws/types/` from a module now inside the enforced scope. The type-check is the complete proof
-  # that 443 references, three optional-vs-required gates and eleven relocated shapes all resolved,
-  # which is the only form in which "no expectation changes beyond import paths" can be checked at
-  # all.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The guard passes across the whole repository with the widened extraction scope
