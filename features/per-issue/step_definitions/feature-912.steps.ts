@@ -216,14 +216,14 @@ When('the rate-limit wait policy decides at {string}', function (isoTimestamp: s
 
 Then('the wait policy decides to wait in-process until {string}', function (isoTimestamp: string) {
   assert.ok(policyWorld.decision, 'Expected the wait policy to have decided first');
-  assert.strictEqual(policyWorld.decision!.kind, 'wait_in_process');
+  assert.strictEqual(policyWorld.decision.kind, 'wait_in_process');
   const { until } = policyWorld.decision as { kind: 'wait_in_process'; until: Date };
   assert.strictEqual(new Date(until).getTime(), new Date(isoTimestamp).getTime());
 });
 
 Then('the wait policy decides to enqueue with the reset time {string}', function (isoTimestamp: string) {
   assert.ok(policyWorld.decision, 'Expected the wait policy to have decided first');
-  assert.strictEqual(policyWorld.decision!.kind, 'enqueue');
+  assert.strictEqual(policyWorld.decision.kind, 'enqueue');
   const { resetsAt } = policyWorld.decision as { kind: 'enqueue'; resetsAt?: number };
   assert.strictEqual(typeof resetsAt, 'number', 'Expected the enqueue decision to carry a resetsAt');
   assert.strictEqual((resetsAt as number) * 1000, new Date(isoTimestamp).getTime());
@@ -231,7 +231,7 @@ Then('the wait policy decides to enqueue with the reset time {string}', function
 
 Then('the wait policy decides to enqueue with no reset time', function () {
   assert.ok(policyWorld.decision, 'Expected the wait policy to have decided first');
-  assert.strictEqual(policyWorld.decision!.kind, 'enqueue');
+  assert.strictEqual(policyWorld.decision.kind, 'enqueue');
   const { resetsAt } = policyWorld.decision as { kind: 'enqueue'; resetsAt?: number };
   assert.strictEqual(resetsAt, undefined);
 });
@@ -287,7 +287,12 @@ Given(
 
 function requireOrchestrator(): OrchestratorSetup {
   assert.ok(world.orchestrator, 'Expected a running orchestrator to have been set up first');
-  return world.orchestrator!;
+  return world.orchestrator;
+}
+
+function requireClock(): Date {
+  assert.ok(world.clockNow, 'Expected the orchestrator clock to have been set first');
+  return world.clockNow;
 }
 
 Given('the {string} phase meets these outcomes, attempt by attempt:', function (phase: string, table: DataTable) {
@@ -327,7 +332,7 @@ function buildScriptedPhaseFn(): (config: WorkflowConfig) => Promise<PhaseResult
   let call = 0;
   return async (): Promise<PhaseResult> => {
     const idx = call++;
-    world.attemptStarts.push(world.clockNow!.getTime());
+    world.attemptStarts.push(requireClock().getTime());
     assert.ok(idx < world.phaseScript.length, `Scripted phase called more times (${idx + 1}) than scripted (${world.phaseScript.length})`);
     const step = world.phaseScript[idx];
     if (step.outcome === 'rate-limited') {
@@ -379,9 +384,9 @@ function buildCandidateTakeoverDeps(o: OrchestratorSetup): TakeoverDeps {
 
 function makeOrchestratorClock(o: OrchestratorSetup): WaitClock {
   return {
-    now: () => world.clockNow!,
+    now: () => requireClock(),
     sleep: async (ms: number): Promise<void> => {
-      const until = new Date(world.clockNow!.getTime() + ms);
+      const until = new Date(requireClock().getTime() + ms);
       const beginState = AgentStateManager.readTopLevelState(o.adwId);
       world.firstWaitBegunResolve?.();
 
@@ -574,7 +579,7 @@ Then('every candidate that arrived at issue {int} during a wait was deferred to 
 
 Then('the candidate takes the workflow over under adwId {string}', function (adwId: string) {
   assert.ok(world.lastCandidateDecision, 'Expected "the next candidate arrives" to have run first');
-  assert.strictEqual(world.lastCandidateDecision!.kind, 'take_over_adwId');
+  assert.strictEqual(world.lastCandidateDecision.kind, 'take_over_adwId');
   assert.strictEqual((world.lastCandidateDecision as { kind: 'take_over_adwId'; adwId: string }).adwId, adwId);
 });
 
@@ -642,7 +647,7 @@ Then('the wait comments on issue {int} carry the attempt numbers 1 to {int}, in 
 function requirePauseEntry(adwId: string) {
   const entry = readPauseQueue().find(e => e.adwId === adwId);
   assert.ok(entry, `Expected a pause-queue entry for adwId ${adwId}`);
-  return entry!;
+  return entry;
 }
 
 Then('the pause queue does not hold adwId {string}', function (adwId: string) {
