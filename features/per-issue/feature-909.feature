@@ -61,8 +61,9 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
         `resetsAt` and `rateLimitType` are absent from the drift rows on purpose. The CLI's own
         validation of the event treats both as optional, while `status` is not optional there.
         §2 also pins that the gate KNOWS the fields of the real capture's `rate_limit_event` and the
-        error fields of its `result`. An optional field such as `api_error_status` cannot fail the
-        gate by being absent, so the gate's coverage of it is observed as "not flagged as unknown".
+        error fields of its `result`. The drift rows only use fields that the CLI's own types never
+        omit. Those types mark `api_error_status` and `terminal_reason` optional, so instead of a
+        drift row, the gate's coverage of them is observed as "not flagged as unknown".
 
     §3  THE TOOLS AROUND THE GATE SPEAK THE REAL NAMES. When the gate fails, its report tells the
         maintainer to run `bun run jsonl:update`. That updater hard-codes the stale camelCase
