@@ -141,7 +141,7 @@ export async function runPhase<R extends PhaseResult>(
     if (err instanceof RateLimitError) {
       // Lazy import to avoid circular deps at module load time
       const { handleRateLimitPause } = await import('../phases/workflowCompletion');
-      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
+      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage, err);
     }
     throw err;
   }
@@ -182,7 +182,7 @@ export async function runPhasesParallel<R extends PhaseResult>(
   } catch (err) {
     if (err instanceof RateLimitError) {
       const { handleRateLimitPause } = await import('../phases/workflowCompletion');
-      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
+      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage, err);
     }
     throw err;
   }

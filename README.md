@@ -605,7 +605,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── orchestratorLib.ts
 │   ├── orchestratorNames.ts  # Static orchestrator name/script mappings (extracted from orchestratorLib to avoid circular imports)
 │   ├── agentTimeouts.ts  # Per-phase agent timeout constants
-│   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
+│   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume; entries carry the reported reset time (ISO 8601) and limit type when known
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
@@ -727,6 +727,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
+│   │   ├── workflowCompletion.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   └── worktreeSetup.test.ts
@@ -793,6 +794,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
+│   │   ├── pauseQueueDecider.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
@@ -832,7 +834,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueEligibility.ts
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
-│   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue; posts best-effort stage/error comments through a per-entry launch boundary (buildLaunchBoundary from the entry's own --target-repo args), fixing a latent bug where target-repo entries' error comments were silently dropped by a cwd-vs-remote identity mismatch (#797)
+│   ├── pauseQueueDecider.ts  # Pure pause-queue decider: reset-time gate, resume, refresh_reset, count_strike, evict
+│   ├── pauseQueueScanner.ts  # Thin shell over pauseQueueDecider: probes at most once per scan, never before an entry's reset time; posts best-effort stage/error comments through a per-entry launch boundary (buildLaunchBoundary from the entry's own --target-repo args), fixing a latent bug where target-repo entries' error comments were silently dropped by a cwd-vs-remote identity mismatch (#797)
 │   ├── rateLimitProbe.ts  # Pause-queue probe: stream-json ping classified through claudeStreamParser (clear/limited/failed/unknown) returning the limit type and reset time; no text fallback; injectable exec
 │   ├── promotionSweep.ts  # Promotion sweep (cron-dispatched + manual CLI): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
 │   ├── promotionSweepDefaults.ts  # Production GitContext/provider/fs-backed dependency defaults for runPromotionSweep — makeDefaultDeps(boundary) closes over the passed launch boundary (git ops on its GitContext, forge ops on its providers), no identity resolution of its own (#797)

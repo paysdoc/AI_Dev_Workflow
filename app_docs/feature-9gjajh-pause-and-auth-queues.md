@@ -8,6 +8,7 @@ This module provides two shared, file-backed primitives for cross-workflow coord
 
 - Reads, appends, removes, and updates entries in `agents/paused_queue.json` via `readPauseQueue`, `appendToPauseQueue`, `removeFromPauseQueue`, and `updatePauseQueueEntry`
 - Prevents duplicate pause-queue entries by deduplicating on `adwId` at append time
+- `PausedWorkflow` carries two optional reset-time fields: `resetsAt` (ISO 8601) and `rateLimitType` (`five_hour`, `seven_day`, …), written by the pause path from the `RateLimitError` that stopped the phase when it carried them, and refreshed by the pause-queue scanner whenever a `limited` probe reports a new one. `resetsAtIsoFromEpochSeconds(seconds)` is the single conversion from the CLI's Unix-epoch-seconds reset time to this ISO representation — the pause path calls it for the error's facts, the pause-queue decider (`adws/triggers/pauseQueueDecider.ts`) for the probe's. Entries written before this field existed simply lack both keys; `readPauseQueue` is unchanged and loads them exactly as before.
 - Reads and writes `agents/.auth_gate` to record that a GitHub auth failure was detected, preserving the `firstDetectedAt` timestamp across successive detections
 - Exposes `clearAuthGate` to remove the gate file when auth is restored
 - Tracks Slack notification timing on the auth gate record via `markGateSlackNotified` and `shouldSendDetectionSlack`, enforcing a 2-hour cooldown between notifications
@@ -36,4 +37,5 @@ This module provides two shared, file-backed primitives for cross-workflow coord
 - The pause queue is shared across all repos and workflows on the host; concurrent cron processes writing distinct `adwId` entries are low-risk but not fully serialized
 - `shouldSendDetectionSlack` must be called by the caller — the module never sends Slack messages itself; forgetting to call `markGateSlackNotified` after sending will cause repeated notifications on the next cron tick
 - `pauseReason` on `PausedWorkflow` accepts only `'rate_limited' | 'unknown_error'`; other error classifications must be mapped to one of these two values before enqueuing
+- `PausedWorkflow.resetsAt` is an ISO 8601 string, but `RateLimitFacts.resetsAt` and `ProbeClassification.resetsAt` (the CLI-facing types) are Unix epoch **seconds** — never compare them directly; convert through `resetsAtIsoFromEpochSeconds` first
 - The auth gate does not enforce that only one host writes it; if multiple hosts share the same `agents/` directory (e.g. via a network mount), the `host` field may reflect whichever host wrote last

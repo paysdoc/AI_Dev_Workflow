@@ -36,12 +36,81 @@ import { probeStub } from './feature-902.steps.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-interface SeededEntry {
+export interface SeededEntry {
   entry: PausedWorkflow;
   worktreePath: string;
   scriptPath: string;
   invocationLogPath: string;
   baselineProbeFailures: number;
+}
+
+/**
+ * Lets feature-910.steps.ts register an entry written by the REAL pause path (not this
+ * file's fixture-orchestrator Given) into the same seeded map, so the shared queue/relaunch
+ * Then-steps below find it by issue number and the existing After hook's cleanup loop
+ * (pkill by scriptPath, rmSync worktreePath/agents/<adwId>) reaches it too.
+ */
+export function registerSeededEntry(issueNumber: number, seeded: SeededEntry): void {
+  world.seeded.set(issueNumber, seeded);
+}
+
+export function getSeededEntry(issueNumber: number): SeededEntry | undefined {
+  return world.seeded.get(issueNumber);
+}
+
+/**
+ * feature-910's "the cron host's clock reads {string}" pins the instant `scanPauseQueue`
+ * hands the decider. Cleared by feature-910.steps.ts's own After hook.
+ */
+let pinnedClock: Date | null = null;
+export function setPinnedClock(date: Date | null): void {
+  pinnedClock = date;
+}
+
+/**
+ * feature-910's end-to-end journey drives the REAL pause path, so its queue entry names a
+ * real orchestrator script. Shadowing `bunx` on PATH (mirroring this file's `gh` shadow)
+ * intercepts the relaunch before `tsx` ever runs the real script, recording argv in the
+ * same [issueNumber, adwId, ...extraArgs] shape the fixture orchestrator records so the
+ * shared "relaunched under its original adwId" Then-step needs no changes.
+ */
+let bunxMockDir: string | null = null;
+let interceptRelaunchViaBunx = false;
+let bunxInvocationLogPath: string | null = null;
+
+export function enableBunxRelaunchIntercept(logPath: string): void {
+  interceptRelaunchViaBunx = true;
+  bunxInvocationLogPath = logPath;
+}
+
+export function disableBunxRelaunchIntercept(): void {
+  interceptRelaunchViaBunx = false;
+  bunxInvocationLogPath = null;
+}
+
+function createBunxMockDir(): string {
+  const dir = fs.mkdtempSync(path.join(tmpdir(), 'adw-910-bunx-mock-'));
+  const stubPath = path.join(dir, 'bunx-stub.ts');
+  const stubSource = [
+    "import { appendFileSync } from 'fs';",
+    '',
+    '// argv: [\'tsx\', resolvedScript, issueNumber, adwId, ...extraArgs] — drop the first two',
+    "// so the record matches the fixture orchestrator's own [issueNumber, adwId, ...] shape.",
+    'const argv = process.argv.slice(4);',
+    "const logPath = process.env['ADW_910_BUNX_LOG'];",
+    'if (logPath) {',
+    "  appendFileSync(logPath, JSON.stringify({ argv }) + '\\n');",
+    '}',
+    "// Stays alive past the resume path's readiness window; killed in After by adwId.",
+    'setInterval(() => {}, 60_000);',
+  ].join('\n') + '\n';
+  fs.writeFileSync(stubPath, stubSource, 'utf-8');
+
+  const wrapperPath = path.join(dir, 'bunx');
+  const wrapperSource = ['#!/bin/sh', `exec bun "${stubPath}" "$@"`].join('\n') + '\n';
+  fs.writeFileSync(wrapperPath, wrapperSource, { mode: 0o755 });
+
+  return dir;
 }
 
 const world: {
@@ -107,6 +176,7 @@ function createGhMockDir(): string {
 
 BeforeAll(function () {
   ghMockDir = createGhMockDir();
+  bunxMockDir = createBunxMockDir();
 });
 
 AfterAll(function () {
@@ -114,9 +184,13 @@ AfterAll(function () {
     try { fs.rmSync(ghMockDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   ghMockDir = null;
+  if (bunxMockDir) {
+    try { fs.rmSync(bunxMockDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  bunxMockDir = null;
 });
 
-Before({ tags: '@adw-902 or @adw-907' }, async function (this: RegressionWorld) {
+Before({ tags: '@adw-902 or @adw-907 or @adw-910' }, async function (this: RegressionWorld) {
   this.mockContext = await setupMockInfrastructure();
 
   process.env['PATH'] = `${ghMockDir}:${process.env['PATH'] ?? ''}`;
@@ -138,7 +212,7 @@ Before({ tags: '@adw-902 or @adw-907' }, async function (this: RegressionWorld) 
   fs.rmSync(PAUSE_QUEUE_PATH, { force: true });
 });
 
-After({ tags: '@adw-902 or @adw-907' }, async function (this: RegressionWorld) {
+After({ tags: '@adw-902 or @adw-907 or @adw-910' }, async function (this: RegressionWorld) {
   for (const seeded of world.seeded.values()) {
     try { execSync(`pkill -f ${JSON.stringify(seeded.scriptPath)}`, { stdio: 'ignore' }); } catch { /* nothing to kill */ }
     try { fs.rmSync(seeded.worktreePath, { recursive: true, force: true }); } catch { /* best effort */ }
@@ -248,16 +322,54 @@ async function replayGhCommentLog(): Promise<void> {
   }
 }
 
-/** N successive cycle counts, each a multiple of PROBE_INTERVAL_CYCLES, so every scan probes. */
-async function runProbeCycles(count: number): Promise<void> {
-  for (let i = 1; i <= count; i++) {
-    await scanPauseQueue(PROBE_INTERVAL_CYCLES * i, () => probeRateLimit(probeStub.exec));
-    await replayGhCommentLog();
+/** Shadows `bunx` on PATH for the duration of `fn`, mirroring the `gh` shadow above. */
+async function withBunxShadow(fn: () => Promise<void>): Promise<void> {
+  if (!interceptRelaunchViaBunx || !bunxMockDir) {
+    await fn();
+    return;
+  }
+  const savedPath = process.env['PATH'];
+  process.env['PATH'] = `${bunxMockDir}:${savedPath ?? ''}`;
+  process.env['ADW_910_BUNX_LOG'] = bunxInvocationLogPath ?? '';
+  try {
+    await fn();
+  } finally {
+    process.env['PATH'] = savedPath;
   }
 }
 
+async function runOneProbeCycle(cycleIndex: number): Promise<void> {
+  const clockAtCall = pinnedClock;
+  const deps = clockAtCall ? { now: () => clockAtCall } : undefined;
+  await withBunxShadow(() => scanPauseQueue(PROBE_INTERVAL_CYCLES * cycleIndex, () => probeRateLimit(probeStub.exec), deps));
+  await replayGhCommentLog();
+}
+
+/** N successive cycle counts, each a multiple of PROBE_INTERVAL_CYCLES, so every scan probes. */
+async function runProbeCycles(count: number): Promise<void> {
+  for (let i = 1; i <= count; i++) {
+    await runOneProbeCycle(i);
+  }
+}
+
+let probeCallCountBeforeLastRun = 0;
+let probeCallCountAfterLastRun = 0;
+let probeCyclesRequestedLastRun = 0;
+
+/** feature-910's "the scanner did not run/ran once per probe cycle" Then-steps read this. */
+export function getScannerRunSummary(): { probeCallsBefore: number; probeCallsAfter: number; cyclesRequested: number } {
+  return {
+    probeCallsBefore: probeCallCountBeforeLastRun,
+    probeCallsAfter: probeCallCountAfterLastRun,
+    cyclesRequested: probeCyclesRequestedLastRun,
+  };
+}
+
 When(/^the pause-queue scanner runs (\d+) probe cycles?$/, async function (countStr: string) {
+  probeCallCountBeforeLastRun = probeStub.calls.length;
+  probeCyclesRequestedLastRun = Number(countStr);
   await runProbeCycles(Number(countStr));
+  probeCallCountAfterLastRun = probeStub.calls.length;
 });
 
 Then('the pause queue still holds the workflow for issue {int}', function (issueNumber: number) {
