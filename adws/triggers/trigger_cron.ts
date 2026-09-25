@@ -25,7 +25,7 @@ import { isProcessLive } from '../core/processLiveness';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
-import { handleRetryDirective } from './retryHandler';
+import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
@@ -337,6 +337,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   const issues = listCronOpenIssues(boundary.providers.issueTracker);
   const linkedPrs = fetchLinkedPRs(boundary.providers.codeHost);
   const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
+  const targetRepoArgs = buildTargetRepoArgs();
 
   // Scan all fetched issues for ## Cancel before filterEligibleIssues.
   // Cancelled issues are recorded in a per-cycle set so they are skipped
@@ -350,7 +351,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
       handleCancelDirective(issue.number, issue.comments, boundary, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
     } else if (latestComment && isRetryComment(latestComment.body)) {
-      handleRetryDirective(issue.number, issue.comments);
+      handleRetryDirective(issue.number, issue.comments, buildRetryHandlerDeps(boundary, targetRepoArgs));
       // No cancelledThisCycle add: the reset to awaiting_merge must be picked up
       // this cycle by filterEligibleIssues (the awaiting_merge hoist re-dispatches adwMerge).
     }
@@ -378,7 +379,6 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   }
 
   const repoInfo = cronRepoInfo;
-  const targetRepoArgs = buildTargetRepoArgs();
 
   // Independent redrive pass: re-spawns adwUpgrade for a stranded #UPG (open,
   // adw:upgrade, not adw:blocked, no PR on its claim branch, spawn lock free/stale).
