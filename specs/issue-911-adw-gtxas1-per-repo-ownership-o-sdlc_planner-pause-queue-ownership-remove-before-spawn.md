@@ -30,8 +30,12 @@ The resume path has a second, independent race. `resumeWorkflow` acquires the pe
 - **Decider (`adws/triggers/pauseQueueDecider.ts`)**: add `ScanningCronIdentity` (`{ repoId: { owner, repo }, selfHost }`), a pure, total read of the entry's `--target-repo` (no mutation, no `process.exit`, unlike `parseTargetRepoArgs`), an exported `isOwnedByScanningCron(entry, scanningCron)` predicate built on the existing case-insensitive `sameRepoIdentity`, the `skip_not_owner` action, and a required `scanningCron` field on `PauseQueueDecisionInput`. Ownership is the first rule in `decidePauseQueueAction`.
 - **Resume (`adws/triggers/pauseQueueResume.ts`, new)**: `resumeWorkflow` and its per-entry helpers move out of the scanner (the scanner would otherwise pass the 300-line guideline). `resumeWorkflow(entry, deps)` gains `ResumeDeps = { now?, spawn? }`; after the claim check and lock release it opens the resume log, **removes the entry**, then spawns through `deps.spawn ?? child_process.spawn`. One `try/catch` around spawn + readiness re-appends the entry with `probeFailures + 1` and a fresh `lastProbeAt` on any failure; success no longer removes (already gone) and posts the `resumed` comment as today.
 - **Scanner (`adws/triggers/pauseQueueScanner.ts`)**: `PauseQueueScanDeps` becomes `ResumeDeps & { scanningCron }` and the third argument becomes required: `scanPauseQueue(cycleCount, probe, deps)`. The probe gate and the summary line use the owned subset; every entry still goes through the decider (so `skip_not_owner` is a real production path) and the executor treats it as a silent no-op.
-- **Cron (`adws/triggers/trigger_cron.ts`)**: derive `scanningCron` once from the startup `resolveCronRepo` result (`{ repoId: cronRepoInfo, selfHost: targetRepo === null }`) and dispatch through a small exported `runPauseQueueScanTick(cycleCount, scan?)`, following the file's injectable-tick idiom so the wiring is unit-testable. Zero new context construction; `lint:git-guard` stays green.
-- **Harness and docs**: update the three step-definition call sites so `bun run test` (whole-repo `tsc`) compiles and the `@adw-902/907/908/910` scenarios keep their meaning (every seeded entry targets `acme/widgets`, so the shared scanner step runs as the `acme/widgets` cron, exactly as `feature-910.feature` anticipates); update the owning living docs, README tree lines, `known_issues.md` and `.adw/conditional_docs.md`.
+- **Cron (`adws/triggers/trigger_cron.ts`)**: the scanner receives the cron's own launch-boundary repo identity, which the cron already resolves at startup. Derive `scanningCron` once from the startup `resolveCronRepo` result that the launch boundary is built from: `{ repoId: cronRepoInfo, selfHost: targetRepo === null }`. These are the same owner/repo and `selfHost` that `buildLaunchBoundary(targetRepo)` sets on `cronBoundary.repoId` and `cronBoundary.gitContext.selfHost`. Dispatch through a small exported `runPauseQueueScanTick(cycleCount, scan?)`, following the file's injectable-tick idiom so the wiring is unit-testable. Zero new context construction; `lint:git-guard` stays green.
+- **Harness and docs**:
+  - Update the three step-definition call sites so that `bun run test` (whole-repo `tsc`) compiles and the `@adw-902/907/908/910` scenarios keep their meaning. Each call site passes the `acme/widgets` cron explicitly: it owns every entry those rows seed, exactly as `feature-910.feature` anticipates. Never pass an identity derived from the queue's entries.
+  - Re-seat feature-812's tick-guard lever. The `--target-repo` cron that must reach it no longer owns it.
+  - Make the `@adw-911` scenarios in `features/per-issue/feature-911.feature` pass, together with the rows flagged `@adw-911` in feature-812, 902, 908 and 910.
+  - Update the owning living docs, the README tree lines, `known_issues.md` and `.adw/conditional_docs.md`.
 
 ## Relevant Files
 Use these files to implement the feature:
@@ -54,6 +58,18 @@ Use these files to implement the feature:
 - `adws/checkGitGhGuard.ts`, `adws/guard/identityRule.ts` — read-only: the lint that must stay green; `readLocalRepoIdentity` is a registered cwd-derived identity reader, so the cron must pass its startup identity through rather than re-reading.
 - `features/per-issue/step_definitions/feature-902-queue.steps.ts` (`runOneProbeCycle`, line ~344), `features/per-issue/step_definitions/feature-908.steps.ts` (line ~411), `features/per-issue/step_definitions/feature-910.steps.ts` (`decidePauseQueueAction` call, line ~247) — the only callers outside `adws/`; they must compile under the new signatures and keep their scenarios green.
 - `features/per-issue/feature-910.feature` — read-only: its notes (lines ~155–190) prescribe that once this slice lands the decider rows pass `acme/widgets` as the owning identity and the shared scanner step runs as the `acme/widgets` cron.
+- `features/per-issue/feature-911.feature` — this issue's BDD scenarios, read-only. Its "Notes for the step definitions" set the harness contract: named scanning crons, the spawn-seam wrapper, overlapping cycles on real timers, the crash-on-first-launch fixture, the held spawn lock, the real cron process, and fictional repositories only. The sections are:
+  - §1: the decider's ownership tables.
+  - §2: two crons scanning one queue, including the 2026-09-22 replay.
+  - §3: remove-before-spawn, the overlapping scan, the failed-spawn re-append and the held spawn lock.
+  - §4: a real `trigger_cron.ts --target-repo` process.
+  - §5: the type-check and the git/gh guard.
+- Rows flagged `@adw-911` in other features, whose steps are unchanged:
+  - `features/per-issue/feature-902.feature`: the three-hour journey and the unknown-drop row.
+  - `features/per-issue/feature-908.feature`: the still-queued row.
+  - `features/per-issue/feature-910.feature`: the four §2 decider outlines and the end-to-end journey.
+  - `features/per-issue/feature-812.feature`: the tick-guard row.
+- `features/per-issue/step_definitions/feature-812.steps.ts` — the tick-guard lever (`a cron trigger process whose poll tick raises on every cycle`). It is a queue entry with `extraArgs: {}` that a real `--target-repo adw-812-fixture/tick-guard` cron must reach on every tick. Under ownership that cron no longer owns it, so the lever must be re-seated (step 8). `spawnCron` is the helper feature-911 §4 factors out to launch its real cron.
 - `specs/prd/rate-limit-indefinite-retry.md` — parent PRD: "Pause queue" decisions, "Testing Decisions" (pure modules get exhaustive unit tests; shells are observed at injected seams), "Out of Scope" (orphaned entries).
 - `app_docs/feature-9gjajh-takeover-and-coordination.md` — owns the scanner, decider and their tests; its `scanPauseQueue(cycleCount, probe?, deps?)`, decision-table, `resumeWorkflow` and `PauseQueueScanDeps` descriptions become false and must be corrected.
 - `app_docs/feature-9gjajh-cron-triggers.md` — owns `trigger_cron.ts`; the `checkAndTrigger` description gains the identity hand-off.
@@ -74,7 +90,7 @@ Extend the pure decider first: the identity type, the total target-repo read, th
 Extract the resume path into `pauseQueueResume.ts`, add the spawn seam and the remove-before-spawn ordering with re-append-on-failure. Make the scanner ownership-aware: required deps carrying the identity, owned-only probe gate, `skip_not_owner` no-op. Rebuild the scanner test around an in-memory fake queue so the "queue at the moment of spawn" is observable through the seam.
 
 ### Phase 3: Integration
-Wire the cron's startup identity into the scan through `runPauseQueueScanTick`; update the three step-definition call sites so the whole repo type-checks and the existing scenarios run as the owning cron; correct the living docs, README, known issues and conditional docs; run every validation command.
+Wire the cron's startup launch-boundary identity into the scan through `runPauseQueueScanTick`. Update the three step-definition call sites so the whole repo type-checks and the existing scenarios run as the explicit `acme/widgets` cron. Re-seat feature-812's tick-guard lever on an entry its `--target-repo` cron owns, and make the `@adw-911` scenarios in `features/per-issue/feature-911.feature` pass. Correct the living docs, README, known issues and conditional docs, then run every validation command.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -86,7 +102,10 @@ Execute every step in order, top to bottom.
 ### 2. Add the ownership rule to `adws/triggers/pauseQueueDecider.ts`
 - Import `type RepoIdentity` from `'../types/agentTypes'` and `sameRepoIdentity` from `'../core/repoIdentityCrossCheck'` (the specific module, not the `../core` barrel — keeps the decider free of the barrel's I/O imports).
 - Add and export `interface ScanningCronIdentity { readonly repoId: RepoIdentity; readonly selfHost: boolean }` with a one-line comment: `selfHost` is true for a cron launched without `--target-repo`; `repoId` is the identity that cron resolved at startup.
-- Add a module-private, pure, total `parseEntryTargetRepo(extraArgs: readonly string[] | undefined): RepoIdentity | null`: find `--target-repo`, take the next element, split on `/`, require exactly two non-empty parts, else `null`. No array mutation, no `process.exit`, ignores any `--clone-url`. Comment why `parseTargetRepoArgs` is not reused (it splices and exits the process on a malformed value; a queue entry must never be able to kill the cron, and a decider must be total).
+- Add a module-private, pure, total `parseEntryTargetRepo(extraArgs: readonly string[] | undefined): RepoIdentity | null`: find `--target-repo`, take the next element, split on `/`, require exactly two non-empty parts, else `null`. No array mutation, no `process.exit`, ignores any `--clone-url`. Comment why `parseTargetRepoArgs` is not reused (it splices and exits the process on a malformed value; a queue entry must never be able to kill the cron, and a decider must be total). The read must be total over whatever the queue file actually holds:
+  - A non-array `extraArgs` reads as `null`, never a throw. An example is the `{}` that feature-812's tick-guard lever writes. Use an `Array.isArray` guard.
+  - A non-string value after the flag also reads as `null`. Use a `typeof` guard.
+  - Reason: every cron runs this read over every entry in its ownership filter. A throw here would let one malformed entry abort every cron's tick on the host.
 - Add and export `isOwnedByScanningCron(entry: Pick<PausedWorkflow, 'extraArgs'>, scanningCron: ScanningCronIdentity): boolean`: `entryRepo === null ? scanningCron.selfHost : sameRepoIdentity(entryRepo, scanningCron.repoId)`.
 - Extend `PauseQueueAction` with `| { readonly kind: 'skip_not_owner' }` and `PauseQueueDecisionInput` with `readonly scanningCron: ScanningCronIdentity` (required — there is no sane default owner).
 - In `decidePauseQueueAction`, make the ownership check the first statement, before `isBeforeReset`: `if (!isOwnedByScanningCron(entry, scanningCron)) return { kind: 'skip_not_owner' };`.
@@ -100,8 +119,12 @@ Execute every step in order, top to bottom.
   - mismatching target repo (`DEVPLATFORM_CRON` on an `acme/widgets` entry) → `{ kind: 'skip_not_owner' }` for each of the four verdicts, both before and after `resetsAt`, and at `probeFailures: 2` (never `evict`).
   - entry with no `extraArgs` and `SELF_HOST_CRON` → owned (`clear` → `resume`); with `ACME_CRON` → `skip_not_owner`.
   - entry tagged with the self-host cron's own repo (`--target-repo paysdoc/AI_Dev_Workflow`) and `SELF_HOST_CRON` → owned — this is how every orchestrator the self-host cron spawns is tagged, because `buildCronTargetRepoArgs` always emits `--target-repo`.
+  - `SELF_HOST_CRON` on an `acme/widgets` entry → `skip_not_owner` for `clear` and for `failed` at `probeFailures: 2`. The self-host cron owns target-less entries and entries recorded for its own repo, and nothing else. This row fails for a fix that hands every entry to the self-host cron (feature-911 §1).
   - `Acme/Widgets` vs `acme/widgets` → owned (case-insensitive, same as `sameRepoIdentity`).
   - malformed values (`['--target-repo']`, `['--target-repo', 'acme']`, `['--target-repo', '/widgets']`) never throw and read as "no target repo": owned by `SELF_HOST_CRON`, `skip_not_owner` for `ACME_CRON`.
+  - These also never throw and read as "no target repo" (owned by `SELF_HOST_CRON` only):
+    - a non-array `extraArgs`: `{}` cast to the entry type, as a hand-written queue file can hold;
+    - a non-string value after the flag: `['--target-repo', 42]`, cast.
   - legacy `['--target-repo', 'acme/widgets', '--clone-url', 'https://…']` → owned by `ACME_CRON`.
 - New `describe('isOwnedByScanningCron')` covering the same matrix directly (it is the predicate the scanner's probe gate uses).
 - Extend the purity block: the input entry with `extraArgs` is not mutated (the read must not splice), and the decision is deterministic across calls.
@@ -116,6 +139,10 @@ Execute every step in order, top to bottom.
   3. `try { const child = spawnChild('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: REPO_ROOT }); await awaitChildReadiness(child, READINESS_WINDOW_MS); child.unref(); log(success); postEntryStageComment(entry, 'resumed', …); } catch (err) { requeueAfterFailedSpawn(entry, err, resumeLogPath, now); } finally { close the fd }`.
 - Extract `requeueAfterFailedSpawn(entry, err, resumeLogPath, now)`: logs `Resume spawn failed for … See <resumeLogPath>` at `'error'`, then `appendToPauseQueue({ ...entry, probeFailures: (entry.probeFailures ?? 0) + 1, lastProbeAt: now().toISOString() })`. It must be `appendToPauseQueue`, not `updatePauseQueueEntry` (a no-op on an entry that is no longer in the file); `appendToPauseQueue`'s adwId dedupe makes a double re-append impossible.
 - The worktree-gone and claim-diverged paths are unchanged (they already remove the entry and post their error comment).
+- The held-lock skip is also unchanged, and it must stay ahead of the removal:
+  - When `acquireIssueSpawnLock` returns `false` (a live process holds the issue's spawn lock), `resumeWorkflow` returns before `removeFromPauseQueue`. The entry stays queued with no strike and no comment.
+  - Once the holder is gone, the next clear scan reclaims the stale lock and resumes the entry.
+  - Feature-911 §3's held-lock row is green today and must stay green. Moving the removal ahead of the lock check would drop the entry on a skipped resume and strand the workflow.
 - Header comment: what the module owns (the per-entry I/O the scanner executes: resume, and best-effort stage comments through the entry's own boundary), the remove-before-spawn invariant, and the re-append-with-strike contract.
 
 ### 5. Make `adws/triggers/pauseQueueScanner.ts` ownership-aware
@@ -147,18 +174,41 @@ Execute every step in order, top to bottom.
   - re-append on top of an entry already back in the queue (seed it again inside the seam) → no duplicate (dedupe).
   - Rewrite `'early child exit: does not remove from queue and increments probeFailures'` to the new contract (`'early child exit: re-appends the entry with probeFailures incremented'`): the end state contains the entry with `probeFailures: 1`; the `removeFromPauseQueue` negative assertion goes.
   - Happy path: `removeFromPauseQueue`'s `mock.invocationCallOrder[0]` is lower than the spawn seam's — the ordering is the contract.
+  - Keep `'aborts when spawn lock is already held by another live process'` and extend it: `appendToPauseQueue` and `updatePauseQueueEntry` are also uncalled, and the entry is still in the fake queue. The skip neither removes nor strikes.
 
 ### 7. Wire the cron's identity in `adws/triggers/trigger_cron.ts` and pin it in `adws/triggers/__tests__/trigger_cron.test.ts`
-- Right after the `resolveCronRepo` destructuring: `const scanningCron: ScanningCronIdentity = { repoId: cronRepoInfo, selfHost: targetRepo === null };` with a comment that this is the same startup resolution the launch boundary is built from — resolved once, never re-read (no `readLocalRepoIdentity()`, no `buildLaunchBoundary`, no `GitContext`).
+- Right after the `resolveCronRepo` destructuring, add `const scanningCron: ScanningCronIdentity = { repoId: cronRepoInfo, selfHost: targetRepo === null };`.
+  - This is the cron's launch-boundary repo identity. `buildLaunchBoundary(targetRepo)` gives `cronBoundary` exactly this owner/repo as `repoId` and this `selfHost` on its `gitContext`.
+  - Comment that it comes from the same startup resolution the launch boundary is built from. It is resolved once and never re-read: no `readLocalRepoIdentity()`, no `buildLaunchBoundary`, no `GitContext`.
 - Add, following the `runPerIssueScenarioSweepTick` idiom: `export async function runPauseQueueScanTick(cycleCount: number, scan: typeof scanPauseQueue = scanPauseQueue): Promise<void> { await scan(cycleCount, probeRateLimit, { scanningCron }); }` — no cadence gate (the scanner owns `PROBE_INTERVAL_CYCLES`) and no swallow (error semantics unchanged: a throw still reaches `runGuardedTick`). `checkAndTrigger` calls `await runPauseQueueScanTick(cycleCount)` where it called `scanPauseQueue(cycleCount)`.
 - Imports: `probeRateLimit` from `'./rateLimitProbe'`; `type ScanningCronIdentity` from `'./pauseQueueDecider'`.
 - Test (`describe('runPauseQueueScanTick')`): the injected `scan` is called exactly once with `(cycleCount, expect.any(Function), { scanningCron: { repoId: expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }), selfHost: true } })` — the mocked `resolveCronRepo` returns `targetRepo: null`, i.e. the self-host shape; a second test asserts the second argument is `probeRateLimit` (import it from `'../rateLimitProbe'`). The existing `vi.mock('../pauseQueueScanner')` stays.
 
 ### 8. Keep the BDD harness on the new contract
-- `features/per-issue/step_definitions/feature-902-queue.steps.ts`, `runOneProbeCycle`: build `deps` as `{ scanningCron, ...(clockAtCall ? { now: () => clockAtCall } : {}) }` where `scanningCron` is the owner of the seeded target repository — derive it from the seeded entries' `--target-repo` (`{ repoId: { owner, repo }, selfHost: false }`; every current row seeds `acme/widgets`) rather than hard-coding, and export a small `scanningCronFor(targetRepo)` helper for the other files.
-- `features/per-issue/step_definitions/feature-908.steps.ts` (~line 411): `scanPauseQueue(PROBE_INTERVAL_CYCLES, () => ({ verdict: 'clear' }), { scanningCron: scanningCronFor(<the Background's target repository>) })` so "exactly one orchestrator was launched" is proven under the owning cron.
+- `features/per-issue/step_definitions/feature-902-queue.steps.ts`:
+  - Factor `runOneProbeCycle`/`runProbeCycles` to take the scanning cron as a parameter rather than copying them. Build `deps` as `{ scanningCron, ...(clockAtCall ? { now: () => clockAtCall } : {}) }`.
+  - Export a small `scanningCronFor(repoFullName, { selfHost = false } = {})` helper returning `{ repoId: { owner, repo }, selfHost }` for the other files. "The cron polling the target repository R" is `scanningCronFor(R)`. "The self-host cron on a host checked out at R" is `scanningCronFor(R, { selfHost: true })`.
+  - The shared "the pause-queue scanner runs N probe cycle(s)" step passes `scanningCronFor('acme/widgets')` explicitly: that cron owns every entry the 902, 907 and 910 rows seed.
+  - Never derive the identity from the queue's entries, and never default a missing one. A cron derived from the entries owns them by construction, so ownership would pass vacuously. It would also void feature-910's end-to-end proof that ownership reads the target repository the real pause path records.
+- `features/per-issue/step_definitions/feature-908.steps.ts` (~line 411): `scanPauseQueue(PROBE_INTERVAL_CYCLES, () => ({ verdict: 'clear' }), { scanningCron: scanningCronFor('acme/widgets') })`.
+  - This is the Background's cron, "polling the target repository "acme/widgets"". Under it, "relaunched nothing" and "exactly one orchestrator was launched" are proven under the owning cron and cannot pass vacuously.
 - `features/per-issue/step_definitions/feature-910.steps.ts` (~line 247): add `scanningCron: scanningCronFor('acme/widgets')` to the decider input, exactly as the feature's notes prescribe ("these rows pass `acme/widgets`, the identity that owns the entry, and keep their meaning").
-- Do not write `@adw-911` scenarios or step definitions in this step — the scenario-writer/alignment phases own them; the build must only keep `bun run test` (whole-repo `tsc`) and the `@adw-902/907/908/910` runs green.
+- `features/per-issue/step_definitions/feature-812.steps.ts`, the tick-guard row (now also `@adw-911`):
+  - Why it breaks: the row's lever is a queue entry with `extraArgs: {}` that the `--target-repo adw-812-fixture/tick-guard` cron must reach on every tick. With the total ownership read from step 2, that entry has no target repo, so only a self-host cron owns it. The tick-guard cron's scan returns before `resumeWorkflow`, the tick completes at `POLL:`, and the row times out waiting for `checkAndTrigger: tick failed`.
+  - What to do: re-seat the lever on an entry that cron owns (`extraArgs: ['--target-repo', 'adw-812-fixture/tick-guard']`, no reset time, so the CLI stub's clear probe resumes it). Its failure must be raised on every tick before the resume removes the entry or takes the spawn lock, as the feature's FLAGGED note requires.
+  - One candidate lever: an owned, due entry with an existing `worktreePath` whose spawn-lock path cannot be written (an `issueNumber` containing `/`). `acquireIssueSpawnLock` then throws before any lock file exists. Verify that it raises on every tick.
+  - The scenario text does not change.
+  - Do not keep the old lever alive by letting the ownership read throw on a non-array `extraArgs` (see step 2).
+- The `@adw-911` scenarios already exist in `features/per-issue/feature-911.feature`, and other features have rows flagged `@adw-911` (see Relevant Files). Their step definitions follow that file's "Notes for the step definitions", whether they are written during the TDD build or in the step-definition phase. The notes cover:
+  - widening the 902 hooks to `(@adw-902 or @adw-907 or @adw-910 or @adw-911) and not @adw-908 and not @adw-812`, and the 910 hooks to `@adw-910 or @adw-911`;
+  - the cron-qualified scanner and decider steps built on the factored runner;
+  - the spawn-seam wrapper, passed as `deps.spawn`, that reads `agents/paused_queue.json` and then delegates to the real `child_process.spawn`;
+  - overlapping cycles on real timers;
+  - the crash-on-first-launch fixture;
+  - the held spawn lock;
+  - the real cron launched through feature-812's factored `spawnCron`;
+  - fictional repositories only.
+- Those step definitions need no production seam beyond the ones this plan adds: `PauseQueueScanDeps.scanningCron`/`spawn`/`now`, plus `PROBE_INTERVAL_CYCLES` and `CLAUDE_CODE_PATH` read from the environment.
 
 ### 9. Correct the documentation the change makes false
 - `app_docs/feature-9gjajh-takeover-and-coordination.md`: `scanPauseQueue(cycleCount, probe, deps)` with required `deps.scanningCron`; the owned-only probe gate and the "none owned" summary line; the decision table's new first row and that ownership precedes the reset gate; `skip_not_owner` in the executor list; `resumeWorkflow` now in `pauseQueueResume.ts`, removes the entry before spawning and re-appends with a strike on any spawn failure through the `SpawnOrchestrator` seam; `postEntryStageComment`/`resolveEntryRepoInfo` locations; a "Fixed bug" bullet for the 2026-09-22 double-strike and the resume window.
@@ -179,11 +229,33 @@ Vitest (`bun run test:unit`, include `adws/**/__tests__/**/*.test.ts`). Per the 
 - `adws/triggers/__tests__/pauseQueueScanner.test.ts` (existing mock preamble + in-memory fake queue): all 30 existing cases pass as the owning cron; non-owner scans probe nothing and write nothing; mixed queues probe once and touch only owned entries; a foreign due entry does not trigger the probe; legacy entries resume only under the self-host cron; through the spawn seam the queue is already empty when the child is spawned; early exit / `'error'` / synchronous throw each re-append with `probeFailures + 1` and the injected `lastProbeAt`; dedupe on re-append; remove-then-spawn call order.
 - `adws/triggers/__tests__/trigger_cron.test.ts`: `runPauseQueueScanTick` hands the injected scan `(cycleCount, probeRateLimit, { scanningCron })` with the startup identity (`test-owner/test-repo`, `selfHost: true` under the mocked resolver).
 
+### BDD Scenarios
+`features/per-issue/feature-911.feature` (`@adw-911`) is the behavioural counterpart. It runs over the real queue file, the probe stub, the fixture orchestrator and the mock GitHub API, and every scan and decision names the cron that makes it.
+- §1, the decider tables:
+  - The owning cron gets #910's decision unchanged.
+  - Any other cron gets `skip_not_owner` before every other rule: before the reset time, on a clear probe, one strike short of eviction, and on a limited probe that reports a reset time.
+  - Target-less entries belong to the self-host cron only.
+  - The self-host cron owns entries recorded for its own repo, and no other entries.
+- §2, two crons scanning one queue:
+  - The non-owner leaves `probeFailures`, `lastProbeAt` and `resetsAt` untouched, relaunches nothing and posts nothing. The owner then strikes, evicts, refreshes or resumes.
+  - A cron with no owned entry that is due runs no probe.
+  - The 2026-09-22 replay runs the `acme/platform` cron against the self-host `acme/adw-host` cron.
+- §3, observed through the spawn-seam wrapper:
+  - At the moment of the spawn, the entry is already gone from `agents/paused_queue.json`.
+  - An overlapping second scan relaunches nothing.
+  - A fixture that exits on its first launch is re-queued with one more strike, keeps its target repo, reset time and limit type, and gets no comment. The next clear scan relaunches it.
+  - A held spawn lock leaves the entry queued with no strike until the holder dies.
+- §4: a real `trigger_cron.ts --target-repo acme/widgets` process (`PROBE_INTERVAL_CYCLES=1`, `CLAUDE_CODE_PATH` pointing at the CLI stub) relaunches its own entry on its first tick and leaves the `acme/gadgets` entry alone. This is the end-to-end proof that the cron hands its identity to the scanner.
+- §5: `bun run test` (T22) and the git/gh guard.
+- The flagged rows in feature-902, 908 and 910 keep their steps and run as the explicit `acme/widgets` cron. Feature-812's tick-guard row runs with its re-seated lever (step 8).
+
 ### Edge Cases
 - Entry with no `extraArgs` (an orchestrator launched by hand without `--target-repo`): owned by the self-host cron only.
 - Entry tagged with the self-host cron's own repo (`--target-repo paysdoc/AI_Dev_Workflow`): owned by the self-host cron — the normal case for every cron-spawned framework workflow, since `buildCronTargetRepoArgs` always emits `--target-repo`.
 - Owner/repo differing only in case: owned (`sameRepoIdentity`); the spawn-lock key still uses the entry's own strings, exactly as today.
 - Malformed `--target-repo` value or a missing value: read as "no target repo", never a throw or a `process.exit` from inside the scan.
+- A non-array `extraArgs`, as a hand-edited or corrupt queue file can hold (for example `{}`, feature-812's old lever): reads as "no target repo", so only the self-host cron owns it. It never throws in any cron's ownership filter.
+- Spawn lock held by a live process when a clear probe resumes: the skip happens before the removal, so the entry stays queued with no strike and no comment. Once the holder dies, the stale lock is reclaimed and the next clear scan resumes the entry.
 - Legacy `extraArgs` containing `--clone-url`: ignored by the read; ownership unaffected.
 - A foreign entry that is due while every owned entry still waits: no probe, no writes, one summary line.
 - Only foreign entries in the queue: one "none owned" line per probe-eligible cycle, nothing else — an orphaned entry (its owning cron not running) is visible in the log but deliberately not handled (PRD out of scope).
@@ -201,11 +273,17 @@ Vitest (`bun run test:unit`, include `adws/**/__tests__/**/*.test.ts`). Per the 
 - `decidePauseQueueAction` requires `scanningCron` and returns `{ kind: 'skip_not_owner' }` before any other rule for an entry the scanning cron does not own; unit tests cover: matching target repo → proceeds to the other rules; mismatching → `skip_not_owner`; no target repo + self-host cron → owned; no target repo + `--target-repo` cron → not owned.
 - `isOwnedByScanningCron` is exported, pure and total; the decider file imports nothing impure (`grep` guard prints `0`).
 - A scan by a non-owning cron never calls the probe for that entry, leaves its `probeFailures` and `lastProbeAt` untouched, removes nothing, spawns nothing and posts no comment (scanner unit tests through the injected seams).
-- On `resume`, `removeFromPauseQueue` runs before the spawn seam is invoked; through a seam that reads the queue, the entry is absent at the moment the child is spawned (unit test), and the real `agents/paused_queue.json` no longer contains the entry when the shadowed `bunx` runs (BDD, once the `@adw-911` scenarios exist).
-- A spawn that exits, errors, or throws inside the readiness window re-appends the entry with `probeFailures` incremented and a fresh `lastProbeAt`, without duplicating it.
+- On `resume`, `removeFromPauseQueue` runs before the spawn seam is invoked. The entry is absent from the queue at the moment the child is spawned, observed at the injected spawn seam in two places:
+  - the unit test's seam reads the fake queue;
+  - in BDD (feature-911 §3), a wrapper passed through `scanPauseQueue`'s `deps.spawn` reads the real `agents/paused_queue.json` and delegates to `child_process.spawn`.
+- A spawn that exits, errors, or throws inside the readiness window re-appends the entry with `probeFailures` incremented and a fresh `lastProbeAt`, without duplicating it. The entry keeps its `extraArgs` (`--target-repo`), `resetsAt` and `rateLimitType`, and no comment is posted.
+- A resume skipped because a live process holds the issue's spawn lock leaves the entry queued with no strike (unit test and feature-911 §3).
 - `trigger_cron.ts` passes `{ repoId: cronRepoInfo, selfHost: targetRepo === null }` and `probeRateLimit` to the scanner via `runPauseQueueScanTick`; it adds no `buildLaunchBoundary`, `GitContext`, or `readLocalRepoIdentity()` call; `bun run lint:git-guard` is green.
 - `scanPauseQueue(cycleCount, probe, deps)` and `resumeWorkflow(entry, deps?)` are the only public shapes; `PauseQueueScanDeps.scanningCron` is required; `pauseQueueResume.ts` exists and both it and the scanner are under 300 lines.
-- The three step-definition call sites compile and the `@adw-902`, `@adw-907`, `@adw-908` and `@adw-910` scenarios pass as the `acme/widgets` cron.
+- The three step-definition call sites pass the `acme/widgets` cron explicitly and compile.
+- The `@adw-902`, `@adw-907`, `@adw-908` and `@adw-910` scenarios pass as that cron.
+- Feature-812's tick-guard row passes with a re-seated lever that the `--target-repo` cron owns.
+- The `@adw-911` scenarios pass, including the real-cron row in §4.
 - `bun run test`, `bun run test:unit`, `bun run lint`, `bun run lint:git-guard` and `bun run lint:docs-index` pass; the owning app docs, README tree lines, `known_issues.md` and `.adw/conditional_docs.md` are updated.
 
 ## Validation Commands
@@ -222,7 +300,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-907"` — probe/parser scenarios sharing the scanner harness.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-908"` — `## Retry`-on-paused scenarios that also drive `scanPauseQueue`.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-910"` — the reset-time scenarios, including the decider rows that now pass the owning identity.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-911"` — this issue's scenarios, once the scenario-writer and step-definition phases have produced them.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-911"` — this issue's scenarios in `features/per-issue/feature-911.feature`, plus the rows flagged `@adw-911` in feature-812, 902, 908 and 910.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-812"` — the tick-guard row with its re-seated lever, plus the janitor rows. Each launches a real `trigger_cron.ts --target-repo` process.
 - `grep -c "from '../core'\|process.env\|new Date()\|process.exit" adws/triggers/pauseQueueDecider.ts` — must print `0` (the decider stays pure and total).
 - `wc -l adws/triggers/pauseQueueDecider.ts adws/triggers/pauseQueueScanner.ts adws/triggers/pauseQueueResume.ts` — each under 300.
 - `grep -n "removeFromPauseQueue(entry.adwId)\|spawnChild(" adws/triggers/pauseQueueResume.ts` — the final `removeFromPauseQueue` line number is lower than the `spawnChild(` line number (the ordering is the contract).
@@ -239,5 +318,10 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Decision — re-append uses `appendToPauseQueue`.** `updatePauseQueueEntry` maps over the file and is a silent no-op once the entry has been removed — using it would drop the strike and the entry. `appendToPauseQueue` re-inserts the full entry (spread from the in-memory copy, with the incremented strike) and its adwId dedupe rules out a duplicate.
 - **Not changed, deliberately.** `resolveEntryRepoInfo`'s `readLocalRepoIdentity()` fallback (only the self-host cron reaches it now, and the value equals its startup identity; folding `scanningCron.repoId` in as the fallback is a reasonable follow-up, but it is not needed for the guard or for correctness); the spawn-lock verification and its release-before-spawn (the child takes the lifetime lock — the lock is not what closes the window, the removal is); the `## Retry` handler (already removes before spawning); `## Cancel`; the in-process wait; the envelope gate.
 - The fake spawn seam in the unit tests is a plain function returning an `EventEmitter` with `pid`/`unref` (the existing `makeFakeChild`); `awaitChildReadiness` only needs `once`/`removeListener`, so the seam type can be satisfied by the existing fake cast to `ChildProcess`.
-- For the later `@adw-911` scenarios (scenario-writer phase, not this build): the `bunx` shadow that feature-902-queue's harness already installs can read `agents/paused_queue.json` at invocation and record whether the entry was present (proving remove-before-spawn end to end), and a shadow that exits immediately with code 1 proves the re-append with `probeFailures + 1`; two scans of one entry under two identities (`acme/widgets` and `paysdoc/devplatform`) prove the non-owner leaves `probeFailures`/`lastProbeAt` untouched and posts nothing (T14 `the mock harness recorded zero comment posts on issue {int}`).
+- The `@adw-911` scenarios (`features/per-issue/feature-911.feature`) observe remove-before-spawn at the injected spawn seam, as the issue's acceptance criterion words it. They do not use the `bunx` shadow.
+  - A wrapper passed as `deps.spawn` reads `agents/paused_queue.json` synchronously and records whether the entry for the adwId it launches is present. It then hands the same arguments to the real `child_process.spawn`, so the readiness window runs on real timers.
+  - The failed-spawn row uses a fixture orchestrator that exits at once on its first launch and stays alive on later launches.
+  - The ownership rows scan one queue as two named crons, over fictional repositories only: `acme/widgets`, `acme/gadgets`, `acme/platform`, and `acme/adw-host` for the self-host cron.
+  - A non-owner leaving `probeFailures`/`lastProbeAt` untouched and posting nothing is asserted with the feature's last-probe steps and T14 (`the mock harness recorded zero comment posts on issue {int}`).
+  - No real repository appears in BDD. `paysdoc/devplatform` stays confined to the hermetic unit tests.
 - No new library is needed; nothing to install (`bun add` not required).
