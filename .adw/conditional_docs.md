@@ -229,6 +229,7 @@
     - adws/triggers/__tests__/pauseQueueScanner.test.ts
     - adws/triggers/pauseQueueDecider.ts
     - adws/triggers/__tests__/pauseQueueDecider.test.ts
+    - adws/triggers/pauseQueueResume.ts
     - adws/triggers/rateLimitProbe.ts
     - adws/triggers/__tests__/rateLimitProbe.test.ts
     - adws/triggers/mergeDispatchGate.ts
@@ -242,7 +243,8 @@
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
     - When working on the pause-queue rate-limit probe (`rateLimitProbe.ts`) or its outcome classification
-    - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
+    - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the ownership gate (`skip_not_owner`, evaluated before the reset gate), the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
+    - When working on the pause-queue resume path (`pauseQueueResume.ts`) — `resumeWorkflow` removes the queue entry before spawning the orchestrator (remove-before-spawn) and re-appends it with a strike via `appendToPauseQueue` if the spawn fails inside its readiness window
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
 
 - app_docs/feature-9gjajh-promotion-system.md

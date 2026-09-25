@@ -16,7 +16,6 @@ import assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 import {
   DEFAULT_DEPS,
@@ -24,6 +23,16 @@ import {
   JANITOR_GRACE_PERIOD_MS,
   type JanitorDeps,
 } from '../../../adws/triggers/devServerJanitor';
+import {
+  createRealCronWorld,
+  spawnRealCron,
+  killRealCronWorld,
+  readCronPid,
+  isPidAlive,
+  countOccurrences,
+  waitForRealCron,
+  type RealCronWorld,
+} from './realCronProcess.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
@@ -257,158 +266,64 @@ Then('the janitor pass completes without raising', function () {
   assert.strictEqual(world.passError, null, `Expected the janitor pass to resolve without raising. Raised: ${world.passError}`);
 });
 
-const FAKE_WORKING_PAT = 'adw-812-test-pat-never-used-for-a-real-call';
-const CLAUDE_CLI_STUB = path.join(REPO_ROOT, 'test', 'mocks', 'claude-cli-stub.ts');
-
-const cronWorld: {
-  proc: ChildProcess | null;
-  stdout: string;
-  stderr: string;
-  exited: boolean;
-  exitInfo: { code: number | null; signal: NodeJS.Signals | null } | null;
-  repoKey: string;
-  pauseQueuePath: string;
-  targetReposDir: string;
-} = {
-  proc: null,
-  stdout: '',
-  stderr: '',
-  exited: false,
-  exitInfo: null,
-  repoKey: '',
+const cronWorld: RealCronWorld & { pauseQueuePath: string; targetReposDir: string; tickGuardWorktreePath: string } = {
+  ...createRealCronWorld(),
   pauseQueuePath: '',
   targetReposDir: '',
+  tickGuardWorktreePath: '',
 };
 
 Before({ tags: '@adw-812' }, function () {
-  cronWorld.proc = null;
-  cronWorld.stdout = '';
-  cronWorld.stderr = '';
-  cronWorld.exited = false;
-  cronWorld.exitInfo = null;
-  cronWorld.repoKey = '';
+  Object.assign(cronWorld, createRealCronWorld());
   cronWorld.pauseQueuePath = '';
   cronWorld.targetReposDir = '';
+  cronWorld.tickGuardWorktreePath = '';
 });
 
 After({ tags: '@adw-812' }, function () {
-  if (cronWorld.proc?.pid) {
-    // Negative PID: kill the whole detached process group — bunx's own wrapper
-    // process is not the one that writes the PID file (see cronPidFilePath); the
-    // real tsx-executed grandchild is only reachable this way.
-    try { process.kill(-cronWorld.proc.pid, 'SIGKILL'); } catch { /* already dead */ }
-  }
-  if (cronWorld.repoKey) {
-    try { fs.unlinkSync(cronPidFilePath(cronWorld.repoKey)); } catch { /* never created */ }
-  }
+  killRealCronWorld(cronWorld);
   if (cronWorld.pauseQueuePath) {
     try { fs.unlinkSync(cronWorld.pauseQueuePath); } catch { /* never created */ }
   }
   if (cronWorld.targetReposDir) {
     try { fs.rmSync(cronWorld.targetReposDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
+  if (cronWorld.tickGuardWorktreePath) {
+    try { fs.rmSync(cronWorld.tickGuardWorktreePath, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
 });
 
-/** Mirrors cronProcessGuard.ts's own path derivation (agents/cron/{owner}_{repo}.json). */
-function cronPidFilePath(repoKey: string): string {
-  return path.join(REPO_ROOT, 'agents', 'cron', repoKey.replace('/', '_') + '.json');
-}
-
-function readCronPid(repoKey: string): number | null {
-  try {
-    const raw = fs.readFileSync(cronPidFilePath(repoKey), 'utf-8');
-    const parsed = JSON.parse(raw) as { pid?: number };
-    return typeof parsed.pid === 'number' ? parsed.pid : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Real liveness proof: signal 0 to the PID recorded by the process itself (not the bunx wrapper). */
-function isPidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function countOccurrences(haystack: string, needle: string): number {
-  return haystack.split(needle).length - 1;
+function spawnCron(repoKey: string, extraEnv: NodeJS.ProcessEnv): void {
+  spawnRealCron(cronWorld, repoKey, extraEnv);
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs: number, description: string): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  if (!predicate()) {
-    throw new Error(`Timed out waiting for: ${description}\nstdout:\n${cronWorld.stdout}\nstderr:\n${cronWorld.stderr}`);
-  }
-}
-
-/**
- * Pinned (via --target-repo) to a private, collision-free repo key so it never
- * contends with a real cron's PID file for this repo. A syntactically-complete PAT
- * satisfies GitContext's construction-time validate-and-discard probe without ever
- * making a real GitHub call, and the GitHub App is deliberately left unconfigured
- * so no eager installation-token resolution is attempted. CLAUDE_CODE_PATH points
- * at the repo's Claude CLI stub so the entry guard's guardrails-probe warm-up (and,
- * when relevant, pauseQueueScanner's rate-limit probe) resolve in milliseconds
- * instead of real `claude` calls.
- */
-function spawnCron(repoKey: string, extraEnv: NodeJS.ProcessEnv): void {
-  cronWorld.repoKey = repoKey;
-  try { fs.unlinkSync(cronPidFilePath(repoKey)); } catch { /* fresh */ }
-
-  const spawnEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    GITHUB_PAT: FAKE_WORKING_PAT,
-    GITHUB_APP_ID: '',
-    GITHUB_APP_SLUG: '',
-    GITHUB_APP_PRIVATE_KEY_PATH: '',
-    GH_TOKEN: '',
-    CLAUDE_CODE_PATH: CLAUDE_CLI_STUB,
-    ...extraEnv,
-  };
-
-  // detached: true so the tsx wrapper's grandchild lands in the same process group as
-  // `proc` — killing the group (see After, above) is the only way to reach it.
-  const proc = spawn('bunx', ['tsx', 'adws/triggers/trigger_cron.ts', '--target-repo', repoKey], {
-    cwd: REPO_ROOT,
-    env: spawnEnv,
-    detached: true,
-  });
-  cronWorld.proc = proc;
-  proc.stdout?.on('data', (chunk: Buffer) => { cronWorld.stdout += chunk.toString(); });
-  proc.stderr?.on('data', (chunk: Buffer) => { cronWorld.stderr += chunk.toString(); });
-  proc.on('exit', (code, signal) => {
-    cronWorld.exited = true;
-    cronWorld.exitInfo = { code, signal };
-  });
+  await waitForRealCron(cronWorld, predicate, timeoutMs, description);
 }
 
 Given('a cron trigger process whose poll tick raises on every cycle', async function () {
-  // The lever: a pause-queue entry whose extraArgs is a non-array JSON value. resumeWorkflow's
-  // first line (resolveEntryRepoInfo → parseTargetRepoArgs([...(entry.extraArgs ?? [])])) throws
-  // a TypeError spreading it, before any fs/network call — deterministic and never swallowed by
-  // scanPauseQueue or checkAndTrigger, so it reaches runGuardedTick on every cycle (this lever is
-  // NOT one the janitor's own isolation could swallow).
+  // FLAGGED BY #911: the lever must be an entry the "adw-812-fixture/tick-guard" cron owns
+  // (its --target-repo matches the entry's recorded target repository), since a non-owner
+  // now gets skip_not_owner before any other rule and the old target-less lever would never
+  // be reached. The lever: an owned, due entry whose issueNumber contains "/", so
+  // acquireIssueSpawnLock's lock-file path resolves a parent directory that does not exist.
+  // The write throws ENOENT before any lock file exists — deterministic, before the entry is
+  // removed or the spawn lock is taken, and never swallowed by scanPauseQueue or
+  // checkAndTrigger, so it reaches runGuardedTick on every cycle.
   cronWorld.pauseQueuePath = path.join(REPO_ROOT, 'agents', 'paused_queue.json');
   fs.mkdirSync(path.dirname(cronWorld.pauseQueuePath), { recursive: true });
+  cronWorld.tickGuardWorktreePath = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-812-tick-guard-worktree-'));
   fs.writeFileSync(cronWorld.pauseQueuePath, JSON.stringify([
     {
       adwId: 'adw812fixture',
-      issueNumber: 999999,
+      issueNumber: '999999/evil',
       orchestratorScript: 'adws/adwSdlc.tsx',
       pausedAtPhase: 'sdlc_planner',
       pauseReason: 'unknown_error',
       pausedAt: new Date().toISOString(),
-      worktreePath: '/tmp/adw-812-nonexistent-worktree',
+      worktreePath: cronWorld.tickGuardWorktreePath,
       branchName: 'adw-812-fixture',
-      extraArgs: {},
+      extraArgs: ['--target-repo', 'adw-812-fixture/tick-guard'],
     },
   ], null, 2));
 

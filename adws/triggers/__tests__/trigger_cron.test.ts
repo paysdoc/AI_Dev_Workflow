@@ -85,10 +85,11 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../../core/agentState';
 import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
+import { probeRateLimit } from '../rateLimitProbe';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
 
 function makeEntry(overrides: Partial<HungOrchestrator> = {}): HungOrchestrator {
@@ -278,6 +279,26 @@ describe('runDocsIndexSweepTick — null-thunk skip (#810)', () => {
     const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
     await expect(runDocsIndexSweepTick(DOCS_INDEX_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
     expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runPauseQueueScanTick', () => {
+  it('hands the injected scan this cron\'s startup identity and probeRateLimit', async () => {
+    const scan = vi.fn(() => Promise.resolve());
+    await runPauseQueueScanTick(7, scan);
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(scan).toHaveBeenCalledWith(
+      7,
+      expect.any(Function),
+      { scanningCron: { repoId: expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }), selfHost: true } },
+    );
+  });
+
+  it('passes probeRateLimit itself as the probe, not a wrapper', async () => {
+    const scan = vi.fn((_cycleCount: number, _probe: unknown, _deps: unknown) => Promise.resolve());
+    await runPauseQueueScanTick(1, scan);
+    const [, probeArg] = scan.mock.calls[0];
+    expect(probeArg).toBe(probeRateLimit);
   });
 });
 
