@@ -59,7 +59,7 @@ export function getLastProbeClassification(): ProbeClassification | null {
   return world.lastClassification;
 }
 
-Before({ tags: '@adw-902 or @adw-907' }, function () {
+Before({ tags: '@adw-902 or @adw-907 or @adw-910' }, function () {
   resetFeature902ProbeState();
 });
 
