@@ -71,6 +71,19 @@ Use these files to fix the bug:
 - `.adw/conditional_docs.md` — the takeover doc's `Owns:` list (≈line 222–234) must gain the new module and its test so the docs-index gate stays coherent.
 - `README.md` — directory tree entry for `adws/triggers/` (line ≈835) gains a line for the new module. Note: the working tree already carries an unrelated uncommitted README edit (de-duplicated tree lines); leave it as is.
 - `features/regression/smoke/pause_resume_rate_limit.feature` — read-only. The existing pause/resume scenario; its `When` step is a cutover stub that returns `pending`, so the scenario is `pending` at baseline and must simply not regress.
+- `features/per-issue/feature-902.feature` — read-only. The per-issue BDD scenarios for this issue (`@adw-902`), which the fix must satisfy. Its "Notes for the step definitions" rely on the seams this plan introduces: the CLI is stubbed through `probeRateLimit(exec?)` (or a throwaway `CLAUDE_CODE_PATH` script), and the scanner is driven through `scanPauseQueue(cycleCount, probe?)`. The step definitions go in `features/per-issue/step_definitions/`.
+  - **§1, the probe's verdict:**
+    - A rejected `rate_limit_event` ⇒ `limited`, whatever the text and exit code.
+    - Non-JSON limit wording on stdout or stderr ⇒ `limited`.
+    - A clean exit-0 reply ⇒ `clear`. This includes one carrying a non-rejected `rate_limit_event` (`allowed_warning`, or `allowed` with `overageStatus: "rejected"`).
+    - No pause-worthy event and no limit wording ⇒ `unknown`.
+    - The probe requests `--output-format stream-json` and `--verbose`.
+  - **§2, parity:** the same stdout goes through `handleAgentProcess` and through the probe. For a rejected `rate_limit_event`, `api_retry` `overloaded_error` at attempt 1, and `api_retry` `api_error` 500 at attempt 2, the agent run must end `rateLimited` and the probe must report `limited`.
+  - **§3, the scanner:**
+    - `limited` never adds a probe failure or a comment. This covers a 36-cycle journey, an entry already at 2 failures, and a six-workflow replay of 2026-09-24.
+    - `clear` relaunches the workflow under its original adwId and posts the resumed comment.
+    - A genuine `unknown` still drops the entry at the third failure, with the manual-restart comment.
+- `test/mocks/claude-cli-stub.ts` — read-only; do not change the stub. #812's tick-guard scenario ("A poll tick that raises is logged and the cron trigger keeps polling") points `CLAUDE_CODE_PATH` at this stub and spawns a real cron. It relies on the default, un-injected probe classifying the stub's reply as `clear`. The stub's `extractPrompt` treats `--max-turns` as a boolean flag, so under `PROBE_ARGS` it reads the prompt as `1`. It then streams the default plan-agent payload and exits 0. That payload is an `assistant` line and a `result` line, with no `rate_limit_event` and no limit wording, so `classifyProbeResult` must still return `clear` for it.
 - `.adw/coding_guidelines.md` — 300-line file cap (motivates the new module), nesting ≤2 (motivates the outcome-helper extraction), comment discipline (no issue numbers in code comments, no name-echoing JSDoc).
 - Conditional docs to read (matched conditions in `.adw/conditional_docs.md`): `app_docs/feature-9gjajh-takeover-and-coordination.md` (pause queue scanning), `app_docs/feature-9gjajh-claude-stream-parser.md` (`claudeStreamParser.ts`), `app_docs/feature-9gjajh-pause-and-auth-queues.md` (`pauseQueue.ts`, stuck-pause debugging), `app_docs/feature-9gjajh-claude-agents-core.md` (`agentProcessHandler.ts`, `claudeAgent.ts`), `app_docs/feature-9gjajh-root-config.md` (`known_issues.md`, `README.md`, `.adw/` metadata).
 
@@ -213,12 +226,19 @@ IMPORTANT: Execute every step in order, top to bottom.
   const SESSION_LIMIT_TEXT = "You've hit your session limit · resets 1:50pm (Europe/Amsterdam)";
   ```
 - `describe('classifyProbeResult')`:
-  - **clear**: `{ status: 0, stdout: [INIT, ASSISTANT, RATE_LIMIT_ALLOWED, RESULT_OK].join('\n') + '\n', stderr: '' }` → `'clear'` (also proves `overageStatus: 'rejected'` does not trip detection).
+  - **clear**: `{ status: 0, stdout: [INIT, ASSISTANT, RATE_LIMIT_ALLOWED, RESULT_OK].join('\n') + '\n', stderr: '' }` → `'clear'` (also proves `overageStatus: 'rejected'` does not trip detection). The same clean stream with a `rate_limit_event` whose `status` is `'allowed_warning'` → `'clear'`: only `rejected` holds the probe.
   - **limited via structured event, text-agnostic**: `{ status: 1, stdout: [RATE_LIMIT_REJECTED, RESULT_ERR].join('\n') + '\n', stderr: '' }` → `'limited'`; the same stdout with `status: 0` → `'limited'` (structure beats exit code).
-  - **limited via other pause-worthy flags**: `system api_retry` with `error: 'overloaded_error'` → `'limited'`; `system api_retry` with `error: 'server_error', error_status: 500, attempt: 2` → `'limited'`; `system api_retry` with `error_status: 401` → `'limited'`.
+  - **limited via other pause-worthy flags**:
+    - `system api_retry` with `attempt: 1, error: 'overloaded_error', error_status: 529` → `'limited'`. This is the first retry, which is when `agentProcessHandler` already pauses.
+    - `system api_retry` with `error: 'api_error', error_status: 500, attempt: 2` → `'limited'`. The error name matches the parser's own tests and the §2 scenario example.
+    - `system api_retry` with `error_status: 401` → `'limited'`.
   - **limited via fallback text only (non-JSON)**: `{ status: 1, stdout: '', stderr: SESSION_LIMIT_TEXT }` → `'limited'`; legacy `"You've hit your limit"` → `'limited'`; typographic-apostrophe variant `"You’ve hit your session limit"` → `'limited'`; `"You're out of extra usage"` → `'limited'`; text on stdout instead of stderr → `'limited'`.
   - **trailing partial line**: `{ status: 1, stdout: RATE_LIMIT_REJECTED, stderr: '' }` (no trailing newline) → `'limited'`.
-  - **unknown**: `{ status: 1, stdout: '', stderr: 'Error: EACCES: permission denied' }` → `'unknown'`; `{ status: null, stdout: '', stderr: '' }` (timeout) → `'unknown'`; an `api_retry` with `attempt: 1` and a non-overloaded error plus exit 1 → `'unknown'` (mirrors `agentProcessHandler`, which only pauses at `attempt >= 2`).
+  - **unknown**:
+    - `{ status: 1, stdout: '', stderr: 'Error: EACCES: permission denied' }` → `'unknown'`.
+    - `{ status: null, stdout: '', stderr: '' }` (timeout) → `'unknown'`.
+    - An `api_retry` with `attempt: 1` and a non-overloaded error, plus exit 1 → `'unknown'`. This mirrors `agentProcessHandler`, which pauses on a non-overloaded retry only from `attempt >= 2`.
+    - A stream-json `result` with `subtype: 'error_during_execution'`, `is_error: true` and `result: 'API Error: 400 invalid_request_error'`, plus exit 1 → `'unknown'`. An error result is not a limit by itself.
 - `describe('probeRateLimit')`:
   - Calls `exec` once with `'/fake/claude'` and `PROBE_ARGS`; asserts the args include `'--output-format', 'stream-json'`, `'--verbose'`, `'--print'`, and end with `'ping'` (regression hook against someone dropping the structured mode).
   - Returns the classifier's outcome for the exec result (`'clear'` for a status-0 healthy stdout; `'limited'` for `RATE_LIMIT_REJECTED`).
@@ -279,9 +299,13 @@ Execute every command to validate the bug is fixed with zero regressions.
   ```bash
   NODE_OPTIONS="--import tsx" bunx cucumber-js --name "orchestrator records paused stage on rate-limit detection"
   ```
-- Per-issue scenarios, only if the scenario phase created `features/per-issue/feature-902.feature`:
+- Per-issue scenarios in `features/per-issue/feature-902.feature`. Every scenario must pass once its step definitions exist in `features/per-issue/step_definitions/`:
   ```bash
   NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-902"
+  ```
+- Cross-check of the default, un-injected probe path. #812's tick-guard scenario spawns a real cron against `test/mocks/claude-cli-stub.ts` and relies on the new `runClaudeProbe` + `classifyProbeResult` returning `clear` for the stub's clean stream-json reply. If the probe returned `unknown`, the seeded entry would never reach `resumeWorkflow` and the tick would never raise. It must not regress from its pre-change result:
+  ```bash
+  NODE_OPTIONS="--import tsx" bunx cucumber-js --name "A poll tick that raises is logged and the cron trigger keeps polling"
   ```
 - Live smoke of the new probe command (optional, needs a working `claude` login; expect exit 0 and a `rate_limit_event` line with `"status":"allowed"`):
   ```bash
@@ -293,7 +317,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback), strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.
 - No new libraries are needed. (Install command, if ever required: `bun add <package>`.)
 - Guideline-driven choices: the probe moves to a new module because adding it inline would push `pauseQueueScanner.ts` past the 300-line cap; the outcome helpers exist to bring `scanPauseQueue` back to ≤2 nesting levels. Comments must not cite issue numbers (`git blame` carries history); the `linked_issues` field in `known_issues.md` is a registry field, not a code comment.
-- Detection parity table (probe ⇔ `agentProcessHandler`): `rateLimitRejected`, `serverErrorDetected`, `overloadedErrorDetected` ⇒ pause on the orchestrator side and `limited` on the probe side. `authErrorDetected` is additionally mapped to `limited` on the probe side only because the previous probe already treated the `Invalid authentication credentials` text as `limited`; a Claude auth outage must not spend the entry's three-strike budget. `compactionDetected` and `deniedToolCallCount` are irrelevant to a one-turn ping and are ignored.
+- Detection parity table (probe ⇔ `agentProcessHandler`): `rateLimitRejected`, `serverErrorDetected`, `overloadedErrorDetected` ⇒ pause on the orchestrator side and `limited` on the probe side. `authErrorDetected` is additionally mapped to `limited` on the probe side only because the previous probe already treated the `Invalid authentication credentials` text as `limited`; a Claude auth outage must not spend the entry's three-strike budget. `compactionDetected` and `deniedToolCallCount` are irrelevant to a one-turn ping and are ignored. §2 of `features/per-issue/feature-902.feature` checks the forward direction at runtime: every stream event that ends a `handleAgentProcess` run `rateLimited` must make the probe report `limited`. The `authErrorDetected` ⇒ `limited` mapping exists only on the probe side, and no scenario exercises it. The unit test with `error_status: 401` is its only coverage.
 - The classifier order (structural → text fallback → exit 0 → unknown) is deliberate. Text is checked before the exit code so an exit-0 run whose text still says the limit is active is never treated as `clear` (the previous behaviour on the success path).
 - Baseline BDD state in this environment on 2026-09-25: the full `@regression` run reports pre-existing failures (122 failed, 8 undefined, 42 pending of 517), unrelated to this change; the specific pause/resume smoke scenario is `pending`. Passing a feature-file path to `cucumber-js` does not narrow the run (the config's `paths` wins); use `--name` or `--tags` as shown above.
 - The probe's `--dangerously-skip-permissions` flag is retained on purpose for a one-turn ping (documented gotcha in the takeover app doc).
