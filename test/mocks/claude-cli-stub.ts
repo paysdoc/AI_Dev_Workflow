@@ -157,6 +157,20 @@ async function streamRateLimitedResponse(mode: RateLimitedResponseMode): Promise
   }
 }
 
+/** Streams the rate-limited response and exits the process, when the current invocation is limited. */
+async function handleRateLimitedMode(mode: RateLimitedResponseMode): Promise<void> {
+  const invocationCount = mode.limitedInvocations !== undefined ? readInvocationCount() : 0;
+  const limited = shouldRateLimit(mode, invocationCount);
+  if (mode.limitedInvocations !== undefined) bumpInvocationCount(invocationCount);
+  if (!limited) return;
+
+  await streamRateLimitedResponse(mode);
+  // The real CLI exits non-zero when the result is an error; agentProcessHandler
+  // kills the agent on the rejected event anyway, so the code itself is rarely
+  // observed in production.
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   try {
     recordInvocation(extractPrompt(process.argv));
@@ -175,16 +189,7 @@ async function main(): Promise<void> {
 
     const mode = resolveResponseMode(manifestResponse, process.env);
     if (mode.kind === 'rate-limited') {
-      const invocationCount = mode.limitedInvocations !== undefined ? readInvocationCount() : 0;
-      const limited = shouldRateLimit(mode, invocationCount);
-      if (mode.limitedInvocations !== undefined) bumpInvocationCount(invocationCount);
-      if (limited) {
-        await streamRateLimitedResponse(mode);
-        // The real CLI exits non-zero when the result is an error; agentProcessHandler
-        // kills the agent on the rejected event anyway, so the code itself is rarely
-        // observed in production.
-        process.exit(1);
-      }
+      await handleRateLimitedMode(mode);
     }
 
     const payload = JSON.parse(readFileSync(payloadPath, 'utf-8')) as Array<{

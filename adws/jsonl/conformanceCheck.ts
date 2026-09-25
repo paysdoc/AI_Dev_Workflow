@@ -51,21 +51,18 @@ function readFixtureLines(filePath: string): string[] {
     .filter(line => line.length > 0);
 }
 
+function isRejectedRateLimitEvent(msg: Record<string, unknown>): boolean {
+  if (msg['type'] !== 'rate_limit_event') return false;
+  const info = msg['rate_limit_info'] as Record<string, unknown> | undefined;
+  return info?.['status'] === 'rejected';
+}
+
 function computePresence(messages: Record<string, unknown>[]): LinePresence {
-  let assistantCount = 0;
-  let hasResult = false;
-  let hasRejectedRateLimitEvent = false;
-
-  for (const msg of messages) {
-    if (msg['type'] === 'assistant') assistantCount++;
-    if (msg['type'] === 'result') hasResult = true;
-    if (msg['type'] === 'rate_limit_event') {
-      const info = msg['rate_limit_info'] as Record<string, unknown> | undefined;
-      if (info?.['status'] === 'rejected') hasRejectedRateLimitEvent = true;
-    }
-  }
-
-  return { assistantCount, hasResult, hasRejectedRateLimitEvent };
+  return {
+    assistantCount: messages.filter(msg => msg['type'] === 'assistant').length,
+    hasResult: messages.some(msg => msg['type'] === 'result'),
+    hasRejectedRateLimitEvent: messages.some(isRejectedRateLimitEvent),
+  };
 }
 
 /** Runs the shared stream parser once over the whole fixture (the newline the parser needs to flush its final line). */
@@ -124,6 +121,23 @@ function unknownTypeLabel(lineNumber: number, totalLines: number, key: string): 
   return totalLines > 1 ? `line ${lineNumber}: ${detail}` : detail;
 }
 
+interface MessageFieldReport {
+  missingFields: string[];
+  extraFields: string[];
+}
+
+function fieldsForMessage(msg: Record<string, unknown>, lineNumber: number, totalLines: number, schema: EnvelopeSchema): MessageFieldReport {
+  const resolved = resolveSchemaFields(schema, msg);
+  if (!resolved) {
+    const key = typeof msg['subtype'] === 'string' ? `${msg['type']}/${msg['subtype']}` : String(msg['type']);
+    return { missingFields: [], extraFields: [unknownTypeLabel(lineNumber, totalLines, key)] };
+  }
+  return {
+    missingFields: findMissingFields(msg, resolved.fields, '').map(f => fieldLabel(lineNumber, totalLines, resolved.key, f)),
+    extraFields: findExtraFields(msg, resolved.fields, '').map(f => fieldLabel(lineNumber, totalLines, resolved.key, f)),
+  };
+}
+
 function checkFixture(filePath: string, schema: EnvelopeSchema): ConformanceResult {
   const relPath = path.relative(process.cwd(), filePath);
   const lines = readFixtureLines(filePath);
@@ -159,20 +173,9 @@ function checkFixture(filePath: string, schema: EnvelopeSchema): ConformanceResu
     messages.push(msg);
   }
 
-  const missingFields: string[] = [];
-  const extraFields: string[] = [];
-
-  messages.forEach((msg, idx) => {
-    const lineNumber = idx + 1;
-    const resolved = resolveSchemaFields(schema, msg);
-    if (!resolved) {
-      const key = typeof msg['subtype'] === 'string' ? `${msg['type']}/${msg['subtype']}` : String(msg['type']);
-      extraFields.push(unknownTypeLabel(lineNumber, lines.length, key));
-      return;
-    }
-    findMissingFields(msg, resolved.fields, '').forEach(f => missingFields.push(fieldLabel(lineNumber, lines.length, resolved.key, f)));
-    findExtraFields(msg, resolved.fields, '').forEach(f => extraFields.push(fieldLabel(lineNumber, lines.length, resolved.key, f)));
-  });
+  const fieldReports = messages.map((msg, idx) => fieldsForMessage(msg, idx + 1, lines.length, schema));
+  const missingFields = fieldReports.flatMap(r => r.missingFields);
+  const extraFields = fieldReports.flatMap(r => r.extraFields);
 
   const fixtureText = lines.join('\n') + '\n';
   const presence = computePresence(messages);

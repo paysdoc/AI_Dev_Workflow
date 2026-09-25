@@ -74,21 +74,25 @@ function readCommittedSchema(schemaPath: string): EnvelopeSchema {
   return JSON.parse(fs.readFileSync(schemaPath, 'utf-8')) as EnvelopeSchema;
 }
 
-/** `claude_code_version` off the observed system/init line, when present and a string. */
-function extractCliVersion(lines: readonly string[]): string | undefined {
-  for (const line of lines) {
-    try {
-      const parsed: unknown = JSON.parse(line);
-      if (parsed === null || typeof parsed !== 'object') continue;
-      const msg = parsed as Record<string, unknown>;
-      if (msg['type'] === 'system' && msg['subtype'] === 'init' && typeof msg['claude_code_version'] === 'string') {
-        return msg['claude_code_version'];
-      }
-    } catch {
-      // skip non-JSON lines
-    }
+/** `claude_code_version` off one observed line, when it is a system/init line and a string. */
+function cliVersionFromLine(line: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== 'object') return undefined;
+  const msg = parsed as Record<string, unknown>;
+  if (msg['type'] === 'system' && msg['subtype'] === 'init' && typeof msg['claude_code_version'] === 'string') {
+    return msg['claude_code_version'];
   }
   return undefined;
+}
+
+/** `claude_code_version` off the observed system/init line, when present and a string. */
+function extractCliVersion(lines: readonly string[]): string | undefined {
+  return lines.map(cliVersionFromLine).find((version): version is string => version !== undefined);
 }
 
 async function liveProbe(): Promise<{ lines: string[]; observed: Record<string, SchemaField[]>; cliVersion: string | undefined }> {
@@ -133,33 +137,42 @@ export async function checkClaudeJsonlSchema(schemaPath: string = SCHEMA_PATH): 
   return findLiveDrift(committed, observed);
 }
 
+function reportLiveDriftCheck(report: LiveDriftReport): void {
+  console.log(`Observed types: ${report.observedTypes.join(', ') || '(none)'}`);
+  if (report.newFields.length > 0) {
+    console.log(`New fields (informational): ${report.newFields.join(', ')}`);
+  }
+  if (report.unobservedTypes.length > 0) {
+    console.error(`Unobserved probe-owned types: ${report.unobservedTypes.join(', ')}`);
+  }
+  if (report.missingRequired.length > 0) {
+    console.error(`Missing required fields: ${report.missingRequired.join(', ')}`);
+  }
+  const failed = report.unobservedTypes.length > 0 || report.missingRequired.length > 0;
+  console.log(failed ? 'Live envelope check FAILED.' : 'Live envelope check passed.');
+  process.exit(failed ? 1 : 0);
+}
+
+async function runCli(): Promise<void> {
+  if (process.argv.includes('--check')) {
+    try {
+      reportLiveDriftCheck(await checkClaudeJsonlSchema());
+    } catch (err) {
+      console.error('Schema live check failed:', err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+    return;
+  }
+
+  try {
+    await probeClaudeJsonlSchema();
+  } catch (err) {
+    console.error('Schema probe failed:', err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+}
+
 const isMain = path.resolve(process.argv[1] ?? '') === path.resolve(__filename);
 if (isMain) {
-  if (process.argv.includes('--check')) {
-    checkClaudeJsonlSchema()
-      .then((report) => {
-        console.log(`Observed types: ${report.observedTypes.join(', ') || '(none)'}`);
-        if (report.newFields.length > 0) {
-          console.log(`New fields (informational): ${report.newFields.join(', ')}`);
-        }
-        if (report.unobservedTypes.length > 0) {
-          console.error(`Unobserved probe-owned types: ${report.unobservedTypes.join(', ')}`);
-        }
-        if (report.missingRequired.length > 0) {
-          console.error(`Missing required fields: ${report.missingRequired.join(', ')}`);
-        }
-        const failed = report.unobservedTypes.length > 0 || report.missingRequired.length > 0;
-        console.log(failed ? 'Live envelope check FAILED.' : 'Live envelope check passed.');
-        process.exit(failed ? 1 : 0);
-      })
-      .catch((err: unknown) => {
-        console.error('Schema live check failed:', err instanceof Error ? err.message : String(err));
-        process.exit(1);
-      });
-  } else {
-    probeClaudeJsonlSchema().catch((err: unknown) => {
-      console.error('Schema probe failed:', err instanceof Error ? err.message : String(err));
-      process.exit(1);
-    });
-  }
+  void runCli();
 }

@@ -65,6 +65,44 @@ function addMissingRequiredFields(
   return { merged, changes };
 }
 
+interface LineUpdateResult {
+  outputLine: string;
+  skip: string | null;
+  changes: string[];
+}
+
+/** Backfills one fixture line's missing required fields, or reports why it was left untouched. */
+function updateFixtureLine(raw: string, lineNumber: number, multiLine: boolean, schema: EnvelopeSchema): LineUpdateResult {
+  const label = (msg: string): string => (multiLine ? `line ${lineNumber}: ${msg}` : msg);
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { outputLine: raw, skip: label('parse error — skipped'), changes: [] };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { outputLine: raw, skip: label('not a JSON object — skipped'), changes: [] };
+  }
+
+  const msg = parsed as Record<string, unknown>;
+  const resolved = resolveSchemaFields(schema, msg);
+  if (!resolved) {
+    return {
+      outputLine: raw,
+      skip: label(`no schema coverage for "${typeof msg['type'] === 'string' ? msg['type'] : 'unknown'}" — skipped`),
+      changes: [],
+    };
+  }
+
+  const { merged, changes: lineChanges } = addMissingRequiredFields(msg, resolved.fields, '');
+  if (lineChanges.length === 0) {
+    return { outputLine: raw, skip: null, changes: [] };
+  }
+
+  return { outputLine: JSON.stringify(merged), skip: null, changes: lineChanges.map(label) };
+}
+
 function updateFixtureFile(filePath: string, schema: EnvelopeSchema): UpdateResult {
   const relPath = path.relative(process.cwd(), filePath);
   const rawLines = fs.readFileSync(filePath, 'utf-8')
@@ -77,52 +115,17 @@ function updateFixtureFile(filePath: string, schema: EnvelopeSchema): UpdateResu
   }
 
   const multiLine = rawLines.length > 1;
-  const skips: string[] = [];
-  const changes: string[] = [];
-  const outputLines: string[] = [];
-  let anyChanged = false;
+  const results = rawLines.map((raw, idx) => updateFixtureLine(raw, idx + 1, multiLine, schema));
 
-  rawLines.forEach((raw, idx) => {
-    const lineNumber = idx + 1;
-    const label = (msg: string): string => (multiLine ? `line ${lineNumber}: ${msg}` : msg);
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      skips.push(label('parse error — skipped'));
-      outputLines.push(raw);
-      return;
-    }
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      skips.push(label('not a JSON object — skipped'));
-      outputLines.push(raw);
-      return;
-    }
-
-    const msg = parsed as Record<string, unknown>;
-    const resolved = resolveSchemaFields(schema, msg);
-    if (!resolved) {
-      skips.push(label(`no schema coverage for "${typeof msg['type'] === 'string' ? msg['type'] : 'unknown'}" — skipped`));
-      outputLines.push(raw);
-      return;
-    }
-
-    const { merged, changes: lineChanges } = addMissingRequiredFields(msg, resolved.fields, '');
-    if (lineChanges.length === 0) {
-      outputLines.push(raw);
-      return;
-    }
-
-    anyChanged = true;
-    lineChanges.forEach(c => changes.push(label(c)));
-    outputLines.push(JSON.stringify(merged));
-  });
+  const anyChanged = results.some(r => r.changes.length > 0);
+  const skips = results.flatMap(r => (r.skip !== null ? [r.skip] : []));
 
   if (!anyChanged) {
     return { fixturePath: relPath, changed: false, changes: skips };
   }
 
+  const outputLines = results.map(r => r.outputLine);
+  const changes = results.flatMap(r => r.changes);
   fs.writeFileSync(filePath, outputLines.join('\n') + '\n', 'utf-8');
   return { fixturePath: relPath, changed: true, changes: [...changes, ...skips] };
 }
