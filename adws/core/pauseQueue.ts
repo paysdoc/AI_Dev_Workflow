@@ -25,6 +25,13 @@ export interface PausedWorkflow {
   branchName: string;
   /** Optional extra CLI args to pass on resume (e.g. --target-repo owner/repo). */
   extraArgs?: string[];
+  /**
+   * ISO 8601; the CLI's epoch-seconds reset time converted once at the boundary.
+   * Absent when the pause carried no reset time or the entry predates this field.
+   */
+  resetsAt?: string;
+  /** As reported by the CLI (five_hour, seven_day, …); absent for the same reasons. */
+  rateLimitType?: string;
 }
 
 /** Returns an empty array if the file is missing or unreadable. */
@@ -63,4 +70,12 @@ export function removeFromPauseQueue(adwId: string): void {
 export function updatePauseQueueEntry(adwId: string, updates: Partial<PausedWorkflow>): void {
   const existing = readPauseQueue();
   writePauseQueue(existing.map(e => e.adwId === adwId ? { ...e, ...updates } : e));
+}
+
+/**
+ * The CLI emits Unix epoch seconds; the queue stores ISO so the file is
+ * human-readable and Date.parse-able. This is the only place that conversion happens.
+ */
+export function resetsAtIsoFromEpochSeconds(seconds: number): string {
+  return new Date(seconds * 1000).toISOString();
 }

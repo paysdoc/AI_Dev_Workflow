@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-import { parseJsonlOutput, type JsonlParserState } from '../../../adws/core/claudeStreamParser.ts';
+import { parseJsonlOutput, createJsonlParserState } from '../../../adws/core/claudeStreamParser.ts';
 import { classifyProbeResult } from '../../../adws/triggers/rateLimitProbe.ts';
 import { checkConformance } from '../../../adws/jsonl/conformanceCheck.ts';
 import { resolveResponseMode, shouldRateLimit } from '../stubResponse.ts';
@@ -27,22 +27,6 @@ afterEach(() => {
   }
 });
 
-function freshParserState(): JsonlParserState {
-  return {
-    lastResult: null,
-    fullOutput: '',
-    turnCount: 0,
-    toolCount: 0,
-    lineBuffer: '',
-    rateLimitRejected: false,
-    authErrorDetected: false,
-    serverErrorDetected: false,
-    overloadedErrorDetected: false,
-    compactionDetected: false,
-    deniedToolCallCount: 0,
-  };
-}
-
 function runStub(env: Record<string, string | undefined>, cwd?: string): { status: number | null; stdout: string } {
   const result = spawnSync('bun', [STUB_PATH, '--print', '--verbose', '--output-format', 'stream-json', 'ping'], {
     encoding: 'utf-8',
@@ -60,14 +44,14 @@ describe('claude-cli-stub — rate-limited response via MOCK_RESPONSE', () => {
     const lines = stdout.trim().split('\n');
     expect(lines).toHaveLength(3);
 
-    const state = freshParserState();
+    const state = createJsonlParserState();
     parseJsonlOutput(stdout, state);
-    expect(state.rateLimitRejected).toBe(true);
+    expect(state.rateLimitDetected).toBe(true);
     expect(state.lastResult).not.toBeNull();
     expect((state.lastResult as unknown as Record<string, unknown>)['is_error']).toBe(true);
     expect((state.lastResult as unknown as Record<string, unknown>)['api_error_status']).toBe(429);
 
-    expect(classifyProbeResult({ status, stdout, stderr: '' })).toBe('limited');
+    expect(classifyProbeResult({ status, stdout, stderr: '' }).verdict).toBe('limited');
   });
 
   it('names a reset time that has not yet passed when no override is given', () => {
@@ -98,9 +82,9 @@ describe('claude-cli-stub — default response is unchanged', () => {
     expect(status).toBe(0);
     expect(stdout).not.toContain('rate_limit_event');
 
-    const state = freshParserState();
+    const state = createJsonlParserState();
     parseJsonlOutput(stdout, state);
-    expect(state.rateLimitRejected).toBe(false);
+    expect(state.rateLimitDetected).toBe(false);
   });
 });
 

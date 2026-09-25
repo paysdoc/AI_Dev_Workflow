@@ -39,7 +39,7 @@ Each entry contains:
 - **pattern**: `You've hit your limit`, `You've hit your session limit`, `You're out of extra usage`
 - **description**: Claude API rate limit kills the agent mid-execution. Workflow crashes with ❌ ADW Workflow Error instead of pausing.
 - **status**: solved
-- **solution**: Rate limit detection in `agentProcessHandler.ts` returns `rateLimited: true`. `runPhase()` catches `RateLimitError` and calls `handleRateLimitPause()` which writes to pause queue, posts ⏸️ comment, and exits cleanly. Cron trigger probes and resumes automatically.
+- **solution**: Detection is structural, not text-based: a rejected `rate_limit_event` (`rate_limit_info.status === "rejected"`), a documented `api_retry` `error: "rate_limit"` / `error_status: 429`, or a terminal `result.api_error_status: 429` all set `rateLimitDetected` in `claudeStreamParser.ts`. A rejected event also carries `rateLimitType` / `resetsAt` (Unix epoch seconds), which `agentProcessHandler.ts` copies onto the `AgentResult` and `claudeAgent.ts` passes into `RateLimitError`. `runPhase()` catches `RateLimitError` and calls `handleRateLimitPause()` which writes to pause queue, posts ⏸️ comment, and exits cleanly. Cron trigger probes and resumes automatically. Since #910, the queue entry itself carries the reported `resetsAt` (converted to ISO 8601) and `rateLimitType` when the error had them, and the scanner's decider (`pauseQueueDecider.ts`) does not probe an entry at all before its reset time — a multi-hour or weekly limit is waited for, not blindly probed away. A `limited` probe never counts a strike and refreshes `resetsAt` whenever it reports a new one; only a confirmed non-rate-limit result (`failed`/`unknown`) still counts toward the three-strike eviction budget, and the eviction comment now points at `## Retry` as the recovery instead of asking for a manual restart.
 - **fix_attempts**: 2
 - **linked_issues**: #314
 - **first_seen**: 2026-03
@@ -51,10 +51,10 @@ Each entry contains:
 
 ## overloaded-error
 
-- **pattern**: `"overloaded_error"` (requires `"type":"error"` in same chunk)
+- **pattern**: documented `system`/`api_retry` `error: "overloaded"` / `error_status: 529`
 - **description**: Claude API returns HTTP 529 Overloaded. Workflow crashes.
 - **status**: solved
-- **solution**: Added `overloaded_error` to rate limit detection patterns in `agentProcessHandler.ts`. Triggers same pause/resume flow as rate limits. Detection requires `"type":"error"` JSON prefix to avoid false positives from commit messages or code content.
+- **solution**: The parser previously tested the undocumented value `"overloaded_error"`, which recorded agent output never actually emitted (44 `api_retry` events surveyed: `overloaded`, `rate_limit`, `server_error`, `unknown` — never `overloaded_error`), so the branch never fired; overloads were only caught by the generic second-consecutive-retry rule. `classifyApiSignal()` in `claudeStreamParser.ts` now maps the documented `error: "overloaded"` enum value or `error_status: 529` to `overloadedErrorDetected` on any `api_retry` attempt (including the first), and the same mapping applies to a terminal `result.api_error_status: 529`. Triggers the same pause/resume flow as rate limits.
 - **fix_attempts**: 2
 - **linked_issues**: #314
 - **first_seen**: 2026-03-27
@@ -98,10 +98,10 @@ Each entry contains:
 
 ## oauth-token-expired
 
-- **pattern**: `authentication_error`, `OAuth token has expired`, `authentication_failed`, `error_status: 401`
+- **pattern**: `OAuth token has expired`, documented `authentication_failed`, `error_status: 401`
 - **description**: Claude CLI OAuth token expires mid-session. Agent retries fail. Also triggered by `authentication_failed` / HTTP 401 events in the JSONL stream where the parser backstop detects `error_status: 401`.
 - **status**: solved (re-fixed in #504)
-- **solution**: Parser 401 backstop in `agentProcessHandler.ts` detects `authentication_failed` with `error_status: 401` in JSONL stream and sets `authExpired: true`. `claudeAgent.ts` then throws `AuthRequiredError` (from `adws/types/agentTypes.ts`). Orchestrators catch `AuthRequiredError` and write a host-wide `agents/.auth_gate` file via `handleAuthRequiredPause`. Cron detects the gate, SIGTERMs live orchestrators, marks them `paused_auth` stage, and polls `claude auth status --json` until `loggedIn: true`. On recovery, `scanAuthQueue` re-spawns all `paused_auth` orchestrators with their original adwId preserved. Slack notifications sent on first detection and on recovery.
+- **solution**: Parser 401 backstop in `agentProcessHandler.ts` detects `authentication_failed` with `error_status: 401` in JSONL stream and sets `authExpired: true`. `claudeAgent.ts` then throws `AuthRequiredError` (from `adws/types/agentTypes.ts`). Orchestrators catch `AuthRequiredError` and write a host-wide `agents/.auth_gate` file via `handleAuthRequiredPause`. Cron detects the gate, SIGTERMs live orchestrators, marks them `paused_auth` stage, and polls `claude auth status --json` until `loggedIn: true`. On recovery, `scanAuthQueue` re-spawns all `paused_auth` orchestrators with their original adwId preserved. Slack notifications sent on first detection and on recovery. The pause-queue probe (`rateLimitProbe.ts`) classifies the same signal as a confirmed `failed` verdict rather than `limited`, so an expired login accrues probe failures instead of being probed silently forever.
 - **fix_attempts**: 2
 - **linked_issues**: #213, #504
 - **first_seen**: 2026-03
@@ -443,7 +443,7 @@ fi
 - **pattern**: `Unknown probe failure for workflow`, `failed to resume after 3 probe attempts. Manual restart required.`
 - **description**: The pause-queue probe (`pauseQueueScanner.ts`'s `probeRateLimit()`) classified a live Claude session limit as `unknown` because it substring-matched CLI output against a hand-kept `RATE_LIMIT_STRINGS` list whose closest entry, `"You've hit your limit"`, did not match the CLI's actual wording, `"You've hit your session limit · resets …"`. `unknown` is the only probe outcome that increments `probeFailures`; at `MAX_UNKNOWN_PROBE_FAILURES` (3) the entry was dropped from `agents/paused_queue.json` and posted a manual-restart comment — converting a recoverable, multi-hour rate limit into a permanent strand, since `paused` is a `terminal`-class stage with no `## Retry` path, while the stranded entry still held a `MAX_CONCURRENT_PER_REPO` slot. Stranded six `adwChore` workflows (#871, #872, #874–#877) on 2026-09-24: paused ≈10:12 UTC, dropped ≈10:26 UTC, all re-queued by hand.
 - **status**: solved
-- **solution**: `adws/triggers/rateLimitProbe.ts` classifies structurally from the shared `claudeStreamParser` state under `--output-format stream-json` (`rateLimitRejected` / `serverErrorDetected` / `overloadedErrorDetected` / `authErrorDetected` ⇒ `limited`), the same signals `agentProcessHandler` already pauses a live run on. Text matching survives only as a fallback for output that never reached stream-json, matching the stable prefix `You've hit your`. The probe and its exec seam are injectable and unit-tested.
+- **solution**: `adws/triggers/rateLimitProbe.ts` classifies structurally from the shared `claudeStreamParser` state under `--output-format stream-json` (`rateLimitDetected` / `serverErrorDetected` / `overloadedErrorDetected` ⇒ `limited`; `authErrorDetected` ⇒ `failed`, a confirmed non-rate-limit failure), the same signals `agentProcessHandler` already pauses a live run on. #907 deleted the text-fallback string list entirely — output with no parseable JSON is `unknown`, whatever it says, so a future CLI wording change cannot strand a paused workflow the same way again. The probe and its exec seam are injectable and unit-tested.
 - **fix_attempts**: 1
 - **linked_issues**: #902
 - **first_seen**: 2026-09-24

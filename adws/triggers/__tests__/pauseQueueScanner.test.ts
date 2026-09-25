@@ -44,7 +44,8 @@ vi.mock('../../core', () => ({
   buildLaunchBoundary: mockBuildLaunchBoundary,
 }));
 
-vi.mock('../../core/pauseQueue', () => ({
+vi.mock('../../core/pauseQueue', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/pauseQueue')>()),
   readPauseQueue: vi.fn(),
   removeFromPauseQueue: vi.fn(),
   updatePauseQueueEntry: vi.fn(),
@@ -66,6 +67,7 @@ vi.mock('../spawnGate', () => ({
 vi.mock('../../core/agentState', () => ({
   AgentStateManager: {
     readTopLevelState: vi.fn(),
+    writeTopLevelState: vi.fn(),
   },
 }));
 
@@ -76,9 +78,15 @@ import { postIssueStageComment } from '../../phases/phaseCommentHelpers';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../spawnGate';
 import { AgentStateManager } from '../../core/agentState';
 import { resumeWorkflow, scanPauseQueue } from '../pauseQueueScanner';
-import type { PausedWorkflow } from '../../core/pauseQueue';
+import { resetsAtIsoFromEpochSeconds, type PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
-import type { ProbeOutcome } from '../rateLimitProbe';
+import type { ProbeClassification } from '../rateLimitProbe';
+import { INCIDENT_RESETS_AT, INCIDENT_RATE_LIMIT_TYPE } from '../../core/__tests__/fixtures/rateLimitIncident';
+
+const NOW = new Date('2026-09-22T12:06:00Z');
+const clock = { now: () => NOW };
+const FUTURE = resetsAtIsoFromEpochSeconds(INCIDENT_RESETS_AT);
+const PAST = new Date(NOW.getTime() - 60_000).toISOString();
 
 function makeEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
   return {
@@ -391,7 +399,7 @@ describe('scanPauseQueue', () => {
   it('a "limited" outcome does not touch probeFailures, remove the entry, or post a comment', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'limited';
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited' });
 
     await scanPauseQueue(1, probe);
 
@@ -407,7 +415,7 @@ describe('scanPauseQueue', () => {
   it('an "unknown" outcome below the cap increments probeFailures without removing the entry', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 0 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'unknown';
+    const probe: () => ProbeClassification = () => ({ verdict: 'unknown' });
 
     await scanPauseQueue(1, probe);
 
@@ -421,7 +429,37 @@ describe('scanPauseQueue', () => {
   it('an "unknown" outcome at the failure cap drops the entry and posts the manual-restart comment', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'unknown';
+    const probe: () => ProbeClassification = () => ({ verdict: 'unknown' });
+
+    await scanPauseQueue(1, probe);
+
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({ errorMessage: expect.stringContaining('failed to resume after 3 probe attempts') }),
+    );
+  });
+
+  it('a "failed" outcome below the cap increments probeFailures without removing the entry', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 0 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'failed' });
+
+    await scanPauseQueue(1, probe);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith(
+      entry.adwId,
+      expect.objectContaining({ probeFailures: 1 }),
+    );
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+  });
+
+  it('a "failed" outcome at the cap drops the entry and posts the manual-restart comment', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'failed' });
 
     await scanPauseQueue(1, probe);
 
@@ -439,7 +477,7 @@ describe('scanPauseQueue', () => {
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
     const child = makeFakeChild();
     vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
-    const probe: () => ProbeOutcome = () => 'clear';
+    const probe: () => ProbeClassification = () => ({ verdict: 'clear' });
 
     const promise = scanPauseQueue(1, probe);
     await vi.runAllTimersAsync();
@@ -453,11 +491,154 @@ describe('scanPauseQueue', () => {
     const entryA = makeEntry({ adwId: 'test-adw-123', issueNumber: 1 });
     const entryB = makeEntry({ adwId: 'test-adw-456', issueNumber: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entryA, entryB]);
-    const probe = vi.fn<() => ProbeOutcome>(() => 'limited');
+    const probe = vi.fn<() => ProbeClassification>(() => ({ verdict: 'limited' }));
 
     await scanPauseQueue(1, probe);
 
     expect(probe).toHaveBeenCalledOnce();
     expect(updatePauseQueueEntry).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not invoke the probe when every entry is still before its reset time', async () => {
+    const entryA = makeEntry({ adwId: 'test-adw-123', issueNumber: 1, resetsAt: FUTURE });
+    const entryB = makeEntry({ adwId: 'test-adw-456', issueNumber: 2, resetsAt: FUTURE });
+    vi.mocked(readPauseQueue).mockReturnValue([entryA, entryB]);
+    const probe = vi.fn<() => ProbeClassification>(() => ({ verdict: 'clear' }));
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(probe).not.toHaveBeenCalled();
+    expect(updatePauseQueueEntry).not.toHaveBeenCalled();
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+    expect(postIssueStageComment).not.toHaveBeenCalled();
+    expect(childProcess.spawn).not.toHaveBeenCalled();
+  });
+
+  it('probes once when at least one entry is due and leaves the still-waiting entry untouched', async () => {
+    const waiting = makeEntry({ adwId: 'waiting-adw', issueNumber: 1, resetsAt: FUTURE });
+    const due = makeEntry({ adwId: 'due-adw', issueNumber: 2, resetsAt: PAST });
+    const legacy = makeEntry({ adwId: 'legacy-adw', issueNumber: 3, resetsAt: undefined });
+    vi.mocked(readPauseQueue).mockReturnValue([waiting, due, legacy]);
+    const probe = vi.fn<() => ProbeClassification>(() => ({ verdict: 'limited' }));
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(probe).toHaveBeenCalledOnce();
+    expect(updatePauseQueueEntry).toHaveBeenCalledTimes(2);
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('due-adw', { lastProbeAt: NOW.toISOString() });
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('legacy-adw', { lastProbeAt: NOW.toISOString() });
+    expect(updatePauseQueueEntry).not.toHaveBeenCalledWith('waiting-adw', expect.anything());
+  });
+
+  it('a limited probe that reports a reset time refreshes the entry and never increments probeFailures', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2, resetsAt: PAST });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited', rateLimitType: INCIDENT_RATE_LIMIT_TYPE, resetsAt: INCIDENT_RESETS_AT });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('test-adw-123', {
+      lastProbeAt: NOW.toISOString(),
+      resetsAt: FUTURE,
+      rateLimitType: INCIDENT_RATE_LIMIT_TYPE,
+    });
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+    expect(postIssueStageComment).not.toHaveBeenCalled();
+  });
+
+  it('a limited probe on a legacy entry gains the reported reset time', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', resetsAt: undefined });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited', rateLimitType: INCIDENT_RATE_LIMIT_TYPE, resetsAt: INCIDENT_RESETS_AT });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('test-adw-123', {
+      lastProbeAt: NOW.toISOString(),
+      resetsAt: FUTURE,
+      rateLimitType: INCIDENT_RATE_LIMIT_TYPE,
+    });
+  });
+
+  it('a limited probe naming a limit type but reporting no reset time writes only lastProbeAt', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', resetsAt: undefined });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited', rateLimitType: INCIDENT_RATE_LIMIT_TYPE });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('test-adw-123', { lastProbeAt: NOW.toISOString() });
+  });
+
+  it('a clear probe after the reset time resumes the workflow', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', resetsAt: PAST });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const child = makeFakeChild();
+    vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
+    const probe: () => ProbeClassification = () => ({ verdict: 'clear' });
+
+    const promise = scanPauseQueue(1, probe, clock);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(childProcess.spawn).toHaveBeenCalledOnce();
+    expect(removeFromPauseQueue).toHaveBeenCalledWith('test-adw-123');
+  });
+
+  it('eviction names ## Retry, keeps the manual-restart phrase, and writes no top-level state', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'failed' });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(removeFromPauseQueue).toHaveBeenCalledWith('test-adw-123');
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({
+        errorMessage: expect.stringMatching(/failed to resume after 3 probe attempts[\s\S]*## Retry/),
+      }),
+    );
+    expect(AgentStateManager.writeTopLevelState).not.toHaveBeenCalled();
+  });
+
+  it('eviction on an unknown verdict mentions the result could not be classified', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'unknown' });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({ errorMessage: expect.stringContaining('could not be classified') }),
+    );
+  });
+
+  it('a legacy JSON entry (no probeFailures, no new fields) is handled exactly as before', async () => {
+    const entry = JSON.parse(
+      '{"adwId":"legacy-1","issueNumber":7,"orchestratorScript":"adws/adwSdlc.tsx","pausedAtPhase":"plan","pauseReason":"rate_limited","pausedAt":"2026-04-18T12:45:00Z","worktreePath":"/tmp/w","branchName":"b"}',
+    ) as PausedWorkflow;
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe = vi.fn<() => ProbeClassification>(() => ({ verdict: 'unknown' }));
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('legacy-1', expect.objectContaining({ probeFailures: 1 }));
+    expect(probe).toHaveBeenCalledOnce();
+  });
+
+  it('uses the injected clock for lastProbeAt', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', resetsAt: undefined });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited' });
+
+    await scanPauseQueue(1, probe, clock);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith('test-adw-123', { lastProbeAt: NOW.toISOString() });
   });
 });

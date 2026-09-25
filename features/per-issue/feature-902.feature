@@ -61,6 +61,35 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
 
     §4  TYPE-CHECK BACKSTOP.
 
+  AMENDED BY #907 (`specs/prd/rate-limit-indefinite-retry.md`, "Detection"). #907 makes three
+  changes that affect this file:
+    • It deletes the text fallback. Output with no parseable JSON is now `unknown`, whatever it says.
+    • It classifies `api_retry` by the documented enum, in which overload is `overloaded`, not
+      `overloaded_error`.
+    • It makes an authentication failure a confirmed failure rather than `limited`.
+  The narrative above describes #902 as shipped and is left as written. Where it disagrees with the
+  scenarios below, the scenarios are current:
+    • §1's non-JSON outline is inverted. Limit wording without JSON now reports "unknown".
+    • §2's overloaded row uses the documented `"error":"overloaded"`.
+    • §3's threshold scenario and 2026-09-24 replay now answer with the stream-json the probe
+      requests: a rejected `rate_limit_event` with its `resetsAt`, plus a `result` carrying
+      `api_error_status: 429`. Text-only output no longer holds a workflow as limited.
+  Those scenarios also carry `@adw-907`, as do the unchanged ones that guard the classifier #907
+  rewrites. The rest of #907's behaviour is specified in `features/per-issue/feature-907.feature`.
+
+  AMENDED BY #910 (`specs/prd/rate-limit-indefinite-retry.md`, "Pause queue"). #910 puts the
+  scanner behind a pure decider and lets a queue entry carry the limit's reset time. It also
+  rewrites the eviction comment: instead of asking for a manual restart, it names `## Retry`
+  (#908) as the recovery. In this file:
+    • §3's unknown-drop scenario is renamed. It keeps its "failed to resume after 3 probe
+      attempts" assertion and now also requires the comment to name `## Retry`.
+    • §3's three-hour journey, threshold scenario and 2026-09-24 replay are unchanged. Every entry
+      they seed was written without a reset time. The journey pins the cadence path such entries
+      must keep. The other two pin that a limited probe never counts a strike, even when it
+      reports a reset time.
+  Those four scenarios also carry `@adw-910`. The rest of #910's behaviour is specified in
+  `features/per-issue/feature-910.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the verdict the probe returns (`clear` / `limited` / `unknown`), which is its output;
     • the Claude CLI invocation recorded at the probe's exec seam: what the system asked of its
@@ -136,7 +165,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
   Background:
     Given the ADW codebase is checked out
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
   Scenario Outline: A rejected rate_limit_event makes the probe report "limited" whatever the text says and whatever the exit code
     Given the Claude CLI answers the rate-limit probe with exit code <exit> and stdout:
       """
@@ -154,14 +183,14 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | 1    | Session capacity reached · back at 1:50pm                         |
       | 0    | You've hit your session limit · resets 1:50pm (Europe/Amsterdam) |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
-  Scenario Outline: Non-JSON failure output carrying the limit wording makes the probe report "limited", not "unknown"
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
+  Scenario Outline: Non-JSON failure output carrying the limit wording makes the probe report "unknown" — #907 deleted the text fallback
     Given the Claude CLI answers the rate-limit probe with exit code 1 and <stream>:
       """
       <text>
       """
     When the rate-limit probe runs
-    Then the rate-limit probe reports "limited"
+    Then the rate-limit probe reports "unknown"
 
     Examples:
       | stream | text                                                              |
@@ -170,7 +199,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | stderr | You've hit your limit · resets 3pm (Europe/Amsterdam)             |
       | stderr | You're out of extra usage                                         |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
   Scenario: A clean stream-json reply makes the probe report "clear"
     Given the Claude CLI answers the rate-limit probe with exit code 0 and stdout:
       """
@@ -181,7 +210,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     When the rate-limit probe runs
     Then the rate-limit probe reports "clear"
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
   Scenario Outline: A rate_limit_event that was not rejected does not hold the probe as limited
     Given the Claude CLI answers the rate-limit probe with exit code 0 and stdout:
       """
@@ -198,7 +227,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | {"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","rateLimitType":"five_hour"}} |
       | {"type":"rate_limit_event","rate_limit_info":{"status":"allowed","overageStatus":"rejected"}}          |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
   Scenario Outline: A failed probe with neither a pause-worthy event nor limit wording still reports "unknown"
     Given the Claude CLI answers the rate-limit probe with exit code 1 and <stream>:
       """
@@ -222,7 +251,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     Then the rate-limit probe requested "stream-json" output from the Claude CLI
     And the rate-limit probe requested verbose output from the Claude CLI
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907
   Scenario Outline: Every stream event that ends an agent run rate-limited also makes the probe report "limited"
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -236,12 +265,12 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     And the rate-limit probe reports "limited"
 
     Examples:
-      | event                                                                                            |
-      | {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","rateLimitType":"five_hour"}}  |
-      | {"type":"system","subtype":"api_retry","attempt":1,"error":"overloaded_error","error_status":529} |
-      | {"type":"system","subtype":"api_retry","attempt":2,"error":"api_error","error_status":500}        |
+      | event                                                                                           |
+      | {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","rateLimitType":"five_hour"}} |
+      | {"type":"system","subtype":"api_retry","attempt":1,"error":"overloaded","error_status":529}     |
+      | {"type":"system","subtype":"api_retry","attempt":2,"error":"api_error","error_status":500}      |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
   Scenario: A workflow held by a session limit stays queued through three hours of probes and resumes on the first probe after the limit clears
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 871 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -266,21 +295,23 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     And the pause queue no longer holds the workflow for issue 871
     And the mock GitHub API recorded a comment on issue 871
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
   Scenario: A limited probe does not push a workflow already one failure short of the threshold over it
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 875 is paused in the rate-limit queue for the target repository "acme/widgets"
     And the paused workflow for issue 875 has already recorded 2 unknown probe failures
-    And the Claude CLI answers the rate-limit probe with exit code 1 and stderr:
+    And the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
-      You've hit your session limit · resets 1:50pm (Europe/Amsterdam)
+      {"type":"system","subtype":"init","session_id":"probe-902"}
+      {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1790250600,"rateLimitType":"five_hour"}}
+      {"type":"result","subtype":"success","is_error":true,"api_error_status":429,"terminal_reason":"api_error","result":"You've hit your session limit · resets 1:50pm (Europe/Amsterdam)"}
       """
     When the pause-queue scanner runs 1 probe cycle
     Then the pause queue still holds the workflow for issue 875
     And the pause queue entry for issue 875 has not gained a probe failure
     And the mock harness recorded zero comment posts on issue 875
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
   Scenario: Replaying 2026-09-24 — six workflows paused on a session limit are all still queued after the three probe cycles that used to drop them
     Given a workflow for issue 871 is paused in the rate-limit queue for the target repository "acme/widgets"
     And a workflow for issue 872 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -288,9 +319,11 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     And a workflow for issue 875 is paused in the rate-limit queue for the target repository "acme/widgets"
     And a workflow for issue 876 is paused in the rate-limit queue for the target repository "acme/widgets"
     And a workflow for issue 877 is paused in the rate-limit queue for the target repository "acme/widgets"
-    And the Claude CLI answers the rate-limit probe with exit code 1 and stderr:
+    And the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
-      You've hit your session limit · resets 1:50pm (Europe/Amsterdam)
+      {"type":"system","subtype":"init","session_id":"probe-902"}
+      {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1790250600,"rateLimitType":"five_hour"}}
+      {"type":"result","subtype":"success","is_error":true,"api_error_status":429,"terminal_reason":"api_error","result":"You've hit your session limit · resets 1:50pm (Europe/Amsterdam)"}
       """
     When the pause-queue scanner runs 3 probe cycles
     Then the pause queue still holds a workflow for each of these issues, none of which has gained a probe failure:
@@ -302,8 +335,8 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | 876   |
       | 877   |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi
-  Scenario: A genuinely unknown probe failure still counts, and the third one drops the workflow with the manual-restart comment
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
+  Scenario: A genuinely unknown probe failure still counts, and the third one drops the workflow with a comment that names ## Retry as the recovery
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 876 is paused in the rate-limit queue for the target repository "acme/widgets"
     And the Claude CLI answers the rate-limit probe with exit code 1 and stderr:
@@ -315,6 +348,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
     When the pause-queue scanner runs 1 probe cycle
     Then the pause queue no longer holds the workflow for issue 876
     And the mock GitHub API recorded a comment containing the text "failed to resume after 3 probe attempts"
+    And the mock GitHub API recorded a comment containing the text "## Retry"
 
   @adw-902 @adw-0uxemg-pause-queue-probe-mi
   Scenario: TypeScript type-check passes after the probe moves onto the shared stream parser

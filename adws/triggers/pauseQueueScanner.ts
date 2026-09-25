@@ -1,8 +1,15 @@
 /**
- * Probes for rate-limit clearance via `rateLimitProbe`'s structural classifier, delegated
- * to a `claude` ping run under stream-json output.
- * On `clear`: removes from queue, posts resumed comment, spawns the orchestrator.
- * On repeated `unknown`: removes from queue, posts error comment.
+ * I/O shell over the pure `pauseQueueDecider`. Reads the queue, probes at most once per
+ * scan — and never at all while every entry is still before its reset time — decides each
+ * entry's action through `decidePauseQueueAction`, and executes it:
+ *   - `skip_before_reset`: untouched, no log line (the scan summary already covers it).
+ *   - `resume`: `resumeWorkflow` (clear probe, reset time past or absent).
+ *   - `refresh_reset`: updates `lastProbeAt` and, when the probe reported one, `resetsAt`/
+ *     `rateLimitType` — never `probeFailures` (a `limited` probe never strikes).
+ *   - `count_strike`: updates `probeFailures`/`lastProbeAt`.
+ *   - `evict`: removes the entry and posts an error comment naming `## Retry` as the
+ *     recovery. Writes no top-level state — the stage stays `paused`, which is what makes
+ *     `## Retry` applicable.
  */
 
 import { spawn } from 'child_process';
@@ -22,7 +29,8 @@ import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 import { AgentStateManager } from '../core/agentState';
-import { probeRateLimit, type ProbeOutcome } from './rateLimitProbe';
+import { probeRateLimit, type ProbeClassification } from './rateLimitProbe';
+import { isBeforeReset, decidePauseQueueAction, type PauseQueueAction, type StrikeVerdict } from './pauseQueueDecider';
 
 /** Readiness window (ms) to confirm a spawned child did not immediately crash. */
 const READINESS_WINDOW_MS = 2000;
@@ -103,7 +111,7 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     postEntryStageComment(entry, 'error', {
       issueNumber: entry.issueNumber,
       adwId: entry.adwId,
-      errorMessage: `Workflow paused at '${entry.pausedAtPhase}' but worktree no longer exists. Manual restart required.`,
+      errorMessage: `Workflow paused at '${entry.pausedAtPhase}' but worktree no longer exists. It stays paused — post \`## Retry\` on this issue to respawn it.`,
     });
     return;
   }
@@ -190,48 +198,90 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   }
 }
 
-function recordUnknownProbeFailure(entry: PausedWorkflow): void {
-  const failures = (entry.probeFailures ?? 0) + 1;
-  log(`Unknown probe failure for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
-  if (failures < MAX_UNKNOWN_PROBE_FAILURES) {
-    updatePauseQueueEntry(entry.adwId, { probeFailures: failures, lastProbeAt: new Date().toISOString() });
-    return;
-  }
-  log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
-  removeFromPauseQueue(entry.adwId);
-  postEntryStageComment(entry, 'error', {
-    issueNumber: entry.issueNumber,
-    adwId: entry.adwId,
-    errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${MAX_UNKNOWN_PROBE_FAILURES} probe attempts. Manual restart required.`,
-  });
+function describeStrikeVerdict(verdict: StrikeVerdict): string {
+  return verdict === 'failed'
+    ? 'a confirmed failure that was not a rate limit'
+    : 'a probe result that could not be classified';
 }
 
-async function applyProbeOutcome(entry: PausedWorkflow, outcome: ProbeOutcome): Promise<void> {
-  if (outcome === 'clear') {
-    log(`Rate limit cleared — resuming workflow ${entry.adwId}`, 'success');
-    await resumeWorkflow(entry);
-    return;
+async function executePauseQueueAction(entry: PausedWorkflow, action: PauseQueueAction, now: Date): Promise<void> {
+  switch (action.kind) {
+    case 'skip_before_reset':
+      return;
+
+    case 'resume':
+      log(`Rate limit cleared — resuming workflow ${entry.adwId}`, 'success');
+      await resumeWorkflow(entry);
+      return;
+
+    case 'refresh_reset':
+      updatePauseQueueEntry(entry.adwId, {
+        lastProbeAt: now.toISOString(),
+        ...(action.resetsAt ? { resetsAt: action.resetsAt } : {}),
+        ...(action.rateLimitType ? { rateLimitType: action.rateLimitType } : {}),
+      });
+      if (action.resetsAt) {
+        log(`Rate limit still active for workflow ${entry.adwId} — waits until ${action.resetsAt}`, 'info');
+      } else {
+        log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
+      }
+      return;
+
+    case 'count_strike':
+      log(`Probe failure (${action.verdict}) for workflow ${entry.adwId} (${action.probeFailures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
+      updatePauseQueueEntry(entry.adwId, { probeFailures: action.probeFailures, lastProbeAt: now.toISOString() });
+      return;
+
+    case 'evict':
+      log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
+      removeFromPauseQueue(entry.adwId);
+      postEntryStageComment(entry, 'error', {
+        issueNumber: entry.issueNumber,
+        adwId: entry.adwId,
+        errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${action.probeFailures} probe attempts (last result: ${describeStrikeVerdict(action.verdict)}). It stays paused — post \`## Retry\` on this issue to respawn it.`,
+      });
+      return;
+
+    default: {
+      const exhaustive: never = action;
+      throw new Error(`Unhandled pause-queue action: ${JSON.stringify(exhaustive)}`);
+    }
   }
-  if (outcome === 'limited') {
-    log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
-    updatePauseQueueEntry(entry.adwId, { lastProbeAt: new Date().toISOString() });
-    return;
-  }
-  recordUnknownProbeFailure(entry);
+}
+
+/** Deps object (not a positional clock) so the ownership slice can add the scanning cron's repo identity without changing any caller. */
+export interface PauseQueueScanDeps {
+  now?: () => Date;
 }
 
 /** Only runs the probe every PROBE_INTERVAL_CYCLES cycles to avoid hammering the API. */
-export async function scanPauseQueue(cycleCount: number, probe: () => ProbeOutcome = probeRateLimit): Promise<void> {
+export async function scanPauseQueue(
+  cycleCount: number,
+  probe: () => ProbeClassification = probeRateLimit,
+  deps: PauseQueueScanDeps = {},
+): Promise<void> {
   if (cycleCount % PROBE_INTERVAL_CYCLES !== 0) return;
 
   const entries = readPauseQueue();
   if (entries.length === 0) return;
 
-  log(`Pause queue scan: ${entries.length} paused workflow(s)`);
+  const now = (deps.now ?? (() => new Date()))();
+  const due = entries.filter(entry => !isBeforeReset(entry, now));
 
-  const outcome = probe();
+  if (due.length === 0) {
+    const earliestResetsAt = entries
+      .map(entry => entry.resetsAt)
+      .filter((resetsAt): resetsAt is string => Boolean(resetsAt))
+      .sort()[0];
+    log(`Pause queue scan: ${entries.length} paused workflow(s), all waiting for a reset time (earliest ${earliestResetsAt}) — probe skipped`);
+    return;
+  }
+
+  log(`Pause queue scan: ${entries.length} paused workflow(s), ${due.length} due for a probe`);
+  const classification = probe();
 
   for (const entry of entries) {
-    await applyProbeOutcome(entry, outcome);
+    const action = decidePauseQueueAction({ entry, probe: classification, now, maxProbeFailures: MAX_UNKNOWN_PROBE_FAILURES });
+    await executePauseQueueAction(entry, action, now);
   }
 }

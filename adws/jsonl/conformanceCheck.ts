@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { parseJsonlOutput, type JsonlParserState } from '../core/claudeStreamParser';
+import { parseJsonlOutput, createJsonlParserState } from '../core/claudeStreamParser';
 import { AnthropicTokenUsageExtractor } from '../cost/providers/anthropic/extractor';
 import { resolveSchemaFields, findMissingFields, findExtraFields } from './schemaFields';
 import type { EnvelopeSchema, ConformanceResult } from './types';
@@ -25,22 +25,6 @@ interface LinePresence {
   assistantCount: number;
   hasResult: boolean;
   hasRejectedRateLimitEvent: boolean;
-}
-
-function freshParserState(): JsonlParserState {
-  return {
-    lastResult: null,
-    fullOutput: '',
-    turnCount: 0,
-    toolCount: 0,
-    lineBuffer: '',
-    rateLimitRejected: false,
-    authErrorDetected: false,
-    serverErrorDetected: false,
-    overloadedErrorDetected: false,
-    compactionDetected: false,
-    deniedToolCallCount: 0,
-  };
 }
 
 /** Non-empty, trimmed lines — a fixture is one JSON object per line, blank lines allowed between them. */
@@ -67,7 +51,7 @@ function computePresence(messages: Record<string, unknown>[]): LinePresence {
 
 /** Runs the shared stream parser once over the whole fixture (the newline the parser needs to flush its final line). */
 function runParserCheck(fixtureText: string, presence: LinePresence): string[] {
-  const state = freshParserState();
+  const state = createJsonlParserState();
 
   try {
     parseJsonlOutput(fixtureText, state);
@@ -83,8 +67,8 @@ function runParserCheck(fixtureText: string, presence: LinePresence): string[] {
   if (presence.hasResult && state.lastResult === null) {
     errors.push('result message did not set lastResult (parser did not recognize message)');
   }
-  if (presence.hasRejectedRateLimitEvent && !state.rateLimitRejected) {
-    errors.push('rejected rate_limit_event did not set rateLimitRejected');
+  if (presence.hasRejectedRateLimitEvent && !state.rateLimitDetected) {
+    errors.push('rejected rate_limit_event did not set rateLimitDetected');
   }
 
   return errors;

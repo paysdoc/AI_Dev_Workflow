@@ -195,7 +195,7 @@ export { AGENT_DEFAULT_TIMEOUT_MS, AGENT_PHASE_TIMEOUT_MAP, getAgentTimeoutForPh
 export { killProcessGroup } from './processKill';
 
 export type { PausedWorkflow } from './pauseQueue';
-export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from './pauseQueue';
+export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry, resetsAtIsoFromEpochSeconds } from './pauseQueue';
 
 export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
 export type { ReconcileDeps } from './remoteReconcile';

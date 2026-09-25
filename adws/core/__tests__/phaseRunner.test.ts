@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CostTracker, runPhase } from '../phaseRunner';
 import { RateLimitError } from '../../types/agentTypes';
 import type { WorkflowConfig } from '../../phases/workflowInit';
+import { INCIDENT_RESETS_AT, INCIDENT_RATE_LIMIT_TYPE } from './fixtures/rateLimitIncident';
 
 // Hoist mock variables so they are available when vi.mock factory runs
 const { writeTopLevelStateMock, readTopLevelStateMock } = vi.hoisted(() => ({
@@ -107,7 +108,7 @@ describe('runPhase()', () => {
     expect(mockHandleRateLimitPause).not.toHaveBeenCalled();
   });
 
-  it('calls handleRateLimitPause when RateLimitError is thrown', async () => {
+  it('calls handleRateLimitPause with the caught RateLimitError as the sixth argument', async () => {
     const config = makeConfig();
     const tracker = new CostTracker();
     const rateLimitErr = new RateLimitError('plan');
@@ -120,7 +121,22 @@ describe('runPhase()', () => {
       'rate_limited',
       0,
       {},
+      rateLimitErr,
     );
+  });
+
+  it('passes a RateLimitError carrying reset facts through to handleRateLimitPause unchanged', async () => {
+    const config = makeConfig();
+    const tracker = new CostTracker();
+    const rateLimitErr = new RateLimitError('plan', {
+      rateLimitType: INCIDENT_RATE_LIMIT_TYPE,
+      resetsAt: INCIDENT_RESETS_AT,
+    });
+    const phaseFn = vi.fn().mockRejectedValue(rateLimitErr);
+
+    await expect(runPhase(config, tracker, phaseFn)).rejects.toThrow(RateLimitError);
+    const sixthArg = mockHandleRateLimitPause.mock.calls[0][5];
+    expect(sixthArg).toMatchObject({ rateLimitType: 'five_hour', resetsAt: INCIDENT_RESETS_AT });
   });
 
   it('skips a phase that is already in config.completedPhases', async () => {

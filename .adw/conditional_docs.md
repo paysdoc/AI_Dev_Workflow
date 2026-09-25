@@ -34,6 +34,7 @@
   - Owns:
     - adws/phases/workflowInit.ts
     - adws/phases/workflowCompletion.ts
+    - adws/phases/__tests__/workflowCompletion.test.ts
     - adws/phases/upgradeGate.ts
     - adws/phases/orchestratorLock.ts
     - adws/phases/progressGate.ts
@@ -226,6 +227,9 @@
     - adws/triggers/concurrencyGuard.ts
     - adws/triggers/spawnGate.ts
     - adws/triggers/pauseQueueScanner.ts
+    - adws/triggers/__tests__/pauseQueueScanner.test.ts
+    - adws/triggers/pauseQueueDecider.ts
+    - adws/triggers/__tests__/pauseQueueDecider.test.ts
     - adws/triggers/rateLimitProbe.ts
     - adws/triggers/__tests__/rateLimitProbe.test.ts
     - adws/triggers/mergeDispatchGate.ts
@@ -239,6 +243,7 @@
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
     - When working on the pause-queue rate-limit probe (`rateLimitProbe.ts`) or its outcome classification
+    - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
 
 - app_docs/feature-9gjajh-promotion-system.md
@@ -453,6 +458,7 @@
     - adws/agents/agentProcessHandler.ts
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
+    - adws/agents/__tests__/agentProcessHandler.test.ts
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
@@ -482,6 +488,7 @@
     - adws/core/phaseRunner.ts
     - adws/core/__tests__/claudeStreamParser.test.ts
     - adws/core/__tests__/phaseRunner.test.ts
+    - adws/core/__tests__/fixtures/rateLimitIncident.ts
   - Conditions:
     - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
     - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`

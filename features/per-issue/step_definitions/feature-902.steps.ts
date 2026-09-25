@@ -14,7 +14,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import type { ChildProcess } from 'child_process';
 
-import { probeRateLimit, type ProbeExec, type ProbeExecResult, type ProbeOutcome } from '../../../adws/triggers/rateLimitProbe.ts';
+import { probeRateLimit, type ProbeExec, type ProbeExecResult, type ProbeClassification } from '../../../adws/triggers/rateLimitProbe.ts';
 import { handleAgentProcess } from '../../../adws/agents/agentProcessHandler.ts';
 import type { AgentResult } from '../../../adws/types/agentTypes.ts';
 
@@ -42,20 +42,24 @@ export const probeStub: {
 };
 
 const world: {
-  lastOutcome: ProbeOutcome | null;
+  lastClassification: ProbeClassification | null;
   agentResult: AgentResult | null;
 } = {
-  lastOutcome: null,
+  lastClassification: null,
   agentResult: null,
 };
 
 export function resetFeature902ProbeState(): void {
   probeStub.reset();
-  world.lastOutcome = null;
+  world.lastClassification = null;
   world.agentResult = null;
 }
 
-Before({ tags: '@adw-902' }, function () {
+export function getLastProbeClassification(): ProbeClassification | null {
+  return world.lastClassification;
+}
+
+Before({ tags: '@adw-902 or @adw-907 or @adw-910' }, function () {
   resetFeature902ProbeState();
 });
 
@@ -72,11 +76,12 @@ Given(
 );
 
 When('the rate-limit probe runs', function () {
-  world.lastOutcome = probeRateLimit(probeStub.exec);
+  world.lastClassification = probeRateLimit(probeStub.exec);
 });
 
 Then('the rate-limit probe reports {string}', function (expected: string) {
-  assert.strictEqual(world.lastOutcome, expected, `Expected probe outcome "${expected}" but got "${world.lastOutcome}"`);
+  const verdict = world.lastClassification?.verdict;
+  assert.strictEqual(verdict, expected, `Expected probe outcome "${expected}" but got "${verdict}"`);
 });
 
 function lastProbeCall(): ProbeStubCall {
@@ -119,8 +124,13 @@ When('the same Claude CLI output is streamed through an agent run', async functi
 
   const resultPromise = handleAgentProcess(child, 'adw-902-parity-agent', outputFile, undefined, undefined, 'haiku');
 
+  // A real CLI terminates every JSONL line, including the last, with '\n'. Without that
+  // guarantee here, a docstring whose interesting line is also its last line would be
+  // buffered by parseJsonlOutput as a partial line and never parsed within this single
+  // 'data' event.
   const content = probeStub.result.stdout;
-  (child.stdout as unknown as EventEmitter).emit('data', Buffer.from(content));
+  const contentWithTrailingNewline = content.endsWith('\n') ? content : `${content}\n`;
+  (child.stdout as unknown as EventEmitter).emit('data', Buffer.from(contentWithTrailingNewline));
   (child as unknown as EventEmitter).emit('close', wasKilled() ? null : 0);
 
   // Not cleaned up synchronously: agentProcessHandler's internal fs.createWriteStream
@@ -130,6 +140,10 @@ When('the same Claude CLI output is streamed through an agent run', async functi
   // is a few bytes in the OS tmp dir; leaving it behind is the safe tradeoff.
   world.agentResult = await resultPromise;
 });
+
+export function getLastAgentRunResult(): AgentResult | null {
+  return world.agentResult;
+}
 
 Then('the agent run ends rate-limited', function () {
   assert.ok(world.agentResult, 'Expected an agent run to have completed first');
