@@ -2,7 +2,9 @@
  * Probes for rate-limit clearance via `rateLimitProbe`'s structural classifier, delegated
  * to a `claude` ping run under stream-json output.
  * On `clear`: removes from queue, posts resumed comment, spawns the orchestrator.
- * On repeated `unknown`: removes from queue, posts error comment.
+ * On repeated `failed` or `unknown`: removes from queue, posts error comment. `failed`
+ * (e.g. a confirmed auth failure) shares this strike path with `unknown` for now — the
+ * PRD's decider issue is what gives it its own treatment.
  */
 
 import { spawn } from 'child_process';
@@ -22,7 +24,7 @@ import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 import { AgentStateManager } from '../core/agentState';
-import { probeRateLimit, type ProbeOutcome } from './rateLimitProbe';
+import { probeRateLimit, type ProbeOutcome, type ProbeClassification } from './rateLimitProbe';
 
 /** Readiness window (ms) to confirm a spawned child did not immediately crash. */
 const READINESS_WINDOW_MS = 2000;
@@ -190,9 +192,9 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   }
 }
 
-function recordUnknownProbeFailure(entry: PausedWorkflow): void {
+function recordUnknownProbeFailure(entry: PausedWorkflow, verdict: ProbeOutcome): void {
   const failures = (entry.probeFailures ?? 0) + 1;
-  log(`Unknown probe failure for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
+  log(`Probe failure (${verdict}) for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
   if (failures < MAX_UNKNOWN_PROBE_FAILURES) {
     updatePauseQueueEntry(entry.adwId, { probeFailures: failures, lastProbeAt: new Date().toISOString() });
     return;
@@ -206,22 +208,24 @@ function recordUnknownProbeFailure(entry: PausedWorkflow): void {
   });
 }
 
-async function applyProbeOutcome(entry: PausedWorkflow, outcome: ProbeOutcome): Promise<void> {
-  if (outcome === 'clear') {
+async function applyProbeOutcome(entry: PausedWorkflow, verdict: ProbeOutcome): Promise<void> {
+  if (verdict === 'clear') {
     log(`Rate limit cleared — resuming workflow ${entry.adwId}`, 'success');
     await resumeWorkflow(entry);
     return;
   }
-  if (outcome === 'limited') {
+  if (verdict === 'limited') {
     log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
     updatePauseQueueEntry(entry.adwId, { lastProbeAt: new Date().toISOString() });
     return;
   }
-  recordUnknownProbeFailure(entry);
+  // 'failed' (a confirmed non-rate-limit failure, e.g. auth) and 'unknown' both still
+  // follow the strike path until the PRD's decider issue treats them differently.
+  recordUnknownProbeFailure(entry, verdict);
 }
 
 /** Only runs the probe every PROBE_INTERVAL_CYCLES cycles to avoid hammering the API. */
-export async function scanPauseQueue(cycleCount: number, probe: () => ProbeOutcome = probeRateLimit): Promise<void> {
+export async function scanPauseQueue(cycleCount: number, probe: () => ProbeClassification = probeRateLimit): Promise<void> {
   if (cycleCount % PROBE_INTERVAL_CYCLES !== 0) return;
 
   const entries = readPauseQueue();
@@ -229,9 +233,9 @@ export async function scanPauseQueue(cycleCount: number, probe: () => ProbeOutco
 
   log(`Pause queue scan: ${entries.length} paused workflow(s)`);
 
-  const outcome = probe();
+  const classification = probe();
 
   for (const entry of entries) {
-    await applyProbeOutcome(entry, outcome);
+    await applyProbeOutcome(entry, classification.verdict);
   }
 }

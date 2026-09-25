@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { parseJsonlOutput, type JsonlParserState } from '../core/claudeStreamParser';
+import { parseJsonlOutput, createJsonlParserState } from '../core/claudeStreamParser';
 import { AnthropicTokenUsageExtractor } from '../cost/providers/anthropic/extractor';
 import type { EnvelopeSchema, SchemaField, ConformanceResult } from './types';
 
@@ -67,19 +67,7 @@ function findExtraFields(
 }
 
 function runParserCheck(fixtureLine: string, messageType: string): string[] {
-  const state: JsonlParserState = {
-    lastResult: null,
-    fullOutput: '',
-    turnCount: 0,
-    toolCount: 0,
-    lineBuffer: '',
-    rateLimitRejected: false,
-    authErrorDetected: false,
-    serverErrorDetected: false,
-    overloadedErrorDetected: false,
-    compactionDetected: false,
-    deniedToolCallCount: 0,
-  };
+  const state = createJsonlParserState();
 
   try {
     parseJsonlOutput(fixtureLine, state);

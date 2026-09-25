@@ -2,15 +2,20 @@
  * Structural rate-limit probe for the pause queue. Runs a one-turn `claude` ping under
  * the same stream-json output mode the pipeline agents use, and classifies the result
  * through the shared `claudeStreamParser` state — the same signals `agentProcessHandler`
- * pauses a live agent run on. Text matching survives only as a fallback for output that
- * never reached stream-json (e.g. the process died before emitting any JSON).
+ * pauses a live agent run on. There is no text fallback: output that never reached
+ * stream-json (the process died before emitting any JSON) classifies as `unknown`.
  */
 
 import { spawnSync } from 'child_process';
 import { log, resolveClaudeCodePath } from '../core';
-import { parseJsonlOutput, type JsonlParserState } from '../core/claudeStreamParser';
+import { parseJsonlOutput, createJsonlParserState, type JsonlParserState } from '../core/claudeStreamParser';
+import type { RateLimitFacts } from '../types/agentTypes';
 
-export type ProbeOutcome = 'clear' | 'limited' | 'unknown';
+export type ProbeOutcome = 'clear' | 'limited' | 'failed' | 'unknown';
+
+export interface ProbeClassification extends RateLimitFacts {
+  verdict: ProbeOutcome;
+}
 
 export interface ProbeExecResult {
   status: number | null;
@@ -30,41 +35,6 @@ export const PROBE_ARGS: readonly string[] = [
   'ping',
 ];
 
-// Fallback only — used when stdout/stderr carried no structured stream-json signal at
-// all (the process died before emitting one). The stable prefix covers both "You've hit
-// your limit" and "You've hit your session limit" without hand-tracking every wording.
-const RATE_LIMIT_TEXT_PATTERNS = [
-  "You've hit your",
-  "You're out of extra usage",
-  '502 Bad Gateway',
-  'Invalid authentication credentials',
-];
-
-function normalizeApostrophes(text: string): string {
-  return text.replace(/[‘’]/g, "'");
-}
-
-function containsRateLimitText(text: string): boolean {
-  const normalized = normalizeApostrophes(text);
-  return RATE_LIMIT_TEXT_PATTERNS.some(pattern => normalized.includes(pattern));
-}
-
-function createProbeParserState(): JsonlParserState {
-  return {
-    lastResult: null,
-    fullOutput: '',
-    turnCount: 0,
-    toolCount: 0,
-    lineBuffer: '',
-    rateLimitRejected: false,
-    authErrorDetected: false,
-    serverErrorDetected: false,
-    overloadedErrorDetected: false,
-    compactionDetected: false,
-    deniedToolCallCount: 0,
-  };
-}
-
 // parseJsonlOutput buffers a final segment that lacks a trailing '\n' instead of parsing
 // it; a rate_limit_event that happens to be the last thing the CLI wrote would otherwise
 // never be seen.
@@ -72,9 +42,11 @@ function withTrailingNewline(text: string): string {
   return text.endsWith('\n') ? text : `${text}\n`;
 }
 
-function hasPauseWorthySignal(state: JsonlParserState): boolean {
-  return state.rateLimitRejected || state.serverErrorDetected
-    || state.overloadedErrorDetected || state.authErrorDetected;
+function factsOf(state: JsonlParserState): RateLimitFacts {
+  const facts: RateLimitFacts = {};
+  if (state.rateLimitType !== undefined) facts.rateLimitType = state.rateLimitType;
+  if (state.resetsAt !== undefined) facts.resetsAt = state.resetsAt;
+  return facts;
 }
 
 function tailOf(text: string, maxLength = 300): string {
@@ -82,17 +54,22 @@ function tailOf(text: string, maxLength = 300): string {
 }
 
 /**
- * Order matters: structural detection first, then the text fallback, then exit code.
- * Text is checked before `status === 0` so a run whose output still says the limit is
- * active is never treated as clear just because the process happened to exit 0.
+ * Ranked: a confirmed authentication failure is never a limit, even alongside a rejected
+ * rate_limit_event. `clear` requires an actual non-errored result envelope at exit 0 — a
+ * clean exit with no parseable JSON is `unknown`, not `clear` (never guess from text).
  */
-export function classifyProbeResult(result: ProbeExecResult): ProbeOutcome {
-  const state = createProbeParserState();
+export function classifyProbeResult(result: ProbeExecResult): ProbeClassification {
+  const state = createJsonlParserState();
   parseJsonlOutput(withTrailingNewline(result.stdout), state);
-  if (hasPauseWorthySignal(state)) return 'limited';
-  if (containsRateLimitText(`${result.stdout}\n${result.stderr}`)) return 'limited';
-  if (result.status === 0) return 'clear';
-  return 'unknown';
+
+  if (state.authErrorDetected) return { verdict: 'failed' };
+  if (state.rateLimitDetected || state.overloadedErrorDetected || state.serverErrorDetected) {
+    return { verdict: 'limited', ...factsOf(state) };
+  }
+  if (result.status === 0 && state.lastResult !== null && state.lastResult.is_error !== true) {
+    return { verdict: 'clear' };
+  }
+  return { verdict: 'unknown' };
 }
 
 export function runClaudeProbe(claudePath: string, args: readonly string[]): ProbeExecResult {
@@ -108,16 +85,18 @@ export function runClaudeProbe(claudePath: string, args: readonly string[]): Pro
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
-export function probeRateLimit(exec: ProbeExec = runClaudeProbe): ProbeOutcome {
+export function probeRateLimit(exec: ProbeExec = runClaudeProbe): ProbeClassification {
   try {
     const result = exec(resolveClaudeCodePath(), PROBE_ARGS);
-    const outcome = classifyProbeResult(result);
-    if (outcome === 'unknown') {
+    const classification = classifyProbeResult(result);
+    if (classification.verdict === 'unknown') {
       log(`Rate-limit probe unclassified (exit ${result.status}): ${tailOf(result.stderr || result.stdout)}`, 'warn');
+    } else if (classification.verdict === 'failed') {
+      log('Rate-limit probe hit a confirmed authentication failure — the auth queue owns recovery, not the pause queue.', 'error');
     }
-    return outcome;
+    return classification;
   } catch (err) {
     log(`Rate-limit probe could not run: ${err}`, 'warn');
-    return 'unknown';
+    return { verdict: 'unknown' };
   }
 }
