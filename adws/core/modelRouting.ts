@@ -6,14 +6,17 @@ export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/classify_issue': 'sonnet',
-  '/feature': 'fable',
-  '/bug': 'fable',
+  // Planning (complex reasoning)
+  '/feature': 'opus',
+  '/bug': 'opus',
   '/chore': 'opus',
   '/pr_review': 'opus',
   '/implement': 'sonnet',
   '/implement-tdd': 'sonnet',
-  '/patch': 'fable',
-  '/review': 'fable',
+  '/patch': 'opus',
+  // Review (complex reasoning)
+  '/review': 'opus',
+  // Test running (structured, cheap)
   '/test': 'haiku',
   '/resolve_failed_test': 'opus',
   '/resolve_failed_scenario': 'opus',
