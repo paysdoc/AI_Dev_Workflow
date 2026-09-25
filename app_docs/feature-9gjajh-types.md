@@ -7,7 +7,7 @@
 ## Responsibilities
 
 - Define `AgentState` — the schema for `agents/{adwId}/state.json`, carrying adwId, issue number, branch name, plan file, PID liveness fields, workflow stage, phase map, and metadata.
-- Define `AgentResult` — the structured return value of `runClaudeAgentWithCommand`, including success, output, cost, model usage, and interruption flags.
+- Define `AgentResult` — the structured return value of `runClaudeAgentWithCommand`, including success, output, cost, model usage, and interruption flags. Extends `RateLimitFacts` (`rateLimitType?`, `resetsAt?`), set only when a rate-limited result came from a rejected `rate_limit_event`.
 - Define error classes `RateLimitError`, `AgentTimeoutError`, and `AuthRequiredError` that propagate through the phase runner to trigger pause/resume, timeout handling, and auth-gate mechanics respectively.
 - Define `AgentIdentifier` union (the complete set of named agents in the system) and `AgentExecutionStatus` / `AgentExecutionState` for per-agent tracking.
 - Define `PhaseExecutionState` — per-phase status stored in `AgentState.phases`.
@@ -26,7 +26,8 @@
 - `/adw_init` is in `IssueClassSlashCommand` but excluded from `VALID_ISSUE_TYPES`; the classifier must never assign it, and orchestrator dispatch maps do not include it.
 - `AgentIdentifier` is a closed string union; new agent types require an addition to the union to be accepted by `AgentState.agentName`.
 - `AgentState.pid` is paired with `pidStartedAt` for PID-reuse-safe liveness; callers must record both atomically.
-- `RateLimitError` carries a `phaseName` for log context; `AgentTimeoutError` carries `agentName`, `phaseName`, and `timeoutMs`; `AuthRequiredError` carries `agentName`.
+- `RateLimitError` carries a `phaseName` for log context plus `rateLimitType?`/`resetsAt?` (its `RateLimitFacts`, defaulted to `{}` so every pre-existing `new RateLimitError(phaseName)` call still constructs); `AgentTimeoutError` carries `agentName`, `phaseName`, and `timeoutMs`; `AuthRequiredError` carries `agentName`.
+- `RateLimitFacts` (`{ rateLimitType?: string; resetsAt?: number }`) is mixed into both `AgentResult` and `RateLimitError`, and separately into `JsonlParserState` (`claudeStreamParser.ts`) and `ProbeClassification` (`rateLimitProbe.ts`) — one shared shape for a limit type and a Unix-epoch-seconds reset time, present only when a rejected `rate_limit_event` supplied them, absent (never defaulted) otherwise.
 - `branchPrefixAliases` maps each issue type to alternative prefixes that `findWorktreeForIssue` accepts when scanning existing worktrees.
 
 ## Configuration
