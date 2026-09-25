@@ -1,5 +1,5 @@
 /**
- * Hand-written, shaped like the 2026-09-22 incident (issue #840): a rejected five-hour
+ * Hand-written, shaped like the 2026-09-22 incident: a rejected five-hour
  * `rate_limit_event` at 12:50 UTC, followed by a terminal `result` carrying
  * `api_error_status: 429`. The PRD's envelope-gate issue will replace this with a
  * captured fixture. Shared by the parser, handler and probe unit tests.
