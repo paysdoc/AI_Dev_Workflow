@@ -78,7 +78,7 @@ import { AgentStateManager } from '../../core/agentState';
 import { resumeWorkflow, scanPauseQueue } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
-import type { ProbeOutcome } from '../rateLimitProbe';
+import type { ProbeClassification } from '../rateLimitProbe';
 
 function makeEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
   return {
@@ -391,7 +391,7 @@ describe('scanPauseQueue', () => {
   it('a "limited" outcome does not touch probeFailures, remove the entry, or post a comment', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'limited';
+    const probe: () => ProbeClassification = () => ({ verdict: 'limited' });
 
     await scanPauseQueue(1, probe);
 
@@ -407,7 +407,7 @@ describe('scanPauseQueue', () => {
   it('an "unknown" outcome below the cap increments probeFailures without removing the entry', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 0 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'unknown';
+    const probe: () => ProbeClassification = () => ({ verdict: 'unknown' });
 
     await scanPauseQueue(1, probe);
 
@@ -421,7 +421,37 @@ describe('scanPauseQueue', () => {
   it('an "unknown" outcome at the failure cap drops the entry and posts the manual-restart comment', async () => {
     const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
-    const probe: () => ProbeOutcome = () => 'unknown';
+    const probe: () => ProbeClassification = () => ({ verdict: 'unknown' });
+
+    await scanPauseQueue(1, probe);
+
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({ errorMessage: expect.stringContaining('failed to resume after 3 probe attempts') }),
+    );
+  });
+
+  it('a "failed" outcome below the cap increments probeFailures without removing the entry', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 0 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'failed' });
+
+    await scanPauseQueue(1, probe);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith(
+      entry.adwId,
+      expect.objectContaining({ probeFailures: 1 }),
+    );
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+  });
+
+  it('a "failed" outcome at the cap drops the entry and posts the manual-restart comment', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeClassification = () => ({ verdict: 'failed' });
 
     await scanPauseQueue(1, probe);
 
@@ -439,7 +469,7 @@ describe('scanPauseQueue', () => {
     vi.mocked(readPauseQueue).mockReturnValue([entry]);
     const child = makeFakeChild();
     vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
-    const probe: () => ProbeOutcome = () => 'clear';
+    const probe: () => ProbeClassification = () => ({ verdict: 'clear' });
 
     const promise = scanPauseQueue(1, probe);
     await vi.runAllTimersAsync();
@@ -453,7 +483,7 @@ describe('scanPauseQueue', () => {
     const entryA = makeEntry({ adwId: 'test-adw-123', issueNumber: 1 });
     const entryB = makeEntry({ adwId: 'test-adw-456', issueNumber: 2 });
     vi.mocked(readPauseQueue).mockReturnValue([entryA, entryB]);
-    const probe = vi.fn<() => ProbeOutcome>(() => 'limited');
+    const probe = vi.fn<() => ProbeClassification>(() => ({ verdict: 'limited' }));
 
     await scanPauseQueue(1, probe);
 

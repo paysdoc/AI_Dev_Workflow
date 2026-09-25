@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { AuthRequiredError, AgentTimeoutError } from '../../types/agentTypes';
+import { AuthRequiredError, AgentTimeoutError, RateLimitError } from '../../types/agentTypes';
 
 vi.mock('child_process', () => ({
   spawn: vi.fn().mockReturnValue({ pid: 1234, unref: vi.fn() }),
@@ -155,6 +155,53 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       expect.any(Array),
       expect.objectContaining({ detached: true }),
     );
+  });
+});
+
+describe('runClaudeAgentWithCommand — rate-limit facts (#907)', () => {
+  it('throws a RateLimitError carrying rateLimitType/resetsAt from the handler result', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({
+      ...BASE_RESULT,
+      success: false,
+      rateLimited: true,
+      rateLimitType: 'five_hour',
+      resetsAt: 1790081400,
+      output: 'rate limited',
+    });
+
+    let thrownError: unknown;
+    try {
+      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(RateLimitError);
+    const rateLimitError = thrownError as RateLimitError;
+    expect(rateLimitError.phaseName).toBe('plan-agent');
+    expect(rateLimitError.rateLimitType).toBe('five_hour');
+    expect(rateLimitError.resetsAt).toBe(1790081400);
+  });
+
+  it('throws a RateLimitError with both facts undefined when the handler result carries none', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({
+      ...BASE_RESULT,
+      success: false,
+      rateLimited: true,
+      output: 'rate limited',
+    });
+
+    let thrownError: unknown;
+    try {
+      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(RateLimitError);
+    const rateLimitError = thrownError as RateLimitError;
+    expect(rateLimitError.rateLimitType).toBeUndefined();
+    expect(rateLimitError.resetsAt).toBeUndefined();
   });
 });
 

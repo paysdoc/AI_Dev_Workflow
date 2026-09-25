@@ -408,7 +408,7 @@ When('the cron handles the ## Retry directive on issue {int}', async function (i
 });
 
 When('the pause-queue scanner then runs a probe cycle in which the rate limit has cleared', async function () {
-  await scanPauseQueue(PROBE_INTERVAL_CYCLES, () => 'clear');
+  await scanPauseQueue(PROBE_INTERVAL_CYCLES, () => ({ verdict: 'clear' }));
   await replayGhCommentLog();
 });
 

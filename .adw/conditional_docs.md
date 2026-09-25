@@ -451,6 +451,7 @@
     - adws/agents/agentProcessHandler.ts
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
+    - adws/agents/__tests__/agentProcessHandler.test.ts
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
@@ -480,6 +481,7 @@
     - adws/core/phaseRunner.ts
     - adws/core/__tests__/claudeStreamParser.test.ts
     - adws/core/__tests__/phaseRunner.test.ts
+    - adws/core/__tests__/fixtures/rateLimitIncident.ts
   - Conditions:
     - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
     - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`
