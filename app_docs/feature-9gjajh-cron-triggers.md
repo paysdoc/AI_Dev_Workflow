@@ -26,7 +26,7 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 
 - A single cron instance is enforced per `owner/repo` via `cronProcessGuard`; duplicate processes exit immediately with code 0.
 - `awaiting_merge` bypasses the grace period — the original orchestrator has already exited, so there is no race risk. Dedup for merge dispatches uses the spawn lock on disk (`shouldDispatchMerge`), not the in-memory `processedSpawns` set.
-- `discarded` and `merge_blocked` are permanently ineligible in `evaluateIssue`; only an explicit `## Retry` comment resets `merge_blocked` to `awaiting_merge`.
+- `discarded` and `merge_blocked` are permanently ineligible in `evaluateIssue`; only an explicit `## Retry` comment resets `merge_blocked` to `awaiting_merge`. `paused` is likewise ineligible here — handled by the pause-queue scanner or by `## Retry`, which drops the queue entry and respawns directly (`retryHandler.ts`).
 - `paused` is handled exclusively by the pause queue scanner; `evaluateIssue` returns ineligible for paused issues so the backlog sweeper does not compete with the scanner.
 - `decideLabelRecovery` applies only to truly fresh issues (`adwId === null`); issues with an existing adwId bypass it and enter the takeover machinery.
 - `decideLabelRecovery` guard precedence: `opt_out` → `multi_label` → `reserved_label` → `in_progress_comment` → `linked_closed_pr` → eligible. The `reserved_label` guard only fires when `hasAdwLabel` is true and `reading.classification` is `null` — i.e. the issue carries a reserved, non-classification `adw:*` label. A truly-unlabeled issue (`hasAdwLabel === false`) falls through this guard and returns `eligible: true` with `classification: undefined`.
