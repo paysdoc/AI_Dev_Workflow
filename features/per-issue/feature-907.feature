@@ -248,7 +248,7 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end �
       | HTTP 401, unrecognised enum                | {"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":500,"error_status":401,"error":"unknown"}                                    |
       | result envelope with HTTP 401              | {"type":"result","subtype":"success","is_error":true,"api_error_status":401,"terminal_reason":"api_error","result":"OAuth token has expired · Please run /login"} |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
+  @adw-907 @adw-orkxdp-structured-rate-limi @adw-910
   Scenario: An expired login no longer holds a paused workflow in the queue forever — each probe that meets it counts a failure, and the third drops the workflow with a comment
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 911 is paused in the rate-limit queue for the target repository "acme/widgets"
