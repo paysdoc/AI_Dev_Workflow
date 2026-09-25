@@ -481,6 +481,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── agentProcessHandler.test.ts
 │   │   ├── claudeAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
@@ -514,6 +515,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── fixtures/
+│   │   │   └── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
@@ -799,6 +802,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── promotionSweepDefaults.test.ts
+│   │   ├── rateLimitProbe.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
@@ -991,7 +995,8 @@ eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
-│   └── step_definitions/  # Per-issue step definition files
+│   ├── step_definitions/  # Per-issue step definition files
+│   └── support/        # Per-issue Cucumber support (e.g. feature-846-ensure-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
