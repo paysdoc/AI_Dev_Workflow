@@ -38,14 +38,14 @@ function addMissingRequiredFields(
 
   for (const field of schemaFields) {
     const fieldPath = prefix ? `${prefix}.${field.name}` : field.name;
+    const present = field.name in merged;
 
-    if (!(field.name in merged)) {
-      if (field.required) {
-        merged[field.name] = defaultValue(field.type);
-        changes.push(`+${fieldPath}`);
-      }
+    if (!present && field.required) {
+      merged[field.name] = defaultValue(field.type);
+      changes.push(`+${fieldPath}`);
       continue;
     }
+    if (!present) continue;
 
     if (!field.fields || field.fields.length === 0) continue;
     const nested = merged[field.name];

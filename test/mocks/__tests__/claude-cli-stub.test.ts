@@ -72,13 +72,13 @@ describe('claude-cli-stub — rate-limited response via MOCK_RESPONSE', () => {
 
   it('names a reset time that has not yet passed when no override is given', () => {
     const { stdout } = runStub({ MOCK_RESPONSE: 'rate-limited' });
-    const event = JSON.parse(stdout.trim().split('\n')[0]!) as { rate_limit_info: { resetsAt: number } };
+    const event = JSON.parse(stdout.trim().split('\n')[0] ?? '') as { rate_limit_info: { resetsAt: number } };
     expect(event.rate_limit_info.resetsAt).toBeGreaterThan(Date.now() / 1000);
   });
 
   it('echoes MOCK_RATE_LIMIT_RESETS_AT into rate_limit_info.resetsAt', () => {
     const { stdout } = runStub({ MOCK_RESPONSE: 'rate-limited', MOCK_RATE_LIMIT_RESETS_AT: '1790081400' });
-    const event = JSON.parse(stdout.trim().split('\n')[0]!) as { rate_limit_info: { resetsAt: number } };
+    const event = JSON.parse(stdout.trim().split('\n')[0] ?? '') as { rate_limit_info: { resetsAt: number } };
     expect(event.rate_limit_info.resetsAt).toBe(1790081400);
   });
 

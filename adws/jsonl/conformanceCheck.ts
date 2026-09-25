@@ -155,11 +155,11 @@ function checkFixture(filePath: string, schema: EnvelopeSchema): ConformanceResu
   }
 
   const messages: Record<string, unknown>[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const lineNumber = i + 1;
+  for (const [idx, raw] of lines.entries()) {
+    const lineNumber = idx + 1;
     let parsed: unknown;
     try {
-      parsed = JSON.parse(lines[i]!);
+      parsed = JSON.parse(raw);
     } catch (err) {
       return { ...base, passed: false, parseError: `line ${lineNumber}: invalid JSON: ${err instanceof Error ? err.message : String(err)}` };
     }

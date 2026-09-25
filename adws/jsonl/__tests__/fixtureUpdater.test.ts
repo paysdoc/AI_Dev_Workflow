@@ -52,8 +52,8 @@ describe('updateFixtureEnvelopes — add-only semantics', () => {
       JSON.stringify({ type: 'result', subtype: 'success', result: 'API Error: 500', usage: { output_tokens: 1 } }),
     );
     const results = updateFixtureEnvelopes(schemaPath, fixturesDir);
-    expect(results[0]!.changed).toBe(true);
-    expect(results[0]!.changes).toContain('+session_id');
+    expect(results[0]?.changed).toBe(true);
+    expect(results[0]?.changes).toContain('+session_id');
 
     const rewritten = JSON.parse(readFileSync(filePath, 'utf-8').trim()) as Record<string, unknown>;
     expect(rewritten['session_id']).toBe('');
@@ -66,7 +66,7 @@ describe('updateFixtureEnvelopes — add-only semantics', () => {
       JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: {} }),
     );
     const results = updateFixtureEnvelopes(schemaPath, fixturesDir);
-    expect(results[0]!.changes).toContain('+usage.output_tokens');
+    expect(results[0]?.changes).toContain('+usage.output_tokens');
 
     const rewritten = JSON.parse(readFileSync(filePath, 'utf-8').trim()) as { usage: { output_tokens: number } };
     expect(rewritten.usage.output_tokens).toBe(0);
@@ -78,7 +78,7 @@ describe('updateFixtureEnvelopes — add-only semantics', () => {
       JSON.stringify({ type: 'result', subtype: 'success', session_id: 's1', usage: { output_tokens: 1 } }),
     );
     const results = updateFixtureEnvelopes(schemaPath, fixturesDir);
-    expect(results[0]!.changed).toBe(false);
+    expect(results[0]?.changed).toBe(false);
   });
 
   it('never removes a field the schema does not know', () => {
@@ -110,11 +110,11 @@ describe('updateFixtureEnvelopes — add-only semantics', () => {
       ].join('\n'),
     );
     const results = updateFixtureEnvelopes(schemaPath, fixturesDir);
-    expect(results[0]!.changed).toBe(true);
+    expect(results[0]?.changed).toBe(true);
     const lines = readFileSync(filePath, 'utf-8').trim().split('\n');
     expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0]!)['session_id']).toBe('');
-    expect(JSON.parse(lines[1]!)['session_id']).toBe('s2');
+    expect(JSON.parse(lines[0] ?? '')['session_id']).toBe('');
+    expect(JSON.parse(lines[1] ?? '')['session_id']).toBe('s2');
   });
 
   it('does not rewrite a fixture that already satisfies the schema', () => {
@@ -125,7 +125,7 @@ describe('updateFixtureEnvelopes — add-only semantics', () => {
     const before = statSync(filePath);
     const beforeContent = readFileSync(filePath, 'utf-8');
     const results = updateFixtureEnvelopes(schemaPath, fixturesDir);
-    expect(results[0]!.changed).toBe(false);
+    expect(results[0]?.changed).toBe(false);
     const after = statSync(filePath);
     expect(readFileSync(filePath, 'utf-8')).toBe(beforeContent);
     expect(after.mtimeMs).toBe(before.mtimeMs);

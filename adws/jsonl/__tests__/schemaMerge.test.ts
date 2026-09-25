@@ -82,8 +82,8 @@ describe('mergeObservedSchema', () => {
       }],
     };
     const merged = mergeObservedSchema(committed, observed, '2026-09-25T00:00:00.000Z', undefined);
-    const usage = merged.messageTypes['assistant']![0]!.fields!.find(f => f.name === 'usage');
-    expect(usage!.fields).toEqual([
+    const usage = merged.messageTypes['assistant']?.[0]?.fields?.find(f => f.name === 'usage');
+    expect(usage?.fields).toEqual([
       { name: 'input_tokens', required: true, type: 'number' },
       { name: 'output_tokens', required: false, type: 'number' },
     ]);
