@@ -19,7 +19,7 @@ describe('extractObservedSchema', () => {
     ];
     const observed = extractObservedSchema(lines);
     expect(Object.keys(observed).sort()).toEqual(['assistant', 'system/init']);
-    expect(observed['system/init']!.find(f => f.name === 'extra')).toBeUndefined();
+    expect(observed['system/init']?.find(f => f.name === 'extra')).toBeUndefined();
   });
 
   it('skips non-JSON and typeless lines', () => {

@@ -44,8 +44,8 @@ describe('applyManifest — well-formed manifest', () => {
     expect(result.editsApplied[0]).toBe(resolve(worktree, 'src/alpha.ts'));
     expect(result.editsApplied[1]).toBe(resolve(worktree, 'src/beta.ts'));
 
-    expect(readFileSync(result.editsApplied[0]!, 'utf-8')).toBe('export const alpha = 1;');
-    expect(readFileSync(result.editsApplied[1]!, 'utf-8')).toBe('export const beta = 2;');
+    expect(readFileSync(result.editsApplied[0] ?? '', 'utf-8')).toBe('export const alpha = 1;');
+    expect(readFileSync(result.editsApplied[1] ?? '', 'utf-8')).toBe('export const beta = 2;');
 
     expect(result.jsonlPath).toBe(resolve(worktree, 'fixtures/stub-payload.json'));
   });

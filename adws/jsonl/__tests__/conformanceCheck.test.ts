@@ -70,8 +70,8 @@ describe('checkConformance — parser newline regression', () => {
       '{"type":"assistant","message":{"usage":{"output_tokens":5}}}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
-    expect(result!.parserErrors).toEqual([]);
+    expect(result?.passed).toBe(true);
+    expect(result?.parserErrors).toEqual([]);
   });
 });
 
@@ -87,8 +87,8 @@ describe('checkConformance — multi-line fixtures', () => {
       ].join('\n'),
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
-    expect(result!.lineCount).toBe(4);
+    expect(result?.passed).toBe(true);
+    expect(result?.lineCount).toBe(4);
   });
 
   it('passes an allowed rate_limit_event without requiring rateLimitRejected', () => {
@@ -97,7 +97,7 @@ describe('checkConformance — multi-line fixtures', () => {
       '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
+    expect(result?.passed).toBe(true);
   });
 
   it('fails a rejected rate_limit_event whose parser state never sees a trailing newline problem — sanity companion', () => {
@@ -106,8 +106,8 @@ describe('checkConformance — multi-line fixtures', () => {
       '{"type":"rate_limit_event","rate_limit_info":{"status":"rejected"}}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
-    expect(result!.parserErrors).toEqual([]);
+    expect(result?.passed).toBe(true);
+    expect(result?.parserErrors).toEqual([]);
   });
 });
 
@@ -118,8 +118,8 @@ describe('checkConformance — missing and unknown fields', () => {
       '{"type":"assistant","message":{"usage":{}}}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(false);
-    expect(result!.missingFields).toEqual(['message.usage.output_tokens']);
+    expect(result?.passed).toBe(false);
+    expect(result?.missingFields).toEqual(['message.usage.output_tokens']);
   });
 
   it('falls back to the bare type entry for an unknown subtype', () => {
@@ -128,7 +128,7 @@ describe('checkConformance — missing and unknown fields', () => {
       '{"type":"result","subtype":"error_max_turns","is_error":true}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
+    expect(result?.passed).toBe(true);
   });
 
   it('fails naming subtype when a result line has lost its subtype', () => {
@@ -137,8 +137,8 @@ describe('checkConformance — missing and unknown fields', () => {
       '{"type":"result","is_error":true}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(false);
-    expect(result!.missingFields).toEqual(['subtype']);
+    expect(result?.passed).toBe(false);
+    expect(result?.missingFields).toEqual(['subtype']);
   });
 
   it('passes an unknown type informationally, without failing', () => {
@@ -147,8 +147,8 @@ describe('checkConformance — missing and unknown fields', () => {
       '{"type":"tool_result","is_error":false}',
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
-    expect(result!.extraFields[0]).toContain('no schema coverage');
+    expect(result?.passed).toBe(true);
+    expect(result?.extraFields[0]).toContain('no schema coverage');
   });
 });
 
@@ -162,8 +162,8 @@ describe('checkConformance — extractor behaviour with an empty modelUsage', ()
       ].join('\n'),
     );
     const [result] = checkConformance(schemaPath, fixturesDir);
-    expect(result!.passed).toBe(true);
-    expect(result!.extractorErrors).toEqual([]);
+    expect(result?.passed).toBe(true);
+    expect(result?.extractorErrors).toEqual([]);
   });
 });
 
