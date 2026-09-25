@@ -96,6 +96,56 @@ describe('applyManifest — no-op manifest', () => {
   });
 });
 
+describe('applyManifest — response block', () => {
+  it('passes a well-formed rate-limited response block through unchanged', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = {
+      jsonlPath: 'fixtures/payload.json',
+      edits: [],
+      response: { kind: 'rate-limited', resetsAt: 1790081400, rateLimitType: 'five_hour', limitedInvocations: 1 },
+    };
+    const manifestPath = writeManifest(manifestDir, 'response.json', JSON.stringify(manifest));
+
+    const result = applyManifest(manifestPath, worktree);
+
+    expect(result.response).toEqual({ kind: 'rate-limited', resetsAt: 1790081400, rateLimitType: 'five_hour', limitedInvocations: 1 });
+  });
+
+  it('leaves response undefined when the manifest carries none', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [] };
+    const manifestPath = writeManifest(manifestDir, 'no-response.json', JSON.stringify(manifest));
+
+    const result = applyManifest(manifestPath, worktree);
+
+    expect(result.response).toBeUndefined();
+  });
+
+  it('throws with manifestInterpreter: prefix when the response block has an unknown kind', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [], response: { kind: 'bogus' } };
+    const manifestPath = writeManifest(manifestDir, 'bad-response.json', JSON.stringify(manifest));
+
+    expect(() => applyManifest(manifestPath, worktree)).toThrow(/^manifestInterpreter:/);
+  });
+
+  it('throws with manifestInterpreter: prefix when resetsAt is not a number', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [], response: { kind: 'rate-limited', resetsAt: 'soon' } };
+    const manifestPath = writeManifest(manifestDir, 'bad-resets-at.json', JSON.stringify(manifest));
+
+    expect(() => applyManifest(manifestPath, worktree)).toThrow(/^manifestInterpreter:/);
+  });
+});
+
 describe('applyManifest — conflicting edits', () => {
   it('throws with conflicting edits message and leaves worktree unchanged', () => {
     const worktree = makeTempWorktree();
