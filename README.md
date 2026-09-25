@@ -16,7 +16,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority, forge-neutral, now a library import** — since issue #840, `GitContext` and the forge-neutral `exec()` executor it exposes (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) are no longer owned in-tree: ADW imports them from `@paysdoc/devplatform/git`, and the GitHub forge adapter (`GhRepoApi`, `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops, `ghCommandRunner.ts`) from `@paysdoc/devplatform/providers`. `adws/core/launchGitContext.ts` is ADW's sole wiring layer over the library: it constructs the one `GitContext` at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), and the library resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace) and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs that motivated the original design. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) was deleted well before the library extraction; every caller reaches those operations through the library's `GhRepoApi`. Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter inside the library still constructs a `GhRepoApi`.
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for three independent violation classes: a direct `git`/`gh` shell-out (`git-gh-shellout`) — since issue #840 moved the git core and the GitHub forge adapter into `@paysdoc/devplatform`, `EXEMPT_PACKAGES` is deliberately **empty** and nothing may ever be added back to it, since no in-repo package is permitted to shell out to git or gh at all; a `gitContextForRepo(…)` or `forgeProviders({ identity })` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769; `CONTEXT_CONSTRUCTOR_NAMES` since #823); or ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped allowlist (`unsanctioned-construction`, #795) — the allowlist is exactly one PERMANENT entry, `adws/core/launchGitContext.ts` (the library's own `forgeProviders.ts` assembly module lives outside this repo since #840 and is no longer a second site to sanction), and nothing may ever be added to it, with a self-cleaning ratchet failing the build if a stale transitional entry is ever left behind. The extraction-readiness rule (`extractionRule.ts`) was retired along with the `adws/gitContext`/`adws/providers` packages it guarded. The three remaining rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`).
-- **JSONL schema conformance checking** — `adws/jsonl/` (`schemaProbe.ts`, `conformanceCheck.ts`, `fixtureUpdater.ts`) probes the real Claude CLI's streamed JSONL envelope shape, persists it to `adws/jsonl/schema.json`, and validates recorded test fixtures against both that schema and ADW's own `claudeStreamParser.ts` parsers (`bun run jsonl:probe` / `jsonl:check` / `jsonl:update`), failing the build on drift so a CLI output-format change is caught before it silently breaks stream parsing.
+- **JSONL schema conformance checking** — `adws/jsonl/` (`schemaProbe.ts`, `conformanceCheck.ts`, `fixtureUpdater.ts`, plus the pure helpers in `schemaFields.ts`/`schemaMerge.ts`) probes the real Claude CLI's streamed JSONL envelope shape, persists it to `adws/jsonl/schema.json` keyed by `type` or `type/subtype`, and validates recorded test fixtures (`adws/jsonl/fixtures/` and the regression stub's `test/fixtures/jsonl/envelopes/`) against both that schema and ADW's own `claudeStreamParser.ts` parsers (`bun run jsonl:probe` / `jsonl:probe:check` / `jsonl:check` / `jsonl:update`), failing the build on drift so a CLI output-format change is caught before it silently breaks stream parsing. Probe-owned entries (`system/init`, `assistant`, `result/success`) are reconciled from a live one-turn probe; capture-owned entries (`rate_limit_event`, `system/api_retry`, `result/error_during_execution`) come from real captures and are hand-curated. `.github/workflows/envelope-conformance.yml` runs `jsonl:check` on every pull request against a pinned Claude CLI version, plus `jsonl:probe:check` once an `ANTHROPIC_API_KEY` secret is configured.
 - **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Stateless pipeline agents** — every `claude` spawn in `adws/agents/claudeAgent.ts` sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` after the env overlay, so no agent ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
@@ -697,17 +697,28 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── index.ts
 │   └── types.ts
 ├── jsonl/              # JSONL schema validation and fixtures
+│   ├── __tests__/      # Vitest unit tests for the pure helpers and the checker/updater
+│   │   ├── conformanceCheck.test.ts
+│   │   ├── fixtureUpdater.test.ts
+│   │   ├── schemaFields.test.ts
+│   │   └── schemaMerge.test.ts
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
 │   │   ├── assistant-text.jsonl
 │   │   ├── assistant-tool-use.jsonl
+│   │   ├── result-error-during-execution.jsonl
 │   │   ├── result-error.jsonl
-│   │   └── result-success.jsonl
+│   │   ├── result-success.jsonl
+│   │   ├── session-rate-limited.jsonl       # real capture: a genuine five-hour session limit
+│   │   ├── system-api-retry-overloaded.jsonl
+│   │   └── system-api-retry-rate-limit.jsonl
 │   ├── conformanceCheck.ts  # JSONL conformance validation
-│   ├── fixtureUpdater.ts    # Fixture update utility
+│   ├── fixtureUpdater.ts    # Fixture update utility (add-only)
 │   ├── index.ts
-│   ├── schema.json          # JSONL envelope schema
-│   ├── schemaProbe.ts       # Schema probe utility
+│   ├── schema.json          # JSONL envelope schema — type/subtype-keyed
+│   ├── schemaFields.ts      # Pure: keying, lookup, field extraction, presence checks
+│   ├── schemaMerge.ts       # Pure: probe-owned merge and live-drift report
+│   ├── schemaProbe.ts       # Schema probe utility (refresh + --check modes)
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
@@ -918,9 +929,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
 ├── dependabot.yml       # Weekly @paysdoc/devplatform bump PRs against dev, merged by hand (outside the ADW pipeline)
 └── workflows/
-    ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
-    ├── git-cli-guard.yml   # CI guard: rejects direct git/gh shell-outs that bypass GitContext
-    └── regression.yml      # Periodic @regression BDD scenario runner
+    ├── deploy-workers.yml        # Auto-deploy Cloudflare Workers on push to main
+    ├── envelope-conformance.yml  # Stream-json envelope gate: jsonl:check on every PR, pinned Claude CLI
+    ├── git-cli-guard.yml         # CI guard: rejects direct git/gh shell-outs that bypass GitContext
+    └── regression.yml            # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 ├── cost-api/           # Cost data ingestion API (costs.paysdoc.nl, D1-backed)
 │   ├── src/
@@ -966,19 +978,27 @@ test/                   # Integration test infrastructure
 │   │   └── pyproject.toml
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   ├── jsonl/          # JSONL fixture files for testing
-│   │   ├── envelopes/
+│   │   ├── envelopes/  # Stub envelope templates — checked by `bun run jsonl:check`
+│   │   │   ├── assistant-message.jsonl
+│   │   │   ├── assistant-rate-limited.jsonl
+│   │   │   ├── rate-limit-event-rejected.jsonl
+│   │   │   ├── result-message.jsonl
+│   │   │   ├── result-rate-limited.jsonl
+│   │   │   └── system-message.jsonl
 │   │   ├── manifests/  # Named scenario manifests for stub sequencing
 │   │   └── payloads/
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   └── test-harness.test.ts
-│   ├── claude-cli-stub.ts      # Claude CLI process stub
+│   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
+│   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
 ├── Dockerfile          # Generic Docker image for isolated @regression runs

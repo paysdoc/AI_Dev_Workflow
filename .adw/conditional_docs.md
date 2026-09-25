@@ -124,6 +124,7 @@
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
+    - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
     - When working on the Docker-based hermetic regression-suite runner (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
 
 - app_docs/feature-9gjajh-build-and-plan-phases.md
@@ -281,6 +282,7 @@
     - adws/jsonl/**
   - Conditions:
     - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
+    - When working on the CI envelope conformance gate (`.github/workflows/envelope-conformance.yml`, the pinned Claude CLI version, or `bun run jsonl:probe:check`)
 
 - app_docs/feature-9gjajh-types.md
   - Owns:

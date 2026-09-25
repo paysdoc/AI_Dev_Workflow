@@ -44,8 +44,8 @@ describe('applyManifest — well-formed manifest', () => {
     expect(result.editsApplied[0]).toBe(resolve(worktree, 'src/alpha.ts'));
     expect(result.editsApplied[1]).toBe(resolve(worktree, 'src/beta.ts'));
 
-    expect(readFileSync(result.editsApplied[0]!, 'utf-8')).toBe('export const alpha = 1;');
-    expect(readFileSync(result.editsApplied[1]!, 'utf-8')).toBe('export const beta = 2;');
+    expect(readFileSync(result.editsApplied[0] ?? '', 'utf-8')).toBe('export const alpha = 1;');
+    expect(readFileSync(result.editsApplied[1] ?? '', 'utf-8')).toBe('export const beta = 2;');
 
     expect(result.jsonlPath).toBe(resolve(worktree, 'fixtures/stub-payload.json'));
   });
@@ -93,6 +93,56 @@ describe('applyManifest — no-op manifest', () => {
     );
     const worktreeSrc = join(worktree, 'src');
     expect(existsSync(worktreeSrc)).toBe(false);
+  });
+});
+
+describe('applyManifest — response block', () => {
+  it('passes a well-formed rate-limited response block through unchanged', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = {
+      jsonlPath: 'fixtures/payload.json',
+      edits: [],
+      response: { kind: 'rate-limited', resetsAt: 1790081400, rateLimitType: 'five_hour', limitedInvocations: 1 },
+    };
+    const manifestPath = writeManifest(manifestDir, 'response.json', JSON.stringify(manifest));
+
+    const result = applyManifest(manifestPath, worktree);
+
+    expect(result.response).toEqual({ kind: 'rate-limited', resetsAt: 1790081400, rateLimitType: 'five_hour', limitedInvocations: 1 });
+  });
+
+  it('leaves response undefined when the manifest carries none', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [] };
+    const manifestPath = writeManifest(manifestDir, 'no-response.json', JSON.stringify(manifest));
+
+    const result = applyManifest(manifestPath, worktree);
+
+    expect(result.response).toBeUndefined();
+  });
+
+  it('throws with manifestInterpreter: prefix when the response block has an unknown kind', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [], response: { kind: 'bogus' } };
+    const manifestPath = writeManifest(manifestDir, 'bad-response.json', JSON.stringify(manifest));
+
+    expect(() => applyManifest(manifestPath, worktree)).toThrow(/^manifestInterpreter:/);
+  });
+
+  it('throws with manifestInterpreter: prefix when resetsAt is not a number', () => {
+    const worktree = makeTempWorktree();
+    const manifestDir = makeTempWorktree();
+
+    const manifest = { jsonlPath: 'fixtures/payload.json', edits: [], response: { kind: 'rate-limited', resetsAt: 'soon' } };
+    const manifestPath = writeManifest(manifestDir, 'bad-resets-at.json', JSON.stringify(manifest));
+
+    expect(() => applyManifest(manifestPath, worktree)).toThrow(/^manifestInterpreter:/);
   });
 });
 
