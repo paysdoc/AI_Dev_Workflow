@@ -95,6 +95,20 @@ export function buildPausedWorkflowEntry(
   };
 }
 
+/** Names the limit type and the reset time (UTC) when the facts carry them; today's text when they carry neither. */
+export function describeRateLimitPauseReason(facts: RateLimitFacts): string {
+  const hasType = typeof facts.rateLimitType === 'string';
+  const hasReset = typeof facts.resetsAt === 'number' && Number.isFinite(facts.resetsAt);
+
+  if (!hasType && !hasReset) return 'Rate limit or API outage detected';
+
+  const resetSuffix = hasReset ? ` — resets at ${resetsAtIsoFromEpochSeconds(facts.resetsAt as number)} (UTC)` : '';
+  if (!hasType) return `Rate limit detected${resetSuffix}`;
+  return hasReset
+    ? `\`${facts.rateLimitType}\` rate limit detected${resetSuffix}`
+    : `\`${facts.rateLimitType}\` rate limit detected (no reset time reported)`;
+}
+
 /** Called by runPhase() when a RateLimitError is caught. */
 export function handleRateLimitPause(
   config: WorkflowConfig,
@@ -132,9 +146,7 @@ export function handleRateLimitPause(
   appendToPauseQueue(buildPausedWorkflowEntry(config, pausedAtPhase, pauseReason, facts, new Date()));
 
   ctx.pausedAtPhase = pausedAtPhase;
-  ctx.pauseReason = pauseReason === 'rate_limited'
-    ? 'Rate limit or API outage detected'
-    : 'Unknown API error';
+  ctx.pauseReason = pauseReason === 'rate_limited' ? describeRateLimitPauseReason(facts) : 'Unknown API error';
   ctx.completedPhases = (existingMeta.completedPhases as string[] | undefined) ?? [];
 
   if (repoContext) {

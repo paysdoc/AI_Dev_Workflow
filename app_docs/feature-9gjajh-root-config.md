@@ -7,7 +7,7 @@ The root of the ADW repository (`ai-dev-workflow`) is a TypeScript/Bun monorepo 
 ## Responsibilities
 
 - Declare the project as an ESM module (`"type": "module"`) with name `ai-dev-workflow`.
-- Expose the primary development scripts: `build` (tsc), `lint` (eslint), `test` (tsc --noEmit type-check), `test:unit` (vitest run), `test:unit:watch` (vitest watch), `test:docker` / `test:docker:build` (BDD suite in Docker isolation), and JSONL schema tools (`jsonl:probe`, `jsonl:check`, `jsonl:update`).
+- Expose the primary development scripts: `build` (tsc), `lint` (eslint), `test` (tsc --noEmit type-check), `test:unit` (vitest run), `test:unit:watch` (vitest watch), `test:docker` / `test:docker:build` (BDD suite in Docker isolation), and JSONL schema tools (`jsonl:probe`, `jsonl:probe:check`, `jsonl:check`, `jsonl:update`).
 - Declare runtime dependencies: `@aws-sdk/client-s3` (R2 uploads), `@cucumber/gherkin` and `@cucumber/messages` (promotion system Gherkin parser), `ajv` (JSON schema validation), `dotenv` (env loading), `fast-xml-parser` (JUnit XML parsing for test results).
 - Declare dev dependencies: `@cucumber/cucumber` (BDD runner), TypeScript toolchain (`typescript`, `tsx`, `ts-node`), ESLint with TypeScript plugin, and `vitest`.
 - The `workers/` directory contains two independent Cloudflare Workers (`cost-api/` and `screenshot-router/`), each with its own `package.json`, `wrangler.toml`, and build/deploy lifecycle.
@@ -23,7 +23,7 @@ TypeScript configuration is in `tsconfig.json` at the root. ESLint configuration
 
 - `.github/adw.yml`: opt-in/opt-out ADW policy switches (e.g. `unitTests`, `hitl`). Lives outside `.adw/` so `/adw_init` regeneration never overwrites it.
 - `.github/dependabot.yml`: version-update config, restricted (via `allow: dependency-name`) to `@paysdoc/devplatform`, the published npm package providing ADW's git core and forge adapters. Runs weekly against `dev`, labels PRs `dependencies`, and uses `package-ecosystem: "bun"` (resolves from npm but also regenerates the repo's `bun.lock`, since there is no `package-lock.json`). Bump PRs are merged by hand — they carry no backing issue, so they sit outside the issue-keyed ADW pipeline; see `adws/README.md` ("Dependabot bump PRs (outside the pipeline)") for how ADW's triggers ignore them and the rules against labelling them `adw:*` or posting ADW directive comments on them.
-- `.github/workflows/`: CI workflows, including `git-cli-guard.yml` (guards direct git/gh CLI usage) and `regression.yml`.
+- `.github/workflows/`: CI workflows, including `git-cli-guard.yml` (guards direct git/gh CLI usage), `regression.yml`, and `envelope-conformance.yml` (installs a **pinned** Claude CLI version — the pin and its bump policy live in that workflow's `CLAUDE_CLI_VERSION` env block — asserts `claude --version` matches, runs `bun run jsonl:check` unconditionally, then `bun run jsonl:probe:check` only when an `ANTHROPIC_API_KEY` secret is configured, warning instead of failing when it is not).
 
 ## Gotchas
 

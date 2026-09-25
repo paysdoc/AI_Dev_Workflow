@@ -124,6 +124,7 @@
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
+    - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
     - When working on the Docker-based hermetic regression-suite runner (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
 
 - app_docs/feature-9gjajh-build-and-plan-phases.md
@@ -283,6 +284,7 @@
     - adws/jsonl/**
   - Conditions:
     - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
+    - When working on the CI envelope conformance gate (`.github/workflows/envelope-conformance.yml`, the pinned Claude CLI version, or `bun run jsonl:probe:check`)
 
 - app_docs/feature-9gjajh-types.md
   - Owns:
@@ -486,13 +488,15 @@
     - adws/core/orchestratorCli.ts
     - adws/core/orchestratorLib.ts
     - adws/core/phaseRunner.ts
+    - adws/core/rateLimitWaitPolicy.ts
     - adws/core/__tests__/claudeStreamParser.test.ts
     - adws/core/__tests__/phaseRunner.test.ts
+    - adws/core/__tests__/rateLimitWaitPolicy.test.ts
     - adws/core/__tests__/fixtures/rateLimitIncident.ts
   - Conditions:
-    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
-    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`
-    - When debugging how ADW reads Claude Code's stdout/stderr or how phases are sequenced by the runner
+    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, the phase runner loop, or the in-process rate-limit wait policy
+    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, `phaseRunner.ts`, or `rateLimitWaitPolicy.ts`
+    - When debugging how ADW reads Claude Code's stdout/stderr, how phases are sequenced by the runner, or how a five-hour rate limit is ridden out in-process
 
 - app_docs/feature-9gjajh-coordination-kernel.md
   - Owns:

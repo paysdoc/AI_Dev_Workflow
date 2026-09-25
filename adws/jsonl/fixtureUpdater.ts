@@ -1,6 +1,8 @@
 /**
- * Updates envelope fields in fixture files to match the probed schema while
- * preserving hand-maintained payload content.
+ * Adds fields the schema marks required but a fixture line is missing, using a
+ * type default. Never deletes a field and never overwrites a value already
+ * present — the only thing a hand-maintained fixture ever needs, and the only
+ * behaviour that can never damage a real capture.
  *
  * Run standalone: bunx tsx adws/jsonl/fixtureUpdater.ts
  */
@@ -8,23 +10,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveSchemaFields } from './schemaFields';
+import { DEFAULT_SCHEMA_PATH, DEFAULT_FIXTURE_DIRS } from './conformanceCheck';
 import type { EnvelopeSchema, SchemaField, UpdateResult } from './types';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DEFAULT_SCHEMA_PATH = path.join(__dirname, 'schema.json');
-const DEFAULT_FIXTURES_DIR = path.join(__dirname, 'fixtures');
-
-/**
- * These are structural fields whose presence/absence is controlled by the schema.
- * Payload fields (result text, cost figures, content values) are always preserved.
- */
-const ENVELOPE_FIELDS: Record<string, ReadonlySet<string>> = {
-  result: new Set(['type', 'subtype', 'isError', 'durationMs', 'durationApiMs', 'numTurns', 'sessionId']),
-  assistant: new Set(['type', 'message']),
-};
-
-const ASSISTANT_MESSAGE_ENVELOPE_FIELDS = new Set(['id', 'model', 'usage']);
 
 function defaultValue(type: SchemaField['type']): unknown {
   switch (type) {
@@ -37,107 +27,112 @@ function defaultValue(type: SchemaField['type']): unknown {
   }
 }
 
-function mergeResultEnvelope(
-  fixture: Record<string, unknown>,
-  schemaFields: SchemaField[]
+/** Recurses into nested object fields to backfill missing required fields at any depth. */
+function addMissingRequiredFields(
+  data: Record<string, unknown>,
+  schemaFields: SchemaField[],
+  prefix: string,
 ): { merged: Record<string, unknown>; changes: string[] } {
-  const merged: Record<string, unknown> = { ...fixture };
+  const merged: Record<string, unknown> = { ...data };
   const changes: string[] = [];
-  const envelopeSet = ENVELOPE_FIELDS['result'] ?? new Set<string>();
 
   for (const field of schemaFields) {
-    if (!envelopeSet.has(field.name)) continue;
-    if (!(field.name in merged)) {
-      merged[field.name] = defaultValue(field.type);
-      changes.push(`+${field.name}`);
-    }
-  }
+    const fieldPath = prefix ? `${prefix}.${field.name}` : field.name;
+    const present = field.name in merged;
 
-  const schemaEnvelopeNames = new Set(
-    schemaFields.filter(f => envelopeSet.has(f.name)).map(f => f.name)
-  );
-  for (const key of Object.keys(merged)) {
-    if (envelopeSet.has(key) && !schemaEnvelopeNames.has(key)) {
-      delete merged[key];
-      changes.push(`-${key}`);
+    if (!present && field.required) {
+      merged[field.name] = defaultValue(field.type);
+      changes.push(`+${fieldPath}`);
+      continue;
+    }
+    if (!present) continue;
+
+    if (!field.fields || field.fields.length === 0) continue;
+    const nested = merged[field.name];
+    if (nested === null || typeof nested !== 'object' || Array.isArray(nested)) continue;
+
+    const { merged: mergedNested, changes: nestedChanges } = addMissingRequiredFields(
+      nested as Record<string, unknown>,
+      field.fields,
+      fieldPath,
+    );
+    if (nestedChanges.length > 0) {
+      merged[field.name] = mergedNested;
+      changes.push(...nestedChanges);
     }
   }
 
   return { merged, changes };
 }
 
-function mergeUsageEnvelope(
-  usage: Record<string, unknown>,
-  usageSchemaFields: SchemaField[]
-): { merged: Record<string, unknown>; changes: string[] } {
-  const merged: Record<string, unknown> = { ...usage };
-  const changes: string[] = [];
-
-  for (const field of usageSchemaFields) {
-    if (!(field.name in merged)) {
-      merged[field.name] = defaultValue(field.type);
-      changes.push(`message.usage.+${field.name}`);
-    }
-  }
-
-  const schemaNames = new Set(usageSchemaFields.map(f => f.name));
-  for (const key of Object.keys(merged)) {
-    if (!schemaNames.has(key)) {
-      delete merged[key];
-      changes.push(`message.usage.-${key}`);
-    }
-  }
-
-  return { merged, changes };
+interface LineUpdateResult {
+  outputLine: string;
+  skip: string | null;
+  changes: string[];
 }
 
-function mergeAssistantEnvelope(
-  fixture: Record<string, unknown>,
-  schemaFields: SchemaField[]
-): { merged: Record<string, unknown>; changes: string[] } {
-  const merged: Record<string, unknown> = { ...fixture };
-  const changes: string[] = [];
+/** Backfills one fixture line's missing required fields, or reports why it was left untouched. */
+function updateFixtureLine(raw: string, lineNumber: number, multiLine: boolean, schema: EnvelopeSchema): LineUpdateResult {
+  const label = (msg: string): string => (multiLine ? `line ${lineNumber}: ${msg}` : msg);
 
-  const msgSchemaField = schemaFields.find(f => f.name === 'message');
-  const msgSchemaSubFields = msgSchemaField?.fields ?? [];
-
-  const existingMessage = merged['message'];
-  if (existingMessage === null || typeof existingMessage !== 'object' || Array.isArray(existingMessage)) {
-    return { merged, changes };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { outputLine: raw, skip: label('parse error — skipped'), changes: [] };
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { outputLine: raw, skip: label('not a JSON object — skipped'), changes: [] };
   }
 
-  const message: Record<string, unknown> = { ...(existingMessage as Record<string, unknown>) };
-
-  for (const field of msgSchemaSubFields) {
-    if (!ASSISTANT_MESSAGE_ENVELOPE_FIELDS.has(field.name)) continue;
-    if (!(field.name in message)) {
-      message[field.name] = defaultValue(field.type);
-      changes.push(`message.+${field.name}`);
-    }
+  const msg = parsed as Record<string, unknown>;
+  const resolved = resolveSchemaFields(schema, msg);
+  if (!resolved) {
+    return {
+      outputLine: raw,
+      skip: label(`no schema coverage for "${typeof msg['type'] === 'string' ? msg['type'] : 'unknown'}" — skipped`),
+      changes: [],
+    };
   }
 
-  const usageSchemaField = msgSchemaSubFields.find(f => f.name === 'usage');
-  if (usageSchemaField?.fields && usageSchemaField.fields.length > 0) {
-    const existingUsage = message['usage'];
-    if (existingUsage !== null && typeof existingUsage === 'object' && !Array.isArray(existingUsage)) {
-      const { merged: mergedUsage, changes: usageChanges } = mergeUsageEnvelope(
-        existingUsage as Record<string, unknown>,
-        usageSchemaField.fields
-      );
-      if (usageChanges.length > 0) {
-        message['usage'] = mergedUsage;
-        changes.push(...usageChanges);
-      }
-    }
+  const { merged, changes: lineChanges } = addMissingRequiredFields(msg, resolved.fields, '');
+  if (lineChanges.length === 0) {
+    return { outputLine: raw, skip: null, changes: [] };
   }
 
-  merged['message'] = message;
-  return { merged, changes };
+  return { outputLine: JSON.stringify(merged), skip: null, changes: lineChanges.map(label) };
+}
+
+function updateFixtureFile(filePath: string, schema: EnvelopeSchema): UpdateResult {
+  const relPath = path.relative(process.cwd(), filePath);
+  const rawLines = fs.readFileSync(filePath, 'utf-8')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (rawLines.length === 0) {
+    return { fixturePath: relPath, changed: false, changes: ['fixture is empty — skipped'] };
+  }
+
+  const multiLine = rawLines.length > 1;
+  const results = rawLines.map((raw, idx) => updateFixtureLine(raw, idx + 1, multiLine, schema));
+
+  const anyChanged = results.some(r => r.changes.length > 0);
+  const skips = results.flatMap(r => (r.skip !== null ? [r.skip] : []));
+
+  if (!anyChanged) {
+    return { fixturePath: relPath, changed: false, changes: skips };
+  }
+
+  const outputLines = results.map(r => r.outputLine);
+  const changes = results.flatMap(r => r.changes);
+  fs.writeFileSync(filePath, outputLines.join('\n') + '\n', 'utf-8');
+  return { fixturePath: relPath, changed: true, changes: [...changes, ...skips] };
 }
 
 export function updateFixtureEnvelopes(
   schemaPath: string = DEFAULT_SCHEMA_PATH,
-  fixturesDir: string = DEFAULT_FIXTURES_DIR
+  fixturesDirs: string | readonly string[] = DEFAULT_FIXTURE_DIRS,
 ): UpdateResult[] {
   if (!fs.existsSync(schemaPath)) {
     throw new Error(
@@ -146,55 +141,14 @@ export function updateFixtureEnvelopes(
   }
 
   const schema: EnvelopeSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8')) as EnvelopeSchema;
+  const dirs = typeof fixturesDirs === 'string' ? [fixturesDirs] : fixturesDirs;
 
-  const fixtureFiles = fs.readdirSync(fixturesDir)
-    .filter(f => f.endsWith('.jsonl'))
-    .sort();
-
-  return fixtureFiles.map((filename) => {
-    const fixturePath = path.join(fixturesDir, filename);
-    const relPath = path.relative(process.cwd(), fixturePath);
-    const rawLine = fs.readFileSync(fixturePath, 'utf-8').trim();
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawLine);
-    } catch {
-      return { fixturePath: relPath, changed: false, changes: [`parse error — skipped`] };
-    }
-
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { fixturePath: relPath, changed: false, changes: ['not a JSON object — skipped'] };
-    }
-
-    const msg = parsed as Record<string, unknown>;
-    const messageType = msg['type'];
-    if (typeof messageType !== 'string') {
-      return { fixturePath: relPath, changed: false, changes: ['missing type field — skipped'] };
-    }
-
-    const schemaFields = schema.messageTypes[messageType];
-    if (!schemaFields) {
-      return { fixturePath: relPath, changed: false, changes: [`no schema for type "${messageType}" — skipped`] };
-    }
-
-    let merged: Record<string, unknown>;
-    let changes: string[];
-
-    if (messageType === 'result') {
-      ({ merged, changes } = mergeResultEnvelope(msg, schemaFields));
-    } else if (messageType === 'assistant') {
-      ({ merged, changes } = mergeAssistantEnvelope(msg, schemaFields));
-    } else {
-      return { fixturePath: relPath, changed: false, changes: [] };
-    }
-
-    if (changes.length === 0) {
-      return { fixturePath: relPath, changed: false, changes: [] };
-    }
-
-    fs.writeFileSync(fixturePath, JSON.stringify(merged) + '\n', 'utf-8');
-    return { fixturePath: relPath, changed: true, changes };
+  return dirs.flatMap((dir) => {
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir)
+      .filter(f => f.endsWith('.jsonl'))
+      .sort()
+      .map(filename => updateFixtureFile(path.join(dir, filename), schema));
   });
 }
 

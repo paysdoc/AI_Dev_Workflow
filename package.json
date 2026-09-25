@@ -15,6 +15,7 @@
     "lint:docs-index": "bunx tsx adws/checkLivingDocsIndex.ts",
     "lint:comment-only": "bunx tsx adws/checkCommentOnly.ts",
     "jsonl:probe": "bunx tsx adws/jsonl/schemaProbe.ts",
+    "jsonl:probe:check": "bunx tsx adws/jsonl/schemaProbe.ts --check",
     "jsonl:check": "bunx tsx adws/jsonl/conformanceCheck.ts",
     "jsonl:update": "bunx tsx adws/jsonl/fixtureUpdater.ts"
   },

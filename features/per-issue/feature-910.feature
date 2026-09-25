@@ -103,6 +103,17 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
       takes the entry off the queue before the orchestrator is spawned.
   The rest of #911's behaviour is specified in `features/per-issue/feature-911.feature`.
 
+  AMENDED BY #912 (`specs/prd/rate-limit-indefinite-retry.md`, "Wait policy"). #912 puts a pure
+  wait policy in front of this file's pause path. The phase runner now waits out a five-hour
+  limit with a known reset time in-process, so that limit never reaches the pause queue. Every
+  other rejection still takes the pause path specified here, and no scenario in this file
+  changes. §1's three rows and §3's end-to-end journey drive the real `runPhase` with a seven-day
+  limit, a five-hour limit without a reset time, or no facts at all. Those are exactly the
+  rejections #912 still enqueues. The four rows therefore also carry `@adw-912`, as the guard
+  that the enqueue branch keeps recording the limit facts. #912's hooks are scoped to
+  `@adw-912 and not @adw-910`, so these rows keep running under this file's harness alone. The
+  rest of #912's behaviour is specified in `features/per-issue/feature-912.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the action the pure decider returns for a given entry, classification and clock;
     • the pause-queue state file (`agents/paused_queue.json`): whether an entry is present, its
@@ -217,7 +228,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
 
   # ── §1 THE PAUSE RECORDS WHEN THE LIMIT LIFTS ──────────────────────────────────────────────────
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-912
   Scenario: A workflow stopped by a seven-day limit records the limit type and the reset time on its pause-queue entry, the reset time as an ISO 8601 timestamp
     Given a workflow for issue 910 is running its "build" phase for the target repository "acme/widgets"
     When the "build" phase is stopped by a rate-limit error carrying a "seven_day" limit that resets at "2026-09-28T07:00:00Z"
@@ -226,7 +237,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
     And the pause queue entry for issue 910 records the reset time "2026-09-28T07:00:00Z"
     And the pause queue entry for issue 910 stores its reset time as an ISO 8601 timestamp
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-912
   Scenario: A rate-limit error that carries a limit type but no reset time records the type and invents no reset time
     Given a workflow for issue 910 is running its "build" phase for the target repository "acme/widgets"
     When the "build" phase is stopped by a rate-limit error carrying a "five_hour" limit with no reset time
@@ -234,7 +245,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
     And the pause queue entry for issue 910 records the limit type "five_hour"
     And the pause queue entry for issue 910 records no reset time
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-912
   Scenario: A rate-limit error that carries no limit facts, such as an overload or a server error, pauses with neither field — the same shape as an entry written before this change
     Given a workflow for issue 910 is running its "build" phase for the target repository "acme/widgets"
     When the "build" phase is stopped by a rate-limit error carrying no limit type and no reset time
@@ -405,7 +416,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
     And the pause queue entry for issue 874 has not gained a probe failure
     And the mock harness recorded zero comment posts on issue 874
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911 @adw-912
   Scenario: End to end — a workflow stopped by a seven-day limit waits in the pause queue, unprobed, until the reset time it reported, then resumes on the first clear probe after it
     Given the mock GitHub API is configured to accept issue comments
     And the cron host's clock reads "2026-09-25T09:00:00Z"

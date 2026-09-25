@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPausedWorkflowEntry } from '../workflowCompletion';
+import { buildPausedWorkflowEntry, describeRateLimitPauseReason } from '../workflowCompletion';
 import type { WorkflowConfig } from '../workflowInit';
 import { INCIDENT_RESETS_AT, INCIDENT_RATE_LIMIT_TYPE } from '../../core/__tests__/fixtures/rateLimitIncident';
 
@@ -72,5 +72,29 @@ describe('buildPausedWorkflowEntry', () => {
   it('stamps pausedAt from the injected now', () => {
     const entry = buildPausedWorkflowEntry(makeConfig(), 'build', 'rate_limited', {}, NOW);
     expect(entry.pausedAt).toBe(NOW.toISOString());
+  });
+});
+
+describe('describeRateLimitPauseReason', () => {
+  it('keeps today\'s text, byte-identical, when the facts carry neither a type nor a reset time', () => {
+    expect(describeRateLimitPauseReason({})).toBe('Rate limit or API outage detected');
+  });
+
+  it('names the limit type when only the type is known', () => {
+    expect(describeRateLimitPauseReason({ rateLimitType: 'seven_day' })).toBe(
+      '`seven_day` rate limit detected (no reset time reported)',
+    );
+  });
+
+  it('names the limit type and the reset time (UTC) when both are known', () => {
+    expect(describeRateLimitPauseReason({ rateLimitType: INCIDENT_RATE_LIMIT_TYPE, resetsAt: INCIDENT_RESETS_AT })).toBe(
+      '`five_hour` rate limit detected — resets at 2026-09-22T12:50:00.000Z (UTC)',
+    );
+  });
+
+  it('names the reset time (UTC) alone when only the reset time is known', () => {
+    expect(describeRateLimitPauseReason({ resetsAt: INCIDENT_RESETS_AT })).toBe(
+      'Rate limit detected — resets at 2026-09-22T12:50:00.000Z (UTC)',
+    );
   });
 });

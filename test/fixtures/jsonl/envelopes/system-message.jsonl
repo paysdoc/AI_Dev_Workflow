@@ -1,1 +1,1 @@
-{"type":"system","subtype":"init","apiKeySource":"env","tools":[],"mcp_servers":[],"model":"claude-sonnet-4-6","permissionMode":"default"}
+{"type":"system","subtype":"init","apiKeySource":"env","cwd":"/redacted/worktree","tools":[],"mcp_servers":[],"model":"claude-sonnet-4-6","permissionMode":"default","claude_code_version":"2.1.282","session_id":"stub-session-001","uuid":"3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a"}
