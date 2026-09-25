@@ -76,6 +76,16 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
   such a lever; the janitor-shaped one is not, and is used only in the end-to-end incident scenario
   that closes §4.
 
+  FLAGGED BY #911 (per-repo ownership of pause-queue entries). The tick-guard scenario's lever is a
+  malformed pause-queue entry that a real cron, launched with `--target-repo
+  adw-812-fixture/tick-guard`, must reach on every tick. Since #911 a cron acts only on the entries
+  it owns: those that record its identity as their target repository and, for the self-host cron
+  alone, those that record none. The lever's entry records no usable target repository, so the
+  scenario now also carries `@adw-911`, and #911's run must prove that the lever still raises. If
+  it no longer does, re-seat the lever on an entry that cron owns, whose failure is raised on
+  every tick before the resume removes the entry or takes the spawn lock. The scenario itself does
+  not change.
+
   Background:
     Given the ADW codebase is checked out
 
@@ -168,7 +178,7 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
     When the janitor pass runs
     Then the janitor cleans the orphaned processes in worktree "feature-issue-28-cancel-directive"
 
-  @adw-812 @adw-53s866-cron-trigger-crash-l
+  @adw-812 @adw-53s866-cron-trigger-crash-l @adw-911
   Scenario: A poll tick that raises is logged and the cron trigger keeps polling
     Given a cron trigger process whose poll tick raises on every cycle
     When the cron trigger loop runs past the failing tick

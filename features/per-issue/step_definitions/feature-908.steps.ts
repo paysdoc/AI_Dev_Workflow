@@ -32,6 +32,7 @@ import { AGENTS_STATE_DIR, PROBE_INTERVAL_CYCLES } from '../../../adws/core/conf
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { readPauseQueue, appendToPauseQueue, removeFromPauseQueue, PAUSE_QUEUE_PATH, type PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
 import { scanPauseQueue } from '../../../adws/triggers/pauseQueueScanner.ts';
+import { scanningCronFor } from './feature-902-queue.steps.ts';
 import { handleRetryDirective, buildRetryHandlerDeps } from '../../../adws/triggers/retryHandler.ts';
 import { dispatchWebhookEvent } from '../../../adws/triggers/trigger_webhook.ts';
 import { writeCronPid } from '../../../adws/triggers/cronProcessGuard.ts';
@@ -408,7 +409,8 @@ When('the cron handles the ## Retry directive on issue {int}', async function (i
 });
 
 When('the pause-queue scanner then runs a probe cycle in which the rate limit has cleared', async function () {
-  await scanPauseQueue(PROBE_INTERVAL_CYCLES, () => ({ verdict: 'clear' }));
+  // The Background's cron polls "acme/widgets" — the owner of every entry these rows seed.
+  await scanPauseQueue(PROBE_INTERVAL_CYCLES, () => ({ verdict: 'clear' }), { scanningCron: scanningCronFor('acme/widgets') });
   await replayGhCommentLog();
 });
 
