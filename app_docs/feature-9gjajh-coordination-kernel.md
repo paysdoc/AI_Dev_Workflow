@@ -21,6 +21,7 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 - Context-compaction resets in `retryWithResolution` do not increment `retryCount`; they increment `contextResetCount` and throw once `maxContextResets` is exceeded.
 - `killProcessGroup` uses negative-PID (`-pid`) to signal the entire process group; it silently ignores ESRCH (process already gone) at both the SIGTERM and SIGKILL stages.
 - Heartbeat write failures are logged as warnings and swallowed — a failed write does not stop the interval or propagate to the orchestrator.
+- An in-process rate-limit wait (`adws/core/phaseRunner.ts`'s `runPhase`/`runPhasesParallel`, sleeping through `rateLimitWaitPolicy.ts`'s `sleepUntil`) is timer-based and never blocks the event loop, so the heartbeat this module starts keeps writing `lastSeenAt` throughout the wait and `findHungOrchestrators` never reports the waiting orchestrator.
 
 ## Configuration
 

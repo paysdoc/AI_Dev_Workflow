@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module provides two shared, file-backed primitives for cross-workflow coordination on a single host: a pause queue that tracks workflows suspended due to rate-limiting or errors, and an auth gate that signals a host-wide GitHub authentication failure. Both use atomic temp-file-then-rename writes to minimize corruption risk from concurrent cron processes.
+This module provides two shared, file-backed primitives for cross-workflow coordination on a single host: a pause queue that tracks workflows suspended due to rate-limiting or errors, and an auth gate that signals a host-wide GitHub authentication failure. Both use atomic temp-file-then-rename writes to minimize corruption risk from concurrent cron processes. Since `adws/core/rateLimitWaitPolicy.ts`'s wait policy, the pause queue receives only the rate limits that policy does not ride out in-process — a `five_hour` limit with a known reset time never reaches it.
 
 ## Responsibilities
 

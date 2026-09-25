@@ -101,6 +101,7 @@
 | **Context Reset** | The remedy for Context Overextension: restart the Agent step from a clean context, tracked as a count (`contextResetCount`) that does NOT increment the Retry counter | Continuation, auto-resume, extension |
 | **Retry** | A logical re-attempt of a Phase after failure (e.g., test failure, review Blocker), tracked separately from Context Resets | Re-run, re-execution |
 | **Pause** | A Workflow suspension triggered by rate limits or billing limits, detected and resumed by the Pause Queue Scanner | Suspend, halt, throttle |
+| **In-Process Wait** | The Phase Runner sleeping through a `five_hour` rate limit with a known reset time (`decideRateLimitWait`/`sleepUntil` in `rateLimitWaitPolicy.ts`) and retrying the same Phase in place, rather than exiting the process to a Pause; falls through to Pause when the limit type isn't `five_hour` or no reset time is reported | In-process retry, wait plan, rate-limit backoff |
 
 ## Orchestrator coordination
 
