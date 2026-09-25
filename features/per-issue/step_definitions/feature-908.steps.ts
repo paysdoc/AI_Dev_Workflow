@@ -295,8 +295,6 @@ async function waitBriefly(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
-// ── Background ───────────────────────────────────────────────────────────────
-
 Given(
   'the cron is polling the target repository {string} from a host checked out at {string}',
   function (targetRepoFullName: string, _hostFullName: string) {
@@ -307,8 +305,6 @@ Given(
     s.boundary = buildLaunchBoundary(targetRepo);
   },
 );
-
-// ── §1/§2/§3 seeding ─────────────────────────────────────────────────────────
 
 Given('the latest ADW workflow comment on issue {int} names adwId {string}', function (issueNumber: number, adwId: string) {
   const comments = s.seededComments.get(issueNumber) ?? [];
@@ -400,8 +396,6 @@ Given('the rate-limit pause queue holds an entry for adwId {string} on issue {in
   appendToPauseQueue(entry);
 });
 
-// ── §1/§2/§3 the directive itself ────────────────────────────────────────────
-
 When('the cron handles the ## Retry directive on issue {int}', async function (issueNumber: number) {
   assert.ok(s.boundary, 'Expected the Background to have built a launch boundary first');
   const comments = [...(s.seededComments.get(issueNumber) ?? []), { body: '## Retry' }];
@@ -418,8 +412,6 @@ When('the pause-queue scanner then runs a probe cycle in which the rate limit ha
   await replayGhCommentLog();
 });
 
-// ── §1 assertions ────────────────────────────────────────────────────────────
-
 Then('exactly one orchestrator was launched for issue {int}', function (issueNumber: number) {
   assert.strictEqual(launchesForIssue(issueNumber), 1, `Expected exactly one launch for issue ${issueNumber}, recorded: ${JSON.stringify(s.recordedLaunches)}`);
 });
@@ -434,16 +426,16 @@ Then(
   function (issueNumber: number, script: string, adwId: string) {
     const call = s.recordedLaunches.find((l) => l.args[2] === String(issueNumber));
     assert.ok(call, `Expected a recorded launch for issue ${issueNumber}`);
-    assert.strictEqual(call!.args[1], script, `Expected script "${script}", got argv=${call!.args.join(' ')}`);
-    assert.strictEqual(call!.args[3], adwId, `Expected adwId "${adwId}", got argv=${call!.args.join(' ')}`);
+    assert.strictEqual(call.args[1], script, `Expected script "${script}", got argv=${call.args.join(' ')}`);
+    assert.strictEqual(call.args[3], adwId, `Expected adwId "${adwId}", got argv=${call.args.join(' ')}`);
   },
 );
 
 Then('the orchestrator launched for issue {int} targets the repository {string}', function (issueNumber: number, repoFullName: string) {
   const call = s.recordedLaunches.find((l) => l.args[2] === String(issueNumber));
   assert.ok(call, `Expected a recorded launch for issue ${issueNumber}`);
-  const idx = call!.args.indexOf('--target-repo');
-  assert.ok(idx !== -1 && call!.args[idx + 1] === repoFullName, `Expected --target-repo ${repoFullName}, got argv=${call!.args.join(' ')}`);
+  const idx = call.args.indexOf('--target-repo');
+  assert.ok(idx !== -1 && call.args[idx + 1] === repoFullName, `Expected --target-repo ${repoFullName}, got argv=${call.args.join(' ')}`);
 });
 
 Then('no entry for adwId {string} was added to the rate-limit pause queue', function (adwId: string) {
@@ -488,28 +480,22 @@ Then(
   },
 );
 
-// ── §2 assertions ────────────────────────────────────────────────────────────
-
 Then('the Retry handling logged that issue {int} is paused_auth and left to the auth queue', function (issueNumber: number) {
   const found = s.cronLogs.some((line) => line.includes(`#${issueNumber}`) && /paused_auth/.test(line) && /auth[- ]?queue/i.test(line));
   assert.ok(found, `Expected a paused_auth/auth-queue log line for issue ${issueNumber}. Captured: ${s.cronLogs.join(' | ')}`);
 });
 
-// ── §3 assertions ────────────────────────────────────────────────────────────
-
 Then('the top-level state for adwId {string} records a merge retry count of {int}', function (adwId: string, expected: number) {
   const state = AgentStateManager.readTopLevelState(adwId);
   assert.ok(state, `Expected top-level state for adwId ${adwId}`);
-  assert.strictEqual(state!.mergeRetryCount, expected);
+  assert.strictEqual(state.mergeRetryCount, expected);
 });
 
 Then('the top-level state for adwId {string} records a resume attempt count of {int}', function (adwId: string, expected: number) {
   const state = AgentStateManager.readTopLevelState(adwId);
   assert.ok(state, `Expected top-level state for adwId ${adwId}`);
-  assert.strictEqual(state!.resumeAttempts, expected);
+  assert.strictEqual(state.resumeAttempts, expected);
 });
-
-// ── §4 the webhook caller ────────────────────────────────────────────────────
 
 function fakeWebhookReq(event: string): http.IncomingMessage {
   return { headers: { 'x-github-event': event } } as unknown as http.IncomingMessage;
