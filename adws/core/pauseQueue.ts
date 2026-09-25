@@ -18,7 +18,7 @@ export interface PausedWorkflow {
   pausedAt: string;
   /** ISO 8601 timestamp of the last probe attempt. */
   lastProbeAt?: string;
-  /** Number of consecutive probe failures that did not match rate-limit text. */
+  /** Consecutive probes classified 'unknown' (not a rate limit); reset is not automatic. */
   probeFailures?: number;
   /** Absolute path to the worktree used by this workflow. */
   worktreePath: string;

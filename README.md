@@ -833,6 +833,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue; posts best-effort stage/error comments through a per-entry launch boundary (buildLaunchBoundary from the entry's own --target-repo args), fixing a latent bug where target-repo entries' error comments were silently dropped by a cwd-vs-remote identity mismatch (#797)
+│   ├── rateLimitProbe.ts  # Pause-queue probe: stream-json ping classified through claudeStreamParser (limited/clear/unknown), text fallback only for non-JSON output, injectable exec
 │   ├── promotionSweep.ts  # Promotion sweep (cron-dispatched + manual CLI): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
 │   ├── promotionSweepDefaults.ts  # Production GitContext/provider/fs-backed dependency defaults for runPromotionSweep — makeDefaultDeps(boundary) closes over the passed launch boundary (git ops on its GitContext, forge ops on its providers), no identity resolution of its own (#797)
 │   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)
@@ -883,10 +884,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823) — the flagged names are now imported from `@paysdoc/devplatform` (#840)
 │   ├── guardReport.ts       # Formats collected violations into a guard report
 │   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside a one-entry, PERMANENT-only launch-boundary allowlist (adws/core/launchGitContext.ts only; the library's own forgeProviders.ts is no longer a second in-repo site to sanction since #840)
-├── checkCommentOnly.ts  # CI guard entry point: flags changed files that are comment/whitespace-only diffs against TS/Gherkin source (`bun run lint:comment-only`)
+├── checkCommentOnly.ts  # Comment-discipline guard: proves a batch of files differs from a base ref only in comments/JSDoc/whitespace via TypeScript-parser and Gherkin-DocString-aware token comparison (`bun run lint:comment-only`), backing comment de-bloat sweep batches
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
-├── checkCommentOnly.ts  # Comment-discipline guard: proves a batch of files differs from a base ref only in comments/JSDoc/whitespace (`bun run lint:comment-only`), backing comment de-bloat sweep batches
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff). Exported buildDefaultDeps(boundary) sources findPRByBranch/issueHasLabel/fetchPRApprovalState/commentOnIssue from the launch boundary's providers — no repoInfo parameter, no ad-hoc GitHub construction (#796)
@@ -972,7 +972,6 @@ test/                   # Integration test infrastructure
 │   │   ├── manifestInterpreter.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
-│   ├── gitContextFixture.ts    # Test GitContext factory fixture
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server

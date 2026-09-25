@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 
 vi.mock('child_process', () => ({
-  execSync: vi.fn(),
   spawn: vi.fn(),
+  spawnSync: vi.fn(),
 }));
 
 vi.mock('fs', () => ({
@@ -71,13 +71,14 @@ vi.mock('../../core/agentState', () => ({
 
 import * as childProcess from 'child_process';
 import * as fs from 'fs';
-import { removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQueue';
+import { readPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQueue';
 import { postIssueStageComment } from '../../phases/phaseCommentHelpers';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../spawnGate';
 import { AgentStateManager } from '../../core/agentState';
-import { resumeWorkflow } from '../pauseQueueScanner';
+import { resumeWorkflow, scanPauseQueue } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
+import type { ProbeOutcome } from '../rateLimitProbe';
 
 function makeEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
   return {
@@ -368,5 +369,95 @@ describe('resumeWorkflow', () => {
       entry.issueNumber,
       process.pid,
     );
+  });
+});
+
+describe('scanPauseQueue', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.openSync).mockReturnValue(42 as unknown as ReturnType<typeof fs.openSync>);
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
+      adwId: 'test-adw-123',
+    } as unknown as AgentState);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a "limited" outcome does not touch probeFailures, remove the entry, or post a comment', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeOutcome = () => 'limited';
+
+    await scanPauseQueue(1, probe);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledOnce();
+    const [adwId, updates] = vi.mocked(updatePauseQueueEntry).mock.calls[0];
+    expect(adwId).toBe(entry.adwId);
+    expect(updates).toHaveProperty('lastProbeAt');
+    expect(updates).not.toHaveProperty('probeFailures');
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+    expect(postIssueStageComment).not.toHaveBeenCalled();
+  });
+
+  it('an "unknown" outcome below the cap increments probeFailures without removing the entry', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 0 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeOutcome = () => 'unknown';
+
+    await scanPauseQueue(1, probe);
+
+    expect(updatePauseQueueEntry).toHaveBeenCalledWith(
+      entry.adwId,
+      expect.objectContaining({ probeFailures: 1 }),
+    );
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+  });
+
+  it('an "unknown" outcome at the failure cap drops the entry and posts the manual-restart comment', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123', probeFailures: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const probe: () => ProbeOutcome = () => 'unknown';
+
+    await scanPauseQueue(1, probe);
+
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({ errorMessage: expect.stringContaining('failed to resume after 3 probe attempts') }),
+    );
+  });
+
+  it('a "clear" outcome resumes the queued workflow', async () => {
+    const entry = makeEntry({ adwId: 'test-adw-123' });
+    vi.mocked(readPauseQueue).mockReturnValue([entry]);
+    const child = makeFakeChild();
+    vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
+    const probe: () => ProbeOutcome = () => 'clear';
+
+    const promise = scanPauseQueue(1, probe);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(childProcess.spawn).toHaveBeenCalledOnce();
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+  });
+
+  it('probes exactly once per scan regardless of queue size', async () => {
+    const entryA = makeEntry({ adwId: 'test-adw-123', issueNumber: 1 });
+    const entryB = makeEntry({ adwId: 'test-adw-456', issueNumber: 2 });
+    vi.mocked(readPauseQueue).mockReturnValue([entryA, entryB]);
+    const probe = vi.fn<() => ProbeOutcome>(() => 'limited');
+
+    await scanPauseQueue(1, probe);
+
+    expect(probe).toHaveBeenCalledOnce();
+    expect(updatePauseQueueEntry).toHaveBeenCalledTimes(2);
   });
 });
