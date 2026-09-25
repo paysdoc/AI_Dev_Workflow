@@ -1,10 +1,3 @@
-/**
- * Webhook gatekeeper functions.
- *
- * Handles eligibility checking, dependency unblocking on issue close,
- * classify-and-spawn workflow, and cron process management.
- */
-
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,14 +14,11 @@ import type { IssueClassificationResult } from '../core/issueClassifier';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
 import { releaseIssueSpawnLock } from './spawnGate';
-// takeoverHandler enforces the decision before any spawn
 import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
 
 /**
- * Spawns a detached child process for running ADW orchestrator workflows.
- *
  * Any relative `.ts`/`.tsx` script path in `args` is resolved against REPO_ROOT
  * and spawn is given an explicit `cwd: REPO_ROOT`, so the child works correctly
  * even if the caller's process.cwd() drifts (e.g. trigger launched from a
@@ -59,7 +49,6 @@ export interface LabelRouting {
 }
 
 /**
- * Classifies and spawns a workflow for an eligible issue.
  * Accepts an optional pre-computed decision from the cron trigger to avoid
  * double-evaluation when the cron path has already called evaluateCandidate.
  */
@@ -95,9 +84,7 @@ export async function classifyAndSpawnWorkflow(
     return;
   }
 
-  // Enforce the takeover decision before any spawn. When the cron trigger has
-  // already called evaluateCandidate, it passes the pre-computed decision here
-  // to avoid re-acquiring the spawn lock.
+  // Enforce the takeover decision before any spawn.
   const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, boundary });
 
   if (decision.kind === 'defer_live_holder') {
@@ -116,7 +103,6 @@ export async function classifyAndSpawnWorkflow(
   }
 
   if (decision.kind === 'take_over_adwId') {
-    // Takeover path: reuse the existing adwId, skip re-classification.
     const { adwId, derivedStage } = decision;
     const state = AgentStateManager.readTopLevelState(adwId);
     const workflowScript = state?.orchestratorScript ?? getWorkflowScript('/feature');
@@ -126,7 +112,6 @@ export async function classifyAndSpawnWorkflow(
     return;
   }
 
-  // spawn_fresh path: classify the issue and spawn a new workflow.
   try {
     const classification = labelRouting?.precomputedClassification
       ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined }
@@ -151,7 +136,7 @@ export async function classifyAndSpawnWorkflow(
   }
 }
 
-/** Persists an inferred classification as an adw:* label when routing requests it. Isolated from its spawn so the write is exercisable on its own. */
+/** Isolated from its spawn so the write is exercisable on its own. */
 export function persistInferredLabel(
   issueNumber: number,
   classification: Pick<IssueClassificationResult, 'issueType' | 'success'>,
@@ -168,10 +153,8 @@ export function persistInferredLabel(
   }
 }
 
-/** Tracks whether a cron process has been spawned for each repo. */
 const cronSpawnedForRepo = new Set<string>();
 
-/** Spawns a cron trigger process for the repo if one isn't already running. */
 export function ensureCronProcess(repoInfo: RepoIdentifier, targetRepoArgs: string[]): void {
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
   if (cronSpawnedForRepo.has(repoKey)) {
@@ -180,7 +163,7 @@ export function ensureCronProcess(repoInfo: RepoIdentifier, targetRepoArgs: stri
   }
 
   if (isCronAliveForRepo(repoKey)) {
-    cronSpawnedForRepo.add(repoKey); // sync in-memory cache
+    cronSpawnedForRepo.add(repoKey);
     return;
   }
 
@@ -197,10 +180,6 @@ export function ensureCronProcess(repoInfo: RepoIdentifier, targetRepoArgs: stri
   fs.closeSync(logFd);
 }
 
-/**
- * Closes open issues that depend on the given abandoned issue.
- * Posts an error comment on each dependent explaining the parent was abandoned.
- */
 export async function closeAbandonedDependents(
   closedIssueNumber: number,
   tracker: Pick<IssueTracker, 'listIssues' | 'closeIssue'>,
@@ -236,9 +215,6 @@ export async function closeAbandonedDependents(
   }
 }
 
-/**
- * Logs the deferral reason for an ineligible issue.
- */
 export function logDeferral(issueNumber: number, eligibility: { reason?: string; blockingIssues?: number[] }): void {
   if (eligibility.reason === 'open_dependencies') {
     log(`Deferring issue #${issueNumber}: open dependencies [${eligibility.blockingIssues?.join(', ')}]`);

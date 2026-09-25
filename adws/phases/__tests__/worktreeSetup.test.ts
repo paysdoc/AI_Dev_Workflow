@@ -1,10 +1,3 @@
-/**
- * E4: fixture tests for copyClaudeAssetsToWorktree.
- * Drives the function against a real temp git repo and checks git-committable vs
- * gitignored status for target:true and target:false assets, plus the #267 invariant
- * (already-tracked target:false files are never added to .gitignore).
- */
-
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -25,10 +18,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
 const FRAMEWORK_REPO_ROOT = ADW_REPO_ROOT;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function gitignoreContains(worktreePath: string, entry: string): boolean {
   const gitignorePath = path.join(worktreePath, '.gitignore');
   if (!fs.existsSync(gitignorePath)) return false;
@@ -44,10 +33,6 @@ function initGitRepo(dir: string): void {
   execSync('git config user.name "ADW Test"', { cwd: dir, stdio: 'pipe' });
   execSync('git commit --allow-empty -m "init"', { cwd: dir, stdio: 'pipe' });
 }
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
 
 let tempDir: string;
 let ctx: GitContext;
@@ -66,15 +51,11 @@ afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-// ---------------------------------------------------------------------------
-// E4a: target:true commands land as git-committable
-// ---------------------------------------------------------------------------
-
 describe('copyClaudeAssetsToWorktree — target:true commands (E4a)', () => {
   it('copies install.md and does NOT add it to .gitignore', () => {
     // install.md is a known target:true command
     const installSrc = path.join(ADW_REPO_ROOT, '.claude', 'commands', 'install.md');
-    if (!fs.existsSync(installSrc)) return; // guard: skip if file absent in this checkout
+    if (!fs.existsSync(installSrc)) return;
 
     copyClaudeAssetsToWorktree(tempDir, ctx);
 
@@ -92,10 +73,6 @@ describe('copyClaudeAssetsToWorktree — target:true commands (E4a)', () => {
     expect(gitignoreContains(tempDir, '.claude/commands/prime.md')).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// E4b: target:false commands land as gitignored
-// ---------------------------------------------------------------------------
 
 describe('copyClaudeAssetsToWorktree — target:false commands (E4b)', () => {
   it('copies feature.md and adds it to .gitignore', () => {
@@ -119,10 +96,6 @@ describe('copyClaudeAssetsToWorktree — target:false commands (E4b)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// E4c: target:true skill dirs land as git-committable
-// ---------------------------------------------------------------------------
-
 describe('copyClaudeAssetsToWorktree — target:true skills (E4c)', () => {
   it('copies tdd skill and does NOT add it to .gitignore', () => {
     const tddSrc = path.join(ADW_REPO_ROOT, '.claude', 'skills', 'tdd');
@@ -135,10 +108,6 @@ describe('copyClaudeAssetsToWorktree — target:true skills (E4c)', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// E4d: target:false skill dirs land as gitignored
-// ---------------------------------------------------------------------------
-
 describe('copyClaudeAssetsToWorktree — target:false skills (E4d)', () => {
   it('copies refactor skill and adds it to .gitignore', () => {
     const refactorSrc = path.join(ADW_REPO_ROOT, '.claude', 'skills', 'refactor');
@@ -150,10 +119,6 @@ describe('copyClaudeAssetsToWorktree — target:false skills (E4d)', () => {
     expect(gitignoreContains(tempDir, '.claude/skills/refactor/')).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// E4e: #267 invariant — already-tracked target:false file is NOT re-gitignored
-// ---------------------------------------------------------------------------
 
 describe('copyClaudeAssetsToWorktree — #267 gitignore-skip-if-tracked invariant (E4e)', () => {
   it('does not add feature.md to .gitignore when it is already tracked', () => {
@@ -173,10 +138,6 @@ describe('copyClaudeAssetsToWorktree — #267 gitignore-skip-if-tracked invarian
     expect(gitignoreContains(tempDir, '.claude/commands/feature.md')).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// verifyAdwRegen integration tests (real temp git repo)
-// ---------------------------------------------------------------------------
 
 describe('verifyAdwRegen', () => {
   let verifyDir: string;
@@ -237,10 +198,6 @@ describe('verifyAdwRegen', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// decideStarterSettingsCopy — pure skip-if-exists decision (#763)
-// ---------------------------------------------------------------------------
-
 describe('decideStarterSettingsCopy', () => {
   it('returns action:copy when no settings.json exists', () => {
     expect(decideStarterSettingsCopy({ settingsExists: false })).toEqual({ action: 'copy' });
@@ -253,10 +210,6 @@ describe('decideStarterSettingsCopy', () => {
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// copyStarterSettingsToWorktree — fixture tests against a real temp git repo (#763)
-// ---------------------------------------------------------------------------
 
 describe('copyStarterSettingsToWorktree', () => {
   let starterDir: string;

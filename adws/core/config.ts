@@ -1,16 +1,7 @@
 /**
- * Configuration constants for ADW workflows.
- *
- * Contains only retry limits, token budget constants, and comment-display flags.
  * Environment-specific concerns (paths, secrets, CLI resolution) live in environment.ts.
- * Model and effort routing lives in modelRouting.ts.
- *
- * All previously exported symbols are re-exported below for backward compatibility.
  */
 
-// ---------------------------------------------------------------------------
-// Re-exports for backward compatibility
-// ---------------------------------------------------------------------------
 export {
   CLAUDE_CODE_PATH,
   resolveClaudeCodePath,
@@ -49,74 +40,43 @@ export {
   type ReasoningEffort,
 } from './modelRouting';
 
-// ---------------------------------------------------------------------------
-// Retry constants
-// ---------------------------------------------------------------------------
-
-/** Maximum number of retry attempts for test resolution. */
 export const MAX_TEST_RETRY_ATTEMPTS = parseInt(process.env.MAX_TEST_RETRY_ATTEMPTS || '5', 10);
 
-/** Maximum number of retry attempts for review-patch resolution. */
 export const MAX_REVIEW_RETRY_ATTEMPTS = parseInt(process.env.MAX_REVIEW_RETRY_ATTEMPTS || '3', 10);
 
-/** Maximum number of retry attempts for plan validation resolution. */
 export const MAX_VALIDATION_RETRY_ATTEMPTS = parseInt(process.env.MAX_VALIDATION_RETRY_ATTEMPTS || '3', 10);
 
 /** Maximum number of upgrade-lane regeneration failures before escalating to a human (default: 3). */
 export const MAX_FAILURES = Math.max(1, parseInt(process.env.MAX_FAILURES || '3', 10)) || 3;
 
-// ---------------------------------------------------------------------------
-// Concurrency / timing constants
-// ---------------------------------------------------------------------------
-
-/** Currencies to include in cost reports (comma-separated env var, default: EUR). */
 export const COST_REPORT_CURRENCIES: readonly string[] = (process.env.COST_REPORT_CURRENCIES || 'EUR')
   .split(',')
   .map(c => c.trim())
   .filter(Boolean);
 
-/** Maximum number of concurrently in-progress issues per repository (default: 5). */
 export const MAX_CONCURRENT_PER_REPO = parseInt(process.env.MAX_CONCURRENT_PER_REPO || '5', 10);
 
 /** Grace period (ms) for cron to avoid racing with webhook processing (default: 5 minutes). */
 export const GRACE_PERIOD_MS = 300_000;
 
-// Heartbeat constants
-/** Heartbeat tick interval in milliseconds (default: 30s per PRD). */
 export const HEARTBEAT_TICK_INTERVAL_MS = 30_000;
 
 /** Stale-threshold for the hung-orchestrator detector — six missed ticks (default: 180s per PRD). */
 export const HEARTBEAT_STALE_THRESHOLD_MS = 180_000;
 
-// ---------------------------------------------------------------------------
-// Token budget constants
-// ---------------------------------------------------------------------------
-
-/** Maximum output token budget per agent session (default: 63,999). */
 export const MAX_THINKING_TOKENS = Math.max(0, parseInt(process.env.MAX_THINKING_TOKENS || '63999', 10)) || 63999;
 
 /** Fraction of MAX_THINKING_TOKENS at which to trigger recovery (default: 0.9). */
 export const TOKEN_LIMIT_THRESHOLD = parseFloat(process.env.TOKEN_LIMIT_THRESHOLD || '0.9') || 0.9;
 
-/** Maximum number of context reset attempts before failing (default: 3). */
 export const MAX_CONTEXT_RESETS = Math.max(1, parseInt(process.env.MAX_CONTEXT_RESETS || '3', 10)) || 3;
 
 /** Maximum number of progress checkpoints (novel-state batch boundaries) before the backstop abort (default: 20). */
 export const MAX_PROGRESS_CHECKPOINTS = Math.max(1, parseInt(process.env.MAX_PROGRESS_CHECKPOINTS || '20', 10)) || 20;
 
-// ---------------------------------------------------------------------------
-// Comment display flags
-// ---------------------------------------------------------------------------
-
-/** Whether to include running token totals in issue/PR comments. */
 export const RUNNING_TOKENS = Boolean(process.env.RUNNING_TOKENS);
 
-/** Whether to include cost breakdowns in GitHub issue/PR comments. */
 export const SHOW_COST_IN_COMMENTS = Boolean(process.env.SHOW_COST_IN_COMMENTS);
-
-// ---------------------------------------------------------------------------
-// Pause/resume constants
-// ---------------------------------------------------------------------------
 
 /** Number of cron poll cycles between pause-queue probe attempts (default: 15 ≈ 5 min at 20s poll). */
 export const PROBE_INTERVAL_CYCLES = parseInt(process.env.PROBE_INTERVAL_CYCLES || '15', 10);
@@ -130,28 +90,16 @@ export const JANITOR_INTERVAL_CYCLES = parseInt(process.env.JANITOR_INTERVAL_CYC
 /** Number of cron poll cycles between hung-orchestrator detector passes (default: 5 ≈ 100s at 20s poll). */
 export const HUNG_DETECTOR_INTERVAL_CYCLES = parseInt(process.env.HUNG_DETECTOR_INTERVAL_CYCLES || '5', 10);
 
-/** Number of cron poll cycles between per-issue scenario sweep passes.
- *  Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS (4320 × 20s = 86 400s). */
+/** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS (4320 × 20s = 86 400s). */
 export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
-/** Number of cron poll cycles between promotion-sweep passes. Default 4320 ≈ once per day at
- *  20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions (all-state issue listing,
- *  commit-to-default, issue creation) do not run every 20s tick. */
+/** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions
+ *  (all-state issue listing, commit-to-default, issue creation) do not run every 20s tick. */
 export const PROMOTION_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
-/** Number of cron poll cycles between docs-index health sweep passes. Default 4320 ≈ once per day at
- *  20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions (repair commit-and-PR, issue
- *  file/refresh/close) do not run every 20s tick. */
+/** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions
+ *  (repair commit-and-PR, issue file/refresh/close) do not run every 20s tick. */
 export const DOCS_INDEX_SWEEP_INTERVAL_CYCLES = parseInt(process.env.DOCS_INDEX_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
-// ---------------------------------------------------------------------------
-// Agent watchdog timeout
-// ---------------------------------------------------------------------------
-
-/**
- * Default per-agent invocation timeout in milliseconds (default: 30 min).
- * Override via AGENT_DEFAULT_TIMEOUT_MS env var.
- * Used by getAgentTimeoutForPhase in agentTimeouts.ts.
- */
 export const AGENT_DEFAULT_TIMEOUT_MS =
   Math.max(1, parseInt(process.env.AGENT_DEFAULT_TIMEOUT_MS || '1800000', 10)) || 1_800_000;

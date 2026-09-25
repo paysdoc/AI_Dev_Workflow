@@ -1,9 +1,3 @@
-/**
- * feature-823.feature step definitions — §4 workspace-binding steps over the
- * recording gh seam's own context. Entry file: feature-823.steps.ts (state,
- * Before/After hooks, splitRepo).
- */
-
 import { When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import { mkdtempSync, mkdirSync } from 'node:fs';

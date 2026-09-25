@@ -1,33 +1,14 @@
-/**
- * Backward-compatible re-export barrel for utilities.
- *
- * The utils.ts junk drawer has been split into focused modules:
- * - adwId.ts: generateAdwId(), slugify()
- * - logger.ts: log(), setLogAdwId(), getLogAdwId(), resetLogAdwId(), LogLevel
- * - orchestratorCli.ts: parseTargetRepoArgs() (moved — logically CLI-related)
- *
- * ensureLogsDirectory() stays here as it doesn't fit neatly elsewhere and is
- * widely used. ensureAgentStateDirectory() and getAgentStatePath() are removed
- * (they duplicated AgentStateManager.initializeState / AgentStateManager.getStatePath).
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync, type ExecSyncOptions } from 'child_process';
 import { LOGS_DIR } from './environment';
 import { log } from './logger';
 
-// Re-export from focused modules
 export { generateAdwId, slugify } from './adwId';
 export { log, setLogAdwId, getLogAdwId, resetLogAdwId, type LogLevel } from './logger';
 export { parseTargetRepoArgs } from './orchestratorCli';
 
-// ---------------------------------------------------------------------------
-// Retry-wrapped execSync (exponential backoff, synchronous sleep via Atomics)
-// ---------------------------------------------------------------------------
-
 /**
- * Errors that can never be resolved by retrying the same command.
  * When execWithRetry catches one of these, it throws immediately without backoff.
  */
 const NON_RETRYABLE_PATTERNS = [
@@ -42,13 +23,9 @@ const NON_RETRYABLE_PATTERNS = [
 ];
 
 /**
- * Executes a shell command with retry logic and exponential backoff.
  * Drop-in synchronous replacement for execSync at gh CLI callsites.
  *
- * @param command - The shell command to run
  * @param options - execSync options plus optional `maxAttempts` (default: 3)
- * @returns The trimmed stdout string
- * @throws The last error after all attempts are exhausted
  */
 export function execWithRetry(command: string, options?: ExecSyncOptions & { maxAttempts?: number }): string {
   const maxAttempts = options?.maxAttempts ?? 3;
@@ -77,15 +54,6 @@ export function execWithRetry(command: string, options?: ExecSyncOptions & { max
   throw lastError;
 }
 
-// ---------------------------------------------------------------------------
-// Logs directory helper (kept here — widely used, no better home)
-// ---------------------------------------------------------------------------
-
-/**
- * Ensures the logs directory exists for a given ADW session.
- * Creates the directory if it doesn't exist.
- * @returns The path to the session logs directory.
- */
 export function ensureLogsDirectory(adwId: string): string {
   const sessionDir = path.join(LOGS_DIR, adwId);
   if (!fs.existsSync(sessionDir)) {

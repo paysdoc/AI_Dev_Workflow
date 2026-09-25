@@ -1,11 +1,3 @@
-/**
- * Platform-agnostic workflow comment parsing utilities.
- *
- * Pure parsing functions for detecting workflow stages, ADW signatures,
- * recovery state, and actionable directives from comment bodies.
- * No GitHub API dependencies — those stay in github/workflowCommentsBase.ts.
- */
-
 import type { WorkflowStage, RecoveryState } from './index';
 import type { IssueComment } from '@paysdoc/devplatform';
 
@@ -32,7 +24,6 @@ export const STAGE_ORDER: WorkflowStage[] = [
   'resumed',
 ];
 
-/** Maps comment header patterns to workflow stages. */
 const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':rocket: ADW Workflow Started': 'starting',
   ':arrows_counterclockwise: ADW Workflow Resuming': 'resuming',
@@ -60,7 +51,6 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':warning: Review Compaction Recovery': 'review_compaction_recovery',
 };
 
-/** ADW comment heading pattern: `## :emoji_name: Title` */
 const ADW_COMMENT_PATTERN = /^## :[a-z_]+: /m;
 
 /** Machine-readable footer appended to all ADW workflow comments. */
@@ -90,10 +80,8 @@ export function formatRunningTokenFooter(tokenTotal?: { total: number; isEstimat
   return line;
 }
 
-/** Pattern matching the HTML comment marker in the ADW signature footer. */
 export const ADW_SIGNATURE_PATTERN = /<!-- adw-bot -->/;
 
-/** Returns true if the comment body contains an ADW workflow heading pattern or the ADW signature marker. */
 export function isAdwComment(commentBody: string): boolean {
   return ADW_COMMENT_PATTERN.test(commentBody) || ADW_SIGNATURE_PATTERN.test(commentBody);
 }
@@ -101,7 +89,6 @@ export function isAdwComment(commentBody: string): boolean {
 /** Pattern matching the `## Continue` heading that signals an explicit human directive. */
 export const ACTIONABLE_COMMENT_PATTERN = /^## [Cc]ontinue$/mi;
 
-/** Returns true if the comment body contains the explicit `## Continue` directive heading. */
 export function isActionableComment(commentBody: string): boolean {
   return ACTIONABLE_COMMENT_PATTERN.test(commentBody);
 }
@@ -109,24 +96,21 @@ export function isActionableComment(commentBody: string): boolean {
 /** Pattern matching the `## Cancel` heading that signals a full issue cleanup directive. */
 export const CANCEL_COMMENT_PATTERN = /^## Cancel$/mi;
 
-/** Returns true if the comment body contains the `## Cancel` directive heading (case-insensitive). */
 export function isCancelComment(commentBody: string): boolean {
   return CANCEL_COMMENT_PATTERN.test(commentBody);
 }
 
 /**
- * Pattern matching the `## Retry` heading.
  * Recovers both `merge_blocked` (resets to awaiting_merge) and `human_gated`
  * (re-arms resumeAttempts to 0 and resets to phase_timeout).
  */
 export const RETRY_COMMENT_PATTERN = /^## Retry$/mi;
 
-/** Returns true if the comment body contains the `## Retry` directive heading (case-insensitive). */
 export function isRetryComment(commentBody: string): boolean {
   return RETRY_COMMENT_PATTERN.test(commentBody);
 }
 
-/** Extracts the content following the `## Continue` heading. Returns null if no heading or empty content. */
+/** Returns null if no heading or empty content. */
 export function extractActionableContent(commentBody: string): string | null {
   const match = commentBody.match(ACTIONABLE_COMMENT_PATTERN);
   if (!match) return null;
@@ -136,12 +120,11 @@ export function extractActionableContent(commentBody: string): string | null {
   return content.length > 0 ? content : null;
 }
 
-/** Truncates text to a maximum length with ellipsis. */
 export function truncateText(text: string, maxLength: number): string {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
-/** Parses a workflow stage from a comment body. Returns null if not a workflow comment. */
+/** Returns null if not a workflow comment. */
 export function parseWorkflowStageFromComment(commentBody: string): WorkflowStage | null {
   if (!commentBody.includes('ADW ID:')) return null;
   const headerMatch = commentBody.match(/^## (:[a-z_]+: .+)$/m);
@@ -149,16 +132,13 @@ export function parseWorkflowStageFromComment(commentBody: string): WorkflowStag
   return STAGE_HEADER_MAP[headerMatch[1]] || null;
 }
 
-/** Extracts the ADW ID from a comment body. Matches the `{random}-{slug}` format produced by generateAdwId. */
+/** Matches the `{random}-{slug}` format produced by generateAdwId. */
 export function extractAdwIdFromComment(commentBody: string): string | null {
   const match = commentBody.match(/\*\*ADW ID:\*\*\s*`([a-z0-9][a-z0-9-]*[a-z0-9])`/);
   return match ? match[1] : null;
 }
 
-/**
- * Scans issue comments newest-to-oldest and returns the first adw-id found.
- * Returns null if no ADW comment with an adw-id exists.
- */
+/** Scans issue comments newest-to-oldest and returns the first adw-id found. */
 export function extractLatestAdwId(comments: { body: string }[]): string | null {
   for (let i = comments.length - 1; i >= 0; i--) {
     const id = extractAdwIdFromComment(comments[i].body);
@@ -167,25 +147,22 @@ export function extractLatestAdwId(comments: { body: string }[]): string | null 
   return null;
 }
 
-/** Extracts the branch name from a comment body. */
 export function extractBranchNameFromComment(commentBody: string): string | null {
   const match = commentBody.match(/`((feat|bug|chore|review|test)-issue-\d+[a-z0-9-]*)`/);
   return match ? match[1] : null;
 }
 
-/** Extracts the PR URL from a comment body. */
 export function extractPrUrlFromComment(commentBody: string): string | null {
   const match = commentBody.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
   return match ? match[1] : null;
 }
 
-/** Extracts the plan file path from a comment body. Pattern: `specs/issue-{number}-plan.md` */
+/** Pattern: `specs/issue-{number}-plan.md` */
 export function extractPlanPathFromComment(commentBody: string): string | null {
   const match = commentBody.match(/`(specs\/issue-\d+-plan\.md)`/);
   return match ? match[1] : null;
 }
 
-/** Detects recovery state from issue comments. */
 export function detectRecoveryState(comments: readonly IssueComment[]): RecoveryState {
   const defaultState: RecoveryState = {
     lastCompletedStage: null,

@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwReview — diffEvaluationPhase — happy path
 
-  # Row 9: diff evaluation phase runs post-review; state updated to awaiting_merge.
   Scenario: review orchestrator runs diff evaluation phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1009 exists in the mock issue tracker

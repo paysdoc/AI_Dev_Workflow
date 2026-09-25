@@ -1,11 +1,3 @@
-/**
- * Scenario proof orchestrator.
- *
- * Iterates over config-driven tag entries from ReviewProofConfig, runs each tag
- * via the tag-based scenario runner, writes combined results to a proof markdown
- * file, and returns a structured outcome for the review retry loop.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { runScenariosByTag } from '../agents/bddScenarioRunner';
@@ -14,12 +6,8 @@ import { readJUnitReport, hasStepDefinitions } from '../core';
 import type { TestReport, TestCaseResult } from '../core';
 import type { BddScenarioResult } from '../agents/bddScenarioRunner';
 
-/** Maximum characters of scenario output retained in the proof file. */
 const MAX_OUTPUT_LENGTH = 10_000;
 
-/**
- * Per-tag result from running BDD scenario proof.
- */
 export interface TagProofResult {
   /** Original tag pattern from config, e.g. `@review-proof`, `@adw-{issueNumber}`. */
   tag: string;
@@ -27,11 +15,10 @@ export interface TagProofResult {
   resolvedTag: string;
   severity: 'blocker' | 'tech-debt';
   optional: boolean;
-  /** Whether the tag's scenarios passed. False when skipped. */
+  /** False when skipped. */
   passed: boolean;
   /** Stdout from the scenario run (truncated if over 10,000 chars). */
   output: string;
-  /** Process exit code. */
   exitCode: number | null;
   /** True when the tag is optional and no matching scenarios were found. */
   skipped: boolean;
@@ -47,9 +34,6 @@ export interface TagProofResult {
   cases?: TestCaseResult[];
 }
 
-/**
- * Structured result from running the config-driven scenario proof.
- */
 export interface ScenarioProofResult {
   tagResults: TagProofResult[];
   /** True when any non-skipped tag with severity `blocker` did not pass. */
@@ -61,7 +45,6 @@ export interface ScenarioProofResult {
 }
 
 /**
- * Returns true when scenario proof should be run.
  * Returns false when .adw/scenarios.md content is absent or empty — callers
  * should fall back to code-diff proof behaviour in that case.
  */
@@ -74,12 +57,10 @@ function truncate(output: string): string {
   return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
 }
 
-/** Returns true when the scenario output indicates zero matching scenarios were found. */
 function isNoScenariosOutput(stdout: string): boolean {
   return stdout.trim().length === 0 || /\b0 scenarios\b/i.test(stdout);
 }
 
-/** Sanitize a tag name for use as a filename component. */
 function sanitizeTagName(tagName: string): string {
   return tagName.replace(/[^A-Za-z0-9_-]/g, '-');
 }
@@ -174,17 +155,10 @@ function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
 }
 
 /**
- * Iterates over `reviewProofConfig.tags`, runs each via `runScenariosByTag`,
- * writes combined results to `scenario_proof.md`, and returns a structured result.
- *
  * @param options.scenariosMd - Raw content of .adw/scenarios.md (used for guard check only).
- * @param options.reviewProofConfig - Parsed review proof config with tags and severities.
  * @param options.runByTagCommand - Command template with `{tag}` placeholder.
  * @param options.issueNumber - Current issue number for `{issueNumber}` substitution in tag patterns.
  * @param options.proofDir - Directory in which to write `scenario_proof.md`.
- * @param options.cwd - Optional working directory for scenario subprocesses.
- * @param options.stepDefDirectory - Directory to scan for step definition files.
- * @param options.stepDefExtensions - File extensions to match for step definitions.
  */
 export async function runScenarioProof(options: {
   scenariosMd: string;
@@ -208,7 +182,6 @@ export async function runScenarioProof(options: {
 
   const effectiveCwd = cwd ?? process.cwd();
 
-  // Pre-flight check: verify at least one step definition file exists
   const hasStepDefs = hasStepDefinitions(stepDefDirectory, stepDefExtensions, effectiveCwd);
 
   const artifactsDir = path.resolve(proofDir, 'artifacts');

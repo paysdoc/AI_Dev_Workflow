@@ -1,6 +1,4 @@
 /**
- * Integration test: abandoned takeover end-to-end against a fixture state file.
- *
  * Uses a real tmpDir for the state file read (via a stubbed readTopLevelState
  * that reads from the fixture), but stubs all network/git I/O (resetWorktree,
  * deriveStageFromRemote, resolveAdwId) so no real filesystem mutations or

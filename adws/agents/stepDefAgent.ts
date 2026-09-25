@@ -1,8 +1,3 @@
-/**
- * Step Definition Agent - Generates Cucumber step definitions from BDD scenarios.
- * Uses the /generate_step_definitions slash command from .claude/commands/generate_step_definitions.md
- */
-
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
@@ -35,10 +30,6 @@ export const removedScenariosSchema: Record<string, unknown> = {
   },
 };
 
-/**
- * Parses the JSON output from the step def agent to extract removed scenarios.
- * Returns a structured error on parse failure.
- */
 function parseRemovedScenarios(output: string): ExtractionResult<RemovedScenario[]> {
   try {
     const jsonMatch = output.match(/\{[\s\S]*\}/);
@@ -61,18 +52,7 @@ const stepDefAgentConfig: CommandAgentConfig<RemovedScenario[]> = {
   outputSchema: removedScenariosSchema,
 };
 
-/**
- * Runs the /generate_step_definitions skill to generate step definitions for BDD scenarios.
- * CWD is set to the worktree so the agent reads and writes files in the target repo.
- *
- * @param issueNumber - GitHub issue number
- * @param adwId - ADW workflow ID
- * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory
- * @param cwd - Optional working directory for the agent (worktree path)
- * @param issueBody - Optional issue body for fast-mode detection
- * @param contextPreamble - Optional context preamble for the agent
- */
+/** CWD is set to the worktree so the agent reads and writes files in the target repo. */
 export async function runStepDefAgent(
   issueNumber: number,
   adwId: string,

@@ -1,15 +1,9 @@
 import type { WorkflowStage } from '../types/workflowTypes';
 
 /**
- * Stage classification taxonomy for recovery routing.
- *
  * Six classes cover every WorkflowStage literal. Each consumer maps a class to an
  * action independently — the same class can produce different decisions in cron vs.
  * takeover (see the isActiveStage bridge note in cronStageResolver.ts).
- *
- * This module is behavior-preserving: no stage is reclassified vs. the legacy
- * isActiveStage / isRetriableStage / isRunningStage predicates. Subsequent PRD slices
- * may reclassify specific stages (e.g. phase_timeout → resumable-with-resume-in-place).
  *
  * | Class         | Cron decision              | Takeover decision                          |
  * |---------------|----------------------------|--------------------------------------------|
@@ -34,8 +28,6 @@ export type StageClass =
   | 'human_gated';
 
 /**
- * Exhaustive classifier over the closed WorkflowStage union.
- *
  * Every WorkflowStage literal maps to exactly one StageClass. The default branch
  * assigns stage to never — omitting a case is a tsc compile error.
  */
@@ -117,8 +109,7 @@ export function classifyStage(stage: WorkflowStage): StageClass {
  * String adapter for raw persisted stage values.
  *
  * Handles dynamic phaseRunner strings (`${phaseName}_running` / `${phaseName}_completed`)
- * that are not WorkflowStage literals, centralizing the endsWith family matching that was
- * previously scattered across three separate predicates.
+ * that are not WorkflowStage literals.
  *
  * Precedence:
  *   1. endsWith('_running')   → 'active'    (covers literal *_running cases too)

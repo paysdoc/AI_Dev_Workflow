@@ -1,10 +1,3 @@
-/**
- * Per-repository concurrency limit checker.
- *
- * Counts in-progress issues (has ADW workflow comment + no merged/closed PR)
- * and checks against MAX_CONCURRENT_PER_REPO.
- */
-
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import { isAdwComment } from '../core/workflowCommentParsing';
 import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../forge/linkedPrDetector';
@@ -12,9 +5,6 @@ import type { BoundProviders, IssueListEntry } from '@paysdoc/devplatform';
 
 type ConcurrencyProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 
-/**
- * Fetches open issues with their comments from the repository.
- */
 function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): readonly IssueListEntry[] {
   try {
     return providers.issueTracker.listIssues({ fields: ['number', 'comments'], limit: 100 });
@@ -25,7 +15,6 @@ function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): readonly 
 }
 
 /**
- * Counts the number of in-progress issues for a repository.
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
@@ -47,7 +36,6 @@ async function getInProgressIssueCount(providers: ConcurrencyProviders): Promise
 }
 
 /**
- * Returns true if the in-progress issue count has reached or exceeded `limit`.
  * Exported (with the production cap factored out) so tests can pin the threshold
  * without depending on the frozen, env-derived MAX_CONCURRENT_PER_REPO constant.
  */
@@ -61,7 +49,6 @@ export async function isConcurrencyLimitReachedAt(providers: ConcurrencyProvider
   return limitReached;
 }
 
-/** Returns true if the per-repository concurrency limit has been reached or exceeded. */
 export async function isConcurrencyLimitReached(providers: ConcurrencyProviders): Promise<boolean> {
   return isConcurrencyLimitReachedAt(providers, MAX_CONCURRENT_PER_REPO);
 }

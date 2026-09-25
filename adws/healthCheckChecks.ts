@@ -1,10 +1,3 @@
-/**
- * Health Check Individual Checks
- *
- * Contains all individual check functions, the CheckResult interface,
- * and utility functions used by healthCheck.tsx.
- */
-
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,9 +5,6 @@ import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePat
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { CodeHost, IssueTracker } from '@paysdoc/devplatform';
 
-/**
- * Individual check result.
- */
 export interface CheckResult {
   success: boolean;
   error?: string;
@@ -22,9 +12,6 @@ export interface CheckResult {
   details: Record<string, unknown>;
 }
 
-/**
- * Checks if a command exists in PATH.
- */
 export function commandExists(command: string): boolean {
   try {
     execSync(`which ${command}`, { stdio: 'pipe' });
@@ -34,9 +21,6 @@ export function commandExists(command: string): boolean {
   }
 }
 
-/**
- * Executes a command and returns the output or null on failure.
- */
 export function execCommand(command: string): string | null {
   try {
     return execSync(command, { encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -45,9 +29,6 @@ export function execCommand(command: string): string | null {
   }
 }
 
-/**
- * Checks required environment variables.
- */
 export function checkEnvironmentVariables(): CheckResult {
   const required = ['ANTHROPIC_API_KEY'];
   const optional = ['CLAUDE_CODE_PATH', 'GITHUB_PAT'];
@@ -83,13 +64,9 @@ export function checkEnvironmentVariables(): CheckResult {
   };
 }
 
-/**
- * Checks git repository configuration.
- */
 export function checkGitRepository(ctx: GitContext): CheckResult {
   const details: Record<string, unknown> = {};
 
-  // Check if in a git repository
   const isGitRepo = fs.existsSync(path.join(process.cwd(), '.git'));
   if (!isGitRepo) {
     return {
@@ -100,7 +77,6 @@ export function checkGitRepository(ctx: GitContext): CheckResult {
   }
   details.isGitRepo = true;
 
-  // Get current branch
   let branch: string;
   try {
     branch = ctx.getCurrentBranch(process.cwd());
@@ -109,7 +85,6 @@ export function checkGitRepository(ctx: GitContext): CheckResult {
   }
   details.currentBranch = branch || 'unknown';
 
-  // Check for remote
   let hasRemote = false;
   let remotesList: string[] = [];
   try {
@@ -119,10 +94,8 @@ export function checkGitRepository(ctx: GitContext): CheckResult {
   details.hasRemote = hasRemote;
   details.remotes = remotesList;
 
-  // Check for uncommitted changes
   details.hasUncommittedChanges = ctx.hasUncommittedChanges(process.cwd());
 
-  // Check user config
   const { name: userName, email: userEmail } = ctx.gitConfigUser(process.cwd());
   details.userConfigured = Boolean(userName && userEmail);
   details.userName = userName ?? undefined;
@@ -140,9 +113,6 @@ export function checkGitRepository(ctx: GitContext): CheckResult {
   };
 }
 
-/**
- * Checks Claude Code CLI functionality.
- */
 export function checkClaudeCodeCLI(): CheckResult {
   const details: Record<string, unknown> = {};
   details.configuredPath = CLAUDE_CODE_PATH;
@@ -161,7 +131,6 @@ export function checkClaudeCodeCLI(): CheckResult {
     };
   }
 
-  // Try to get version using the resolved path
   const version = execCommand(`${resolvedPath} --version`);
   details.version = version || 'unknown';
 
@@ -171,13 +140,10 @@ export function checkClaudeCodeCLI(): CheckResult {
   };
 }
 
-/**
- * Checks GitHub CLI (gh) functionality.
- */
 export function checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>): CheckResult {
   const details: Record<string, unknown> = {};
 
-  // Check if gh CLI exists (indirect variable avoids guard false-positive on 'gh' literal)
+  // Indirect variable avoids guard false-positive on 'gh' literal
   const ghBin = 'gh';
   const ghExists = commandExists(ghBin);
   details.installed = ghExists;
@@ -190,10 +156,10 @@ export function checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)
     };
   }
 
-  // Check authentication via the code host port. GitHubCodeHost.getAuthenticatedUser()
-  // already returns null on failure rather than throwing, but a non-GitHub code host
-  // (e.g. GitLab) REFUSES BY NAME instead — the try/catch is what keeps that refusal
-  // from turning this whole health check into an uncaught stack trace.
+  // GitHubCodeHost.getAuthenticatedUser() already returns null on failure rather
+  // than throwing, but a non-GitHub code host (e.g. GitLab) REFUSES BY NAME
+  // instead — the try/catch is what keeps that refusal from turning this whole
+  // health check into an uncaught stack trace.
   let authenticated = false;
   try {
     authenticated = Boolean(codeHost.getAuthenticatedUser());
@@ -202,7 +168,6 @@ export function checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)
   }
   details.authenticated = authenticated;
 
-  // Check GITHUB_PAT
   details.hasGitHubPAT = Boolean(GITHUB_PAT);
 
   let warning: string | undefined;
@@ -217,25 +182,18 @@ export function checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)
   };
 }
 
-/**
- * Checks directory structure.
- */
 export function checkDirectoryStructure(): CheckResult {
   const details: Record<string, unknown> = {};
 
-  // Check if logs directory exists or can be created
   details.logsDir = LOGS_DIR;
   details.logsDirExists = fs.existsSync(LOGS_DIR);
 
-  // Check if specs directory exists or can be created
   details.specsDir = SPECS_DIR;
   details.specsDirExists = fs.existsSync(SPECS_DIR);
 
-  // Check for .claude directory
   const claudeDir = path.join(process.cwd(), '.claude');
   details.claudeDirExists = fs.existsSync(claudeDir);
 
-  // Check for .claude/commands directory
   const commandsDir = path.join(claudeDir, 'commands');
   details.commandsDirExists = fs.existsSync(commandsDir);
 
@@ -251,9 +209,6 @@ export function checkDirectoryStructure(): CheckResult {
   };
 }
 
-/**
- * Validates an issue number and fetches its details through the issue tracker port.
- */
 export async function checkIssueNumber(issueNumber: number, issueTracker: Pick<IssueTracker, 'fetchIssue'>): Promise<CheckResult> {
   const details: Record<string, unknown> = {
     issueNumber

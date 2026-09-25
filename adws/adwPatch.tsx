@@ -1,15 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Patch - AI Developer Workflow Direct Patch
- *
  * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Patch Phase: generate patch plan using the /patch skill, write to spec file
- * 3. Build Phase: run build agent, commit implementation
- * 4. PR Phase: create pull request
- * 5. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -37,10 +28,7 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
- * This makes executeBuildPhase usable in the standard pipeline (it reads from the spec file).
- */
+/** This makes executeBuildPhase usable in the standard pipeline (it reads from the spec file). */
 async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
   const { adwId, issueNumber, issue, logsDir, worktreePath, orchestratorStatePath } = config;
 
@@ -53,7 +41,7 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
 
   const specPath = getPlanFilePath(issueNumber, worktreePath);
 
-  // selfHost pinned to true = the un-threaded default this call had before #822; only gitContext is new, so the guardrails decision is unchanged.
+  // selfHost pinned to true = the un-threaded default this call had; only gitContext is new, so the guardrails decision is unchanged.
   const patchResult = await runPatchAgent(
     adwId,
     reviewIssue,
@@ -71,7 +59,6 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
     throw new Error(`Patch Agent failed: ${patchResult.output}`);
   }
 
-  // Write the patch plan to the spec file so executeBuildPhase can read it
   const fullSpecPath = path.join(worktreePath, specPath);
   fs.mkdirSync(path.dirname(fullSpecPath), { recursive: true });
   fs.writeFileSync(fullSpecPath, patchResult.output, 'utf-8');
@@ -82,9 +69,6 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
   };
 }
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);

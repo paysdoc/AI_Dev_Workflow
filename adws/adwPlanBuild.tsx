@@ -1,16 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Plan & Build - Plan+Build+Test+PR Orchestrator (no review)
- *
  * Usage: bunx tsx adws/adwPlanBuild.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
- * 3. Build Phase: run build agent, commit implementation
- * 4. Test Phase: optionally run unit tests (unit only)
- * 5. PR Phase: create pull request
- * 6. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -34,9 +24,6 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);

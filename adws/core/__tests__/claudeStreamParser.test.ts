@@ -111,7 +111,6 @@ describe('parseJsonlOutput — structured detection', () => {
 
   it('does NOT set any flags for tool result content containing detection strings (false-positive scenario)', () => {
     const state = createState();
-    // Simulate a tool result message where the content contains detection strings
     const toolResult = JSON.stringify({
       type: 'assistant',
       message: {
@@ -243,12 +242,10 @@ describe('parseJsonlOutput — cross-chunk line buffering', () => {
     const half1 = full.substring(0, 15);
     const half2 = full.substring(15);
 
-    // First chunk: partial line, no trailing newline
     parseJsonlOutput(half1, state);
     expect(state.compactionDetected).toBe(false);
     expect(state.lineBuffer).toBe(half1);
 
-    // Second chunk: rest of line + newline
     parseJsonlOutput(half2 + '\n', state);
     expect(state.compactionDetected).toBe(true);
     expect(state.lineBuffer).toBe('');
@@ -287,7 +284,7 @@ describe('parseJsonlOutput — cross-chunk line buffering', () => {
     const half2 = full.substring(15);
 
     parseJsonlOutput(half1, state);
-    parseJsonlOutput('', state); // empty chunk
+    parseJsonlOutput('', state);
     expect(state.lineBuffer).toBe(half1);
     parseJsonlOutput(half2 + '\n', state);
     expect(state.compactionDetected).toBe(true);
@@ -305,12 +302,10 @@ describe('parseJsonlOutput — cross-chunk line buffering', () => {
     const completeLine = JSON.stringify({ type: 'system', subtype: 'compact_boundary' });
     const partialLine = '{"type":"system","subt';
 
-    // Chunk with complete line + partial next line (no trailing newline)
     parseJsonlOutput(completeLine + '\n' + partialLine, state);
     expect(state.compactionDetected).toBe(true);
     expect(state.lineBuffer).toBe(partialLine);
 
-    // Complete the partial line
     const rest = 'ype":"api_retry","error":"authentication_error","attempt":1}';
     parseJsonlOutput(rest + '\n', state);
     expect(state.authErrorDetected).toBe(true);

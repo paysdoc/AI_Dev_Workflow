@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwPrReview — prReviewPlanPhase — happy path
 
-  # Row 24: PR-review orchestrator posts a review comment.
   Scenario: pr-review orchestrator completes plan phase and posts a review comment
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1024 exists in the mock issue tracker

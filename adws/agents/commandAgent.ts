@@ -1,17 +1,3 @@
-/**
- * Shared command agent runner.
- *
- * Provides a generic `runCommandAgent<T>()` that handles the common pattern:
- * format args → call runClaudeAgentWithCommand() → extract structured output → return typed result.
- *
- * When outputSchema is provided alongside extractOutput, a retry loop validates
- * the output against the JSON Schema and re-invokes the agent with a corrective
- * Haiku prompt on failure (up to 10 retries, with early exit after 3 consecutive
- * identical validation errors).
- *
- * Thin wrapper agents (installAgent, documentAgent, etc.) use this to eliminate boilerplate.
- */
-
 import * as path from 'path';
 import { log } from '../core/logger';
 import { getModelForCommand, getEffortForCommand } from '../core/modelRouting';
@@ -21,17 +7,11 @@ import type { SlashCommand } from '../types/issueTypes';
 const MAX_RETRIES = 10;
 const MAX_CONSECUTIVE_IDENTICAL_ERRORS = 3;
 
-/**
- * Discriminated union returned by extractOutput functions.
- * Replaces bare throws so the retry loop can distinguish parse failures from code errors.
- */
+/** Replaces bare throws so the retry loop can distinguish parse failures from code errors. */
 export type ExtractionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-/**
- * Thrown when all retries are exhausted without a valid output.
- */
 export class OutputValidationError extends Error {
   readonly lastValidationError: string;
   constructor(lastValidationError: string) {
@@ -41,68 +21,40 @@ export class OutputValidationError extends Error {
   }
 }
 
-/**
- * Configuration for a command agent run.
- *
- * @template T - The type of structured output extracted from the raw agent output.
- */
 export interface CommandAgentConfig<T = void> {
-  /** The slash command to invoke (e.g. '/install', '/document'). */
   command: SlashCommand;
-  /** Human-readable agent name for logging and output file naming. */
   agentName: string;
-  /** Filename for the JSONL output log (e.g. 'install-agent.jsonl'). */
   outputFileName: string;
   /**
-   * Optional function to extract structured data from raw agent output.
    * Must return ExtractionResult<T> — never throw.
    * When omitted, parsed is undefined on the result and no retry loop runs.
    */
   extractOutput?: (output: string) => ExtractionResult<T>;
   /**
-   * Optional JSON Schema object for validating extractOutput results.
    * When provided alongside extractOutput, the retry loop uses this schema
    * in the corrective Haiku prompt.
    */
   outputSchema?: Record<string, unknown>;
 }
 
-/**
- * Options for a single command agent invocation.
- */
 export interface CommandAgentOptions {
-  /** Arguments forwarded to the slash command. */
   args: string | readonly string[];
-  /** Directory for JSONL output log. */
   logsDir: string;
-  /** Optional issue body for fast-mode model/effort selection. */
   issueBody?: string;
-  /** Optional progress callback. */
   onProgress?: ProgressCallback;
-  /** Optional agent state directory path. */
   statePath?: string;
-  /** Optional working directory (worktree path). */
   cwd?: string;
-  /** Optional context preamble prepended to the prompt. */
   contextPreamble?: string;
-  /** Optional phase name used for per-phase watchdog timeout lookup. */
   phaseName?: string;
   /** Optional env overlay merged over getSafeSubprocessEnv() — supplies per-command auth from the launch-boundary GitContext. */
   subprocessEnv?: NodeJS.ProcessEnv;
-  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
+  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection. */
   launchContext?: AgentLaunchContext;
 }
 
-/**
- * Result returned by runCommandAgent.
- * Extends AgentResult with a `parsed` field containing extracted output.
- * When T is void, parsed is undefined.
- */
+/** When T is void, parsed is undefined. */
 export type CommandAgentResult<T> = AgentResult & { parsed: T };
 
-/**
- * Builds the corrective retry prompt for a failed output validation.
- */
 function buildRetryPrompt(
   command: string,
   args: string | readonly string[],
@@ -125,10 +77,6 @@ function buildRetryPrompt(
   ].join('\n');
 }
 
-/**
- * Runs the output validation retry loop.
- * Returns the parsed data on success, throws OutputValidationError after exhausting retries.
- */
 async function runRetryLoop<T>(
   config: CommandAgentConfig<T>,
   options: CommandAgentOptions,
@@ -156,7 +104,6 @@ async function runRetryLoop<T>(
 
     const validationError = extractionResult.error;
 
-    // Track consecutive identical errors for early exit
     if (validationError === lastError) {
       consecutiveIdenticalCount++;
     } else {
@@ -183,7 +130,6 @@ async function runRetryLoop<T>(
       'warn',
     );
 
-    // Build corrective retry prompt and spawn a fresh Haiku session
     const schema = outputSchema ?? {};
     const retryPrompt = buildRetryPrompt(command, options.args, currentOutput, schema, validationError);
 
@@ -209,19 +155,6 @@ async function runRetryLoop<T>(
   throw new OutputValidationError(lastError);
 }
 
-/**
- * Runs a Claude command agent with the given configuration and options.
- *
- * Handles: output file setup, model/effort selection, runClaudeAgentWithCommand call,
- * and optional output extraction into a typed `parsed` field.
- *
- * When extractOutput is provided and outputSchema is set, the retry loop validates
- * output against the schema and retries with a corrective Haiku prompt on failure.
- *
- * @param config - Static command configuration (command, agentName, outputFileName, extractOutput).
- * @param options - Per-invocation options (args, logsDir, issueBody, etc.).
- * @returns AgentResult extended with `parsed` (if extractOutput provided).
- */
 export async function runCommandAgent<T = void>(
   config: CommandAgentConfig<T>,
   options: CommandAgentOptions,
@@ -253,7 +186,6 @@ export async function runCommandAgent<T = void>(
     return { ...result, parsed: undefined as T };
   }
 
-  // Run the retry loop (handles both first attempt and subsequent retries)
   const parsed = await runRetryLoop(config, options, outputFile, result.output);
   return { ...result, parsed };
 }

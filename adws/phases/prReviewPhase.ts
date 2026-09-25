@@ -1,7 +1,3 @@
-/**
- * PR review workflow phases.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
@@ -16,14 +12,6 @@ import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommit
 import { postPRStageComment } from './phaseCommentHelpers';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 
-// ============================================================================
-// PR Review Workflow Phases
-// ============================================================================
-
-/**
- * Configuration shared across all PR review workflow phase functions.
- * Created by initializePRReviewWorkflow() and passed to every phase.
- */
 export interface PRReviewWorkflowConfig {
   base: WorkflowConfig;
   prNumber: number;
@@ -32,13 +20,6 @@ export interface PRReviewWorkflowConfig {
   ctx: PRReviewWorkflowContext;
 }
 
-/**
- * Initializes a PR review workflow: fetches PR details, checks for unaddressed
- * comments, sets up worktree, and initializes state.
- * @param prNumber - The PR number to review
- * @param adwId - The ADW workflow ID
- * @param boundary - The launch boundary this process was built for
- */
 export async function initializePRReviewWorkflow(prNumber: number, adwId: string, boundary: LaunchBoundary, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
   const codeHost = boundary.providers.codeHost;
   const pr = codeHost.fetchPullRequest(prNumber);
@@ -96,13 +77,11 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   const worktreePath = gitCtx.ensureWorktree(pr.sourceBranch);
   log(`Worktree path: ${worktreePath}`, 'info');
 
-  // Allocate a random port for the dedicated dev server instance
   const port = await allocateRandomPort();
   const applicationUrl = `http://localhost:${port}`;
   log(`Allocated port ${port} for dev server (${applicationUrl})`, 'info');
   AgentStateManager.appendLog(orchestratorStatePath, `Allocated port ${port} for dev server`);
 
-  // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
   try {
     repoContext = bindWorkspaceContext(boundary, worktreePath);
@@ -166,10 +145,6 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   };
 }
 
-/**
- * Executes the PR review Plan phase: reads existing plan, runs PR review plan agent.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- */
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
@@ -246,10 +221,6 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
   };
 }
 
-/**
- * Executes the PR review Build phase: runs PR review build agent.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- */
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
@@ -316,10 +287,6 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
   };
 }
 
-/**
- * Executes the PR review commit+push phase: commits changes, pushes the branch.
- * Extracted from completePRReviewWorkflow to be a discrete, visible phase.
- */
 export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, repoContext } = config.base;

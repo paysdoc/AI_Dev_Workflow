@@ -1,10 +1,4 @@
 /**
- * hungOrchestratorDetector — pure-query module for detecting wedged orchestrators.
- *
- * Scans top-level state files under agents/<adwId>/state.json and returns those
- * whose workflowStage ends in "_running", whose pid+pidStartedAt tuple is live,
- * and whose lastSeenAt is older than the caller-supplied staleness threshold.
- *
  * No kills, no state writes, no logging — all recovery actions are the caller's
  * responsibility. This separation lets the contract test run with an injected
  * clock and fixture state files without any process or filesystem mutation.
@@ -15,10 +9,6 @@ import { AgentStateManager } from './agentState';
 import { isProcessLive } from './processLiveness';
 import { AGENTS_STATE_DIR } from './environment';
 import type { AgentState } from '../types/agentTypes';
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
 
 export interface HungOrchestrator {
   adwId: string;
@@ -35,10 +25,6 @@ export interface HungDetectorDeps {
   isProcessLive: (pid: number, pidStartedAt: string) => boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Default implementations
-// ---------------------------------------------------------------------------
-
 function defaultListAdwIds(): string[] {
   try {
     return fs.readdirSync(AGENTS_STATE_DIR, { withFileTypes: true })
@@ -54,10 +40,6 @@ export const defaultHungDetectorDeps: HungDetectorDeps = {
   readTopLevelState: AgentStateManager.readTopLevelState.bind(AgentStateManager),
   isProcessLive: (pid: number, pidStartedAt: string) => isProcessLive(pid, pidStartedAt),
 };
-
-// ---------------------------------------------------------------------------
-// Core query
-// ---------------------------------------------------------------------------
 
 /**
  * Returns orchestrators that are wedged: workflowStage ends in "_running",

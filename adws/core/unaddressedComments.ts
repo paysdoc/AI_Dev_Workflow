@@ -1,9 +1,4 @@
 /**
- * The pr-review unaddressed-comment filter — the composite `getUnaddressedComments`
- * used to compute over the legacy free functions (`adws/github/prCommentDetector.ts`),
- * now over injected reads so it is hermetically testable and the port never had to
- * grow a `fetchUnaddressedReviewComments` composite method (#820).
- *
  * The port cannot express the filter as a single field read: excluding bot,
  * self-authored and ADW-signed comments needs `ReviewComment.isBot` (a data
  * widening) plus `CodeHost.getAuthenticatedUser()` (a method widening) plus a
@@ -24,11 +19,7 @@ import { isAdwComment } from './workflowCommentParsing';
  */
 const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
 
-/**
- * Gets the timestamp of the last ADW commit on the given branch.
- * Matches commits using the structural ADW commit format `<agentName>: <issueClass>: <message>`.
- * Returns null if no ADW commits are found.
- */
+/** Returns null if no ADW commits are found. */
 export function getLastAdwCommitTimestamp(branchName: string, gitContext: GitContext, cwd?: string): Date | null {
   try {
     const output = gitContext.log(branchName, cwd);
@@ -52,7 +43,6 @@ export function getLastAdwCommitTimestamp(branchName: string, gitContext: GitCon
   }
 }
 
-/** The minimal shape `readUnaddressedComments` needs from a review comment. */
 export interface UnaddressedCommentCandidate {
   readonly author: string;
   readonly isBot?: boolean;
@@ -60,7 +50,6 @@ export interface UnaddressedCommentCandidate {
   readonly createdAt: string;
 }
 
-/** Injected reads for {@link readUnaddressedComments} — the pr-fetch, review-comment-fetch, identity and git reads the legacy composite performed directly. */
 export interface UnaddressedCommentReads<C extends UnaddressedCommentCandidate> {
   fetchPullRequest(prNumber: number): { readonly sourceBranch: string };
   fetchReviewComments(prNumber: number): readonly C[];
@@ -72,8 +61,7 @@ export interface UnaddressedCommentReads<C extends UnaddressedCommentCandidate> 
  * Returns the review comments on `prNumber` posted after the branch's last
  * ADW commit, filtering out bot, self-authored and ADW-signed comments first.
  * When no human comments remain, returns `[]` without ever asking for the
- * last-ADW-commit timestamp — the same laziness the legacy composite had via
- * its own conditional `gitContextForRepo` construction.
+ * last-ADW-commit timestamp.
  */
 export function readUnaddressedComments<C extends UnaddressedCommentCandidate>(
   prNumber: number,

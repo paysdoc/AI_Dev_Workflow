@@ -1,7 +1,3 @@
-/**
- * Resolution Agent - Reconciles mismatches between an implementation plan and BDD scenarios.
- * Output validation retries are delegated to the commandAgent retry loop.
- */
 import type { AgentResult, AgentLaunchContext } from "./claudeAgent";
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
@@ -38,9 +34,6 @@ export const resolutionResultSchema: Record<string, unknown> = {
   },
 };
 
-/**
- * Returns positional args for the /resolve_plan_scenarios command.
- */
 function formatResolutionArgs(
   adwId: string,
   issueNumber: number,
@@ -52,10 +45,6 @@ function formatResolutionArgs(
   return [adwId, String(issueNumber), planFilePath, scenarioGlob, issueJson, JSON.stringify(mismatches)];
 }
 
-/**
- * Extracts and validates the JSON output from the resolution agent.
- * Returns a structured error on invalid JSON (retry loop handles recovery).
- */
 function extractResolutionResult(agentOutput: string): ExtractionResult<ResolutionResult> {
   const parsed = extractJson<ResolutionResult>(agentOutput);
   if (!parsed || typeof parsed.resolved !== "boolean") {
@@ -81,11 +70,7 @@ const resolutionAgentConfig: CommandAgentConfig<ResolutionResult> = {
   outputSchema: resolutionResultSchema,
 };
 
-/**
- * Runs the Resolution Agent to reconcile mismatches between plan and BDD scenarios.
- * Output validation retries are handled by the commandAgent retry loop.
- * On exhaustion, throws OutputValidationError; the resolution phase catches and handles gracefully.
- */
+/** On exhaustion, throws OutputValidationError; the resolution phase catches and handles gracefully. */
 export async function runResolutionAgent(
   adwId: string,
   issueNumber: number,

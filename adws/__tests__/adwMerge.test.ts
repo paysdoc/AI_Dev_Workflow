@@ -4,8 +4,6 @@ import type { AgentState } from '../types/agentTypes';
 import { getPlanFilePath, planFileExists } from '../agents';
 import { Platform } from '@paysdoc/devplatform';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
@@ -55,8 +53,6 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     ...overrides,
   };
 }
-
-// ── Missing / invalid state ──────────────────────────────────────────────────
 
 describe('executeMerge — missing state', () => {
   it('returns abandoned when top-level state file is not found', async () => {
@@ -150,8 +146,6 @@ describe('executeMerge — missing state', () => {
   });
 });
 
-// ── Already merged PR ────────────────────────────────────────────────────────
-
 describe('executeMerge — already merged PR', () => {
   it('writes completed and posts completion comment when PR is already MERGED', async () => {
     const deps = makeDeps({
@@ -170,8 +164,6 @@ describe('executeMerge — already merged PR', () => {
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
   });
 });
-
-// ── Closed PR (not merged) ───────────────────────────────────────────────────
 
 describe('executeMerge — closed PR', () => {
   it('writes discarded and notifies blocked when PR is CLOSED without merge', async () => {
@@ -202,8 +194,6 @@ describe('executeMerge — closed PR', () => {
   });
 });
 
-// ── Successful merge ─────────────────────────────────────────────────────────
-
 describe('executeMerge — successful merge', () => {
   it('calls mergeWithConflictResolution with correct args and writes completed', async () => {
     const deps = makeDeps();
@@ -213,10 +203,10 @@ describe('executeMerge — successful merge', () => {
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('merged');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
-      7,               // prNumber
-      'feature-issue-42-abc', // branchName (headBranch)
-      'main',          // baseBranch
-      '/worktrees/feature-issue-42-abc', // worktreePath
+      7,
+      'feature-issue-42-abc',
+      'main',
+      '/worktrees/feature-issue-42-abc',
       'test-adw-id',
       '/logs/test-adw-id',
       '',              // specPath (planFileExists returns false)
@@ -247,8 +237,6 @@ describe('executeMerge — successful merge', () => {
     );
   });
 });
-
-// ── Failed merge ─────────────────────────────────────────────────────────────
 
 describe('executeMerge — failed merge', () => {
   it('writes merge_blocked and comments on issue when merge fails', async () => {
@@ -289,8 +277,6 @@ describe('executeMerge — failed merge', () => {
   });
 });
 
-// ── Worktree error ───────────────────────────────────────────────────────────
-
 describe('executeMerge — worktree error', () => {
   it('writes abandoned when ensureWorktree throws', async () => {
     const deps = makeDeps({
@@ -305,8 +291,6 @@ describe('executeMerge — worktree error', () => {
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
   });
 });
-
-// ── Approval gate (legacy shape, updated for unified gate) ────────────────────
 
 describe('executeMerge — approval gate', () => {
   it('with no hitl label, an unapproved PR still merges (gate satisfied by rule 1)', async () => {
@@ -359,8 +343,6 @@ describe('executeMerge — approval gate', () => {
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
   });
 });
-
-// ── branchName resolution (issue #530) ──────────────────────────────────────
 
 describe('executeMerge — branchName resolution (issue #530)', () => {
   it('regression: resolves branchName from top-level state when orchestrator path is null', async () => {
@@ -429,8 +411,6 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     );
   });
 });
-
-// ── hitl × approved gate matrix ──────────────────────────────────────────────
 
 describe('executeMerge — hitl × approved gate matrix', () => {
   it('rule 1: no hitl + not approved → merge (gate open)', async () => {

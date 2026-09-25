@@ -1,11 +1,3 @@
-/**
- * GitHub API mock server for ADW behavioral testing.
- *
- * A Node.js HTTP server that mimics api.github.com endpoints, loads fixture
- * defaults from JSON files, supports programmatic state setup, and records
- * all incoming requests for assertion in Then steps.
- */
-
 import * as http from 'http';
 import { readFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
@@ -14,10 +6,6 @@ import type { MockServerState, RecordedRequest } from './types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = resolve(__dirname, '../fixtures/github');
-
-// ---------------------------------------------------------------------------
-// Route table types
-// ---------------------------------------------------------------------------
 
 interface RouteParams {
   owner?: string;
@@ -45,10 +33,6 @@ interface RouteDefinition {
   handler: RouteHandler;
 }
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-
 let serverState: MockServerState = loadDefaultState();
 let recordedRequests: RecordedRequest[] = [];
 
@@ -64,10 +48,6 @@ function loadDefaultState(): MockServerState {
     labels: {},
   };
 }
-
-// ---------------------------------------------------------------------------
-// Route matching
-// ---------------------------------------------------------------------------
 
 function matchPattern(pattern: string, pathname: string): RouteParams | null {
   const patternParts = pattern.split('/');
@@ -96,17 +76,9 @@ function matchRoute(method: string, pathname: string): { handler: RouteHandler; 
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Response helper
-// ---------------------------------------------------------------------------
-
 function jsonResponse(data: unknown, status = 200): MockResponse {
   return { status, body: JSON.stringify(data) };
 }
-
-// ---------------------------------------------------------------------------
-// Issue handlers
-// ---------------------------------------------------------------------------
 
 const getIssue: RouteHandler = (params) => {
   const num = params['issueNumber'] ?? '1';
@@ -155,10 +127,6 @@ const postIssueLabels: RouteHandler = (_params, body) => {
   return jsonResponse(labels);
 };
 
-// ---------------------------------------------------------------------------
-// PR handlers
-// ---------------------------------------------------------------------------
-
 const getPr: RouteHandler = (params) => {
   const num = params['prNumber'] ?? '1';
   const pr = serverState.prs[num];
@@ -188,10 +156,6 @@ const putPrMerge: RouteHandler = (params) => {
   return jsonResponse({ sha: 'merged', merged: true, message: 'Pull Request successfully merged' });
 };
 
-// ---------------------------------------------------------------------------
-// Control endpoint handlers
-// ---------------------------------------------------------------------------
-
 const postMockState: RouteHandler = (_params, body) => {
   let updates: Partial<MockServerState>;
   try {
@@ -211,10 +175,6 @@ const postMockReset: RouteHandler = () => {
   return jsonResponse({ ok: true });
 };
 
-// ---------------------------------------------------------------------------
-// Route table
-// ---------------------------------------------------------------------------
-
 const ROUTES: RouteDefinition[] = [
   { method: 'GET',    pattern: '/repos/:owner/:repo/issues/:issueNumber', handler: getIssue },
   { method: 'POST',   pattern: '/repos/:owner/:repo/issues/:issueNumber/comments', handler: postIssueComment },
@@ -232,13 +192,8 @@ const ROUTES: RouteDefinition[] = [
   { method: 'POST',   pattern: '/_mock/reset', handler: postMockReset },
 ];
 
-// ---------------------------------------------------------------------------
-// Server lifecycle
-// ---------------------------------------------------------------------------
-
 let activeServer: http.Server | null = null;
 
-/** Reads the full request body as a string. */
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -294,7 +249,6 @@ export function startMockServer(port = 0): Promise<{ port: number; url: string }
   });
 }
 
-/** Stops the mock server and resets state. */
 export function stopMockServer(): void {
   if (activeServer) {
     activeServer.close();
@@ -309,7 +263,6 @@ export function getRecordedRequests(): RecordedRequest[] {
   return [...recordedRequests];
 }
 
-/** Applies partial state updates to the mock server state. */
 export function applyState(updates: Partial<MockServerState>): void {
   serverState = { ...serverState, ...updates };
 }

@@ -1,6 +1,4 @@
 /**
- * Screenshot Router — Cloudflare Worker
- *
  * Routes `screenshots.paysdoc.nl/{repo}/{...key}` requests to the correct
  * per-repo Cloudflare R2 bucket (`adw-paysdoc-{repo}`), using the S3-compatible
  * API with credentials injected as Worker secrets.
@@ -17,19 +15,11 @@ interface ScheduledEvent {
   readonly cron: string;
 }
 
-// ---------------------------------------------------------------------------
-// Environment bindings (injected as Worker secrets)
-// ---------------------------------------------------------------------------
-
 interface Env {
   readonly CLOUDFLARE_ACCOUNT_ID: string;
   readonly R2_ACCESS_KEY_ID: string;
   readonly R2_SECRET_ACCESS_KEY: string;
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 const OWNER = 'paysdoc';
 
@@ -42,12 +32,10 @@ function normaliseSegment(segment: string): string {
     .replace(/-{2,}/g, '-');
 }
 
-/** Derives the R2 bucket name for a given repo. */
 function toBucketName(repo: string): string {
   return `adw-${normaliseSegment(OWNER)}-${normaliseSegment(repo)}`.slice(0, 63);
 }
 
-/** Builds an S3Client pointed at Cloudflare R2 for the given account. */
 function buildS3Client(env: Env): S3Client {
   return new S3Client({
     region: 'auto',
@@ -61,7 +49,6 @@ function buildS3Client(env: Env): S3Client {
 
 /** Parses `/{repo}/{...key}` from a URL pathname. Returns null for invalid paths. */
 function parsePath(pathname: string): { repo: string; key: string } | null {
-  // Strip leading slash and split
   const stripped = pathname.replace(/^\//, '').replace(/\/$/, '');
   const slashIdx = stripped.indexOf('/');
   if (slashIdx === -1 || slashIdx === stripped.length - 1) return null;
@@ -72,10 +59,6 @@ function parsePath(pathname: string): { repo: string; key: string } | null {
 
   return { repo, key };
 }
-
-// ---------------------------------------------------------------------------
-// fetch handler — request routing
-// ---------------------------------------------------------------------------
 
 async function handleFetch(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -112,7 +95,6 @@ async function handleFetch(request: Request, env: Env): Promise<Response> {
     return new Response('Not Found', { status: 404 });
   }
 
-  // stream the R2 object body back to the client
   const responseBody = body instanceof ReadableStream
     ? body
     : (body as { transformToWebStream(): ReadableStream }).transformToWebStream();
@@ -126,14 +108,9 @@ async function handleFetch(request: Request, env: Env): Promise<Response> {
   });
 }
 
-// ---------------------------------------------------------------------------
-// scheduled handler — empty bucket garbage collection
-// ---------------------------------------------------------------------------
-
 async function handleScheduled(env: Env): Promise<void> {
   const client = buildS3Client(env);
 
-  // List all buckets and filter to adw-* ones
   const listResult = await client.send(new ListBucketsCommand({}));
   const adwBuckets = (listResult.Buckets ?? []).filter(
     (b) => b.Name?.startsWith('adw-'),
@@ -160,10 +137,6 @@ async function handleScheduled(env: Env): Promise<void> {
     }
   }
 }
-
-// ---------------------------------------------------------------------------
-// Worker export
-// ---------------------------------------------------------------------------
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {

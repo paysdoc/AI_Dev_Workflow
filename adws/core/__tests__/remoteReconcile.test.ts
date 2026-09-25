@@ -20,8 +20,6 @@ import type { LaunchBoundary } from '../launchGitContext';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { CodeHost, PullRequestSummary } from '@paysdoc/devplatform';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {
     adwId: 'test-adw-id',
@@ -53,8 +51,6 @@ function makeDeps(overrides: Partial<ReconcileDeps> = {}): ReconcileDeps {
   };
 }
 
-// ── mapArtifactsToStage — pure mapping ────────────────────────────────────────
-
 describe('mapArtifactsToStage', () => {
   it('returns null when branch does not exist', () => {
     expect(mapArtifactsToStage(false, null)).toBe(null);
@@ -84,8 +80,6 @@ describe('mapArtifactsToStage', () => {
     expect(mapArtifactsToStage(true, makePR({ state: 'UNKNOWN_STATE' }))).toBe(null);
   });
 });
-
-// ── deriveStageFromRemote — happy path ────────────────────────────────────────
 
 describe('deriveStageFromRemote — happy path mappings', () => {
   it('returns branch_created when branch exists and no PR', () => {
@@ -126,8 +120,6 @@ describe('deriveStageFromRemote — happy path mappings', () => {
     expect(deps.branchExistsOnRemote).toHaveBeenCalledTimes(2);
   });
 });
-
-// ── deriveStageFromRemote — re-verification ───────────────────────────────────
 
 describe('deriveStageFromRemote — re-verification', () => {
   it('returns converged value when reads flap then stabilize on third pair', () => {
@@ -179,8 +171,6 @@ describe('deriveStageFromRemote — re-verification', () => {
     expect(result).toBe('starting');
   });
 });
-
-// ── deriveStageFromRemote — state-file edges ──────────────────────────────────
 
 describe('deriveStageFromRemote — state-file edges', () => {
   it('returns starting and issues zero GitHub reads when state file is missing', () => {
@@ -240,8 +230,6 @@ describe('deriveStageFromRemote — state-file edges', () => {
     expect(result).toBe('starting');
   });
 });
-
-// ── buildDefaultReconcileDeps — boundary-bound wiring ─────────────────────────
 
 function makeFakeBoundary(overrides: {
   lsRemote?: (branchName: string) => string[];

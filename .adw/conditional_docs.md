@@ -225,6 +225,8 @@
     - adws/triggers/concurrencyGuard.ts
     - adws/triggers/spawnGate.ts
     - adws/triggers/pauseQueueScanner.ts
+    - adws/triggers/rateLimitProbe.ts
+    - adws/triggers/__tests__/rateLimitProbe.test.ts
     - adws/triggers/mergeDispatchGate.ts
     - adws/core/stageClassifier.ts
     - adws/core/__tests__/stageClassifier.test.ts
@@ -235,6 +237,7 @@
   - Conditions:
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
+    - When working on the pause-queue rate-limit probe (`rateLimitProbe.ts`) or its outcome classification
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
 
 - app_docs/feature-9gjajh-promotion-system.md
@@ -340,8 +343,11 @@
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
+  - Owns:
+    - features/per-issue/**
   - Conditions:
     - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
+    - When working on the comment-only de-bloat sweep of `features/per-issue/` files (see `app_docs/feature-m363ky-comment-only-guard.md` for the guard itself)
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:
@@ -653,3 +659,11 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+
+- app_docs/feature-m363ky-comment-only-guard.md
+  - Owns:
+    - adws/checkCommentOnly.ts
+  - Conditions:
+    - When working on the comment-only guard (`bun run lint:comment-only`) that proves a set of files differs from a base ref only in comments, JSDoc, and whitespace
+    - When working on `checkCommentOnly.ts`'s TS token-stream normalization, feature-file DocString handling, or its `CommentOnlyViolation` reporting
+    - When troubleshooting a comment de-bloat sweep batch's guard pass/fail, or why a file was reported `code-changed`/`absent-at-base`/`absent-in-working-tree`/`unsupported-file-kind`

@@ -4,8 +4,7 @@
  * Uses real git operations (commit, push, rejection) against a local bare
  * repository acting as the sandbox remote. The findPRByBranch and
  * resolveIssueNumberFromPR deps are stubbed (no gh CLI or GitHub credentials
- * needed). This satisfies the AC requirement "Integration tests against a
- * sandbox target repo" without external credentials.
+ * needed).
  *
  * The claim git ops now route through a real GitContext (no exec spy) — the
  * GitContext identity env vars (GIT_AUTHOR_*, etc.) are injected per-command
@@ -95,10 +94,8 @@ beforeEach(() => {
   sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-claim-integ-sandbox-'));
   bareRepoPath = path.join(sandboxDir, 'remote.git');
 
-  // Create bare repo
   execSync(`git init --bare "${bareRepoPath}"`, { stdio: 'pipe' });
 
-  // Seed with an initial commit on main via a temporary clone
   const seedPath = path.join(sandboxDir, 'seed');
   execSync(`git clone "${bareRepoPath}" "${seedPath}"`, { stdio: 'pipe' });
   git(seedPath, 'config', 'user.email', 'test@test.com');
@@ -116,8 +113,6 @@ afterEach(() => {
   fs.rmSync(sandboxDir, { recursive: true, force: true });
 });
 
-// ── §1 First claim against absent branch wins ─────────────────────────────────
-
 describe('first claim wins against absent branch', () => {
   it('returns { won: true, branch } and bare repo contains the claim branch', async () => {
     const clone1 = createClone('clone1');
@@ -127,7 +122,6 @@ describe('first claim wins against absent branch', () => {
 
     expect(result).toEqual({ won: true, branch: CLAIM_BRANCH });
 
-    // Verify the bare repo now contains the claim branch
     const refs = execSync(`git -C "${bareRepoPath}" branch`, { encoding: 'utf-8' }).trim();
     expect(refs).toContain(CLAIM_BRANCH);
   });
@@ -138,7 +132,6 @@ describe('first claim wins against absent branch', () => {
 
     await claimUpgradeOrFindExisting(HASH, deps);
 
-    // Count commits on claim branch that are not on main
     const ahead = execSync(
       `git -C "${bareRepoPath}" rev-list --count main..${CLAIM_BRANCH}`,
       { encoding: 'utf-8' },
@@ -147,17 +140,13 @@ describe('first claim wins against absent branch', () => {
   });
 });
 
-// ── §2 Second claim loses when branch already exists ─────────────────────────
-
 describe('second claim loses when branch already exists', () => {
   it('returns { won: false, existingBranch } from a second clone after first claim wins', async () => {
     const clone1 = createClone('clone1');
     const clone2 = createClone('clone2');
 
-    // First claim wins
     await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
 
-    // Second claim loses
     const result = await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2));
 
     expect(result.won).toBe(false);
@@ -168,14 +157,11 @@ describe('second claim loses when branch already exists', () => {
   });
 });
 
-// ── §3 Race: exactly one winner ───────────────────────────────────────────────
-
 describe('race: exactly one winner out of two concurrent claims', () => {
   it('produces exactly one winner and one loser', async () => {
     const clone1 = createClone('clone1');
     const clone2 = createClone('clone2');
 
-    // Run both concurrently (Promise.all models simultaneous attempts)
     const [r1, r2] = await Promise.all([
       claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1)),
       claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2)),
@@ -213,7 +199,6 @@ describe('race: exactly one winner out of two concurrent claims', () => {
       claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2)),
     ]);
 
-    // The bare repo should have exactly one commit ahead of main on the claim branch
     const ahead = execSync(
       `git -C "${bareRepoPath}" rev-list --count main..${CLAIM_BRANCH}`,
       { encoding: 'utf-8' },
@@ -222,15 +207,12 @@ describe('race: exactly one winner out of two concurrent claims', () => {
   });
 });
 
-// ── §4 Temp worktree cleanup ──────────────────────────────────────────────────
-
 describe('temp worktree cleanup', () => {
   it('leaves no dangling git worktrees in the clone after a winning claim', async () => {
     const clone1 = createClone('clone1');
     await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
 
     const worktrees = execSync(`git -C "${clone1}" worktree list`, { encoding: 'utf-8' });
-    // Only the main worktree (the clone itself) should remain
     const lines = worktrees.trim().split('\n').filter(Boolean);
     expect(lines).toHaveLength(1);
   });
@@ -247,8 +229,6 @@ describe('temp worktree cleanup', () => {
     expect(lines).toHaveLength(1);
   });
 });
-
-// ── §5 Regression: leftover local branch must not crash the claim (Bug B) ──────
 
 describe('regression: pre-existing local claim branch does not crash the push (Bug B)', () => {
   it('still wins when a stale local branch of the same name already exists in the clone', async () => {

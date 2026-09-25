@@ -1,10 +1,3 @@
-/**
- * PR review workflow completion and error handling.
- *
- * Contains only terminal-state handlers: building cost section, writing final
- * orchestrator state, posting completion comments, and error handling.
- */
-
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
@@ -21,7 +14,6 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
   const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
   ctx.costBreakdown = costBreakdown;
 
-  // Pre-compute cost section for the GitHub comment using per-phase modelUsage totals.
   // D1 posting is now handled per-phase by runPhase via tracker.commit().
   try {
     const phaseCostRecords = createPhaseCostRecords({
@@ -42,8 +34,6 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
 }
 
 /**
- * Completes the PR review workflow: builds cost section, writes final state,
- * posts completion comment, and logs banner.
  * Terminal handler only — commit+push is handled by executePRReviewCommitPushPhase.
  * When `outcome.writeAwaitingMerge` is true, also writes the top-level
  * `awaiting_merge` handoff so cron's existing merge dispatch picks it up.
@@ -56,7 +46,6 @@ export async function completePRReviewWorkflow(
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { orchestratorStatePath, repoContext } = config.base;
 
-  // Build cost section for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
     await buildPRReviewCostSection(config, modelUsage);
   }
@@ -91,10 +80,6 @@ export async function completePRReviewWorkflow(
   }
 }
 
-/**
- * Handles PR review workflow errors: posts error comment, writes failed state, and exits.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
- */
 export async function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap, notifierDeps?: NotifierDeps): Promise<never> {
   const { prNumber, ctx } = config;
   const { orchestratorStatePath, repoContext } = config.base;

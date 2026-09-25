@@ -1,12 +1,8 @@
 // Module docs are current-state references; 400 lines is a generous ceiling
-// signalling genuine bloat. Intentionally a defined constant — easy to retune.
+// signalling genuine bloat.
 export const DOC_BLOAT_THRESHOLD_LINES = 400;
 
 import { type ConditionalDocEntry } from './conditionalDocsRegistry';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export interface DocSize {
   docPath: string;
@@ -30,10 +26,6 @@ export interface GuardFlags {
   bloat: BloatFlag[];
   regrowth: RegrowthFlag[];
 }
-
-// ---------------------------------------------------------------------------
-// Glob-overlap core
-// ---------------------------------------------------------------------------
 
 // The leading path segments before the first segment containing a wildcard.
 // E.g. "adws/vcs/**" → "adws/vcs"; "adws/core/foo.ts" → "adws/core/foo.ts"
@@ -60,10 +52,6 @@ export function globsOverlap(a: string, b: string): boolean {
   const rootB = ownershipRoot(b);
   return isSegmentPrefix(rootA, rootB) || isSegmentPrefix(rootB, rootA);
 }
-
-// ---------------------------------------------------------------------------
-// Guard functions
-// ---------------------------------------------------------------------------
 
 // At-threshold and below → no flag. Strictly greater than threshold → flag.
 export function checkBloat(sizes: readonly DocSize[], threshold: number): BloatFlag[] {

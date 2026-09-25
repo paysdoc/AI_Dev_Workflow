@@ -1,8 +1,4 @@
 /**
- * Environment configuration for ADW.
- *
- * Loads environment variables from .env, resolves the Claude CLI path,
- * and exports all path/directory constants derived from environment state.
  * Provider secret accessors live here rather than in config.ts so that
  * model-routing and retry constants can be imported without side-effects.
  */
@@ -38,23 +34,15 @@ export function assertCwdIsRepoRoot(): void {
   }
 }
 
-// Load environment variables from .env file at project root
 dotenv.config();
-
-// ---------------------------------------------------------------------------
-// Claude CLI resolution
-// ---------------------------------------------------------------------------
 
 /** Path to the Claude CLI executable, snapshotted at process start (diagnostics only). */
 export const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || 'claude';
 
-/** Cached resolved Claude CLI path, alongside the configured input it was resolved from. */
 let cachedClaudeCodePath: string | null = null;
 let cachedFromConfiguredPath: string | null = null;
 
 /**
- * Resolves and validates the Claude CLI executable path.
- * Checks the configured CLAUDE_CODE_PATH first, then falls back to PATH lookup via `which`.
  * The result is cached for performance, keyed on the live CLAUDE_CODE_PATH env var rather
  * than the module-load-time CLAUDE_CODE_PATH constant — if the env var changes mid-process
  * (e.g. test mock setup/teardown toggling it), the cache is invalidated and re-resolved
@@ -67,14 +55,12 @@ export function resolveClaudeCodePath(): string {
     return cachedClaudeCodePath;
   }
 
-  // If configured path is absolute and exists, use it directly
   if (configuredPath.startsWith('/') && fs.existsSync(configuredPath)) {
     cachedClaudeCodePath = configuredPath;
     cachedFromConfiguredPath = configuredPath;
     return cachedClaudeCodePath;
   }
 
-  // Fall back to PATH-based resolution via `which`
   try {
     const resolved = execSync('which claude', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
     if (resolved) {
@@ -83,29 +69,21 @@ export function resolveClaudeCodePath(): string {
       return cachedClaudeCodePath;
     }
   } catch {
-    // which failed — claude not in PATH
+    // falls through to the throw below
   }
 
   throw new Error("Claude CLI not found. Set CLAUDE_CODE_PATH in .env or ensure 'claude' is in your PATH.");
 }
 
-/**
- * Clears the cached Claude CLI path so the next call to {@link resolveClaudeCodePath}
- * performs a fresh resolution. Used after ENOENT errors to pick up path changes.
- */
+/** Used after ENOENT errors to pick up path changes. */
 export function clearClaudeCodePathCache(): void {
   cachedClaudeCodePath = null;
   cachedFromConfiguredPath = null;
 }
 
-// ---------------------------------------------------------------------------
-// Provider secret accessors
-// ---------------------------------------------------------------------------
-
 /** GitHub Personal Access Token (optional, gh CLI handles auth). */
 export const GITHUB_PAT = process.env.GITHUB_PAT;
 
-/** Jira instance URL (e.g., https://your-domain.atlassian.net). */
 export const JIRA_BASE_URL = process.env.JIRA_BASE_URL || '';
 
 /** Email for Jira Cloud basic auth. */
@@ -117,7 +95,6 @@ export const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || '';
 /** Personal access token for Jira Data Center/Server. */
 export const JIRA_PAT = process.env.JIRA_PAT || '';
 
-/** Default Jira project key (e.g., PROJ). */
 export const JIRA_PROJECT_KEY = process.env.JIRA_PROJECT_KEY || '';
 
 /** GitLab personal access token (needs api scope). */
@@ -126,43 +103,26 @@ export const GITLAB_TOKEN = process.env.GITLAB_TOKEN || '';
 /** GitLab instance URL (default: https://gitlab.com, set for self-hosted). */
 export const GITLAB_INSTANCE_URL = process.env.GITLAB_INSTANCE_URL || 'https://gitlab.com';
 
-/** Cloudflare account ID for R2 storage access. */
 export const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
 
-/** R2 S3-compatible API access key ID. */
 export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 
-/** R2 S3-compatible API secret access key. */
 export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 
-/** Cost API Worker base URL (e.g., https://costs.paysdoc.nl). Empty string disables D1 writes. */
+/** Empty string disables D1 writes. */
 export const COST_API_URL = process.env.COST_API_URL || '';
 
-/** Bearer token for Cost API authentication. */
 export const COST_API_TOKEN = process.env.COST_API_TOKEN || '';
 
-// ---------------------------------------------------------------------------
-// Path / directory constants
-// ---------------------------------------------------------------------------
-
-/** Directory for storing workflow logs. */
 export const LOGS_DIR = path.join(process.cwd(), 'logs');
 
-/** Directory for storing implementation plans. */
 export const SPECS_DIR = path.join(process.cwd(), 'specs');
 
-/** Directory for storing agent state files. */
 export const AGENTS_STATE_DIR = path.join(process.cwd(), 'agents');
 
-/** Directory for storing git worktrees. */
 export const WORKTREES_DIR = path.join(process.cwd(), '.worktrees');
 
-/** Directory for storing cloned target repository workspaces. */
 export const TARGET_REPOS_DIR = process.env.TARGET_REPOS_DIR || path.join(os.homedir(), '.adw', 'repos');
-
-// ---------------------------------------------------------------------------
-// Subprocess environment
-// ---------------------------------------------------------------------------
 
 /** Allowlist of environment variable names safe to pass to Claude CLI subprocesses. */
 const SAFE_ENV_VARS: readonly string[] = [
@@ -193,10 +153,7 @@ const SAFE_ENV_VARS: readonly string[] = [
   'ADW_UNIT_TEST_REPORT_PATH',
 ];
 
-/**
- * Builds a filtered environment object containing only whitelisted variables.
- * Prevents leaking secrets (DB credentials, AWS keys, etc.) to Claude CLI subprocesses.
- */
+/** Prevents leaking secrets (DB credentials, AWS keys, etc.) to Claude CLI subprocesses. */
 export function getSafeSubprocessEnv(): NodeJS.ProcessEnv {
   const safeEnv: Record<string, string | undefined> = {};
   for (const key of SAFE_ENV_VARS) {

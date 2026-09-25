@@ -1,20 +1,9 @@
-/**
- * Auth-required pause handler.
- * Mirrors handleRateLimitPause in workflowCompletion.ts but for host-wide auth failures.
- */
-
 import { log, AgentStateManager } from '../core';
 import { type ModelUsageMap, persistTokenCounts } from '../cost';
 import { writeAuthGate } from '../core/authGate';
 import { AuthRequiredError } from '../types/agentTypes';
 import type { WorkflowConfig } from './workflowInit';
 
-/**
- * Catches AuthRequiredError in an orchestrator main():
- * - writes/updates agents/.auth_gate
- * - marks workflowStage = 'paused_auth'
- * - exits 0
- */
 export function handleAuthRequiredPause(
   config: WorkflowConfig,
   err: AuthRequiredError,

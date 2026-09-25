@@ -2,11 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { formatWorkflowComment } from '../workflowCommentsIssue';
 import { computeTestVerdict } from '../../core/testVerdict';
 
-// ── formatUnverifiedComment (issue #770 — real-cause rewrite) ─────────────
-//
-// The comment posted when the unit-test phase resolves a `warn` verdict was
-// describing a condition (report present, zero testcases) that resolves to
-// `hard-fail` and never reaches this comment. These tests pin the corrected
+// These tests pin the corrected
 // copy and couple it back to the real verdict resolver so a future re-key of
 // testVerdict's branch table fails loudly here instead of silently drifting.
 

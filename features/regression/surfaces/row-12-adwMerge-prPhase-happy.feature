@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwMerge — prPhase — happy path
 
-  # Row 12: stub returns PR payload; PR creation recorded in mock.
   Scenario: merge orchestrator creates PR via prPhase and mock records it
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1012 exists in the mock issue tracker

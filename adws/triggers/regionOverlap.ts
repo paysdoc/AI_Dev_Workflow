@@ -1,6 +1,4 @@
 /**
- * Pure decision module for region-overlap serialization.
- *
  * No I/O. All functions are deterministic over their inputs.
  * Side-effecting callers (signal sourcing, blocker registration) live in
  * regionOverlapSignals.ts.
@@ -87,10 +85,6 @@ export function parseRelevantFilesSection(markdown: string): string[] {
   return [...paths];
 }
 
-/**
- * Return whether two path sets share at least one normalized path,
- * along with the set of shared paths.
- */
 export function pathsOverlap(
   a: readonly string[],
   b: readonly string[],
@@ -102,9 +96,6 @@ export function pathsOverlap(
 }
 
 /**
- * Determine whether a candidate issue should defer behind one of its siblings
- * due to region overlap.
- *
  * Tie-break (deadlock-free):
  *   1. If any sibling is in-flight, the candidate defers behind the
  *      lowest-numbered in-flight overlapping sibling.
@@ -125,7 +116,6 @@ export function decideSerialization(
 
   if (overlappingSiblings.length === 0) return { serialize: false };
 
-  // Full cluster: candidate + all overlapping siblings.
   const cluster: RegionSignal[] = [candidate, ...overlappingSiblings];
 
   const inFlightMembers = cluster.filter(s => s.inFlight);
@@ -139,10 +129,7 @@ export function decideSerialization(
   return { serialize: true, blockedBy: anchor.issueNumber, overlapPaths: shared };
 }
 
-/**
- * Compare every pair of in-flight issues and return ordering recommendations
- * for pairs that share at least one relevant file. Advisory — never a hard block.
- */
+/** Advisory — never a hard block. */
 export function scanPostPlanOverlaps(
   inflight: readonly InFlightIssue[],
 ): OrderingRecommendation[] {

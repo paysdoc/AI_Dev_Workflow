@@ -62,7 +62,6 @@ describe('execWithRetry — non-retryable pattern detection', () => {
     expect(mockExecSync).toHaveBeenCalledTimes(1);
   });
 
-  // Auth error non-retryable patterns (issue #434)
   it('throws immediately on "gh auth login" error without retrying', () => {
     const err = new Error('To authenticate, please run: gh auth login');
     mockExecSync.mockImplementation(() => { throw err; });

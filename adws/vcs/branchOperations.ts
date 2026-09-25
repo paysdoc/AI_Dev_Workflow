@@ -1,7 +1,6 @@
 /**
- * Pure branch-identity vocabulary — branch name generation and validation.
- * All I/O has migrated to GitContext methods and boundary-minted providers
- * (#662, #797); this module is dependency-free.
+ * All I/O has migrated to GitContext methods and boundary-minted providers;
+ * this module is dependency-free.
  */
 
 import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
@@ -12,8 +11,6 @@ import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '..
 export const PROTECTED_BRANCHES = ['main', 'master', 'develop'];
 
 /**
- * Validates a slug for branch-name assembly.
- *
  * A valid slug is: non-empty, lowercase, [a-z0-9-] only, no leading/trailing
  * hyphens, no consecutive hyphens, ≤ 50 characters, no known branch prefix
  * (canonical or alias), no "issue-<N>" segment, no path separators, and no
@@ -75,16 +72,13 @@ export function validateSlug(slug: string): string {
 }
 
 /**
- * Assembles a canonical branch name from issue type, number, and slug.
  * Format: <prefix>-issue-<issueNumber>-<slug> (hyphen-separated).
  *
  * The slug is validated before assembly — any drift in LLM output is caught here
  * and throws rather than propagating a malformed branch name.
  *
- * @param issueNumber - The GitHub issue number
  * @param slug - A pre-validated slug (lowercase, hyphens only, no prefix, no issue number)
  * @param issueType - The issue classification (defaults to '/feature')
- * @returns Canonical branch name, e.g. "feature-issue-42-add-user-auth"
  */
 export function generateBranchName(
   issueNumber: number,
@@ -97,15 +91,11 @@ export function generateBranchName(
 }
 
 /**
- * Infers the issue type from a branch name by examining its prefix.
  * Maps branch prefixes to issue classification:
  *   - bugfix/ -> /bug
  *   - chore/ -> /chore
  *   - review/ -> /pr_review
  *   - feature/ (or unknown) -> /feature
- *
- * @param branchName - The branch name to parse (e.g., "bugfix/issue-123-fix-login")
- * @returns The inferred issue type classification
  */
 export function inferIssueTypeFromBranch(branchName: string): IssueClassSlashCommand {
   if (branchName.startsWith('bugfix/') || branchName.startsWith('bugfix-')) {

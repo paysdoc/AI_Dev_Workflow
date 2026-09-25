@@ -1,6 +1,4 @@
 /**
- * worktreeReuseGate — pure decision over Class-A git-operability signals.
- *
  * `decideWorktreeReuse(probe)` returns REUSE only when every signal is healthy.
  * Any single fault returns RESET with a typed reason. No I/O; total over WorktreeProbe.
  *

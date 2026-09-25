@@ -25,7 +25,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   entirely" are statements about the source tree. A row asserting them directly would read the tree —
   a file-existence or file-content check, the exact shape the framework's rot rule prohibits, and one
   that would go red on any later rename that changed nothing. They are covered the way #819, #820 and
-  #821 covered their own structural criteria: by RUNTIME ARTEFACTS that cannot be green unless the
   change happened correctly — the guard binary's exit code and stdout (§6), `tsc`'s exit code and
   stdout over a throwaway probe module (§5) and over the whole repository (§8), and the import
   behaviour of a copied-out package (§7).
@@ -195,19 +194,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
   Background:
     Given the ADW codebase is checked out
 
-  # ── §1  ONE IDENTITY IN, EVERY MEMBER BOUND TO IT (AC1 — the critical suite) ──────────────
-  #
-  # The PRD calls this "the critical suite" and the four rows are its four claims. The first is the
-  # positive direction at the only level where binding is observable without trusting the object: the
-  # commands. A real `GitContext` over a recording executor is handed in; every command every minted
-  # provider issues must arrive there and must name the one repository. An assembly function that
-  # built its own context would reach a real `gh` and record nothing.
-  #
-  # This row reuses `the GitHub providers are minted over the recording gh seam`, whose body calls
-  # `mintBoundProviders` today (FINDING 6). Repointing that body to `forgeProviders` is how #819's
-  # own rows keep passing, and reusing the phrase here is what makes the repoint provable rather than
-  # merely required.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: Every provider the assembly function returns issues its commands over the one context, against the one repository
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -225,12 +211,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then every command the minted providers issued reached the recording gh seam
     And the minted providers issued no command outside the repository "acme/widget"
 
-  # FINDING 1. The row that makes "no construction path yields a mixed-identity set" a property of
-  # the library rather than a property of ADW's one call site. The identity and the context disagree;
-  # nothing in the current mint notices, and the resulting set would address `acme/webapp` over
-  # `octo/infra`'s credential and base path. The error must name BOTH repositories — naming only one
-  # leaves an operator unable to tell which half was wrong, which is the whole diagnostic value.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A git context bound to another repository is refused rather than assembled against
     Given a recording gh seam for the repository "octo/infra" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
@@ -238,12 +218,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then assembling the provider set failed naming both repositories
     And no provider was returned from the assembly
     And the recording gh seam recorded no command
-
-  # FINDING 2, first direction. The swallow must keep swallowing: a GitLab code host is a supported
-  # selection with no board manager, and the set it yields must OMIT the member rather than carry a
-  # stub whose every method throws. `if (boardManager)` is how consumers decide whether a board move
-  # happens at all, so a stub turns a skipped move into a raised error at `adwMerge.tsx:251` and in
-  # both completion phases — a behaviour change AC5 forbids.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A code host with no board support yields a set with no board manager, not a refusing stub
@@ -258,12 +232,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the assembled set carries no board manager
     And the assembled set carries an issue tracker and a code host
 
-  # FINDING 2, second direction, and the row that catches the single most likely wrong
-  # implementation: validating the forge name by attempting to resolve, inside the board manager's
-  # try/catch. Such an implementation returns a set for an unknown name, which is user story 6's
-  # failure exactly — a misconfigured repository running silently against a substituted forge instead
-  # of failing at launch.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: An unknown forge name is not absorbed by the optional-board-manager swallow
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -275,23 +243,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the boundary's providers are requested for the repository "acme/webapp" and any failure is captured
     Then the provider request failed naming the platform "bitbucket"
     And the boundary handed back no providers
-
-  # ── §2  THE FORGE NAME IS CLOSED, PER PORT, AND REFUSED BY NAME (AC1; story 6) ────────────
-  #
-  # "`forge` is a closed union (`'github' | 'gitlab' | 'jira'` per port)" is a per-PORT claim, and the
-  # code says why it has to be. `Platform` (`providers/types.ts:12-16`) is `github | gitlab |
-  # bitbucket` — no Jira member at all, which is what `jiraAuthFromEnv`'s docblock records
-  # (`repoContext.ts:148`) — while `bitbucket` is a `Platform` with no adapter on ANY port and
-  # `gitlab` is a valid CodeHost but not a valid IssueTracker. So `forge` cannot simply BE `Platform`
-  # in either direction, and the exact membership per port is the part of the signature the HITL
-  # review freezes.
-  #
-  # The three runtime rows are #794 §8's refusals, re-run against the new construction path because
-  # they are the regression net for AC5 and because the obvious rewrite loses them: a `switch` over a
-  # union with a `default:` that falls back to GitHub type-checks, passes the whole unit suite, and
-  # addresses the right repository through the wrong forge — the wrong-repo bug class in different
-  # clothes. Each names the offending value, because a silent fall-through on a typo is the same
-  # defect with a friendlier cause.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A code host name outside the closed union is refused naming the value
@@ -305,11 +256,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the provider request failed naming the platform "bananas"
     And the boundary handed back no providers
 
-  # The per-port half. `gitlab` is a legal code host and an illegal issue tracker, and after this
-  # slice the illegality has to survive a union that contains the name for the other port. An
-  # implementation with one flat union and one resolver per port satisfies AC1's headline and fails
-  # here.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A forge name legal for one port and illegal for another is refused on the port that cannot serve it
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -322,9 +268,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the provider request failed naming the platform "gitlab"
     And the boundary handed back no providers
 
-  # The default must survive untouched: every target repository in production today carries no
-  # `.adw/providers.md` at all and relies on the full GitHub set.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A repository naming no forge still gets the full GitHub set
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -335,23 +278,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     And the boundary's issue tracker was minted for the repository "acme/webapp"
     And the boundary's code host was minted for the repository "acme/webapp"
     And the boundary's board manager was minted for the repository "acme/webapp"
-
-  # The compile-time half of "closed", and the row the 1.0.0 promise actually rests on. A runtime
-  # throw makes a misconfigured repository fail at launch; a closed union makes a miswritten CONSUMER
-  # fail at build. Only the second is what "closed union" means, and only the second is frozen by the
-  # HITL review. The probe is a module the step authors into a throwaway directory and compiles
-  # against the real project config — the artefact asserted is the compiler's verdict.
-  #
-  # TWO THINGS THE PROBE SOURCE HAS TO GET RIGHT, both of which turn this row green for the wrong
-  # reason if they are missed. (a) `feature-817.steps.ts` writes the probe at
-  # `adws/zzProbe817-<rand>/probe.ts`, so every specifier is relative to THAT directory: `../providers/…`
-  # reaches `adws/providers/…`, while `./providers/…` reaches a path that does not exist and fails as
-  # an unresolvable module rather than on the forge name. (b) `… as never` COMPILES — `never` is
-  # assignable to every parameter type and the assertion is legal — so the cast must not be there; and
-  # a bare object literal missing `identity`/`tokenProvider`/`gitContext` short-circuits on the
-  # missing-property diagnostic before TypeScript ever elaborates into `forge.codeHost`. Spreading a
-  # `declare const` of the options type supplies those fields ambiently, leaving the forge name as the
-  # one diagnostic.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A forge name outside the union is rejected by the compiler, not only at runtime
@@ -366,26 +292,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       """
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile rejecting the forge name "bitbucket"
-
-  # ── §3  THE NON-GITHUB NAMES IN THE UNION REACH THEIR ADAPTERS (AC1; stories 4, 9) ────────
-  #
-  # A closed union whose non-GitHub members resolve to nothing is a type-level fiction. These two
-  # rows drive the real adapters against a recording HTTP endpoint through the wiring path — which
-  # is the path this issue moves. #818 built both drivers; they import `resolveCodeHost` and
-  # `jiraAuthFromEnv` from `adws/providers/repoContext` by generated absolute path
-  # (`feature-818.steps.ts:60,128`), and both move to `adws/core/`. Reusing the phrases is what
-  # forces the repoint, and a driver whose generated import fails writes no output rather than a
-  # clean error — so these rows are also the detector for that specific silent breakage.
-  #
-  # The GitLab row is a REGRESSION row: `resolveCodeHost(Platform.GitLab, …)` works today
-  # (`repoContext.ts:170-172`) and must keep working with its configuration arriving from
-  # `adws/core/`. The Jira row is NEW capability in one narrow sense — the adapter and its injected
-  # config shape both exist and both are tested (#818), `.adw/providers.md`'s
-  # `## Issue Tracker URL` and `## Issue Tracker Project Key` are already parsed
-  # (`core/providerConfig.ts:78-86`) and read by nobody, and `jiraIssueTracker.ts:17` records the
-  # wiring as this issue's. It is not a new forge OPERATION, so it is inside the PRD's "no new
-  # GitLab/Jira operations" boundary; but it is the row to revisit first if the HITL review narrows
-  # the union to the ports that have adapters today.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The gitlab code-host name reaches the GitLab adapter with its configuration injected
@@ -405,12 +311,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When ADW's provider wiring resolves Jira credentials and the issue tracker comments on issue 42 at the recording endpoint with project key "ADW"
     Then the recorded request carried the header "authorization" beginning with "Basic"
 
-  # The refusal must stay operator-legible after the move. `gitLabConfigFromEnv`'s message names the
-  # environment variable and tells the operator where to set it (`repoContext.ts:143`); the adapter
-  # itself is forbidden from naming an environment variable at all (#818 AC2). Moving the wiring to
-  # `adws/core/` is exactly the change that loses the message, by re-deriving the refusal inside the
-  # library where it cannot mention the environment.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A missing forge credential is still refused by the environment variable's name after the wiring moves
     Given a recording forge endpoint is listening
@@ -419,13 +319,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When ADW's provider wiring resolves a GitLab code host for "acme/widget" and performs the "default branch" operation
     Then the adapter refuses with an error naming "GITLAB_TOKEN"
     And the recording endpoint received no request
-
-  # ── §4  THE BOUNDARY IS THE ONLY CALLER, AND IT BEHAVES AS IT DOES TODAY (AC2; story 5) ───
-  #
-  # AC2 is a claim about who calls what, which is a source-tree claim; what is observable is that the
-  # boundary's guarantees survive being rebuilt on a new function. FINDING 7: the first row is the
-  # one that goes vacuous if the injection seam disappears — three minting records against one
-  # identity, or the four files that watch the boundary through that seam are watching nothing.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: One boundary call still binds all three providers to the identity its context names
@@ -439,10 +332,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     And the boundary's git context names the repository "acme/webapp"
     And the launch boundary read the local git remote at most once
 
-  # An explicit target must never be second-guessed by the local remote — the wrong-repo firewall's
-  # oldest invariant, and the one a rewrite of the mint call is most likely to disturb by re-reading
-  # identity on the provider path.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A target launch still binds every provider to the argument and never reads the local remote
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -451,12 +340,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the boundary's issue tracker was minted for the repository "octo/infra"
     And the boundary's code host was minted for the repository "octo/infra"
     And the launch boundary never read the local git remote
-
-  # The lazy-mint contract (`freezeBoundary`, `launchGitContext.ts:144-153`). The boundary CALL must
-  # stay free of the provider config's I/O, because a target repository is routinely not cloned yet
-  # when its boundary is built. An assembly function that validates its forge names eagerly at the
-  # boundary call — the natural way to implement "an unknown name throws at launch" — moves the
-  # `.adw/providers.md` read forward into a directory that does not exist.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A target repository that has not been cloned yet still gets a boundary and its providers
@@ -467,10 +350,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the boundary result carries a git context, an issue tracker, a code host and a board manager
     And the boundary's issue tracker was minted for the repository "octo/infra"
 
-  # FINDING 3. The workspace bind is the consumer that has to stop constructing. The instances must be
-  # the boundary's own — a passthrough that re-resolved would satisfy AC2 in the type system and
-  # defeat it in fact, since reused instances are the only evidence the identity travelled.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: Binding a workspace reuses the very providers the boundary assembled
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -478,15 +357,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the launch boundary is asked for the repository "acme/webapp"
     And a repo context is built for that workspace from the boundary's providers
     Then the repo context carries the same issue tracker and code host instances the boundary minted
-
-  # FINDING 3's observable half, and the one row in §4 that does NOT run in feature-794's world.
-  # `LaunchGitContextDeps` has no executor seam, so nothing in that harness can see WHICH context ran
-  # `git remote get-url` — the very question this row asks. #819's recording gh seam can: it is a real
-  # `GitContext` over a spy executor that records every command, so a remote read performed on the
-  # context that was handed in ARRIVES there, and one performed on a context the package built for
-  # itself does not. That is the whole discrimination. A builder who keeps a private factory alive
-  # inside the provider package to feed `validateGitRemote` passes every other row in this file and
-  # fails this one.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The workspace remote is read through the context the caller already holds
@@ -496,9 +366,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     Then the remote read reached the recording gh seam
     And the bound workspace carries the identity "acme/widget"
 
-  # And the check the bind exists for must survive: handing in providers is not a way to skip the
-  # wrong-repo worktree refusal.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A workspace whose origin contradicts the boundary is still refused when providers are handed in
     Given a launch boundary rooted in throwaway framework and target-repos directories
@@ -506,13 +373,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the launch boundary is asked for the repository "octo/infra"
     And a repo context is built for that workspace from the boundary's providers and any failure is captured
     Then building the repo context failed naming the repository the remote actually points at
-
-  # ── §5  THE RETIRED NAMES LEAVE THE PACKAGE'S SURFACE (AC2) ───────────────────────────────
-  #
-  # AC2's "are gone" in the only rot-safe form: a probe that imports the name and a compiler that
-  # cannot resolve it. A name deleted from a module but re-exported from the barrel — the single
-  # easiest way to "delete" `mintBoundProviders` while every caller keeps working — passes a
-  # source-text grep and fails this row.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The retired mint is no longer part of the provider package's surface
@@ -525,11 +385,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile naming the missing member "mintBoundProviders"
 
-  # The deleted module, from the consumer's side. `gitContextFor`, `gitContextForSync` and
-  # `gitContextForRepo` all lived in one file; an unresolvable module is the artefact that proves the
-  # file is gone rather than emptied, and it is what `checkGitGhGuard.test.ts:601-603` currently
-  # asserts by reading the file off disk (FINDING 6).
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The boundary-free context factory module cannot be imported at all
     Given a type probe module that reads:
@@ -541,11 +396,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the type probe is compiled against the ADW project
     Then the type probe fails to compile reporting the unresolvable module "../github/gitContextFactory"
 
-  # The positive direction, so the section cannot be satisfied by deleting things until nothing
-  # compiles. The assembly function must be reachable from the package barrel — it is the library's
-  # documented entry point, and #819 put `adws/providers/index.ts` in the extraction scope precisely
-  # so the barrel stays resolvable inside the extractable set.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The assembly function is reachable from the provider package's barrel
     Given a type probe module that reads:
@@ -556,23 +406,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       """
     When the type probe is compiled against the ADW project
     Then the type probe compiles
-
-  # ── §6  THE GUARD HOLDS THE WHOLE OF BOTH PACKAGES (AC3, AC4) ─────────────────────────────
-  #
-  # THE PIVOT. #819's file ends with a row titled "The transitional wiring file is still not checked"
-  # asserting that `adws/providers/repoContext.ts` importing `../core/environment`,
-  # `../core/projectConfig`, `../core/logger` and `../github/gitContextFactory` PASSES the guard —
-  # it had to, or AC4 of that slice was unreachable without doing this one in the same PR. This
-  # outline is that row inverted, and it is the single most important structural row in the file: the
-  # same four specifiers must now FAIL. Until the scope entry widens they all pass, so an
-  # implementation that removes the imports but forgets the entry leaves AC3 unenforced and this
-  # outline red.
-  #
-  # The fourth specifier is worth naming: `../core/providerConfig` is where #819 already moved the
-  # `.adw/providers.md` parser. It reaches the framework not through an import statement but through
-  # `repoContext.ts:42-43`'s RE-EXPORT, and the extraction rule collects `export … from` exactly like
-  # `import … from` (`extractionRule.ts:124`). Two lines that look like tidy backwards-compatibility
-  # are a build failure.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario Outline: The last unchecked provider file is now in scope and fails on a framework import
@@ -598,11 +431,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       | ../forge/hitlBoardNotifier  |
       | ../types/issueTypes         |
 
-  # The new module, and the reason the scope entry must be the DIRECTORY rather than a list of files.
-  # `forgeProviders.ts` does not exist yet, so no file entry can name it; and a builder who widens by
-  # appending `adws/providers/repoContext.ts` alone leaves every future top-level provider file
-  # unguarded, which is how the first re-entanglement lands silently.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario Outline: A framework import from any top-level provider module fails the guard
     Given a guard fixture tree holding the file "<path>":
@@ -621,13 +449,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       | adws/providers/forgeProviders.ts    | ../core/environment  |
       | adws/providers/forgeProviders.ts    | ../github/githubAppAuth |
       | adws/providers/someLaterFile.ts     | ../core              |
-
-  # The other direction, and the exact shape the assembly function has to take. Everything it needs
-  # resolves inside the extractable set: the executor and the `Logger` port from `adws/gitContext/`,
-  # the ports and the `RepoIdentifier` from `../types`, the three adapter packages from its own
-  # siblings. An implementation that satisfied the guard by inlining a private logger type instead of
-  # taking the port would be passing a test it did not need to pass; a rule that flagged any
-  # specifier leaving the file's own directory would fail the build on the very file this issue adds.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The assembly function reaching the executor, the ports, the logger port and its own adapters passes the guard
@@ -650,11 +471,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       """
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
-
-  # FINDING 5. The construction allowlist's permanent half, which the stale-entry ratchet is blind to
-  # by design. These two rows are the only thing that makes "the allowlist shrinks to
-  # `launchGitContext.ts` plus the assembly module" enforceable: the retired site must stop being
-  # sanctioned, and the new one must start.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: The retired wiring file is no longer sanctioned to construct a provider
@@ -689,12 +505,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # FINDING 6's last bullet, and PRD story 24. `getRepoInfo` has had no declaration since #821;
-  # `gitContextForRepo` loses its declaration here. Both are NAME-based AST matches, and the whole
-  # point of keeping them is that they outlive the files that declared them — otherwise the next
-  # cwd-derived identity fallback to be written under a familiar name lands unopposed. A builder
-  # tidying the guard sets after the deletion breaks this row and nothing else.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A cwd-derived identity feeding a context constructor is still caught after the factory is deleted
     When the git/gh guard scans a fixture source at "adws/triggers/reintroduced.ts" containing:
@@ -707,12 +517,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       }
       """
     Then the git/gh guard reports a violation in that fixture source
-
-  # The widen-only ratchet. WIDEN ONLY, NEVER NARROW is a property of a list, and the only way a test
-  # sees it is by re-running what every earlier slice pinned. This is the fifth and final widening,
-  # so all four predecessors' entries must still fire — including the two #817 file entries and the
-  # three #819 ones that a whole-directory widening subsumes, whether or not their list rows survive
-  # the tidy-up that reaching `adws/providers/**` invites.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario Outline: Every scope entry the earlier slices seeded still fails on a framework import
@@ -736,11 +540,6 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
       | adws/providers/jira/jiraApiClient.ts        | ../../core                |
       | adws/providers/workspaceValidation.ts       | ../core                   |
       | adws/providers/index.ts                     | ../core/logger            |
-
-  # The anti-relabel row every slice since #816 has re-run. A widening applied to file COLLECTION
-  # rather than to the extraction rule alone relabels or swallows an ordinary shell-out; and a
-  # widening that stopped pruning the two exempt packages from the whole-repo walk would start
-  # flagging the GitHub adapter's sanctioned `gh` command strings under the shell-out rule instead.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: A framework shell-out still fails under the shell-out rule, not the extraction rule
@@ -767,48 +566,12 @@ Feature: forgeProviders() is the library's one way to build a bound provider set
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # ── §7  THE EXTRACTION GATE: A FILE MOVE, PERFORMED (AC4) ─────────────────────────────────
-  #
-  # The row this whole issue exists for. #797 proved the git core could be lifted out on its own by
-  # copying it into an empty directory and importing it; "extraction is a file move" for BOTH
-  # packages is the same proof over both, and it is a strictly stronger statement than the guard's,
-  # because the guard reasons about specifiers while this resolves them.
-  #
-  # The two directories are copied SIDE BY SIDE, preserving their relative layout, because
-  # `adws/providers/**` reaching `../gitContext` is an intra-set hop the guard permits and extraction
-  # preserves — the packages move together, which is the PRD's scope-collapse decision. The provider
-  # barrel is the entry point, so this row transitively resolves `./types`, `./github`, `./gitlab`,
-  # `./jira` and whatever `./repoContext` has become. It is the row that cannot be green while
-  # `repoContext.ts` still re-exports from `adws/core/`, and it is the row that goes red if the barrel
-  # keeps a line pointing at a file the copy did not include.
-
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: Both extractable packages import cleanly when copied out of the framework together
     Given the git context and provider packages are copied side by side into an empty directory
     When the copied provider package is imported as its own entry point
     Then the import of the copied packages succeeds
     And the copied packages resolved no module outside their own directories
-
-  # ── §8  THE RATCHET (AC4, AC5) ────────────────────────────────────────────────────────────
-  #
-  # Three rows carrying every remaining criterion that is a statement about the tree, in the only
-  # form the rot rule permits.
-  #
-  # The whole-repo guard run shells the real `checkGitGhGuard.ts` binary, so all four rules fire over
-  # the real tree at once: extraction-readiness at its final scope, unsanctioned-construction against
-  # the rewritten allowlist, cwd-derived-identity against the surviving name sets, and shell-out.
-  #
-  # The stale-entry row is `main()`'s `findStaleSanctionedEntries` in isolation, and it is the
-  # executable form of "`gitContextFactory.ts` is gone": deleting the file removes it from
-  # `seenFiles`, its `owner: '#823'` entry is reported stale, and the build stays red until the
-  # allowlist edit lands. It fails for the right reason and cannot be satisfied by leaving the file
-  # in place.
-  #
-  # The type-check is the executable form of the rest of AC2 and of every bullet in FINDING 6, and it
-  # reaches further than `adws/` — the root `tsconfig.json` includes `**/*.ts`, so `healthCheck.tsx`,
-  # `feature-572.steps.ts`, `feature-818.steps.ts`, `feature-819.steps.ts`, the two provider unit
-  # suites and the launch-boundary suite are all inside what it asserts. It is the only row that
-  # catches the generated-driver import paths before a driver silently writes no output.
 
   @adw-823 @adw-0ja9uv-forgeproviders-assem
   Scenario: All four guard rules pass across the whole repository with both packages fully in scope

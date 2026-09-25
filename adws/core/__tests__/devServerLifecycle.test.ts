@@ -38,10 +38,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// ---------------------------------------------------------------------------
-// substitutePort
-// ---------------------------------------------------------------------------
-
 describe('substitutePort', () => {
   it('replaces {PORT} with the given port number', () => {
     expect(substitutePort('bun run dev --port {PORT}', 3456)).toBe(
@@ -59,10 +55,6 @@ describe('substitutePort', () => {
     expect(substitutePort('bun run dev', 3000)).toBe('bun run dev');
   });
 });
-
-// ---------------------------------------------------------------------------
-// spawnServer
-// ---------------------------------------------------------------------------
 
 describe('spawnServer', () => {
   it('calls spawn with detached: true', () => {
@@ -105,10 +97,6 @@ describe('spawnServer', () => {
     expect(fakeProc.unref).toHaveBeenCalledOnce();
   });
 });
-
-// ---------------------------------------------------------------------------
-// probeHealth
-// ---------------------------------------------------------------------------
 
 describe('probeHealth', () => {
   it('returns true immediately when fetch responds with 200', async () => {
@@ -172,10 +160,6 @@ describe('probeHealth', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// killProcessGroup
-// ---------------------------------------------------------------------------
-
 describe('killProcessGroup', () => {
   it('sends SIGTERM to the negative PID (process group)', () => {
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
@@ -211,14 +195,9 @@ describe('killProcessGroup', () => {
       throw err;
     });
 
-    // Should not throw
     expect(() => killProcessGroup(99999, 100)).not.toThrow();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 describe('constants', () => {
   it('PROBE_INTERVAL_MS is 1000 (1 second)', () => {
@@ -237,10 +216,6 @@ describe('constants', () => {
     expect(KILL_GRACE_MS).toBe(5000);
   });
 });
-
-// ---------------------------------------------------------------------------
-// withDevServer — integration scenarios
-// ---------------------------------------------------------------------------
 
 describe('withDevServer', () => {
   it('substitutes {PORT} in the start command before spawning', async () => {
@@ -437,12 +412,9 @@ describe('withDevServer', () => {
     await vi.advanceTimersByTimeAsync(100);
     await promise;
 
-    // SIGTERM should have been sent
     expect(killSpy).toHaveBeenCalledWith(-12345, 'SIGTERM');
-    // SIGKILL should not yet have been sent (grace period not elapsed)
     expect(killSpy).not.toHaveBeenCalledWith(-12345, 'SIGKILL');
 
-    // Advance past the grace period
     await vi.advanceTimersByTimeAsync(KILL_GRACE_MS + 100);
     expect(killSpy).toHaveBeenCalledWith(-12345, 'SIGKILL');
   });

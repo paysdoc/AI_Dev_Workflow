@@ -1,11 +1,8 @@
 /**
- * The cron's open-issue listing, extracted out of trigger_cron.ts.
- *
  * trigger_cron.ts has import-time side effects (setInterval, the entry-script
  * guard, the boundary build), so a module-private function there cannot be
- * driven from a step definition — the same finding #796 recorded for
- * initializeWorkflow. Extracting it here also keeps trigger_cron.ts, already
- * over the line guideline, from gaining a function.
+ * driven from a step definition. Extracting it here also keeps
+ * trigger_cron.ts, already over the line guideline, from gaining a function.
  */
 
 import { log } from '../core';
@@ -22,7 +19,6 @@ export interface RawIssue {
   labels: { name: string }[];
 }
 
-/** Fetches all open issues with body, comments, and timestamps. */
 export function listCronOpenIssues(issueTracker: Pick<IssueTracker, 'listIssues'>): RawIssue[] {
   try {
     return issueTracker.listIssues({

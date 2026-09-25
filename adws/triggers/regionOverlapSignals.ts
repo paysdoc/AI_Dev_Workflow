@@ -1,6 +1,4 @@
 /**
- * Side-effecting boundary for region-overlap serialization.
- *
  * The pure decision lives in regionOverlap.ts. This module performs the GitHub
  * I/O that makes a serialization decision DURABLE and AUDITABLE: it registers an
  * annotated `## Blocked by #N` dependency on the deferred issue and posts a
@@ -19,7 +17,6 @@ export const REGION_OVERLAP_MARKER = '<!-- adw:region-overlap -->';
 /** The tracker surface region-overlap registration needs — a bound provider, no repository parameter to get wrong. */
 export type RegionOverlapRegistrationDeps = Pick<IssueTracker, 'updateIssueBody' | 'commentOnIssue'>;
 
-/** The annotated blocked-by reference line for a given blocker. */
 export function blockedByRef(blockedBy: number): string {
   return `#${blockedBy} ${REGION_OVERLAP_MARKER}`;
 }
@@ -43,7 +40,6 @@ export function buildBlockedByBody(currentBody: string, blockedBy: number): stri
   return `${currentBody.trimEnd()}\n\n## Blocked by\n${ref}\n`;
 }
 
-/** One-time explanatory comment naming the blocker and the overlapping paths. */
 export function formatRegionOverlapComment(deferral: OverlapDeferral): string {
   const paths = deferral.overlapPaths.length > 0
     ? deferral.overlapPaths.map(p => `- \`${p}\``).join('\n')

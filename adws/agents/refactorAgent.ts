@@ -1,16 +1,9 @@
-/**
- * Refactor Agent - Applies coding-guideline fixes via the /refactor skill.
- * Mirrors patchAgent.ts but routes to /refactor instead of /patch.
- */
-
 import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, type AgentResult, type AgentLaunchContext } from './claudeAgent';
 import type { ReviewIssue } from './reviewAgent';
 
 /**
- * Runs the /refactor command for a consolidated guideline-violation blocker.
- *
  * Receives the blocker whose issueDescription enumerates affected files and
  * violated rules. Forwards the description verbatim so the /refactor skill
  * has a clean, deterministic file list without losing rule context.

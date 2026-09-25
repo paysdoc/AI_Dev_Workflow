@@ -1,7 +1,4 @@
 /**
- * Schema probe: spawns the Claude CLI with a minimal prompt and extracts the
- * JSONL envelope schema from the real output, writing it to schema.json.
- *
  * Run standalone: bunx tsx adws/jsonl/schemaProbe.ts
  */
 
@@ -16,11 +13,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SCHEMA_PATH = path.join(__dirname, 'schema.json');
 
-// ---------------------------------------------------------------------------
-// Field schema extraction
-// ---------------------------------------------------------------------------
-
-/** Determines the JSON type of a value for SchemaField representation. */
 function getJsonType(value: unknown): SchemaField['type'] {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';
@@ -29,10 +21,7 @@ function getJsonType(value: unknown): SchemaField['type'] {
   return 'string';
 }
 
-/**
- * Recursively walks an object and extracts its field structure as SchemaField[].
- * All observed fields are marked required:true (probe sees one live example).
- */
+/** All observed fields are marked required:true (probe sees one live example). */
 export function extractFieldSchema(obj: unknown): SchemaField[] {
   if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return [];
 
@@ -46,11 +35,6 @@ export function extractFieldSchema(obj: unknown): SchemaField[] {
   });
 }
 
-// ---------------------------------------------------------------------------
-// CLI probe
-// ---------------------------------------------------------------------------
-
-/** Spawns the Claude CLI with a minimal prompt and captures raw stdout. */
 function runProbe(claudePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const cliArgs = ['--print', '--output-format', 'stream-json', 'say hello'];
@@ -81,16 +65,6 @@ function runProbe(claudePath: string): Promise<string> {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Probes the Claude CLI with a minimal "say hello" prompt, extracts the JSONL
- * envelope schema from the output, and writes it to schema.json.
- *
- * @returns The extracted EnvelopeSchema.
- */
 export async function probeClaudeJsonlSchema(): Promise<EnvelopeSchema> {
   let claudePath: string;
   try {
@@ -147,10 +121,6 @@ export async function probeClaudeJsonlSchema(): Promise<EnvelopeSchema> {
 
   return schema;
 }
-
-// ---------------------------------------------------------------------------
-// Standalone entry point
-// ---------------------------------------------------------------------------
 
 const isMain = path.resolve(process.argv[1] ?? '') === path.resolve(__filename);
 if (isMain) {

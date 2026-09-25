@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwReview — reviewPhase — happy path
 
-  # Row 7: review phase runs; orchestrator posts comment to mock API.
   Scenario: review orchestrator completes review phase and posts a comment
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1007 exists in the mock issue tracker

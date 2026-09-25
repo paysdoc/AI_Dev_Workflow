@@ -10,10 +10,6 @@ import {
   type ConditionalDocsRegistry,
 } from '../conditionalDocsRegistry';
 
-// ---------------------------------------------------------------------------
-// Canonical fixture — includes one new-format entry (Owns:) and one legacy entry
-// ---------------------------------------------------------------------------
-
 const CANONICAL = `# Conditional Documentation
 
 - app_docs/feature-new.md
@@ -43,10 +39,6 @@ const CANONICAL_REGISTRY: ConditionalDocsRegistry = {
   ],
 };
 
-// ---------------------------------------------------------------------------
-// §1 Round-trip
-// ---------------------------------------------------------------------------
-
 describe('round-trip: serialize(parse(canonical)) === canonical', () => {
   it('full canonical fixture round-trips losslessly', () => {
     expect(serializeConditionalDocs(parseConditionalDocs(CANONICAL))).toBe(CANONICAL);
@@ -58,10 +50,6 @@ describe('round-trip: serialize(parse(canonical)) === canonical', () => {
     );
   });
 });
-
-// ---------------------------------------------------------------------------
-// §2 Legacy tolerance — no Owns: block
-// ---------------------------------------------------------------------------
 
 describe('legacy tolerance — no Owns: block', () => {
   const LEGACY = `# Conditional Documentation
@@ -81,10 +69,6 @@ describe('legacy tolerance — no Owns: block', () => {
     expect(serializeConditionalDocs(parseConditionalDocs(LEGACY))).toBe(LEGACY);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §3 Non-app_docs docPath
-// ---------------------------------------------------------------------------
 
 describe('non-app_docs docPath', () => {
   const NON_APPDOCS = `# Conditional Documentation
@@ -110,10 +94,6 @@ describe('non-app_docs docPath', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// §4 Preamble preserved
-// ---------------------------------------------------------------------------
-
 describe('preamble preserved through round-trip', () => {
   it('# Conditional Documentation header survives round-trip', () => {
     const reg = parseConditionalDocs(CANONICAL);
@@ -122,10 +102,6 @@ describe('preamble preserved through round-trip', () => {
     expect(serialized.startsWith('# Conditional Documentation\n\n')).toBe(true);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §5 Malformed / edge cases
-// ---------------------------------------------------------------------------
 
 describe('malformed / edge cases', () => {
   it('empty string → empty registry with empty preamble', () => {
@@ -182,10 +158,6 @@ describe('malformed / edge cases', () => {
     expect(serializeConditionalDocs(reg)).toBe(content);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §6 findOwningEntry — glob matching
-// ---------------------------------------------------------------------------
 
 describe('findOwningEntry', () => {
   const registry: ConditionalDocsRegistry = {
@@ -249,10 +221,6 @@ describe('findOwningEntry', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// §7 upsertEntry
-// ---------------------------------------------------------------------------
-
 describe('upsertEntry', () => {
   const baseRegistry: ConditionalDocsRegistry = {
     preamble: '# Conditional Documentation\n\n',
@@ -310,10 +278,6 @@ describe('upsertEntry', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// §8 Glob matcher boundary cases
-// ---------------------------------------------------------------------------
-
 describe('glob matcher boundary cases', () => {
   const makeSingleEntry = (glob: string): ConditionalDocsRegistry => ({
     preamble: '',
@@ -360,10 +324,6 @@ describe('glob matcher boundary cases', () => {
     expect(matches('adws/core/foo(bar).ts', 'adws/core/fooXbar.ts')).toBe(false);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §9 findOwningEntries
-// ---------------------------------------------------------------------------
 
 describe('findOwningEntries', () => {
   const registry: ConditionalDocsRegistry = {
@@ -416,10 +376,6 @@ describe('findOwningEntries', () => {
     expect(findOwningEntries(registry, [])).toEqual([]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// §10 collapseEntries
-// ---------------------------------------------------------------------------
 
 describe('collapseEntries', () => {
   const base: ConditionalDocsRegistry = {

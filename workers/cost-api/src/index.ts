@@ -1,7 +1,4 @@
 /**
- * Cost API Worker
- *
- * Exposes cost data via authenticated HTTP endpoints backed by a D1 database.
  * All routes require a Bearer token matching `COST_API_TOKEN`, except OPTIONS
  * preflight requests which are handled without auth.
  *
@@ -22,7 +19,6 @@ import type { Env } from './types.ts';
 
 const router = Router();
 
-// OPTIONS preflight — no auth required
 router.options('*', (request: IRequest, env: Env) => handleOptions(request, env));
 
 function requireAuth(request: IRequest, env: Env): Response | undefined {

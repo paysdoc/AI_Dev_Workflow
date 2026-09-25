@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwTest — scenarioFixPhase — error path
 
-  # Row 23: failing scenario triggers fix phase; error recorded if unresolvable.
   Scenario: test orchestrator runs scenario fix phase and records no error in worktree state
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1023 exists in the mock issue tracker

@@ -1,9 +1,3 @@
-/**
- * Build Agent - Implements solutions based on implementation plans.
- * Uses the /implement slash command from .claude/commands/implement.md
- * or /implement-tdd when BDD scenarios tagged @adw-{issueNumber} are present.
- */
-
 import { log } from '../core';
 import type { Issue } from '@paysdoc/devplatform';
 import type { PrReviewPullRequest } from './planAgent';
@@ -29,18 +23,6 @@ const prReviewBuildAgentConfig: CommandAgentConfig<void> = {
   outputFileName: 'pr-review-build-agent.jsonl',
 };
 
-/**
- * Runs the Build Agent to implement PR review changes.
- * Uses the /implement slash command with the revision plan as arguments.
- *
- * @param prDetails - PR details including number, title, branch, etc.
- * @param revisionPlan - The revision plan to implement
- * @param logsDir - Directory to write agent logs
- * @param onProgress - Optional callback for progress updates
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- * @param issueBody - Optional issue body for model/effort selection
- */
 export async function runPrReviewBuildAgent(
   pr: PrReviewPullRequest,
   revisionPlan: string,
@@ -75,20 +57,6 @@ ${revisionPlan}`;
   });
 }
 
-/**
- * Runs the Build Agent to implement the solution.
- * Detects BDD scenario files tagged @adw-{issueNumber} in the worktree.
- * When scenarios are found, routes to /implement-tdd (TDD red-green-refactor mode)
- * and includes scenario file paths in the agent context.
- * Falls back to /implement when no scenarios are found.
- *
- * @param issue - GitHub issue to implement
- * @param logsDir - Directory to write agent logs
- * @param planContent - The implementation plan content
- * @param onProgress - Optional callback for progress updates
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent and scenario detection (defaults to process.cwd())
- */
 export async function runBuildAgent(
   issue: Issue,
   logsDir: string,

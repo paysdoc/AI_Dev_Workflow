@@ -1,6 +1,4 @@
 /**
- * processLiveness — PID-plus-start-time authoritative liveness checks.
- *
  * Closes the PID-reuse hazard: after a reboot or long uptime the OS may recycle
  * a PID to an unrelated process. A bare `kill -0 pid` returns true for *any*
  * occupant of that PID slot. This module pairs `kill -0` with the process

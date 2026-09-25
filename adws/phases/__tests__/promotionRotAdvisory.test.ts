@@ -27,8 +27,6 @@ const sampleVerdicts: RotVerdict[] = [
   { step: 'a foo happens', keyword: 'Given', reuse: 'new', rot: 'VALID', note: 'ok' },
 ];
 
-// ── runPromotionRotAdvisory: the injectable core — no mocking needed for its own deps ──
-
 describe('runPromotionRotAdvisory (injectable core)', () => {
   it('label absent → analyze and postComment are never called', async () => {
     const analyze = vi.fn(async () => sampleVerdicts);
@@ -79,8 +77,6 @@ describe('runPromotionRotAdvisory (injectable core)', () => {
     ).resolves.toBeUndefined();
   });
 });
-
-// ── executePromotionRotAdvisory: the WorkflowConfig adapter ────────────────────────────
 
 const okAgentResult = {
   success: true,

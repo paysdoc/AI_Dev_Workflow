@@ -1,16 +1,3 @@
-/**
- * PhaseRunner — encapsulates per-phase cost-tracking boilerplate.
- *
- * Every composite orchestrator repeats the same pattern after each phase:
- *   1. Accumulate costUsd and modelUsage into running totals.
- *   2. Persist token counts to the orchestrator state file.
- *   3. Optionally update config.ctx.runningTokenTotal for live GitHub comments.
- *   4. Commit phase cost records to D1.
- *
- * PhaseRunner captures that pattern so orchestrators only list which phases
- * to run rather than repeating the bookkeeping lines.
- */
-
 import { RUNNING_TOKENS } from './config';
 import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from '../cost';
 import type { ModelUsageMap, PhaseCostRecord } from '../cost';
@@ -20,28 +7,14 @@ import { RateLimitError, AgentTimeoutError } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 
-
-/**
- * The result shape every phase function must return.
- * Matches the existing return type of all executeXxxPhase() functions.
- * phaseCostRecords is optional for phases that do not track CSV cost records.
- */
 export interface PhaseResult {
   costUsd: number;
   modelUsage: ModelUsageMap;
   phaseCostRecords?: PhaseCostRecord[];
 }
 
-/**
- * A workflow phase function: receives the current WorkflowConfig
- * (which may include an updated totalModelUsage) and returns a PhaseResult.
- */
 export type PhaseFn = (config: WorkflowConfig) => Promise<PhaseResult>;
 
-/**
- * CostTracker accumulates cost and model usage across phases and provides
- * helpers to persist and commit after each phase.
- */
 export class CostTracker {
   private _totalCostUsd = 0;
   private _totalModelUsage: ModelUsageMap = {};
@@ -54,18 +27,11 @@ export class CostTracker {
     return this._totalModelUsage;
   }
 
-  /**
-   * Adds a phase result's cost and model usage to the running totals.
-   */
   accumulate(result: PhaseResult): void {
     this._totalCostUsd += result.costUsd;
     this._totalModelUsage = mergeModelUsageMaps(this._totalModelUsage, result.modelUsage);
   }
 
-  /**
-   * Persists the current token totals to the orchestrator state file
-   * and optionally updates the live running-token display.
-   */
   persist(config: WorkflowConfig): void {
     persistTokenCounts(config.orchestratorStatePath, this._totalCostUsd, this._totalModelUsage);
     if (RUNNING_TOKENS) {
@@ -75,9 +41,7 @@ export class CostTracker {
     config.totalModelUsage = this._totalModelUsage;
   }
 
-  /**
-   * Posts phase cost records to D1. Errors are swallowed so cost failures never abort a workflow.
-   */
+  /** Errors are swallowed so cost failures never abort a workflow. */
   async commit(config: WorkflowConfig, records: PhaseCostRecord[]): Promise<void> {
     if (records.length === 0) return;
     const repoName = config.targetRepo?.repo ?? config.repoContext?.repoId.repo ?? 'unknown';
@@ -86,10 +50,7 @@ export class CostTracker {
   }
 }
 
-/**
- * Appends a phase name to the completedPhases list in the orchestrator state metadata.
- * Reads existing metadata to avoid clobbering other fields.
- */
+/** Reads existing metadata to avoid clobbering other fields. */
 function recordCompletedPhase(config: WorkflowConfig, phaseName: string): void {
   const existing = AgentStateManager.readState(config.orchestratorStatePath);
   const existingMeta = (existing?.metadata ?? {}) as Record<string, unknown>;
@@ -102,17 +63,8 @@ function recordCompletedPhase(config: WorkflowConfig, phaseName: string): void {
 }
 
 /**
- * Runs a single phase, accumulates its results into the tracker,
- * persists token counts, and commits cost data.
- *
  * Catches RateLimitError and delegates to handleRateLimitPause (exits 0).
  * When phaseName is provided and config.completedPhases includes it, the phase is skipped.
- *
- * @param config - Mutable WorkflowConfig shared across all phases.
- * @param tracker - CostTracker accumulating totals across the workflow.
- * @param fn - The phase function to execute.
- * @param phaseName - Optional name for skip-on-resume and cost-record tracking.
- * @returns The phase result (for callers that need phase-specific fields).
  */
 export async function runPhase<R extends PhaseResult>(
   config: WorkflowConfig,
@@ -120,7 +72,6 @@ export async function runPhase<R extends PhaseResult>(
   fn: (config: WorkflowConfig) => Promise<R>,
   phaseName?: string,
 ): Promise<R> {
-  // Skip already-completed phases on resume.
   // When the top-level phases map has an entry for this phase, its status is authoritative.
   // Fall back to the legacy completedPhases string array only when no phases map entry exists.
   if (phaseName) {
@@ -141,7 +92,6 @@ export async function runPhase<R extends PhaseResult>(
     }
   }
 
-  // Record phase as running before execution
   const startedAt = new Date().toISOString();
   if (phaseName && config.adwId) {
     AgentStateManager.writeTopLevelState(config.adwId, {
@@ -197,10 +147,7 @@ export async function runPhase<R extends PhaseResult>(
   }
 }
 
-/**
- * Runs a sequence of phases in order, returning all results.
- * Each phase sees the updated config.totalModelUsage from the previous phase.
- */
+/** Each phase sees the updated config.totalModelUsage from the previous phase. */
 export async function runPhasesSequential<R extends PhaseResult>(
   config: WorkflowConfig,
   tracker: CostTracker,
@@ -213,10 +160,7 @@ export async function runPhasesSequential<R extends PhaseResult>(
   return results;
 }
 
-/**
- * Runs phases concurrently and merges their combined results into the tracker.
- * Use only when the phases have no data dependency on each other.
- */
+/** Use only when the phases have no data dependency on each other. */
 export async function runPhasesParallel<R extends PhaseResult>(
   config: WorkflowConfig,
   tracker: CostTracker,

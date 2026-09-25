@@ -10,8 +10,6 @@ import type { AdwLabelReading } from '../../core/adwLabels';
 import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-
 const REPO_INFO = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const FAKE_BOUNDARY = { repoId: REPO_INFO, providers: {} } as unknown as LaunchBoundary;
 
@@ -40,8 +38,6 @@ function makeParams(overrides: Partial<Parameters<typeof routeIssueOpened>[0]> =
     ...overrides,
   };
 }
-
-// ── decideIssueOpenedRoute ────────────────────────────────────────────────────
 
 describe('decideIssueOpenedRoute', () => {
   it('optOut true → opt_out', () => {
@@ -73,8 +69,6 @@ describe('decideIssueOpenedRoute', () => {
   });
 });
 
-// ── extractPayloadLabelNames ──────────────────────────────────────────────────
-
 describe('extractPayloadLabelNames', () => {
   it('undefined issue → []', () => {
     expect(extractPayloadLabelNames(undefined)).toEqual([]);
@@ -104,8 +98,6 @@ describe('extractPayloadLabelNames', () => {
     expect(extractPayloadLabelNames({ labels: [{ name: 42 }, { name: 'adw:feature' }] })).toEqual(['adw:feature']);
   });
 });
-
-// ── routeIssueOpened ──────────────────────────────────────────────────────────
 
 describe('routeIssueOpened', () => {
   it('AC1: adw:none → opted_out; no spawn, no comment, no eligibility check', async () => {
@@ -160,8 +152,6 @@ describe('routeIssueOpened', () => {
     expect(deps.classifyAndSpawn).not.toHaveBeenCalled();
   });
 });
-
-// ── MULTI_LABEL_REFUSAL_COMMENT marker guards ─────────────────────────────────
 
 describe('MULTI_LABEL_REFUSAL_COMMENT', () => {
   it('does not match the ADW emoji heading pattern /^## :[a-z_]+: /m', () => {

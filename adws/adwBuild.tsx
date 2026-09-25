@@ -1,17 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Build - AI Developer Workflow Implementation Phase
- *
  * Usage: bunx tsx adws/adwBuild.tsx <github-issueNumber> [adw-id] [--issue-type <type>] [--cwd <path>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Verify plan file exists at specs/issue-{number}-plan.md
- * 3. Build Phase: run build agent, commit implementation
- * 4. Finalize: update state, post completion comment
- *
- * Prerequisites:
- * - Plan file must exist at specs/issue-{number}-plan.md in the worktree
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -35,9 +24,6 @@ import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 
-/**
- * Main orchestrator workflow.
- */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);

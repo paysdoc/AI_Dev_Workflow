@@ -1,7 +1,6 @@
 @regression @surface
 Feature: adwReview — planValidationPhase — happy path
 
-  # Row 33: plan validation phase runs before review; state updated to awaiting_merge.
   Scenario: review orchestrator completes plan validation phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1033 exists in the mock issue tracker

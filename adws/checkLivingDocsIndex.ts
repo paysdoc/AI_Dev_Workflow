@@ -1,19 +1,13 @@
 /**
- * checkLivingDocsIndex.ts — CI gate over the docs-index health module.
+ * Credential-free: lists repo files with a filesystem walk instead of
+ * `git ls-files`, so it constructs no GitContext and needs no forge
+ * access — it runs in a bare CI checkout. Every check is shared with
+ * `adws/core/docsIndexHealth.ts`, the same module the cron sweep
+ * (`docsIndexSweep.ts`) uses, so the gate and the sweep can never drift
+ * apart.
  *
- * `bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`
- * on every `pull_request` and `push`. Credential-free: lists repo files with
- * a filesystem walk instead of `git ls-files`, so it constructs no
- * GitContext and needs no forge access — it runs in a bare CI checkout.
- * Every check is shared with `adws/core/docsIndexHealth.ts`, the same module
- * the cron sweep (`docsIndexSweep.ts`) uses, so the gate and the sweep can
- * never drift apart.
- *
- * A dangling entry or any judgement-required violation (non-canonical
- * serialization, a duplicate docPath, an orphan doc, an overlapping
- * `Owns:` glob, an entry count outside the band) fails the gate. A dead
- * `Owns:` glob is a non-fatal WARNING — a chore PR that renames a file must
- * not be blocked; the sweep prunes it within one cadence.
+ * A dead `Owns:` glob is a non-fatal WARNING — a chore PR that renames a file
+ * must not be blocked; the sweep prunes it within one cadence.
  *
  * Run via: bunx tsx adws/checkLivingDocsIndex.ts [rootDir]
  * Exits 0 if the index is clean (warnings aside), 1 otherwise.
@@ -30,10 +24,6 @@ import {
   type DocsIndexRepair,
 } from './core/docsIndexHealth';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const INDEX_PATH = '.adw/conditional_docs.md';
 
 /** Directory basenames never descended into, at ANY depth — never legitimate source directory names. */
@@ -47,10 +37,6 @@ const IGNORED_DIR_NAMES_ANYWHERE = new Set(['.git', 'node_modules']);
  * anywhere in the tree would wrongly prune real source directories from the walk.
  */
 const IGNORED_TOP_LEVEL_DIRS = new Set(['.worktrees', 'dist', 'coverage', 'logs', 'agents']);
-
-// ---------------------------------------------------------------------------
-// I/O boundary — all filesystem reads isolated here
-// ---------------------------------------------------------------------------
 
 function readIndexContent(rootDir: string): string {
   const full = path.join(rootDir, INDEX_PATH);
@@ -80,18 +66,10 @@ function visitDir(dir: string, rootDir: string, acc: string[]): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Report formatting
-// ---------------------------------------------------------------------------
-
 function pushCheck(lines: string[], label: string, passed: boolean, detail: string | undefined): void {
   lines.push(`  ${passed ? '✔ PASS' : '✖ FAIL'}  ${label}`);
   if (!passed && detail) lines.push(`         ${detail.replace(/\n/g, '\n         ')}`);
 }
-
-// ---------------------------------------------------------------------------
-// Runner — exported for tests and the CLI entry point below
-// ---------------------------------------------------------------------------
 
 export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lines: string[] } {
   const content = readIndexContent(rootDir);
@@ -165,10 +143,6 @@ export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lin
 
   return { exitCode: failed ? 1 : 0, lines };
 }
-
-// ---------------------------------------------------------------------------
-// CLI entry point
-// ---------------------------------------------------------------------------
 
 function main(): void {
   const rootDir = path.resolve(process.argv[2] ?? process.cwd());

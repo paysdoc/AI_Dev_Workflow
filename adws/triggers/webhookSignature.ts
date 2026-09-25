@@ -5,10 +5,7 @@ interface SignatureValidationResult {
   error?: string;
 }
 
-/**
- * Validates a GitHub webhook HMAC-SHA256 signature against the raw request body.
- * Uses constant-time comparison to prevent timing attacks.
- */
+/** Uses constant-time comparison to prevent timing attacks. */
 export function validateWebhookSignature(
   rawBody: Buffer,
   secret: string,

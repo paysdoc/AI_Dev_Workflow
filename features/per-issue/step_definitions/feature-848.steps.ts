@@ -1,31 +1,4 @@
 /**
- * BDD step definitions for feature-848.feature
- *
- * Reuses, and never re-registers, phrases already defined by:
- *  - features/step_definitions/ensureCronOnEveryEventSteps.ts:
- *      "the ADW codebase is checked out"
- *  - feature-796.steps.ts:
- *      "a launch boundary for the repository {string} whose providers record every call"
- *      "issue {int} carries the label {string}"
- *      "issue {int} carries no labels"
- *      "the branch {string} has a pull request numbered {int} in state {string}"
- *      "pull request {int} has no approving review"
- *      "the merge orchestrator's production dependencies are built from that boundary"
- *      "the merge orchestrator runs for issue {int} under adw id {string}"
- *      "the merge orchestrator reports the outcome {string} for reason {string}"
- *  - feature-820.steps.ts:
- *      "the recording code host reports that it can approve pull requests"
- *      "a workflow configuration bound to that boundary whose pull request url names pull request {int}"
- *      "the review phase completes with no blocker issues for that configuration"
- *      "the boundary's code host recorded an approval of pull request {int}"
- *      "the boundary's code host recorded no approval"
- *      "the review phase reported the review as passed"
- *
- * Re-registering any phrase above would raise an AmbiguousStepDefinition and break every suite
- * that shares it. This file introduces only the seven phrases feature-848.feature adds: two
- * issue-record label overrides, a logger-capture Given/Then pair, and three recording-code-host
- * behaviour flags.
- *
  * The @adw-796 and @adw-820 Before/After hooks are tag-scoped and do not fire for @adw-848
  * scenarios, so this file owns its own reset/cleanup — over the same shared world796() state,
  * plus feature-820's local state via the two exports it added for this purpose
@@ -41,19 +14,15 @@ import { world796, resetWorld } from './feature-796.steps.ts';
 import { resetFeature820State, currentWorkflowConfig } from './feature-820.steps.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 
-// ── Local module state — the captured logger output ────────────────────────────
-
 let capturedLog: string[] | null = null;
 let originalConsoleLog: typeof console.log | null = null;
 
-/** Restores console.log if a capture is active. Idempotent. */
+/** Idempotent. */
 function stopLogCapture(): void {
   if (!originalConsoleLog) return;
   console.log = originalConsoleLog;
   originalConsoleLog = null;
 }
-
-// ── Hooks ────────────────────────────────────────────────────────────────────
 
 Before({ tags: '@adw-848' }, function () {
   resetWorld();
@@ -78,8 +47,6 @@ After({ tags: '@adw-848' }, function () {
   resetWorld();
 });
 
-// ── §1 — issue-record label overrides (the workflow-start snapshot) ────────────
-
 Given('the issue record in that configuration carries the label {string}', function (label: string) {
   currentWorkflowConfig().issue.labels = [label];
 });
@@ -87,8 +54,6 @@ Given('the issue record in that configuration carries the label {string}', funct
 Given('the issue record in that configuration carries no labels', function () {
   currentWorkflowConfig().issue.labels = [];
 });
-
-// ── §1 — logger capture ─────────────────────────────────────────────────────────
 
 Given('the ADW logger\'s output is captured', function () {
   originalConsoleLog = console.log;
@@ -111,8 +76,6 @@ Then(
     );
   },
 );
-
-// ── §3/§4 — recording code host behaviour flags ─────────────────────────────────
 
 Given('the recording code host reports every pull request approval as failed', function () {
   const w = world796();

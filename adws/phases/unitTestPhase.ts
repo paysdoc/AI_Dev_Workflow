@@ -1,14 +1,3 @@
-/**
- * Test phase execution for workflows.
- *
- * Runs unit tests only (opt-out). BDD scenario execution has moved to the
- * Review phase where step definitions are guaranteed to exist.
- *
- * - Unit tests run unless `.github/adw.yml` sets `unitTests: false` (opt-out).
- * - When unit tests are disabled, the phase passes immediately.
- * - Default (absent file, absent key, or malformed value): unit tests run.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -31,14 +20,10 @@ import { BoardStatus } from '@paysdoc/devplatform';
 import { reportStackCoherence } from './stackCoherenceReporter';
 
 /**
- * Executes the Test phase: optionally run unit tests (unit tests only).
- *
  * Unit tests are skipped when `.github/adw.yml` has `unitTests: false` (opt-out).
  * Default when absent or key omitted: unit tests run (enabled).
  *
  * BDD scenarios are now run in the Review phase after step definitions are generated.
- *
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
@@ -60,7 +45,6 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
 
   reportStackCoherence(config);
 
-  // --- Unit tests gate (opt-out; reads .github/adw.yml unitTests, default: enabled) ---
   const unitTestsEnabled = adwYmlConfig.unitTests;
 
   if (unitTestsEnabled) {

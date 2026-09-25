@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock dependencies before importing the module under test
 vi.mock('../scenarioProof', () => ({
   runScenarioProof: vi.fn(),
 }));
@@ -115,13 +114,8 @@ beforeEach(() => {
   mockWithDevServer.mockReset();
   mockCreatePhaseCostRecords.mockReset();
   mockCreatePhaseCostRecords.mockReturnValue([]);
-  // withDevServer calls work() and returns the result
   mockWithDevServer.mockImplementation(async (_cfg, work) => work());
 });
-
-// ---------------------------------------------------------------------------
-// 1. Skip when no scenarios configured
-// ---------------------------------------------------------------------------
 
 describe('executeScenarioTestPhase — skip when no scenarios', () => {
   it('returns passing result immediately when scenariosMd is empty', async () => {
@@ -143,10 +137,6 @@ describe('executeScenarioTestPhase — skip when no scenarios', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. Skip when runScenariosByTag is N/A
-// ---------------------------------------------------------------------------
-
 describe('executeScenarioTestPhase — skip when runScenariosByTag is N/A', () => {
   it('returns passing result immediately when runScenariosByTag is N/A', async () => {
     const config = makeConfig({ runScenariosByTag: 'N/A' });
@@ -157,10 +147,6 @@ describe('executeScenarioTestPhase — skip when runScenariosByTag is N/A', () =
     expect(mockWithDevServer).not.toHaveBeenCalled();
   });
 });
-
-// ---------------------------------------------------------------------------
-// 3. Runs without dev server
-// ---------------------------------------------------------------------------
 
 describe('executeScenarioTestPhase — without dev server', () => {
   it('calls runScenarioProof directly when startDevServer is N/A', async () => {
@@ -199,10 +185,6 @@ describe('executeScenarioTestPhase — without dev server', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 4. Runs with dev server
-// ---------------------------------------------------------------------------
-
 describe('executeScenarioTestPhase — with dev server', () => {
   it('wraps runScenarioProof in withDevServer when startDevServer is configured', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
@@ -237,10 +219,6 @@ describe('executeScenarioTestPhase — with dev server', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// 5. Returns structured result
-// ---------------------------------------------------------------------------
-
 describe('executeScenarioTestPhase — structured result', () => {
   it('returns scenarioProof with hasBlockerFailures false when scenarios pass', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
@@ -272,10 +250,6 @@ describe('executeScenarioTestPhase — structured result', () => {
     expect(result.costUsd).toBe(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 6. Phase cost records
-// ---------------------------------------------------------------------------
 
 describe('executeScenarioTestPhase — phase cost records', () => {
   it('creates phase cost records with phase name "scenarioTest"', async () => {

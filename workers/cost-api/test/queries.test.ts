@@ -11,10 +11,6 @@ declare module 'cloudflare:test' {
 const TEST_TOKEN = 'test-secret-token';
 const BASE_URL = 'http://localhost';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 async function applySchema(): Promise<void> {
   await applyD1Migrations(env.DB, JSON.parse(env.TEST_MIGRATIONS));
 }
@@ -74,10 +70,6 @@ beforeEach(async () => {
   await applySchema();
 });
 
-// ---------------------------------------------------------------------------
-// GET /api/projects
-// ---------------------------------------------------------------------------
-
 describe('GET /api/projects', () => {
   it('returns 401 without auth token', async () => {
     const res = await get('/api/projects', null);
@@ -117,10 +109,6 @@ describe('GET /api/projects', () => {
     expect(project?.repoUrl).toBeNull();
   });
 });
-
-// ---------------------------------------------------------------------------
-// GET /api/projects/:id/costs/breakdown
-// ---------------------------------------------------------------------------
 
 describe('GET /api/projects/:id/costs/breakdown', () => {
   it('returns 401 without auth token', async () => {
@@ -183,10 +171,6 @@ describe('GET /api/projects/:id/costs/breakdown', () => {
     expect(entry?.totalCost).toBe(1.23);
   });
 });
-
-// ---------------------------------------------------------------------------
-// GET /api/projects/:id/costs/issues
-// ---------------------------------------------------------------------------
 
 describe('GET /api/projects/:id/costs/issues', () => {
   it('returns 401 without auth token', async () => {

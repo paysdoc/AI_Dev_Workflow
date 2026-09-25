@@ -3,19 +3,12 @@
  * (comment formatting, HITL notification, issue-link detection, label
  * provisioning). Nothing here constructs a `GitContext` or a provider: every
  * helper takes a port, a `LaunchBoundary`, or a `GitContext` the caller
- * already holds (#821). Not extractable — this is ADW, not the library.
- *
- * Canonical issue-link marker contract for PR bodies.
+ * already holds. Not extractable — this is ADW, not the library.
  *
  * ADW PR bodies reference their originating issue with GitHub closing keywords.
  * The SDLC PR template (.claude/commands/pull_request.md) emits a bare
  * `Implements #N` plus a closing keyword — repo-qualified `Closes owner/repo#N`
  * when the issue lives in a known repo, or the same-repo fallback `Closes #N`.
- *
- * Several consumers must recognise that an arbitrary PR body links a given issue:
- *   - hitlBoardNotifier.findReviewPr (HITL review Slack notification)
- *   - linkedPrDetector.hasLinkedMergedOrClosedPR
- *   - perIssueScenarioSweep (14-day per-issue scenario retention clock)
  *
  * This module is the single source of truth for that match so the keyword set,
  * the optional owner/repo qualifier, and the digit-boundary guard can never

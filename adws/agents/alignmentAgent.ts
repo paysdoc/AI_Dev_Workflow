@@ -1,5 +1,4 @@
 /**
- * Alignment Agent - Aligns an implementation plan with BDD scenarios in a single pass.
  * Resolves conflicts using the GitHub issue as the sole source of truth.
  * Flags unresolvable conflicts as inline warnings in the plan rather than throwing.
  */
@@ -14,9 +13,7 @@ export interface AlignmentResult {
   aligned: boolean;
   /** Descriptions of conflicts that could not be resolved from the issue. */
   warnings: string[];
-  /** Descriptions of changes made to plan or scenario files. */
   changes: string[];
-  /** One-sentence summary of the alignment result. */
   summary: string;
 }
 
@@ -31,9 +28,6 @@ export const alignmentResultSchema: Record<string, unknown> = {
   },
 };
 
-/**
- * Returns positional args for the /align_plan_scenarios command.
- */
 function formatAlignmentArgs(
   adwId: string,
   issueNumber: number,
@@ -44,10 +38,6 @@ function formatAlignmentArgs(
   return [adwId, String(issueNumber), planFilePath, scenarioGlob, issueJson];
 }
 
-/**
- * Extracts and validates the JSON output from the alignment agent.
- * Returns a structured error on parse failure (retry loop handles recovery).
- */
 function extractAlignmentResult(agentOutput: string): ExtractionResult<AlignmentResult> {
   const parsed = extractJson<AlignmentResult>(agentOutput);
   if (!parsed || typeof parsed.aligned !== "boolean") {
@@ -69,7 +59,6 @@ function extractAlignmentResult(agentOutput: string): ExtractionResult<Alignment
 }
 
 /**
- * Parses the alignment result from raw agent output.
  * Returns a fully-aligned result on parse failure so the workflow is never
  * blocked by a malformed response — the warning is logged instead.
  * Used by the alignment phase as a fallback when the retry loop is exhausted.
@@ -102,10 +91,6 @@ const alignmentAgentConfig: CommandAgentConfig<AlignmentResult> = {
   outputSchema: alignmentResultSchema,
 };
 
-/**
- * Runs the Alignment Agent to align a plan against BDD scenarios in a single pass.
- * Output validation retries are handled by the commandAgent retry loop.
- */
 export async function runAlignmentAgent(
   adwId: string,
   issueNumber: number,

@@ -1,7 +1,6 @@
 /**
  * Shared orchestrator utility functions.
  *
- * Extracted from adwPlan.tsx and adwBuild.tsx to eliminate duplication.
  * Used by all orchestrators for stage execution, change detection, and recovery.
  */
 
@@ -26,7 +25,6 @@ export function shouldExecuteStage(stage: WorkflowStage, recoveryState: Recovery
 
 /**
  * Gets the next stage to resume from based on the last completed stage.
- * Returns 'starting' if the stage is not found or is the last stage.
  */
 export function getNextStage(lastCompletedStage: WorkflowStage): WorkflowStage {
   const index = STAGE_ORDER.indexOf(lastCompletedStage);

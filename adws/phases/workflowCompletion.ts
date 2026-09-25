@@ -1,9 +1,3 @@
-/**
- * Workflow completion and error handling — terminal-state handlers only.
- *
- * executeReviewPhase has been relocated to phases/reviewPhase.ts.
- */
-
 import {
   log,
   AgentStateManager,
@@ -20,10 +14,8 @@ import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';
 
 /**
- * Completes the workflow: writes final state, posts completion comment, prints banner.
- *
  * @param deniedToolCallCount - Optional aggregate per-run permission-denied tool-call
- *   count (issue #762), surfaced in the completion comment when greater than 0.
+ *   count, surfaced in the completion comment when greater than 0.
  */
 export async function completeWorkflow(
   config: WorkflowConfig,
@@ -40,7 +32,6 @@ export async function completeWorkflow(
     ctx.phaseCostRecords = phaseCostRecords;
     ctx.costSection = await formatCostCommentSection(phaseCostRecords);
   } else if (modelUsage && Object.keys(modelUsage).length > 0) {
-    // Legacy path: build CostBreakdown from ModelUsageMap
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
   }
@@ -67,10 +58,7 @@ export async function completeWorkflow(
   log('===================================', 'info');
 }
 
-/**
- * Pauses the workflow: records completed phases, enqueues for probe/resume, posts comment, exits 0.
- * Called by runPhase() when a RateLimitError is caught.
- */
+/** Called by runPhase() when a RateLimitError is caught. */
 export function handleRateLimitPause(
   config: WorkflowConfig,
   pausedAtPhase: string,
@@ -84,7 +72,6 @@ export function handleRateLimitPause(
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
   }
 
-  // Write completedPhases + pausedAtPhase to state metadata
   const existingState = AgentStateManager.readState(orchestratorStatePath);
   const existingMeta = (existingState?.metadata ?? {}) as Record<string, unknown>;
   AgentStateManager.writeState(orchestratorStatePath, {
@@ -104,9 +91,8 @@ export function handleRateLimitPause(
 
   AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'paused' });
 
-  // Enqueue for probe + resume. Persist --target-repo so the respawned
-  // orchestrator targets the correct repo — without this, resume defaults
-  // to the cron host's repo and dies silently in detached/stdio:ignore.
+  // Persist --target-repo so the respawned orchestrator targets the correct repo —
+  // without this, resume defaults to the cron host's repo and dies silently in detached/stdio:ignore.
   const extraArgs = targetRepo
     ? ['--target-repo', `${targetRepo.owner}/${targetRepo.repo}`]
     : undefined;
@@ -122,7 +108,6 @@ export function handleRateLimitPause(
     ...(extraArgs ? { extraArgs } : {}),
   });
 
-  // Post paused comment
   ctx.pausedAtPhase = pausedAtPhase;
   ctx.pauseReason = pauseReason === 'rate_limited'
     ? 'Rate limit or API outage detected'
@@ -138,10 +123,7 @@ export function handleRateLimitPause(
   process.exit(0);
 }
 
-/**
- * Handles workflow errors: posts error comment, writes failed state, and exits.
- * Optionally persists accumulated token counts so cost data survives the crash.
- */
+/** Optionally persists accumulated token counts so cost data survives the crash. */
 export function handleWorkflowError(
   config: WorkflowConfig,
   error: unknown,
@@ -174,11 +156,7 @@ export function handleWorkflowError(
   process.exit(1);
 }
 
-/**
- * Handles an agent watchdog timeout: writes phase_timeout stage, posts the Phase Timeout
- * comment on the issue, and exits 0. The next cron tick recovers the run via
- * reset-from-remote takeover (resume-in-place is a later slice).
- */
+/** The next cron tick recovers the run via reset-from-remote takeover. */
 export function handlePhaseTimeout(
   config: WorkflowConfig,
   phaseName: string,
@@ -203,8 +181,6 @@ export function handlePhaseTimeout(
 }
 
 /**
- * Handles deliberate terminal workflow exits (e.g. PR closed by operator, merge failed after
- * all retries). Writes 'discarded' stage, posts a terminal comment, and exits 0.
  * Unlike handleWorkflowError (which writes 'abandoned' and exits 1), a discard is a clean,
  * intentional terminal decision — not a crash — so the exit code is 0.
  *

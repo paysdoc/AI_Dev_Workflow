@@ -7,7 +7,6 @@ import { crossCheckRepoIdentity, RepoIdentityMismatchError } from '../../adws/co
 import { AGENTS_STATE_DIR } from '../../adws/core/config';
 import type { RepoIdentity } from '../../adws/types/agentTypes';
 
-// World extension for resume-time cross-check results
 interface ResumeResult {
   error: RepoIdentityMismatchError | null;
   launchIdentity: RepoIdentity | null;
@@ -15,7 +14,6 @@ interface ResumeResult {
 
 const resumeResults = new Map<string, ResumeResult>();
 
-// Track adwIds touched in each scenario for cleanup
 const touchedAdwIds = new Set<string>();
 
 function cleanAdwId(adwId: string): void {
@@ -33,8 +31,6 @@ After({ tags: '@adw-665' }, function () {
   resumeResults.clear();
   touchedAdwIds.clear();
 });
-
-// §1 — Init-time identity persistence (round-trip)
 
 Given(
   'a workflow for adwId {string} is initialised under launch identity owner {string} repo {string}',
@@ -61,8 +57,6 @@ Then(
   },
 );
 
-// §2, §3, §4 — Resume-time cross-check setup
-
 Given(
   'a top-level state for adwId {string} persists repo identity owner {string} repo {string}',
   function (adwId: string, owner: string, repo: string) {
@@ -88,8 +82,6 @@ Given(
   },
 );
 
-// §2, §3, §4 — Resume action (reads persisted, runs cross-check)
-
 When(
   'a process resumes adwId {string} under launch identity owner {string} repo {string}',
   function (adwId: string, owner: string, repo: string) {
@@ -110,8 +102,6 @@ When(
   },
 );
 
-// §2, §4 — Passing cross-check assertions
-
 Then('the resume cross-check passes', function () {
   for (const result of resumeResults.values()) {
     assert.strictEqual(result.error, null, `Expected cross-check to pass but got: ${result.error?.message}`);
@@ -128,8 +118,6 @@ Then(
     }
   },
 );
-
-// §3 — Mismatch assertions
 
 Then('the resume surfaces a repo-identity mismatch error', function () {
   for (const result of resumeResults.values()) {
@@ -157,5 +145,3 @@ Then(
     }
   },
 );
-
-// §5 — TypeScript type-check backstop (registry T22) is handled by feature-504.steps.ts

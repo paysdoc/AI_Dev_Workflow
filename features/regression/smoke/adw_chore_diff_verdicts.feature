@@ -1,10 +1,6 @@
 @regression @smoke
 Feature: Chore Orchestrator — Diff Verdict Paths
 
-  # Smoke 2: two scenarios sharing common setup via Background.
-  # Background: G1, G4 issue 200, G11 worktree at branch chore-200.
-  # Manifests pre-seed .adw/state.json with awaiting_merge; T1 validates wiring.
-
   Background:
     Given the mock GitHub API is configured to accept issue comments
     And an issue 200 exists in the mock issue tracker

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { computeResolveVerdict } from '../resolveVerdict';
 
 describe('computeResolveVerdict — all branches', () => {
-  // Not-green + budget remaining → retry
   it('target fails + regression passes + budget remaining → retry', () => {
     expect(computeResolveVerdict({ targetPass: false, regressionPass: true, budgetRemaining: true })).toBe('retry');
   });
@@ -11,7 +10,6 @@ describe('computeResolveVerdict — all branches', () => {
     expect(computeResolveVerdict({ targetPass: false, regressionPass: false, budgetRemaining: true })).toBe('retry');
   });
 
-  // Not-green + budget exhausted → hard-fail
   it('target fails + regression passes + budget exhausted → hard-fail', () => {
     expect(computeResolveVerdict({ targetPass: false, regressionPass: true, budgetRemaining: false })).toBe('hard-fail');
   });
@@ -20,7 +18,6 @@ describe('computeResolveVerdict — all branches', () => {
     expect(computeResolveVerdict({ targetPass: false, regressionPass: false, budgetRemaining: false })).toBe('hard-fail');
   });
 
-  // @regression gate: target green but regression fails → not-green
   it('target passes + regression fails + budget remaining → retry', () => {
     expect(computeResolveVerdict({ targetPass: true, regressionPass: false, budgetRemaining: true })).toBe('retry');
   });
@@ -29,7 +26,6 @@ describe('computeResolveVerdict — all branches', () => {
     expect(computeResolveVerdict({ targetPass: true, regressionPass: false, budgetRemaining: false })).toBe('hard-fail');
   });
 
-  // Green + aligned (or no re-validation) → pass
   it('target passes + regression passes + no re-validation → pass', () => {
     expect(computeResolveVerdict({ targetPass: true, regressionPass: true, budgetRemaining: true })).toBe('pass');
   });

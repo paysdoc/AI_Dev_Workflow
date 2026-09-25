@@ -1,10 +1,3 @@
-/**
- * Install phase execution for workflows.
- * Runs the /install agent once, caches the file context it reads,
- * and injects it into subsequent agent prompts.
- * Non-fatal: errors are caught and logged without blocking workflow completion.
- */
-
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -18,9 +11,7 @@ import { runInstallAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 
 /**
- * Extracts project context from the install agent's JSONL output.
  * Pairs tool_use (Read/Bash) with their tool_result content.
- * Returns a formatted context string for injection into agent prompts.
  * Returns empty string if no context could be extracted.
  */
 export function extractInstallContext(jsonlPath: string): string {
@@ -92,13 +83,7 @@ export function extractInstallContext(jsonlPath: string): string {
   ].join('\n');
 }
 
-/**
- * Executes the Install phase: runs the install agent, caches file contents,
- * and populates config.installContext for injection into subsequent agents.
- * This phase is non-fatal — errors are caught and logged, never thrown.
- *
- * @param config - Workflow configuration
- */
+/** This phase is non-fatal — errors are caught and logged, never thrown. */
 export async function executeInstallPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {

@@ -18,8 +18,6 @@ function timingSafeEqual(a: string, b: string): boolean {
 /**
  * Validates the `Authorization: Bearer <token>` header against the
  * `COST_API_TOKEN` Worker secret.
- *
- * Returns `true` if the token is present and matches; `false` otherwise.
  */
 export function authenticate(request: Request, env: Env): boolean {
   const authHeader = request.headers.get('Authorization');

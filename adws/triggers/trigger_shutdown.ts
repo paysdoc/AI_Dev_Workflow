@@ -1,13 +1,6 @@
 #!/usr/bin/env bunx tsx
 
 /**
- * Shutdown trigger for ADW (AI Developer Workflow).
- *
- * Terminates all running cron and webhook trigger processes:
- * 1. Reads cron PID files from agents/cron/ and kills each live process
- * 2. Finds the webhook server process (trigger_webhook.ts) and kills it
- * 3. Cleans up stale PID files
- *
  * Usage: bunx tsx adws/triggers/trigger_shutdown.ts
  */
 
@@ -24,7 +17,6 @@ interface CronPidRecord {
   startedAt: string;
 }
 
-/** Shuts down all cron processes registered via PID files. */
 function shutdownCronProcesses(): number {
   const cronDir = path.join(AGENTS_STATE_DIR, 'cron');
   if (!fs.existsSync(cronDir)) {
@@ -60,7 +52,6 @@ function shutdownCronProcesses(): number {
   return killed;
 }
 
-/** Finds and kills webhook server processes (trigger_webhook.ts). */
 function shutdownWebhookProcesses(): number {
   try {
     // Find processes matching trigger_webhook.ts, excluding this script and grep itself
@@ -96,7 +87,6 @@ function shutdownWebhookProcesses(): number {
   }
 }
 
-// --- Main ---
 log('ADW trigger shutdown initiated');
 
 const cronKilled = shutdownCronProcesses();

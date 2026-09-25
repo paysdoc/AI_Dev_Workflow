@@ -1,21 +1,7 @@
-/**
- * ADW Build Helper Functions
- *
- * Contains CLI helper functions for adwBuild.tsx:
- * - parseArguments (delegates to shared orchestratorCli)
- * - printBuildSummary
- *
- * Also contains shared orchestrator utilities:
- * - extractPrNumber (parse PR number from a GitHub PR URL)
- */
-
 import { log } from './core';
 import { parseOrchestratorArguments } from './core/orchestratorCli';
 
-/**
- * Extracts the PR number from a GitHub PR URL (e.g. https://github.com/owner/repo/pull/42).
- * Returns 0 if the URL is absent or unparseable.
- */
+/** Returns 0 if the URL is absent or unparseable. */
 export function extractPrNumber(prUrl: string | undefined): number {
   if (!prUrl) return 0;
   const parts = prUrl.split('/pull/');
@@ -24,9 +10,6 @@ export function extractPrNumber(prUrl: string | undefined): number {
   return isNaN(n) ? 0 : n;
 }
 
-/**
- * Parses and validates build command line arguments.
- */
 export function parseArguments(args: string[]): { issueNumber: number; providedAdwId: string | null; cwd: string | null } {
   const { issueNumber, adwId, cwd } = parseOrchestratorArguments(args, {
     scriptName: 'adwBuild.tsx',
@@ -36,9 +19,6 @@ export function parseArguments(args: string[]): { issueNumber: number; providedA
   return { issueNumber, providedAdwId: adwId, cwd };
 }
 
-/**
- * Prints the build phase summary.
- */
 export function printBuildSummary(
   issueNumber: number,
   issueTitle: string,

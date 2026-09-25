@@ -1,27 +1,11 @@
-
-/**
- * JSONL stream parsing logic for Claude Code agent output.
- * Handles parsing of streamed JSONL messages, extracting text content,
- * tool usage, and result information.
- *
- * Moved from adws/agents/jsonlParser.ts to adws/core/ — it is a pure parser
- * with no agent-specific logic, making core/ the correct home.
- */
-
 import type { ClaudeCodeResultMessage } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 
-// ---------------------------------------------------------------------------
-// Content block types – discriminated union replacing `any` usage
-// ---------------------------------------------------------------------------
-
-/** A text content block within an assistant message. */
 export interface TextContentBlock {
   type: 'text';
   text: string;
 }
 
-/** A tool-use content block within an assistant message. */
 export interface ToolUseContentBlock {
   type: 'tool_use';
   id: string;
@@ -29,25 +13,16 @@ export interface ToolUseContentBlock {
   input: Record<string, unknown> | string;
 }
 
-/** A tool-result content block within an assistant message. */
 export interface ToolResultContentBlock {
   type: 'tool_result';
   tool_use_id: string;
   content: string;
-  /** True when the tool call failed — including a permission denial under an injected deny rule (issue #762). */
+  /** True when the tool call failed — including a permission denial under an injected deny rule. */
   is_error?: boolean;
 }
 
-/**
- * Discriminated union of all possible content blocks returned by Claude.
- */
 export type ContentBlock = TextContentBlock | ToolUseContentBlock | ToolResultContentBlock;
 
-// ---------------------------------------------------------------------------
-// JSONL message types – discriminated union replacing `any` usage
-// ---------------------------------------------------------------------------
-
-/** An assistant-type JSONL message containing content blocks. */
 export interface JsonlAssistantMessage {
   type: 'assistant';
   message: {
@@ -57,25 +32,13 @@ export interface JsonlAssistantMessage {
   [key: string]: unknown;
 }
 
-/** A result-type JSONL message returned at the end of an agent run. */
 export interface JsonlResultMessage {
   type: 'result';
   [key: string]: unknown;
 }
 
-/**
- * Discriminated union of all known JSONL message types emitted by Claude Code.
- * Unknown types are captured by the fallback interface.
- */
 export type JsonlMessage = JsonlAssistantMessage | JsonlResultMessage | { type: string; [key: string]: unknown };
 
-// ---------------------------------------------------------------------------
-// Progress callback types
-// ---------------------------------------------------------------------------
-
-/**
- * Progress information passed to the progress callback.
- */
 export interface ProgressInfo {
   type: 'tool_use' | 'text' | 'summary';
   toolName?: string;
@@ -87,18 +50,8 @@ export interface ProgressInfo {
   tokenEstimate?: Record<string, Record<string, number>>;
 }
 
-/**
- * Callback function for progress updates during agent execution.
- */
 export type ProgressCallback = (info: ProgressInfo) => void;
 
-// ---------------------------------------------------------------------------
-// Parser state
-// ---------------------------------------------------------------------------
-
-/**
- * Mutable state object tracked across calls to {@link parseJsonlOutput}.
- */
 export interface JsonlParserState {
   lastResult: ClaudeCodeResultMessage | null;
   fullOutput: string;
@@ -118,17 +71,10 @@ export interface JsonlParserState {
   overloadedErrorDetected: boolean;
   /** Set when a `system` `compact_boundary` is parsed. */
   compactionDetected: boolean;
-  /** Count of tool results with `is_error: true` — includes permission denials from an injected deny rule (issue #762). */
+  /** Count of tool results with `is_error: true` — includes permission denials from an injected deny rule. */
   deniedToolCallCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Helper functions
-// ---------------------------------------------------------------------------
-
-/**
- * Extracts text content from Claude assistant messages.
- */
 export function extractTextFromAssistantMessage(message: JsonlAssistantMessage['message'] | undefined): string {
   if (!message?.content) return '';
   return message.content
@@ -137,10 +83,6 @@ export function extractTextFromAssistantMessage(message: JsonlAssistantMessage['
     .join('');
 }
 
-/**
- * Counts tool-result content blocks with `is_error: true` nested within an
- * assistant message's content array (issue #762 denial counting).
- */
 function countErroredToolResultBlocks(message: JsonlAssistantMessage['message'] | undefined): number {
   if (!message?.content) return 0;
   return message.content.filter(
@@ -148,9 +90,6 @@ function countErroredToolResultBlocks(message: JsonlAssistantMessage['message'] 
   ).length;
 }
 
-/**
- * Extracts tool use information from an assistant message.
- */
 export function extractToolUseFromMessage(message: JsonlAssistantMessage['message'] | undefined): { name: string; input: string }[] {
   if (!message?.content) return [];
   return message.content
@@ -163,20 +102,12 @@ export function extractToolUseFromMessage(message: JsonlAssistantMessage['messag
     }));
 }
 
-// ---------------------------------------------------------------------------
-// Main parser
-// ---------------------------------------------------------------------------
-
-/**
- * Parses JSONL output from Claude and extracts result information.
- */
 export function parseJsonlOutput(
   text: string,
   state: JsonlParserState,
   onProgress?: ProgressCallback,
   statePath?: string
 ): void {
-  // Cross-chunk line buffering: prepend any leftover partial line from previous chunk
   const combined = state.lineBuffer + text;
   const segments = combined.split('\n');
 
@@ -193,12 +124,10 @@ export function parseJsonlOutput(
     try {
       const parsed: JsonlMessage = JSON.parse(line);
 
-      // Write raw JSONL to state output file if statePath provided
       if (statePath) {
         AgentStateManager.writeRawOutput(statePath, 'output.jsonl', parsed, true);
       }
 
-      // --- Structured detection: tool_result denial count (issue #762) ---
       // The CLI emits tool_result both as a top-level message (proven shape —
       // extractInstallContext() in installPhase.ts already reads is_error off it)
       // and nested inside an assistant message's content blocks.
@@ -206,7 +135,6 @@ export function parseJsonlOutput(
         state.deniedToolCallCount++;
       }
 
-      // --- Structured detection: rate_limit_event ---
       if (parsed.type === 'rate_limit_event') {
         const info = (parsed as Record<string, unknown>).rate_limit_info as Record<string, unknown> | undefined;
         if (info?.status === 'rejected') {
@@ -214,7 +142,6 @@ export function parseJsonlOutput(
         }
       }
 
-      // --- Structured detection: system messages ---
       if (parsed.type === 'system') {
         const subtype = (parsed as Record<string, unknown>).subtype as string | undefined;
         if (subtype === 'api_retry') {
@@ -246,7 +173,6 @@ export function parseJsonlOutput(
         state.fullOutput += extractTextFromAssistantMessage(assistantMsg.message);
         state.deniedToolCallCount += countErroredToolResultBlocks(assistantMsg.message);
 
-        // Extract and report tool usage
         const toolUses = extractToolUseFromMessage(assistantMsg.message);
         toolUses.forEach(tool => {
           state.toolCount++;
@@ -259,13 +185,11 @@ export function parseJsonlOutput(
               toolCount: state.toolCount,
             });
           }
-          // Log tool usage to state
           if (statePath) {
             AgentStateManager.appendLog(statePath, `[Turn ${state.turnCount}] Tool: ${tool.name}`);
           }
         });
 
-        // Report text content if present (for status updates)
         const textContent = extractTextFromAssistantMessage(assistantMsg.message).trim();
         if (textContent && onProgress) {
           onProgress({
