@@ -67,8 +67,6 @@ After({ tags: '@adw-910' }, function () {
   pausePath = null;
 });
 
-// ── §1 THE PAUSE PATH ──────────────────────────────────────────────────────────────────────
-
 Given(
   'a workflow for issue {int} is running its {string} phase for the target repository {string}',
   function (issueNumber: number, _phase: string, targetRepoFullName: string) {
@@ -160,8 +158,6 @@ When(
   },
 );
 
-// ── shared entry lookups ────────────────────────────────────────────────────────────────────
-
 function requireCurrentEntry(issueNumber: number): PausedWorkflow {
   const seeded = getSeededEntry(issueNumber);
   assert.ok(seeded, `Expected issue ${issueNumber} to have a known pause-queue entry`);
@@ -208,8 +204,6 @@ Then('the pause queue entry for issue {int} records no limit type', function (is
   const entry = requireCurrentEntry(issueNumber);
   assert.strictEqual(entry.rateLimitType, undefined);
 });
-
-// ── §2 THE DECIDER ──────────────────────────────────────────────────────────────────────────
 
 function makeDeciderEntry(resetsAt: string | undefined, probeFailures: number): PausedWorkflow {
   return {
@@ -289,8 +283,6 @@ Then('the pause-queue decider sets no new reset time on the entry', function () 
   assert.strictEqual(resetsAt, undefined, `Expected no new resetsAt, got: ${JSON.stringify(action)}`);
 });
 
-// ── §3 THE CLOCK, THE SEEDED RESET FACTS, HOW OFTEN THE SCANNER PROBED ─────────────────────
-
 Given('the cron host\'s clock reads {string}', function (isoTimestamp: string) {
   setPinnedClock(new Date(isoTimestamp));
 });
@@ -320,8 +312,6 @@ Then('the scanner ran the rate-limit probe once per probe cycle', function () {
   );
 });
 
-// ── §6 LEGACY ENTRIES ───────────────────────────────────────────────────────────────────────
-
 function writeLegacyFixtureOrchestratorScript(worktreePath: string, invocationLogPath: string): string {
   const scriptPath = path.join(worktreePath, 'fixture-orchestrator.ts');
   const source = [
@@ -344,9 +334,9 @@ Given(
 
     AgentStateManager.writeTopLevelState(adwId, { adwId, workflowStage: 'paused' });
 
-    // Exactly the pre-#910 shape: no resetsAt, no rateLimitType. Written as raw JSON,
-    // bypassing appendToPauseQueue, so a default added on the write path could never
-    // mask a regression on load.
+    // Exactly the shape written before reset times were recorded: no resetsAt, no
+    // rateLimitType. Written as raw JSON, bypassing appendToPauseQueue, so a default
+    // added on the write path could never mask a regression on load.
     const legacyEntry = {
       adwId,
       issueNumber,

@@ -322,25 +322,33 @@ async function replayGhCommentLog(): Promise<void> {
   }
 }
 
+/** Shadows `bunx` on PATH for the duration of `fn`, mirroring the `gh` shadow above. */
+async function withBunxShadow(fn: () => Promise<void>): Promise<void> {
+  if (!interceptRelaunchViaBunx || !bunxMockDir) {
+    await fn();
+    return;
+  }
+  const savedPath = process.env['PATH'];
+  process.env['PATH'] = `${bunxMockDir}:${savedPath ?? ''}`;
+  process.env['ADW_910_BUNX_LOG'] = bunxInvocationLogPath ?? '';
+  try {
+    await fn();
+  } finally {
+    process.env['PATH'] = savedPath;
+  }
+}
+
+async function runOneProbeCycle(cycleIndex: number): Promise<void> {
+  const clockAtCall = pinnedClock;
+  const deps = clockAtCall ? { now: () => clockAtCall } : undefined;
+  await withBunxShadow(() => scanPauseQueue(PROBE_INTERVAL_CYCLES * cycleIndex, () => probeRateLimit(probeStub.exec), deps));
+  await replayGhCommentLog();
+}
+
 /** N successive cycle counts, each a multiple of PROBE_INTERVAL_CYCLES, so every scan probes. */
 async function runProbeCycles(count: number): Promise<void> {
   for (let i = 1; i <= count; i++) {
-    const clockAtCall = pinnedClock;
-    const deps = clockAtCall ? { now: () => clockAtCall } : undefined;
-
-    if (interceptRelaunchViaBunx && bunxMockDir) {
-      const savedPath = process.env['PATH'];
-      process.env['PATH'] = `${bunxMockDir}:${savedPath ?? ''}`;
-      process.env['ADW_910_BUNX_LOG'] = bunxInvocationLogPath ?? '';
-      try {
-        await scanPauseQueue(PROBE_INTERVAL_CYCLES * i, () => probeRateLimit(probeStub.exec), deps);
-      } finally {
-        process.env['PATH'] = savedPath;
-      }
-    } else {
-      await scanPauseQueue(PROBE_INTERVAL_CYCLES * i, () => probeRateLimit(probeStub.exec), deps);
-    }
-    await replayGhCommentLog();
+    await runOneProbeCycle(i);
   }
 }
 
