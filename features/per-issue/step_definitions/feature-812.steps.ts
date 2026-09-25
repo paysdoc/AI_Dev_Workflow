@@ -302,10 +302,10 @@ async function waitFor(predicate: () => boolean, timeoutMs: number, description:
 }
 
 Given('a cron trigger process whose poll tick raises on every cycle', async function () {
-  // FLAGGED BY #911: the lever must be an entry the "adw-812-fixture/tick-guard" cron owns
+  // The lever must be an entry the "adw-812-fixture/tick-guard" cron owns
   // (its --target-repo matches the entry's recorded target repository), since a non-owner
   // now gets skip_not_owner before any other rule and the old target-less lever would never
-  // be reached. The lever: an owned, due entry whose issueNumber contains "/", so
+  // be reached: an owned, due entry whose issueNumber contains "/", so
   // acquireIssueSpawnLock's lock-file path resolves a parent directory that does not exist.
   // The write throws ENOENT before any lock file exists — deterministic, before the entry is
   // removed or the spawn lock is taken, and never swallowed by scanPauseQueue or

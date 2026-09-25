@@ -431,7 +431,7 @@ Then('the pause queue entry for issue {int} records {int} probe failure(s)', fun
 Then('the pause queue entry for issue {int} still records the target repository {string}', function (issueNumber: number, targetRepo: string) {
   const current = currentEntry(issueNumber);
   assert.ok(current, `Expected issue ${issueNumber} to still be queued`);
-  const extraArgs = current!.extraArgs ?? [];
+  const extraArgs = current.extraArgs ?? [];
   const idx = extraArgs.indexOf('--target-repo');
   assert.ok(
     idx !== -1 && extraArgs[idx + 1] === targetRepo,
@@ -447,8 +447,8 @@ Given('the paused workflow for issue {int} was last probed at {string}', functio
 Then('the pause queue entry for issue {int} still records its last probe at {string}', function (issueNumber: number, isoTimestamp: string) {
   const current = currentEntry(issueNumber);
   assert.ok(current, `Expected issue ${issueNumber} to still be queued`);
-  assert.ok(current!.lastProbeAt, `Expected issue ${issueNumber}'s entry to carry a lastProbeAt`);
-  assert.strictEqual(new Date(current!.lastProbeAt).getTime(), new Date(isoTimestamp).getTime());
+  assert.ok(current.lastProbeAt, `Expected issue ${issueNumber}'s entry to carry a lastProbeAt`);
+  assert.strictEqual(new Date(current.lastProbeAt).getTime(), new Date(isoTimestamp).getTime());
 });
 
 Then(

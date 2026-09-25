@@ -1,5 +1,5 @@
 /**
- * Novel step definitions for feature-911.feature. Reuses the #902/#910 harness (probeStub,
+ * Novel step definitions for feature-911.feature. Reuses the shared harness (probeStub,
  * the mock GitHub / gh-shadow infrastructure, the saved-and-restored queue file, the seeded-
  * entry map, the pinned clock, the decider world) — see feature-902.steps.ts and
  * feature-902-queue.steps.ts for the Before/After hooks this file's scenarios run under
@@ -45,10 +45,9 @@ import type { SpawnOrchestrator } from '../../../adws/triggers/pauseQueueResume.
 
 const AUTH_GATE_PATH = path.join('agents', '.auth_gate');
 
-// ── THE SCANNING CRON DESCRIPTOR ────────────────────────────────────────────────────────────
-// "the cron polling the target repository R" / "the self-host cron on a host checked out at R"
-// — the exact prose feature-911.feature uses to name which cron makes a scan or a decision.
-
+// Matches "the cron polling the target repository R" / "the self-host cron on a host checked
+// out at R" — the exact prose the .feature file uses to name which cron makes a scan or a
+// decision.
 const CRON_TARGET_REPO_RE = /^the cron polling the target repository "([^"]+)"$/;
 const CRON_SELF_HOST_RE = /^the self-host cron on a host checked out at "([^"]+)"$/;
 
@@ -60,12 +59,10 @@ function parseScanningCron(descriptor: string): ScanningCronIdentity {
   throw new Error(`Unrecognized scanning-cron descriptor: "${descriptor}"`);
 }
 
-// ── THE SPAWN SEAM (AC3) ────────────────────────────────────────────────────────────────────
 // At the moment it is invoked, reads agents/paused_queue.json synchronously and records
 // whether the entry for the adwId it launches is present, then hands the same arguments to
 // the real child_process.spawn — the fixture orchestrator still starts and the readiness
 // window still runs on real timers.
-
 const presentAtSpawn = new Map<string, boolean>();
 
 const spawnSeam: SpawnOrchestrator = (command, args, options) => {
@@ -75,8 +72,6 @@ const spawnSeam: SpawnOrchestrator = (command, args, options) => {
   }
   return realSpawn(command, args as string[], options);
 };
-
-// ── THE HELD SPAWN LOCK ─────────────────────────────────────────────────────────────────────
 
 interface HeldLock {
   proc: ChildProcess;
@@ -98,8 +93,6 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<void>
   }
   throw new Error(`Timed out waiting for pid ${pid} to exit`);
 }
-
-// ── §4 THE REAL CRON PROCESS ────────────────────────────────────────────────────────────────
 
 const realCronWorld: RealCronWorld & { targetReposDir: string } = { ...createRealCronWorld(), targetReposDir: '' };
 let savedAuthGate: string | null = null;
@@ -132,8 +125,6 @@ After({ tags: '@adw-911' }, function () {
   }
   savedAuthGate = null;
 });
-
-// ── §1 THE DECIDER'S OWNERSHIP RULE ─────────────────────────────────────────────────────────
 
 function makeOwnershipDeciderEntry(targetRepo: string | null, resetsAt: string | undefined, probeFailures: number): PausedWorkflow {
   return {
@@ -182,8 +173,6 @@ Given(
 When(/^the pause-queue decider is consulted at "([^"]+)" by (.+)$/, function (isoTimestamp: string, cronDescriptor: string) {
   consultDeciderWithScanningCron(isoTimestamp, parseScanningCron(cronDescriptor));
 });
-
-// ── §2/§3 SEEDING AND CRON-QUALIFIED SCANS ──────────────────────────────────────────────────
 
 Given('a workflow for issue {int} is paused in the rate-limit queue with no target repository', function (issueNumber: number) {
   seedPausedWorkflow(issueNumber, null);
@@ -263,8 +252,6 @@ Then('the pause queue no longer held the workflow for issue {int} when its orche
     `Expected the queue not to hold issue ${issueNumber} at the moment its orchestrator was spawned`,
   );
 });
-
-// ── §4 THE CRON TRIGGER HANDS THE SCANNER ITS OWN IDENTITY ─────────────────────────────────
 
 Given('the rate-limit probe reports the limit has cleared', function () {
   // No-op: the real cron process spawned below always points CLAUDE_CODE_PATH at
