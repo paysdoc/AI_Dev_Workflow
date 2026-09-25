@@ -26,6 +26,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Per-event webhook crash isolation** — `trigger_webhook.ts` wraps each event's dispatch in a try/catch around `dispatchWebhookEvent()`; a synchronous throw is contained (`webhookEventBoundary.ts`) rather than crashing the process, answers HTTP 500 only if headers are unsent, and reports failures via a no-throw, best-effort Slack alert (`reportWebhookEventFailure`) so one bad event can't take the trigger down.
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, `stageClassifier` six-class taxonomy (active/awaiting_merge/retriable/resumable/terminal/human_gated) for recovery routing, and `worktreeReset`-driven takeover; for abandoned and `phase_timeout` workflows the `worktreeReuseGate` probes Class-A git-operability signals (`WorktreeProbe`) and resumes in-place when healthy, resetting only on fault.
 - **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor (`devServerJanitor.ts`, only treats a `TARGET_REPOS_DIR` entry as ADW-managed when it carries both a `.git` entry and the `.adw` marker directory written by `adw_init`, since the directory may be a general projects folder shared with non-ADW repos; a discovery failure for one repo is caught and logged rather than aborting the rest of the pass — #812), per-issue scenario sweep cron (14-day retention, promotion-tag-aware — a file carrying a live `@promotion-suggested-<date>` tag is exempted from deletion until the tag is declined or approved), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
+- **In-process rate-limit wait plan** — `rateLimitWaitPolicy.ts`'s pure `decideRateLimitWait` lets `phaseRunner.ts`'s `runPhase`/`runPhasesParallel` ride out a `five_hour` `RateLimitError` with a known reset time by sleeping in-process (`sleepUntil`, sliced under `MAX_SLEEP_SLICE_MS` so a suspended host or clock jump is noticed and no timer nears Node's `setTimeout` limit) and retrying the phase, instead of always exiting to the pause queue; any other rate-limit type, or a missing/stale reset time, still falls through to `handleRateLimitPause`. Each wait posts a progress comment via `formatRateLimitWaitComment` before sleeping.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
@@ -118,7 +119,7 @@ Board V2 GraphQL operations failed for auth (the default `gh` token works for mo
 
 ### Rate limit and token limit detection
 
-False positives on token limits, missing detection of 529 overloaded errors, output tokens not displayed. The fix was twofold: structured JSONL parsing (`claudeStreamParser.ts`) replaced regex against stdout, and an explicit pause and resume queue (`pauseQueue.ts` with `pauseQueueScanner.ts`) replaced ad-hoc retry.
+False positives on token limits, missing detection of 529 overloaded errors, output tokens not displayed. The fix was twofold: structured JSONL parsing (`claudeStreamParser.ts`) replaced regex against stdout, and an explicit pause and resume queue (`pauseQueue.ts` with `pauseQueueScanner.ts`) replaced ad-hoc retry. A `five_hour` limit with a known reset time is now ridden out in-process by the phase runner (`rateLimitWaitPolicy.ts`, `phaseRunner.ts`) instead of exiting to that queue; everything else — a `seven_day` limit, an unknown limit type, or any limit with no reported reset time — still goes through it.
 
 **Lesson:** parsing CLI human-readable output is fragile. Commit to the structured stream early.
 
@@ -548,6 +549,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── promotionReconcileLink.test.ts
 │   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
+│   │   ├── rateLimitWaitPolicy.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
@@ -609,7 +611,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── orchestratorNames.ts  # Static orchestrator name/script mappings (extracted from orchestratorLib to avoid circular imports)
 │   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume; entries carry the reported reset time (ISO 8601) and limit type when known
-│   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
+│   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition; runPhase/runPhasesParallel loop over attempts, riding a five_hour RateLimitError out in-process (rateLimitWaitPolicy.ts) before falling back to the pause path for everything else
 │   ├── portAllocator.ts
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
@@ -620,6 +622,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── promotionTagState.ts  # Pure parse/serialize of `@promotion-suggested-<date>`/`@promotion-declined` markers; terminal none→suggested→declined state machine
 │   ├── providerConfig.ts  # .adw/providers.md reader (loadProviderConfig/parseCodeHostForge/parseIssueTrackerForge) — moved out of adws/providers/repoContext.ts to keep it under the line cap (#819); yields per-port forge names, not Platform, since #823
 │   ├── prReviewInvocation.ts  # resolvePrReviewInvocation — the branch→PR/adwId resolution lifted out of adwPrReview.tsx's main() so it runs after the launch boundary exists (#820)
+│   ├── rateLimitWaitPolicy.ts  # Pure decideRateLimitWait/sleepUntil: whether a RateLimitError rides out in-process (five_hour type with a reset time) or escalates to the pause queue
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
@@ -661,7 +664,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── prCommentDetector.ts  # buildUnaddressedCommentReads/hasUnaddressedComments — the pr-review unaddressed-comment read wired to a launch boundary's codeHost/gitContext; shared by prReviewPhase.ts and trigger_cron.ts
 │   ├── proofCommentFormatter.ts  # Pure functions transforming structured scenario-proof data into rich markdown for GitHub issue comments — no side effects, no I/O
 │   ├── workflowCommentsBase.ts  # isAdwRunningForIssue(issueNumber, tracker) — GitHub-specific workflow comment utilities over an injected IssueTracker
-│   ├── workflowCommentsIssue.ts  # Issue workflow comment formatting and posting functions (WorkflowContext, formatWorkflowComment, formatResumingComment, formatHumanGatedComment)
+│   ├── workflowCommentsIssue.ts  # Issue workflow comment formatting and posting functions (WorkflowContext, formatWorkflowComment, formatResumingComment, formatHumanGatedComment, formatRateLimitWaitComment)
 │   └── workflowCommentsPR.ts  # PR review workflow comment formatting functions (PRReviewWorkflowContext, formatPRReviewWorkflowComment)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
@@ -771,7 +774,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
 │   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch. buildDefaultUpgradeGateDeps(providers, ...) reads createIssue/applyLabel/updateIssueBody/findOpenUpgradeIssue/moveToStatus off the boundary's providers — no per-call createRepoContext (#796)
-│   ├── workflowCompletion.ts  # Workflow completion/error handling
+│   ├── workflowCompletion.ts  # Workflow completion/error handling; describeRateLimitPauseReason names the limit type and reset time (UTC) on the paused comment when known
 │   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check). The launch boundary is the only source of forge providers: defaultBranch comes from boundary.providers.codeHost, and exported resolveWorkflowProviders(boundary, callerRepoId?) decides identity/provider reuse — a caller-supplied repoId that contradicts the boundary is refused (throws) rather than served a second, ad-hoc-minted provider set (#796)
 │   ├── workflowRepoIdentity.ts  # resolveWorkflowRepoId(config) — repoContext.repoId → gitContext → targetRepo precedence, replacing every phase's own `?? getRepoInfo()` wrong-repo fallback (#820)
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers

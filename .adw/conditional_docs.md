@@ -484,13 +484,15 @@
     - adws/core/orchestratorCli.ts
     - adws/core/orchestratorLib.ts
     - adws/core/phaseRunner.ts
+    - adws/core/rateLimitWaitPolicy.ts
     - adws/core/__tests__/claudeStreamParser.test.ts
     - adws/core/__tests__/phaseRunner.test.ts
+    - adws/core/__tests__/rateLimitWaitPolicy.test.ts
     - adws/core/__tests__/fixtures/rateLimitIncident.ts
   - Conditions:
-    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
-    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`
-    - When debugging how ADW reads Claude Code's stdout/stderr or how phases are sequenced by the runner
+    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, the phase runner loop, or the in-process rate-limit wait policy
+    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, `phaseRunner.ts`, or `rateLimitWaitPolicy.ts`
+    - When debugging how ADW reads Claude Code's stdout/stderr, how phases are sequenced by the runner, or how a five-hour rate limit is ridden out in-process
 
 - app_docs/feature-9gjajh-coordination-kernel.md
   - Owns:
