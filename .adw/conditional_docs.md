@@ -225,6 +225,8 @@
     - adws/triggers/concurrencyGuard.ts
     - adws/triggers/spawnGate.ts
     - adws/triggers/pauseQueueScanner.ts
+    - adws/triggers/rateLimitProbe.ts
+    - adws/triggers/__tests__/rateLimitProbe.test.ts
     - adws/triggers/mergeDispatchGate.ts
     - adws/core/stageClassifier.ts
     - adws/core/__tests__/stageClassifier.test.ts
@@ -235,6 +237,7 @@
   - Conditions:
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
+    - When working on the pause-queue rate-limit probe (`rateLimitProbe.ts`) or its outcome classification
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
 
 - app_docs/feature-9gjajh-promotion-system.md

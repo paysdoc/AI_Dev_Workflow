@@ -833,6 +833,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue; posts best-effort stage/error comments through a per-entry launch boundary (buildLaunchBoundary from the entry's own --target-repo args), fixing a latent bug where target-repo entries' error comments were silently dropped by a cwd-vs-remote identity mismatch (#797)
+│   ├── rateLimitProbe.ts  # Pause-queue probe: stream-json ping classified through claudeStreamParser (limited/clear/unknown), text fallback only for non-JSON output, injectable exec
 │   ├── promotionSweep.ts  # Promotion sweep (cron-dispatched + manual CLI): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
 │   ├── promotionSweepDefaults.ts  # Production GitContext/provider/fs-backed dependency defaults for runPromotionSweep — makeDefaultDeps(boundary) closes over the passed launch boundary (git ops on its GitContext, forge ops on its providers), no identity resolution of its own (#797)
 │   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)

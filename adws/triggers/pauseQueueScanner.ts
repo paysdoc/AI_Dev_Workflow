@@ -1,14 +1,15 @@
 /**
- * Runs a cheap `claude --print "ping"` call to check if rate limit has cleared.
- * On success: removes from queue, posts resumed comment, spawns the orchestrator.
- * On repeated unknown failure: removes from queue, posts error comment.
+ * Probes for rate-limit clearance via `rateLimitProbe`'s structural classifier, delegated
+ * to a `claude` ping run under stream-json output.
+ * On `clear`: removes from queue, posts resumed comment, spawns the orchestrator.
+ * On repeated `unknown`: removes from queue, posts error comment.
  */
 
-import { execSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT, parseTargetRepoArgs, buildLaunchBoundary, type WorkflowStage } from '../core';
+import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, AGENTS_STATE_DIR, REPO_ROOT, parseTargetRepoArgs, buildLaunchBoundary, type WorkflowStage } from '../core';
 import {
   readPauseQueue,
   removeFromPauseQueue,
@@ -21,21 +22,10 @@ import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 import { AgentStateManager } from '../core/agentState';
+import { probeRateLimit, type ProbeOutcome } from './rateLimitProbe';
 
 /** Readiness window (ms) to confirm a spawned child did not immediately crash. */
 const READINESS_WINDOW_MS = 2000;
-
-/** Rate-limit indicator strings — same as agentProcessHandler detection. */
-const RATE_LIMIT_STRINGS = [
-  "You've hit your limit",
-  "You're out of extra usage",
-  '502 Bad Gateway',
-  'Invalid authentication credentials',
-];
-
-function containsRateLimitText(text: string): boolean {
-  return RATE_LIMIT_STRINGS.some(s => text.includes(s));
-}
 
 /**
  * Resolves the target repo for a paused entry from its persisted `--target-repo`
@@ -67,23 +57,6 @@ function postEntryStageComment(entry: PausedWorkflow, stage: WorkflowStage, ctx:
     postIssueStageComment(boundary.providers, entry.issueNumber, stage, ctx);
   } catch (err) {
     log(`Failed to post ${stage} comment for issue #${entry.issueNumber}: ${err}`, 'warn');
-  }
-}
-
-/** Returns 'clear' (exit 0, no rate-limit text), 'limited' (rate-limit detected), or 'unknown'. */
-function probeRateLimit(): 'clear' | 'limited' | 'unknown' {
-  try {
-    const claudePath = resolveClaudeCodePath();
-    const output = execSync(
-      `${claudePath} --print "ping" --model haiku --max-turns 1 --dangerously-skip-permissions`,
-      { encoding: 'utf-8', timeout: 30_000 },
-    );
-    if (containsRateLimitText(output)) return 'limited';
-    return 'clear';
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (containsRateLimitText(msg)) return 'limited';
-    return 'unknown';
   }
 }
 
@@ -217,8 +190,38 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   }
 }
 
+function recordUnknownProbeFailure(entry: PausedWorkflow): void {
+  const failures = (entry.probeFailures ?? 0) + 1;
+  log(`Unknown probe failure for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
+  if (failures < MAX_UNKNOWN_PROBE_FAILURES) {
+    updatePauseQueueEntry(entry.adwId, { probeFailures: failures, lastProbeAt: new Date().toISOString() });
+    return;
+  }
+  log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
+  removeFromPauseQueue(entry.adwId);
+  postEntryStageComment(entry, 'error', {
+    issueNumber: entry.issueNumber,
+    adwId: entry.adwId,
+    errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${MAX_UNKNOWN_PROBE_FAILURES} probe attempts. Manual restart required.`,
+  });
+}
+
+async function applyProbeOutcome(entry: PausedWorkflow, outcome: ProbeOutcome): Promise<void> {
+  if (outcome === 'clear') {
+    log(`Rate limit cleared — resuming workflow ${entry.adwId}`, 'success');
+    await resumeWorkflow(entry);
+    return;
+  }
+  if (outcome === 'limited') {
+    log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
+    updatePauseQueueEntry(entry.adwId, { lastProbeAt: new Date().toISOString() });
+    return;
+  }
+  recordUnknownProbeFailure(entry);
+}
+
 /** Only runs the probe every PROBE_INTERVAL_CYCLES cycles to avoid hammering the API. */
-export async function scanPauseQueue(cycleCount: number): Promise<void> {
+export async function scanPauseQueue(cycleCount: number, probe: () => ProbeOutcome = probeRateLimit): Promise<void> {
   if (cycleCount % PROBE_INTERVAL_CYCLES !== 0) return;
 
   const entries = readPauseQueue();
@@ -226,32 +229,9 @@ export async function scanPauseQueue(cycleCount: number): Promise<void> {
 
   log(`Pause queue scan: ${entries.length} paused workflow(s)`);
 
-  const probeResult = probeRateLimit();
+  const outcome = probe();
 
   for (const entry of entries) {
-    if (probeResult === 'clear') {
-      log(`Rate limit cleared — resuming workflow ${entry.adwId}`, 'success');
-      await resumeWorkflow(entry);
-    } else if (probeResult === 'limited') {
-      log(`Rate limit still active for workflow ${entry.adwId} — will retry later`, 'info');
-      updatePauseQueueEntry(entry.adwId, { lastProbeAt: new Date().toISOString() });
-    } else {
-      const failures = (entry.probeFailures ?? 0) + 1;
-      log(`Unknown probe failure for workflow ${entry.adwId} (${failures}/${MAX_UNKNOWN_PROBE_FAILURES})`, 'warn');
-      if (failures >= MAX_UNKNOWN_PROBE_FAILURES) {
-        log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
-        removeFromPauseQueue(entry.adwId);
-        postEntryStageComment(entry, 'error', {
-          issueNumber: entry.issueNumber,
-          adwId: entry.adwId,
-          errorMessage: `Workflow paused at '${entry.pausedAtPhase}' failed to resume after ${MAX_UNKNOWN_PROBE_FAILURES} probe attempts. Manual restart required.`,
-        });
-      } else {
-        updatePauseQueueEntry(entry.adwId, {
-          probeFailures: failures,
-          lastProbeAt: new Date().toISOString(),
-        });
-      }
-    }
+    await applyProbeOutcome(entry, outcome);
   }
 }

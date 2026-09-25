@@ -36,7 +36,7 @@ Each entry contains:
 
 ## rate-limit-crash
 
-- **pattern**: `You've hit your limit`, `You're out of extra usage`
+- **pattern**: `You've hit your limit`, `You've hit your session limit`, `You're out of extra usage`
 - **description**: Claude API rate limit kills the agent mid-execution. Workflow crashes with ❌ ADW Workflow Error instead of pausing.
 - **status**: solved
 - **solution**: Rate limit detection in `agentProcessHandler.ts` returns `rateLimited: true`. `runPhase()` catches `RateLimitError` and calls `handleRateLimitPause()` which writes to pause queue, posts ⏸️ comment, and exits cleanly. Cron trigger probes and resumes automatically.
@@ -436,4 +436,21 @@ fi
   📋 [2026-04-18T12:23:18.000Z] Issue #6 unblocked by closure of #5, spawning workflow
   📋 [2026-04-18T12:23:18.500Z] Issue #6: spawn lock held by another process, skipping
   (before fix: both spawned; after fix: only cron spawn proceeds, webhook defers)
+  ```
+
+## pause-probe-session-limit-unknown
+
+- **pattern**: `Unknown probe failure for workflow`, `failed to resume after 3 probe attempts. Manual restart required.`
+- **description**: The pause-queue probe (`pauseQueueScanner.ts`'s `probeRateLimit()`) classified a live Claude session limit as `unknown` because it substring-matched CLI output against a hand-kept `RATE_LIMIT_STRINGS` list whose closest entry, `"You've hit your limit"`, did not match the CLI's actual wording, `"You've hit your session limit · resets …"`. `unknown` is the only probe outcome that increments `probeFailures`; at `MAX_UNKNOWN_PROBE_FAILURES` (3) the entry was dropped from `agents/paused_queue.json` and posted a manual-restart comment — converting a recoverable, multi-hour rate limit into a permanent strand, since `paused` is a `terminal`-class stage with no `## Retry` path, while the stranded entry still held a `MAX_CONCURRENT_PER_REPO` slot. Stranded six `adwChore` workflows (#871, #872, #874–#877) on 2026-09-24: paused ≈10:12 UTC, dropped ≈10:26 UTC, all re-queued by hand.
+- **status**: solved
+- **solution**: `adws/triggers/rateLimitProbe.ts` classifies structurally from the shared `claudeStreamParser` state under `--output-format stream-json` (`rateLimitRejected` / `serverErrorDetected` / `overloadedErrorDetected` / `authErrorDetected` ⇒ `limited`), the same signals `agentProcessHandler` already pauses a live run on. Text matching survives only as a fallback for output that never reached stream-json, matching the stable prefix `You've hit your`. The probe and its exec seam are injectable and unit-tested.
+- **fix_attempts**: 1
+- **linked_issues**: #902
+- **first_seen**: 2026-09-24
+- **sample_log**:
+  ```
+  ⚠️ [2026-09-24T10:16:00.000Z] Unknown probe failure for workflow <adwId> (1/3)
+  ⚠️ [2026-09-24T10:21:00.000Z] Unknown probe failure for workflow <adwId> (2/3)
+  ❌ [2026-09-24T10:26:00.000Z] Max probe failures reached for <adwId> — removing from queue
+  (timestamps approximate — reconstructed from the incident window, not the original log)
   ```
