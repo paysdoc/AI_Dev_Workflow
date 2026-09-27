@@ -90,6 +90,16 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
   Those four scenarios also carry `@adw-910`. The rest of #910's behaviour is specified in
   `features/per-issue/feature-910.feature`.
 
+  FLAGGED BY #911 (`specs/prd/rate-limit-indefinite-retry.md`, "Pause queue": ownership and
+  remove-before-spawn). Every scan now runs as one cron, and a cron acts only on the entries it
+  owns. The shared scanner step runs as the cron polling `acme/widgets`, which owns every entry
+  seeded here, so no scenario in this file changes. Two of them also carry `@adw-911`, because
+  #911 changes what they exercise:
+    • §3's three-hour journey: its resume now takes the entry off the queue before it spawns the
+      orchestrator;
+    • §3's unknown-drop scenario: its strikes and its eviction now pass the ownership rule first.
+  The rest of #911's behaviour is specified in `features/per-issue/feature-911.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the verdict the probe returns (`clear` / `limited` / `unknown`), which is its output;
     • the Claude CLI invocation recorded at the probe's exec seam: what the system asked of its
@@ -270,7 +280,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | {"type":"system","subtype":"api_retry","attempt":1,"error":"overloaded","error_status":529}     |
       | {"type":"system","subtype":"api_retry","attempt":2,"error":"api_error","error_status":500}      |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910 @adw-911
   Scenario: A workflow held by a session limit stays queued through three hours of probes and resumes on the first probe after the limit clears
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 871 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -335,7 +345,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
       | 876   |
       | 877   |
 
-  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910
+  @adw-902 @adw-0uxemg-pause-queue-probe-mi @adw-907 @adw-910 @adw-911
   Scenario: A genuinely unknown probe failure still counts, and the third one drops the workflow with a comment that names ## Retry as the recovery
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 876 is paused in the rate-limit queue for the target repository "acme/widgets"

@@ -20,6 +20,7 @@ import {
   enableBunxRelaunchIntercept,
   disableBunxRelaunchIntercept,
   getScannerRunSummary,
+  scanningCronFor,
   type SeededEntry,
 } from './feature-902-queue.steps.ts';
 
@@ -30,7 +31,7 @@ import { readPauseQueue, updatePauseQueueEntry, PAUSE_QUEUE_PATH, type PausedWor
 import { CostTracker, runPhase } from '../../../adws/core/phaseRunner.ts';
 import { RateLimitError, type RateLimitFacts } from '../../../adws/types/agentTypes.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import { decidePauseQueueAction, type PauseQueueAction } from '../../../adws/triggers/pauseQueueDecider.ts';
+import { decidePauseQueueAction, type PauseQueueAction, type ScanningCronIdentity } from '../../../adws/triggers/pauseQueueDecider.ts';
 import type { ProbeClassification, ProbeOutcome } from '../../../adws/triggers/rateLimitProbe.ts';
 
 // Sentinel thrown when process.exit is called inside the real pause path.
@@ -52,16 +53,38 @@ const deciderWorld: {
   action: PauseQueueAction | null;
 } = { entry: null, probe: null, action: null };
 
+/** Lets feature-911.steps.ts seed the same decider world with its own ownership-flavoured entries. */
+export function setDeciderEntryForScanningCronTest(entry: PausedWorkflow): void {
+  deciderWorld.entry = entry;
+}
+
+/**
+ * Consults the decider with an explicit scanning cron and records the result in the shared
+ * `deciderWorld`, so the already-registered `Then('the pause-queue decider returns {string}', …)`
+ * step (below) can read it back exactly as it does for this file's own scenarios.
+ */
+export function consultDeciderWithScanningCron(isoTimestamp: string, scanningCron: ScanningCronIdentity): void {
+  assert.ok(deciderWorld.entry, 'Expected a pause-queue entry to have been set up first');
+  assert.ok(deciderWorld.probe, 'Expected a rate-limit probe classification to have been set up first');
+  deciderWorld.action = decidePauseQueueAction({
+    entry: deciderWorld.entry,
+    probe: deciderWorld.probe,
+    now: new Date(isoTimestamp),
+    maxProbeFailures: MAX_UNKNOWN_PROBE_FAILURES,
+    scanningCron,
+  });
+}
+
 let pausePath: PausePathSetup | null = null;
 
-Before({ tags: '@adw-910' }, function () {
+Before({ tags: '@adw-910 or @adw-911' }, function () {
   pausePath = null;
   deciderWorld.entry = null;
   deciderWorld.probe = null;
   deciderWorld.action = null;
 });
 
-After({ tags: '@adw-910' }, function () {
+After({ tags: '@adw-910 or @adw-911' }, function () {
   setPinnedClock(null);
   disableBunxRelaunchIntercept();
   pausePath = null;
@@ -242,14 +265,9 @@ Given(
 );
 
 When('the pause-queue decider is consulted at {string}', function (isoTimestamp: string) {
-  assert.ok(deciderWorld.entry, 'Expected a pause-queue entry to have been set up first');
-  assert.ok(deciderWorld.probe, 'Expected a rate-limit probe classification to have been set up first');
-  deciderWorld.action = decidePauseQueueAction({
-    entry: deciderWorld.entry,
-    probe: deciderWorld.probe,
-    now: new Date(isoTimestamp),
-    maxProbeFailures: MAX_UNKNOWN_PROBE_FAILURES,
-  });
+  // This step always runs as the acme/widgets cron, the owner of every entry these rows
+  // seed (see feature-910.feature's notes) — never an identity derived from the entry itself.
+  consultDeciderWithScanningCron(isoTimestamp, scanningCronFor('acme/widgets'));
 });
 
 function requireDeciderAction(): PauseQueueAction {

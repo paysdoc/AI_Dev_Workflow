@@ -92,6 +92,17 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
   `bun run test:unit` are obligations on the vitest suite, which the build and test phases
   discharge. The flagged rows are their behavioural counterpart here.
 
+  FLAGGED BY #911 (ownership and remove-before-spawn). The decider now also takes the scanning
+  cron's identity, and a cron acts only on the entries it owns. The shared decider and scanner
+  steps act as the cron polling `acme/widgets`, which owns every entry here, as the notes below
+  anticipated, so no scenario in this file changes. These also carry `@adw-911`:
+    • the four §2 decider outlines. Consulted by the owning cron, they are #911's "matching target
+      repo → proceeds to the other rules" across this slice's whole decision table;
+    • the §3 end-to-end journey. Its entry is the only one written by the real pause path, so it
+      proves that ownership reads the target repository the pause path records. Its resume now
+      takes the entry off the queue before the orchestrator is spawned.
+  The rest of #911's behaviour is specified in `features/per-issue/feature-911.feature`.
+
   AMENDED BY #912 (`specs/prd/rate-limit-indefinite-retry.md`, "Wait policy"). #912 puts a pure
   wait policy in front of this file's pause path. The phase runner now waits out a five-hour
   limit with a known reset time in-process, so that limit never reaches the pause queue. Every
@@ -244,7 +255,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
 
   # ── §2 THE DECIDER ─────────────────────────────────────────────────────────────────────────────
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911
   Scenario Outline: Before its reset time an entry is skipped whatever the probe classification says, even one strike short of eviction
     Given a pause-queue entry with a reset time of "2026-09-22T12:50:00Z" and 2 probe failures
     And the rate-limit probe classification is "<verdict>"
@@ -258,7 +269,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
       | failed  |
       | unknown |
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911
   Scenario Outline: Once an entry's reset time has passed, or when it has none, the probe classification decides — "clear" resumes, and "failed" or "unknown" counts a strike until the third, which evicts
     Given a pause-queue entry with <entry> and <failures> probe failures
     And the rate-limit probe classification is "<verdict>"
@@ -281,7 +292,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
       | no reset time                          | unknown | 1        | count_strike |
       | no reset time                          | unknown | 2        | evict        |
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911
   Scenario Outline: A "limited" classification that reports a reset time refreshes the entry to that time and counts no strike, even one strike short of eviction
     Given a pause-queue entry with <entry> and 2 probe failures
     And the rate-limit probe classification is "limited" with a "five_hour" limit that resets at "2026-09-22T17:50:00Z"
@@ -293,7 +304,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
       | a reset time of "2026-09-22T12:50:00Z" |
       | no reset time                          |
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911
   Scenario Outline: A "limited" classification with no reset time counts no strike and changes nothing, even one strike short of eviction
     Given a pause-queue entry with <entry> and 2 probe failures
     And the rate-limit probe classification is "limited"
@@ -405,7 +416,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
     And the pause queue entry for issue 874 has not gained a probe failure
     And the mock harness recorded zero comment posts on issue 874
 
-  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-912
+  @adw-910 @adw-6a1674-pause-queue-waits-fo @adw-911 @adw-912
   Scenario: End to end — a workflow stopped by a seven-day limit waits in the pause queue, unprobed, until the reset time it reported, then resumes on the first clear probe after it
     Given the mock GitHub API is configured to accept issue comments
     And the cron host's clock reads "2026-09-25T09:00:00Z"

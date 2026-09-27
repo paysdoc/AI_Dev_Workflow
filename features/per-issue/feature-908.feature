@@ -89,6 +89,15 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
   eviction text in every full scenario run. It is not re-tagged, and no row here pins that text,
   because the decider slice is expected to change it.
 
+  FLAGGED BY #911 (per-repo ownership of pause-queue entries). A cron now acts only on the
+  pause-queue entries it owns: those that record its own identity as their target repository.
+  §1's still-queued scenario also carries `@adw-911`. Its follow-up step, "the pause-queue scanner
+  then runs a probe cycle in which the rate limit has cleared", must scan as the Background's cron,
+  the one polling `acme/widgets`, which owns the entry. A scan by any other cron relaunches nothing
+  whatever `## Retry` did, and "relaunched nothing" would then pass vacuously. The scenario itself
+  does not change. The rest of #911's behaviour is specified in
+  `features/per-issue/feature-911.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the orchestrator launches, recorded where they happen (see the notes below);
     • the pause-queue state file (`agents/paused_queue.json`);
@@ -216,7 +225,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the resumed comment is recorded on issue 840 in the target repository "acme/widgets"
     And the mock harness recorded zero comment posts on issue 840 in the cron host's own repository "paysdoc/AI_Dev_Workflow"
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-911
   Scenario: `## Retry` on a paused workflow that is still queued drops its pause-queue entry and respawns the orchestrator once, leaving the scanner nothing to relaunch
     Given the latest ADW workflow comment on issue 871 names adwId "retry908-871"
     And the top-level state for adwId "retry908-871" records issue 871 at workflowStage "paused" with orchestrator script "adws/adwChore.tsx"

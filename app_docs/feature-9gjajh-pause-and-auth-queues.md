@@ -34,7 +34,7 @@ This module provides two shared, file-backed primitives for cross-workflow coord
 ## Gotchas
 
 - Both paths are relative, so the effective file location depends on the process working directory at runtime; callers in different cwd contexts will read/write different files
-- The pause queue is shared across all repos and workflows on the host; concurrent cron processes writing distinct `adwId` entries are low-risk but not fully serialized
+- The pause queue is shared across all repos and workflows on the host; concurrent cron processes writing distinct `adwId` entries are low-risk but not fully serialized. Every entry has exactly one owning cron process, though — the one whose launch identity matches the entry's recorded `--target-repo`, or the self-host cron when the entry records none (`isOwnedByScanningCron` in `adws/triggers/pauseQueueDecider.ts`) — so only that cron ever probes, strikes, refreshes, resumes or evicts a given entry.
 - `shouldSendDetectionSlack` must be called by the caller — the module never sends Slack messages itself; forgetting to call `markGateSlackNotified` after sending will cause repeated notifications on the next cron tick
 - `pauseReason` on `PausedWorkflow` accepts only `'rate_limited' | 'unknown_error'`; other error classifications must be mapped to one of these two values before enqueuing
 - `PausedWorkflow.resetsAt` is an ISO 8601 string, but `RateLimitFacts.resetsAt` and `ProbeClassification.resetsAt` (the CLI-facing types) are Unix epoch **seconds** — never compare them directly; convert through `resetsAtIsoFromEpochSeconds` first

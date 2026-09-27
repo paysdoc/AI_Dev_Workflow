@@ -34,6 +34,8 @@ import { releaseIssueSpawnLock } from './spawnGate';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
+import { probeRateLimit } from './rateLimitProbe';
+import type { ScanningCronIdentity } from './pauseQueueDecider';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
@@ -56,6 +58,11 @@ const processedPRs = new Set<number>();
 let cycleCount = 0;
 
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoIdentity);
+
+// This cron's own launch identity, handed to the pause-queue scanner so it acts only on the
+// entries it owns. Derived once from the same resolveCronRepo result the launch boundary
+// below is built from — never re-read from a fresh cwd-derived identity or GitContext.
+const scanningCron: ScanningCronIdentity = { repoId: cronRepoInfo, selfHost: targetRepo === null };
 
 // Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).
@@ -216,6 +223,17 @@ export async function runDocsIndexSweepTick(
 }
 
 /**
+ * Pause-queue scan dispatch: hands the scanner this cron's own launch identity (resolved
+ * once at startup) and the real rate-limit probe. No cadence gate here — the scanner owns
+ * PROBE_INTERVAL_CYCLES — and no swallow: a throw still reaches runGuardedTick, exactly as
+ * before this dispatch was factored out. Exported (with an injectable scan) so tests can
+ * drive the identity hand-off directly, following the file's injectable-tick idiom.
+ */
+export async function runPauseQueueScanTick(cycleCount: number, scan: typeof scanPauseQueue = scanPauseQueue): Promise<void> {
+  await scan(cycleCount, probeRateLimit, { scanningCron });
+}
+
+/**
  * Runs one cron tick and contains any escaped rejection. `checkAndTrigger` is
  * fired-and-forgotten from the entry-script guard (initial call and the setInterval
  * callback); without this guard a single throw anywhere in the tick — e.g. the
@@ -311,7 +329,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
 
   if (await handleAuthGateTick(boundary)) return;
 
-  await scanPauseQueue(cycleCount);
+  await runPauseQueueScanTick(cycleCount);
   await scanAuthQueue(boundary, buildTargetRepoArgs());
 
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
