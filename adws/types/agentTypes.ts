@@ -2,8 +2,19 @@ import type { IssueClassSlashCommand, SlashCommand } from './issueTypes';
 import type { OrchestratorIdType } from '../core/constants';
 import type { LegacyModelUsageMap } from '../cost/types';
 
+/**
+ * Both fields come from the undocumented `rate_limit_info` object of a rejected
+ * `rate_limit_event` — the CLI may drop that event in a future release. `resetsAt` is
+ * Unix epoch seconds, exactly as the CLI emits it (no conversion at this boundary).
+ * Both are absent whenever no rejected event was seen.
+ */
+export interface RateLimitFacts {
+  rateLimitType?: string;
+  resetsAt?: number;
+}
+
 /** Shared between claudeAgent.ts and agentProcessHandler.ts to avoid bidirectional coupling. */
-export interface AgentResult {
+export interface AgentResult extends RateLimitFacts {
   success: boolean;
   output: string;
   sessionId?: string;
@@ -28,7 +39,11 @@ export interface AgentResult {
   actualUsage?: Record<string, Record<string, number>>;
   costSource?: 'extractor_finalized' | 'extractor_estimated';
   authExpired?: boolean;
-  /** True when the agent was terminated due to a rate limit, billing limit, or transient API outage. */
+  /**
+   * True when the agent was terminated for a documented rate-limit/overload/server-error
+   * signal or a rejected `rate_limit_event`; `rateLimitType`/`resetsAt` are set when a
+   * rejected event supplied them.
+   */
   rateLimited?: boolean;
   /** Count of permission-denied (and other errored) tool calls observed in the run's stream. */
   deniedToolCallCount?: number;
@@ -40,10 +55,14 @@ export interface AgentResult {
  */
 export class RateLimitError extends Error {
   readonly phaseName: string;
-  constructor(phaseName: string) {
+  readonly rateLimitType?: string;
+  readonly resetsAt?: number;
+  constructor(phaseName: string, facts: RateLimitFacts = {}) {
     super(`Rate limit detected during phase: ${phaseName}`);
     this.name = 'RateLimitError';
     this.phaseName = phaseName;
+    this.rateLimitType = facts.rateLimitType;
+    this.resetsAt = facts.resetsAt;
   }
 }
 
@@ -110,6 +129,12 @@ export interface ClaudeCodeResultMessage {
   numTurns: number;
   result: string;
   sessionId: string;
+  /**
+   * The CLI emits these two fields as snake_case today; the camelCase fields above are a
+   * known drift owned by the PRD's envelope-gate issue, not corrected here.
+   */
+  is_error?: boolean;
+  api_error_status?: number | null;
 }
 
 export interface TokenUsageSnapshot {

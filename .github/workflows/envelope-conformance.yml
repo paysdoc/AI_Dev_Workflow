@@ -1,0 +1,56 @@
+name: Stream-json Envelope Conformance
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+env:
+  # The Claude CLI version adws/jsonl/schema.json was reconciled against (see schema.json cliVersion).
+  # Bump policy (owner: repo maintainer): bump deliberately, in its own PR, after running
+  # `bun run jsonl:probe` locally with the same version and committing the resulting schema.json.
+  # A bump PR whose live check fails is the gate doing its job: ADW reads a field that changed.
+  CLAUDE_CLI_VERSION: '2.1.282'
+
+jobs:
+  envelope-conformance:
+    name: Fixtures and parsers conform to the envelope of the pinned Claude CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Node (the Claude CLI npm package requires Node 22)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install the pinned Claude CLI
+        run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
+
+      - name: Assert the installed CLI is the pinned version
+        run: claude --version | grep -F "${CLAUDE_CLI_VERSION}"
+
+      - name: Fixtures and stub envelopes conform to the committed schema and parsers
+        run: bun run jsonl:check
+
+      - name: Live envelope check against the pinned CLI
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: bun run jsonl:probe:check
+
+      - name: Live envelope check skipped
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: echo "::warning title=Envelope conformance::ANTHROPIC_API_KEY secret is not set, so the live probe of Claude CLI ${CLAUDE_CLI_VERSION} was skipped. Only the committed schema, fixtures and parsers were checked."

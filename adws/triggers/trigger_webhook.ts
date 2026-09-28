@@ -13,7 +13,7 @@ import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, ge
 import { isActionableComment, isCancelComment, isRetryComment, truncateText } from '../core/workflowCommentParsing';
 import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 import { handleCancelDirective } from './cancelHandler';
-import { handleRetryDirective } from './retryHandler';
+import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent, resolvePrReviewSpawn, defaultPrClosedDeps } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
@@ -214,7 +214,7 @@ export function dispatchWebhookEvent(
     }
     if (isRetryComment(commentBody)) {
       const allComments = commentBoundary.providers.issueTracker.fetchComments(issueNumber);
-      handleRetryDirective(issueNumber, allComments);
+      handleRetryDirective(issueNumber, allComments, buildRetryHandlerDeps(commentBoundary, webhookTargetRepoArgs));
       jsonResponse(res, 200, { status: 'retry_reset', issue: issueNumber });
       return;
     }

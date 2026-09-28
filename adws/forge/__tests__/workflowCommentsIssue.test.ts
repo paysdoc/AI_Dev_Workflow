@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { formatWorkflowComment } from '../workflowCommentsIssue';
+import { formatWorkflowComment, formatRateLimitWaitComment } from '../workflowCommentsIssue';
 import { computeTestVerdict } from '../../core/testVerdict';
+import { parseWorkflowStageFromComment, isAdwComment } from '../../core/workflowCommentParsing';
 
 // These tests pin the corrected
 // copy and couple it back to the real verdict resolver so a future re-key of
@@ -68,5 +69,53 @@ describe('formatWorkflowComment — stack_incoherent keeps its Test Framework gu
     });
     expect(body).toContain('## Test Framework');
     expect(body).toContain('Stack Coherence');
+  });
+});
+
+describe('formatRateLimitWaitComment', () => {
+  const until = new Date('2026-09-22T12:50:00.000Z');
+  const body = formatRateLimitWaitComment({
+    adwId: 'wait912-840',
+    phaseName: 'build',
+    rateLimitType: 'five_hour',
+    until,
+    attempt: 3,
+  });
+
+  it('carries the waiting-for-reset heading', () => {
+    expect(body).toContain(':hourglass_flowing_sand: ADW Waiting for Rate Limit Reset');
+  });
+
+  it('states the wait-until time as an ISO 8601 UTC timestamp', () => {
+    expect(body).toContain(until.toISOString());
+    expect(body).toContain('(UTC)');
+  });
+
+  it('states the attempt number', () => {
+    expect(body).toContain('**Attempt:** 3');
+  });
+
+  it('names the phase and the limit type', () => {
+    expect(body).toContain('`build`');
+    expect(body).toContain('`five_hour`');
+  });
+
+  it('falls back to "a rate limit" when no limit type is known', () => {
+    const untyped = formatRateLimitWaitComment({ adwId: 'wait912-840', phaseName: 'build', until, attempt: 1 });
+    expect(untyped).toContain('rejected by a rate limit');
+    expect(untyped).not.toContain('`undefined`');
+  });
+
+  it('keeps the ADW ID footer and the bot signature', () => {
+    expect(body).toContain('**ADW ID:** `wait912-840`');
+    expect(body).toContain('<!-- adw-bot -->');
+  });
+
+  it('maps to no lifecycle stage, so a later resume never mistakes it for one', () => {
+    expect(parseWorkflowStageFromComment(body)).toBeNull();
+  });
+
+  it('is recognised by ADW as its own comment', () => {
+    expect(isAdwComment(body)).toBe(true);
   });
 });

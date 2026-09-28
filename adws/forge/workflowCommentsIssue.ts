@@ -386,3 +386,31 @@ export function formatHumanGatedComment(adwId: string, attempts: number, max: nu
     `**ADW ID:** \`${adwId}\``,
   ].join('\n') + ADW_SIGNATURE;
 }
+
+export interface RateLimitWaitCommentInput {
+  readonly adwId: string;
+  readonly phaseName: string;
+  readonly rateLimitType?: string;
+  readonly until: Date;
+  readonly attempt: number;
+}
+
+/**
+ * Context-free, posted directly by the phase runner's wait loop. Its heading is
+ * deliberately absent from STAGE_HEADER_MAP so it can never be mistaken for a
+ * lifecycle stage by detectRecoveryState.
+ */
+export function formatRateLimitWaitComment(input: RateLimitWaitCommentInput): string {
+  const { adwId, phaseName, rateLimitType, until, attempt } = input;
+  const limitDescription = rateLimitType ? `a \`${rateLimitType}\` rate limit` : 'a rate limit';
+  return [
+    '## :hourglass_flowing_sand: ADW Waiting for Rate Limit Reset',
+    '',
+    `The \`${phaseName}\` phase was rejected by ${limitDescription}. The orchestrator stays alive, holds its worktree and lock, and will re-run the phase once the limit resets.`,
+    '',
+    `**Waiting until:** \`${until.toISOString()}\` (UTC)`,
+    `**Attempt:** ${attempt}`,
+    '',
+    `**ADW ID:** \`${adwId}\``,
+  ].join('\n') + ADW_SIGNATURE;
+}

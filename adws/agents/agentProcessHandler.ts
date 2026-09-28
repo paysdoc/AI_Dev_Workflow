@@ -2,7 +2,7 @@ import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD } from '../core';
-import { parseJsonlOutput, type JsonlParserState, type ProgressCallback, type ProgressInfo } from '../core/claudeStreamParser';
+import { parseJsonlOutput, createJsonlParserState, type ProgressCallback, type ProgressInfo } from '../core/claudeStreamParser';
 import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing, type ModelUsageMap, computeTotalTokens } from '../cost';
 import type { ModelUsageMap as CostModelUsageMap } from '../cost/types';
 import type { AgentResult } from '../types/agentTypes';
@@ -41,20 +41,7 @@ export function handleAgentProcess(
   model: string,
 ): Promise<AgentResult> {
   return new Promise((resolve) => {
-    const state: JsonlParserState = {
-      lastResult: null,
-      fullOutput: '',
-      turnCount: 0,
-      toolCount: 0,
-      primaryModel: model,
-      lineBuffer: '',
-      rateLimitRejected: false,
-      authErrorDetected: false,
-      serverErrorDetected: false,
-      overloadedErrorDetected: false,
-      compactionDetected: false,
-      deniedToolCallCount: 0,
-    };
+    const state = createJsonlParserState(model);
 
     const extractor = new AnthropicTokenUsageExtractor(model);
 
@@ -86,7 +73,7 @@ export function handleAgentProcess(
         claude.kill('SIGTERM');
       }
 
-      if (!rateLimitDetected && (state.rateLimitRejected || state.serverErrorDetected || state.overloadedErrorDetected)) {
+      if (!rateLimitDetected && (state.rateLimitDetected || state.serverErrorDetected || state.overloadedErrorDetected)) {
         rateLimitDetected = true;
         log(`${agentName}: Rate limit / API outage detected — killing process to trigger pause.`, 'warn');
         if (statePath) {
@@ -175,6 +162,8 @@ export function handleAgentProcess(
         resolve({
           success: false,
           rateLimited: true,
+          rateLimitType: state.rateLimitType,
+          resetsAt: state.resetsAt,
           output: state.fullOutput || 'Rate limit or API outage detected',
           totalCostUsd,
           modelUsage: resolvedModelUsage,

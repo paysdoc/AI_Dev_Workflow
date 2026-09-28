@@ -27,10 +27,21 @@ interface ManifestCommit {
   date?: string;
 }
 
+export interface ManifestResponse {
+  kind: 'rate-limited';
+  /** Epoch seconds; defaults to now + 300 when absent. */
+  resetsAt?: number;
+  /** Defaults to 'five_hour'. */
+  rateLimitType?: string;
+  /** Reject only the first N invocations counted per worktree; absent means every invocation. */
+  limitedInvocations?: number;
+}
+
 interface Manifest {
   jsonlPath: string;
   edits: ManifestEdit[];
   commits?: ManifestCommit[];
+  response?: ManifestResponse;
 }
 
 function isManifestEdit(v: unknown): v is ManifestEdit {
@@ -50,6 +61,16 @@ function isManifestCommit(v: unknown): v is ManifestCommit {
   return true;
 }
 
+function isManifestResponse(v: unknown): v is ManifestResponse {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  if (obj['kind'] !== 'rate-limited') return false;
+  if ('resetsAt' in obj && typeof obj['resetsAt'] !== 'number') return false;
+  if ('rateLimitType' in obj && typeof obj['rateLimitType'] !== 'string') return false;
+  if ('limitedInvocations' in obj && typeof obj['limitedInvocations'] !== 'number') return false;
+  return true;
+}
+
 function isManifest(v: unknown): v is Manifest {
   if (typeof v !== 'object' || v === null) return false;
   const obj = v as Record<string, unknown>;
@@ -60,6 +81,7 @@ function isManifest(v: unknown): v is Manifest {
     if (!Array.isArray(obj['commits'])) return false;
     if (!(obj['commits'] as unknown[]).every(isManifestCommit)) return false;
   }
+  if ('response' in obj && !isManifestResponse(obj['response'])) return false;
   return true;
 }
 
@@ -74,6 +96,8 @@ export interface ApplyManifestResult {
   /** Resolved absolute path of the JSONL payload to stream. */
   jsonlPath: string;
   commitsCreated: number;
+  /** Present when the manifest asks the stub to answer rate-limited instead of streaming jsonlPath. */
+  response?: ManifestResponse;
 }
 
 /**
@@ -143,5 +167,5 @@ export function applyManifest(
     ? parsed.jsonlPath
     : resolve(worktreePath, parsed.jsonlPath);
 
-  return { editsApplied, jsonlPath, commitsCreated };
+  return { editsApplied, jsonlPath, commitsCreated, response: parsed.response };
 }

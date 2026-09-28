@@ -197,7 +197,7 @@ export async function runClaudeAgentWithCommand(
 
   // Rate limit detected — do NOT retry. Throw RateLimitError so runPhase() can trigger pause.
   if (result.rateLimited) {
-    throw new RateLimitError(agentName);
+    throw new RateLimitError(agentName, { rateLimitType: result.rateLimitType, resetsAt: result.resetsAt });
   }
 
   // A fresh CLI process handles OAuth token refresh automatically on startup.

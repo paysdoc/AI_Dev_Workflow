@@ -9,9 +9,10 @@ import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { BoardStatus, Platform } from '@paysdoc/devplatform';
-import { appendToPauseQueue } from '../core/pauseQueue';
+import { appendToPauseQueue, resetsAtIsoFromEpochSeconds, type PausedWorkflow } from '../core/pauseQueue';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';
+import type { RateLimitFacts } from '../types/agentTypes';
 
 /**
  * @param deniedToolCallCount - Optional aggregate per-run permission-denied tool-call
@@ -58,6 +59,56 @@ export async function completeWorkflow(
   log('===================================', 'info');
 }
 
+/**
+ * Pure: builds the queue entry handleRateLimitPause appends. Absent facts are
+ * absent keys (never `undefined` values), the same spread idiom as `extraArgs`,
+ * so entries with no reset facts stay byte-for-byte identical to entries with no
+ * knowledge of the reset-time fields at all.
+ */
+export function buildPausedWorkflowEntry(
+  config: Pick<WorkflowConfig, 'adwId' | 'issueNumber' | 'orchestratorName' | 'worktreePath' | 'branchName' | 'targetRepo'>,
+  pausedAtPhase: string,
+  pauseReason: PausedWorkflow['pauseReason'],
+  facts: RateLimitFacts,
+  now: Date,
+): PausedWorkflow {
+  const { adwId, issueNumber, orchestratorName, worktreePath, branchName, targetRepo } = config;
+
+  const extraArgs = targetRepo
+    ? ['--target-repo', `${targetRepo.owner}/${targetRepo.repo}`]
+    : undefined;
+
+  return {
+    adwId,
+    issueNumber,
+    orchestratorScript: deriveOrchestratorScript(orchestratorName),
+    pausedAtPhase,
+    pauseReason,
+    pausedAt: now.toISOString(),
+    worktreePath,
+    branchName,
+    ...(extraArgs ? { extraArgs } : {}),
+    ...(typeof facts.resetsAt === 'number' && Number.isFinite(facts.resetsAt)
+      ? { resetsAt: resetsAtIsoFromEpochSeconds(facts.resetsAt) }
+      : {}),
+    ...(typeof facts.rateLimitType === 'string' ? { rateLimitType: facts.rateLimitType } : {}),
+  };
+}
+
+/** Names the limit type and the reset time (UTC) when the facts carry them; today's text when they carry neither. */
+export function describeRateLimitPauseReason(facts: RateLimitFacts): string {
+  const hasType = typeof facts.rateLimitType === 'string';
+  const hasReset = typeof facts.resetsAt === 'number' && Number.isFinite(facts.resetsAt);
+
+  if (!hasType && !hasReset) return 'Rate limit or API outage detected';
+
+  const resetSuffix = hasReset ? ` — resets at ${resetsAtIsoFromEpochSeconds(facts.resetsAt as number)} (UTC)` : '';
+  if (!hasType) return `Rate limit detected${resetSuffix}`;
+  return hasReset
+    ? `\`${facts.rateLimitType}\` rate limit detected${resetSuffix}`
+    : `\`${facts.rateLimitType}\` rate limit detected (no reset time reported)`;
+}
+
 /** Called by runPhase() when a RateLimitError is caught. */
 export function handleRateLimitPause(
   config: WorkflowConfig,
@@ -65,8 +116,9 @@ export function handleRateLimitPause(
   pauseReason: 'rate_limited' | 'unknown_error',
   costUsd?: number,
   modelUsage?: ModelUsageMap,
+  facts: RateLimitFacts = {},
 ): never {
-  const { orchestratorStatePath, orchestratorName, issueNumber, adwId, ctx, repoContext, worktreePath, branchName, targetRepo } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, adwId, ctx, repoContext } = config;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
@@ -91,27 +143,10 @@ export function handleRateLimitPause(
 
   AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'paused' });
 
-  // Persist --target-repo so the respawned orchestrator targets the correct repo —
-  // without this, resume defaults to the cron host's repo and dies silently in detached/stdio:ignore.
-  const extraArgs = targetRepo
-    ? ['--target-repo', `${targetRepo.owner}/${targetRepo.repo}`]
-    : undefined;
-  appendToPauseQueue({
-    adwId,
-    issueNumber,
-    orchestratorScript: deriveOrchestratorScript(orchestratorName),
-    pausedAtPhase,
-    pauseReason,
-    pausedAt: new Date().toISOString(),
-    worktreePath,
-    branchName,
-    ...(extraArgs ? { extraArgs } : {}),
-  });
+  appendToPauseQueue(buildPausedWorkflowEntry(config, pausedAtPhase, pauseReason, facts, new Date()));
 
   ctx.pausedAtPhase = pausedAtPhase;
-  ctx.pauseReason = pauseReason === 'rate_limited'
-    ? 'Rate limit or API outage detected'
-    : 'Unknown API error';
+  ctx.pauseReason = pauseReason === 'rate_limited' ? describeRateLimitPauseReason(facts) : 'Unknown API error';
   ctx.completedPhases = (existingMeta.completedPhases as string[] | undefined) ?? [];
 
   if (repoContext) {

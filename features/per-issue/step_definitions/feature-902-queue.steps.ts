@@ -32,16 +32,99 @@ import { readPauseQueue, appendToPauseQueue, updatePauseQueueEntry, PAUSE_QUEUE_
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { scanPauseQueue } from '../../../adws/triggers/pauseQueueScanner.ts';
 import { probeRateLimit } from '../../../adws/triggers/rateLimitProbe.ts';
+import type { ScanningCronIdentity } from '../../../adws/triggers/pauseQueueDecider.ts';
+import type { SpawnOrchestrator } from '../../../adws/triggers/pauseQueueResume.ts';
 import { probeStub } from './feature-902.steps.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-interface SeededEntry {
+/**
+ * "The cron polling the target repository R" (`scanningCronFor(R)`) or "the self-host cron
+ * on a host checked out at R" (`scanningCronFor(R, { selfHost: true })`) — the launch
+ * identity a scenario hands the scanner/decider. Never derive this from the queue's own
+ * entries: a cron derived from the entries it is about to scan would own them by
+ * construction, so ownership would pass vacuously.
+ */
+export function scanningCronFor(repoFullName: string, opts: { selfHost?: boolean } = {}): ScanningCronIdentity {
+  const [owner, repo] = repoFullName.split('/');
+  return { repoId: { owner, repo }, selfHost: opts.selfHost ?? false };
+}
+
+export interface SeededEntry {
   entry: PausedWorkflow;
   worktreePath: string;
   scriptPath: string;
   invocationLogPath: string;
   baselineProbeFailures: number;
+}
+
+/**
+ * Lets feature-910.steps.ts register an entry written by the REAL pause path (not this
+ * file's fixture-orchestrator Given) into the same seeded map, so the shared queue/relaunch
+ * Then-steps below find it by issue number and the existing After hook's cleanup loop
+ * (pkill by scriptPath, rmSync worktreePath/agents/<adwId>) reaches it too.
+ */
+export function registerSeededEntry(issueNumber: number, seeded: SeededEntry): void {
+  world.seeded.set(issueNumber, seeded);
+}
+
+export function getSeededEntry(issueNumber: number): SeededEntry | undefined {
+  return world.seeded.get(issueNumber);
+}
+
+/**
+ * feature-910's "the cron host's clock reads {string}" pins the instant `scanPauseQueue`
+ * hands the decider. Cleared by feature-910.steps.ts's own After hook.
+ */
+let pinnedClock: Date | null = null;
+export function setPinnedClock(date: Date | null): void {
+  pinnedClock = date;
+}
+
+/**
+ * feature-910's end-to-end journey drives the REAL pause path, so its queue entry names a
+ * real orchestrator script. Shadowing `bunx` on PATH (mirroring this file's `gh` shadow)
+ * intercepts the relaunch before `tsx` ever runs the real script, recording argv in the
+ * same [issueNumber, adwId, ...extraArgs] shape the fixture orchestrator records so the
+ * shared "relaunched under its original adwId" Then-step needs no changes.
+ */
+let bunxMockDir: string | null = null;
+let interceptRelaunchViaBunx = false;
+let bunxInvocationLogPath: string | null = null;
+
+export function enableBunxRelaunchIntercept(logPath: string): void {
+  interceptRelaunchViaBunx = true;
+  bunxInvocationLogPath = logPath;
+}
+
+export function disableBunxRelaunchIntercept(): void {
+  interceptRelaunchViaBunx = false;
+  bunxInvocationLogPath = null;
+}
+
+function createBunxMockDir(): string {
+  const dir = fs.mkdtempSync(path.join(tmpdir(), 'adw-910-bunx-mock-'));
+  const stubPath = path.join(dir, 'bunx-stub.ts');
+  const stubSource = [
+    "import { appendFileSync } from 'fs';",
+    '',
+    '// argv: [\'tsx\', resolvedScript, issueNumber, adwId, ...extraArgs] — drop the first two',
+    "// so the record matches the fixture orchestrator's own [issueNumber, adwId, ...] shape.",
+    'const argv = process.argv.slice(4);',
+    "const logPath = process.env['ADW_910_BUNX_LOG'];",
+    'if (logPath) {',
+    "  appendFileSync(logPath, JSON.stringify({ argv }) + '\\n');",
+    '}',
+    "// Stays alive past the resume path's readiness window; killed in After by adwId.",
+    'setInterval(() => {}, 60_000);',
+  ].join('\n') + '\n';
+  fs.writeFileSync(stubPath, stubSource, 'utf-8');
+
+  const wrapperPath = path.join(dir, 'bunx');
+  const wrapperSource = ['#!/bin/sh', `exec bun "${stubPath}" "$@"`].join('\n') + '\n';
+  fs.writeFileSync(wrapperPath, wrapperSource, { mode: 0o755 });
+
+  return dir;
 }
 
 const world: {
@@ -107,6 +190,7 @@ function createGhMockDir(): string {
 
 BeforeAll(function () {
   ghMockDir = createGhMockDir();
+  bunxMockDir = createBunxMockDir();
 });
 
 AfterAll(function () {
@@ -114,9 +198,13 @@ AfterAll(function () {
     try { fs.rmSync(ghMockDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   ghMockDir = null;
+  if (bunxMockDir) {
+    try { fs.rmSync(bunxMockDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  bunxMockDir = null;
 });
 
-Before({ tags: '@adw-902' }, async function (this: RegressionWorld) {
+Before({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
   this.mockContext = await setupMockInfrastructure();
 
   process.env['PATH'] = `${ghMockDir}:${process.env['PATH'] ?? ''}`;
@@ -138,7 +226,7 @@ Before({ tags: '@adw-902' }, async function (this: RegressionWorld) {
   fs.rmSync(PAUSE_QUEUE_PATH, { force: true });
 });
 
-After({ tags: '@adw-902' }, async function (this: RegressionWorld) {
+After({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
   for (const seeded of world.seeded.values()) {
     try { execSync(`pkill -f ${JSON.stringify(seeded.scriptPath)}`, { stdio: 'ignore' }); } catch { /* nothing to kill */ }
     try { fs.rmSync(seeded.worktreePath, { recursive: true, force: true }); } catch { /* best effort */ }
@@ -177,7 +265,8 @@ function writeFixtureOrchestratorScript(worktreePath: string, invocationLogPath:
   return scriptPath;
 }
 
-function seedPausedWorkflow(issueNumber: number, targetRepo: string): SeededEntry {
+/** `targetRepo === null` seeds exactly what an orchestrator launched without `--target-repo` pauses: no `extraArgs` key at all. */
+export function seedPausedWorkflow(issueNumber: number, targetRepo: string | null): SeededEntry {
   const adwId = `bdd902-${issueNumber}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
   const worktreePath = fs.mkdtempSync(path.join(tmpdir(), `adw-902-worktree-${issueNumber}-`));
   const invocationLogPath = path.join(worktreePath, 'invocations.log');
@@ -194,7 +283,7 @@ function seedPausedWorkflow(issueNumber: number, targetRepo: string): SeededEntr
     pausedAt: new Date().toISOString(),
     worktreePath,
     branchName: `bdd-902-issue-${issueNumber}`,
-    extraArgs: ['--target-repo', targetRepo],
+    ...(targetRepo ? { extraArgs: ['--target-repo', targetRepo] } : {}),
     probeFailures: 0,
   };
   appendToPauseQueue(entry);
@@ -202,6 +291,11 @@ function seedPausedWorkflow(issueNumber: number, targetRepo: string): SeededEntr
   const seeded: SeededEntry = { entry, worktreePath, scriptPath, invocationLogPath, baselineProbeFailures: 0 };
   world.seeded.set(issueNumber, seeded);
   return seeded;
+}
+
+function countFixtureLaunches(seeded: SeededEntry): number {
+  if (!fs.existsSync(seeded.invocationLogPath)) return 0;
+  return fs.readFileSync(seeded.invocationLogPath, 'utf-8').trim().split('\n').filter(Boolean).length;
 }
 
 function requireSeeded(issueNumber: number): SeededEntry {
@@ -231,7 +325,7 @@ Given(
   },
 );
 
-async function replayGhCommentLog(): Promise<void> {
+export async function replayGhCommentLog(): Promise<void> {
   if (!fs.existsSync(world.ghLogPath)) return;
   const content = fs.readFileSync(world.ghLogPath, 'utf-8');
   fs.writeFileSync(world.ghLogPath, '');
@@ -248,16 +342,67 @@ async function replayGhCommentLog(): Promise<void> {
   }
 }
 
-/** N successive cycle counts, each a multiple of PROBE_INTERVAL_CYCLES, so every scan probes. */
-async function runProbeCycles(count: number): Promise<void> {
-  for (let i = 1; i <= count; i++) {
-    await scanPauseQueue(PROBE_INTERVAL_CYCLES * i, () => probeRateLimit(probeStub.exec));
-    await replayGhCommentLog();
+/** Shadows `bunx` on PATH for the duration of `fn`, mirroring the `gh` shadow above. */
+async function withBunxShadow(fn: () => Promise<void>): Promise<void> {
+  if (!interceptRelaunchViaBunx || !bunxMockDir) {
+    await fn();
+    return;
+  }
+  const savedPath = process.env['PATH'];
+  process.env['PATH'] = `${bunxMockDir}:${savedPath ?? ''}`;
+  process.env['ADW_910_BUNX_LOG'] = bunxInvocationLogPath ?? '';
+  try {
+    await fn();
+  } finally {
+    process.env['PATH'] = savedPath;
   }
 }
 
+export async function runOneProbeCycle(cycleIndex: number, scanningCron: ScanningCronIdentity, spawn?: SpawnOrchestrator): Promise<void> {
+  const clockAtCall = pinnedClock;
+  const deps = { scanningCron, ...(clockAtCall ? { now: () => clockAtCall } : {}), ...(spawn ? { spawn } : {}) };
+  await withBunxShadow(() => scanPauseQueue(PROBE_INTERVAL_CYCLES * cycleIndex, () => probeRateLimit(probeStub.exec), deps));
+  await replayGhCommentLog();
+}
+
+/** N successive cycle counts, each a multiple of PROBE_INTERVAL_CYCLES, so every scan probes. */
+export async function runProbeCycles(count: number, scanningCron: ScanningCronIdentity, spawn?: SpawnOrchestrator): Promise<void> {
+  for (let i = 1; i <= count; i++) {
+    await runOneProbeCycle(i, scanningCron, spawn);
+  }
+}
+
+let probeCallCountBeforeLastRun = 0;
+let probeCallCountAfterLastRun = 0;
+let probeCyclesRequestedLastRun = 0;
+
+/** feature-910's "the scanner did not run/ran once per probe cycle" Then-steps read this. */
+export function getScannerRunSummary(): { probeCallsBefore: number; probeCallsAfter: number; cyclesRequested: number } {
+  return {
+    probeCallsBefore: probeCallCountBeforeLastRun,
+    probeCallsAfter: probeCallCountAfterLastRun,
+    cyclesRequested: probeCyclesRequestedLastRun,
+  };
+}
+
+/**
+ * Runs N probe cycles as `scanningCron` and updates the probe-call counters
+ * `getScannerRunSummary` reads — the single entry point every scanner-running step (the
+ * plain one below and feature-911's cron-qualified ones) must go through, so "did not run
+ * the rate-limit probe" / "ran it once per probe cycle" observe the run regardless of which
+ * step triggered it.
+ */
+export async function runTrackedProbeCycles(count: number, scanningCron: ScanningCronIdentity, spawn?: SpawnOrchestrator): Promise<void> {
+  probeCallCountBeforeLastRun = probeStub.calls.length;
+  probeCyclesRequestedLastRun = count;
+  await runProbeCycles(count, scanningCron, spawn);
+  probeCallCountAfterLastRun = probeStub.calls.length;
+}
+
 When(/^the pause-queue scanner runs (\d+) probe cycles?$/, async function (countStr: string) {
-  await runProbeCycles(Number(countStr));
+  // This shared step owns every entry the 902/907/910 rows seed — always run it as the
+  // acme/widgets cron, never an identity derived from the queue's own entries.
+  await runTrackedProbeCycles(Number(countStr), scanningCronFor('acme/widgets'));
 });
 
 Then('the pause queue still holds the workflow for issue {int}', function (issueNumber: number) {
@@ -277,10 +422,33 @@ Then('the pause queue entry for issue {int} has not gained a probe failure', fun
   assert.strictEqual(current!.probeFailures ?? 0, seeded.baselineProbeFailures);
 });
 
-Then('the pause queue entry for issue {int} records {int} probe failures', function (issueNumber: number, expected: number) {
+Then('the pause queue entry for issue {int} records {int} probe failure(s)', function (issueNumber: number, expected: number) {
   const current = currentEntry(issueNumber);
   assert.ok(current, `Expected issue ${issueNumber} to still be queued`);
   assert.strictEqual(current!.probeFailures ?? 0, expected);
+});
+
+Then('the pause queue entry for issue {int} still records the target repository {string}', function (issueNumber: number, targetRepo: string) {
+  const current = currentEntry(issueNumber);
+  assert.ok(current, `Expected issue ${issueNumber} to still be queued`);
+  const extraArgs = current.extraArgs ?? [];
+  const idx = extraArgs.indexOf('--target-repo');
+  assert.ok(
+    idx !== -1 && extraArgs[idx + 1] === targetRepo,
+    `Expected --target-repo ${targetRepo} among issue ${issueNumber}'s extraArgs, got: ${JSON.stringify(extraArgs)}`,
+  );
+});
+
+Given('the paused workflow for issue {int} was last probed at {string}', function (issueNumber: number, isoTimestamp: string) {
+  const seeded = requireSeeded(issueNumber);
+  updatePauseQueueEntry(seeded.entry.adwId, { lastProbeAt: isoTimestamp });
+});
+
+Then('the pause queue entry for issue {int} still records its last probe at {string}', function (issueNumber: number, isoTimestamp: string) {
+  const current = currentEntry(issueNumber);
+  assert.ok(current, `Expected issue ${issueNumber} to still be queued`);
+  assert.ok(current.lastProbeAt, `Expected issue ${issueNumber}'s entry to carry a lastProbeAt`);
+  assert.strictEqual(new Date(current.lastProbeAt).getTime(), new Date(isoTimestamp).getTime());
 });
 
 Then(
@@ -313,4 +481,30 @@ Then('the paused workflow for issue {int} is relaunched under its original adwId
   const first = JSON.parse(lines[0]) as { argv: string[] };
   assert.strictEqual(first.argv[0], String(issueNumber));
   assert.strictEqual(first.argv[1], seeded.entry.adwId);
+});
+
+Then('the paused workflow for issue {int} is relaunched with the target repository {string}', async function (issueNumber: number, targetRepo: string) {
+  const seeded = requireSeeded(issueNumber);
+  await waitFor(() => fs.existsSync(seeded.invocationLogPath), 10_000, `fixture orchestrator invocation log at ${seeded.invocationLogPath}`);
+  const lines = fs.readFileSync(seeded.invocationLogPath, 'utf-8').trim().split('\n').filter(Boolean);
+  assert.ok(lines.length > 0, `Expected the fixture orchestrator to record an invocation for issue ${issueNumber}`);
+  const first = JSON.parse(lines[0]) as { argv: string[] };
+  const idx = first.argv.indexOf('--target-repo');
+  assert.ok(
+    idx !== -1 && first.argv[idx + 1] === targetRepo,
+    `Expected --target-repo ${targetRepo} among the relaunch args for issue ${issueNumber}, got argv=${first.argv.join(' ')}`,
+  );
+});
+
+Then('the paused workflow for issue {int} has been relaunched {int} time(s)', async function (issueNumber: number, times: number) {
+  const seeded = requireSeeded(issueNumber);
+  await waitFor(() => countFixtureLaunches(seeded) === times, 10_000, `issue ${issueNumber} to have been relaunched ${times} time(s)`);
+  assert.strictEqual(countFixtureLaunches(seeded), times);
+});
+
+Then('the paused workflow for issue {int} has not been relaunched', async function (issueNumber: number) {
+  const seeded = requireSeeded(issueNumber);
+  // A real spawn records asynchronously — wait a moment before concluding it never happened.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  assert.strictEqual(countFixtureLaunches(seeded), 0, `Expected issue ${issueNumber} not to have been relaunched`);
 });

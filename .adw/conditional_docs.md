@@ -34,6 +34,7 @@
   - Owns:
     - adws/phases/workflowInit.ts
     - adws/phases/workflowCompletion.ts
+    - adws/phases/__tests__/workflowCompletion.test.ts
     - adws/phases/upgradeGate.ts
     - adws/phases/orchestratorLock.ts
     - adws/phases/progressGate.ts
@@ -123,6 +124,7 @@
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
+    - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
     - When working on the Docker-based hermetic regression-suite runner (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
 
 - app_docs/feature-9gjajh-build-and-plan-phases.md
@@ -225,6 +227,10 @@
     - adws/triggers/concurrencyGuard.ts
     - adws/triggers/spawnGate.ts
     - adws/triggers/pauseQueueScanner.ts
+    - adws/triggers/__tests__/pauseQueueScanner.test.ts
+    - adws/triggers/pauseQueueDecider.ts
+    - adws/triggers/__tests__/pauseQueueDecider.test.ts
+    - adws/triggers/pauseQueueResume.ts
     - adws/triggers/rateLimitProbe.ts
     - adws/triggers/__tests__/rateLimitProbe.test.ts
     - adws/triggers/mergeDispatchGate.ts
@@ -238,6 +244,8 @@
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
     - When working on the pause-queue rate-limit probe (`rateLimitProbe.ts`) or its outcome classification
+    - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the ownership gate (`skip_not_owner`, evaluated before the reset gate), the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
+    - When working on the pause-queue resume path (`pauseQueueResume.ts`) — `resumeWorkflow` removes the queue entry before spawning the orchestrator (remove-before-spawn) and re-appends it with a strike via `appendToPauseQueue` if the spawn fails inside its readiness window
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
 
 - app_docs/feature-9gjajh-promotion-system.md
@@ -276,6 +284,7 @@
     - adws/jsonl/**
   - Conditions:
     - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
+    - When working on the CI envelope conformance gate (`.github/workflows/envelope-conformance.yml`, the pinned Claude CLI version, or `bun run jsonl:probe:check`)
 
 - app_docs/feature-9gjajh-types.md
   - Owns:
@@ -451,6 +460,7 @@
     - adws/agents/agentProcessHandler.ts
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
+    - adws/agents/__tests__/agentProcessHandler.test.ts
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
@@ -478,12 +488,15 @@
     - adws/core/orchestratorCli.ts
     - adws/core/orchestratorLib.ts
     - adws/core/phaseRunner.ts
+    - adws/core/rateLimitWaitPolicy.ts
     - adws/core/__tests__/claudeStreamParser.test.ts
     - adws/core/__tests__/phaseRunner.test.ts
+    - adws/core/__tests__/rateLimitWaitPolicy.test.ts
+    - adws/core/__tests__/fixtures/rateLimitIncident.ts
   - Conditions:
-    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
-    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`
-    - When debugging how ADW reads Claude Code's stdout/stderr or how phases are sequenced by the runner
+    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, the phase runner loop, or the in-process rate-limit wait policy
+    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, `phaseRunner.ts`, or `rateLimitWaitPolicy.ts`
+    - When debugging how ADW reads Claude Code's stdout/stderr, how phases are sequenced by the runner, or how a five-hour rate limit is ridden out in-process
 
 - app_docs/feature-9gjajh-coordination-kernel.md
   - Owns:

@@ -1,44 +1,944 @@
 {
-  "probedAt": "2026-03-24T00:00:00.000Z",
+  "probedAt": "2026-09-25T09:22:06.010Z",
   "messageTypes": {
+    "system/init": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "cwd",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "model",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "claude_code_version",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "permissionMode",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "apiKeySource",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "tools",
+        "required": true,
+        "type": "array"
+      },
+      {
+        "name": "mcp_servers",
+        "required": true,
+        "type": "array"
+      },
+      {
+        "name": "slash_commands",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "terminal_slash_commands",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "agents",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "skills",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "plugins",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "capabilities",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "output_style",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "analytics_disabled",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "product_feedback_disabled",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "messaging_socket_path",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "fast_mode_state",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "fast_mode_disabled_reason",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "memory_paths",
+        "required": false,
+        "type": "object",
+        "fields": [
+          {
+            "name": "auto",
+            "required": true,
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "per_turn_effort_active",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "view_mode",
+        "required": false,
+        "type": "string"
+      }
+    ],
     "assistant": [
-      { "name": "type", "required": true, "type": "string" },
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
       {
         "name": "message",
         "required": true,
         "type": "object",
         "fields": [
-          { "name": "id", "required": false, "type": "string" },
-          { "name": "model", "required": true, "type": "string" },
+          {
+            "name": "id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "type",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "role",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "model",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "content",
+            "required": true,
+            "type": "array"
+          },
+          {
+            "name": "stop_reason",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "usage",
             "required": true,
             "type": "object",
             "fields": [
-              { "name": "input_tokens", "required": true, "type": "number" },
-              { "name": "cache_creation_input_tokens", "required": false, "type": "number" },
-              { "name": "cache_read_input_tokens", "required": false, "type": "number" }
+              {
+                "name": "input_tokens",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "output_tokens",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "cache_creation_input_tokens",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "cache_read_input_tokens",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "cache_creation",
+                "required": false,
+                "type": "object",
+                "fields": [
+                  {
+                    "name": "ephemeral_5m_input_tokens",
+                    "required": true,
+                    "type": "number"
+                  },
+                  {
+                    "name": "ephemeral_1h_input_tokens",
+                    "required": true,
+                    "type": "number"
+                  }
+                ]
+              },
+              {
+                "name": "service_tier",
+                "required": false,
+                "type": "string"
+              },
+              {
+                "name": "inference_geo",
+                "required": false,
+                "type": "string"
+              }
             ]
           },
-          { "name": "content", "required": true, "type": "array" }
+          {
+            "name": "stop_sequence",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "stop_details",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "context_management",
+            "required": false,
+            "type": "object"
+          },
+          {
+            "name": "diagnostics",
+            "required": false,
+            "type": "object"
+          },
+          {
+            "name": "container",
+            "required": false,
+            "type": "null"
+          },
+          {
+            "name": "input_transformations",
+            "required": false,
+            "type": "array"
+          }
+        ]
+      },
+      {
+        "name": "parent_tool_use_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "request_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "timestamp",
+        "required": false,
+        "type": "string"
+      }
+    ],
+    "result/success": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "is_error",
+        "required": true,
+        "type": "boolean"
+      },
+      {
+        "name": "api_error_status",
+        "required": true,
+        "type": "null"
+      },
+      {
+        "name": "terminal_reason",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "result",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "stop_reason",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "duration_ms",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "duration_api_ms",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "num_turns",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "total_cost_usd",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "usage",
+        "required": true,
+        "type": "object",
+        "fields": [
+          {
+            "name": "input_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "output_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "cache_creation_input_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "cache_read_input_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "output_tokens_details",
+            "required": false,
+            "type": "object",
+            "fields": [
+              {
+                "name": "thinking_tokens",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "server_tool_use",
+            "required": false,
+            "type": "object",
+            "fields": [
+              {
+                "name": "web_search_requests",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "web_fetch_requests",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "service_tier",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "cache_creation",
+            "required": false,
+            "type": "object",
+            "fields": [
+              {
+                "name": "ephemeral_1h_input_tokens",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "ephemeral_5m_input_tokens",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "inference_geo",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "iterations",
+            "required": false,
+            "type": "array"
+          },
+          {
+            "name": "speed",
+            "required": false,
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "modelUsage",
+        "required": true,
+        "type": "object"
+      },
+      {
+        "name": "permission_denials",
+        "required": true,
+        "type": "array"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "ttft_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "ttft_stream_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "time_to_request_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "first_content_frame_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "queued_turn_count",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "result_index",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "fast_mode_state",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "fast_mode_disabled_reason",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "subagent_stats",
+        "required": false,
+        "type": "object",
+        "fields": [
+          {
+            "name": "spawned",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "requested",
+            "required": true,
+            "type": "object",
+            "fields": [
+              {
+                "name": "background",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "foreground",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "unset",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "started_in_background",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "max_depth",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "spawned_by_subagents",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "completed",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "failed",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "killed",
+            "required": true,
+            "type": "object",
+            "fields": [
+              {
+                "name": "parent",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "user",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "system",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "refused",
+            "required": true,
+            "type": "object",
+            "fields": [
+              {
+                "name": "depth_limit",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "concurrency_limit",
+                "required": true,
+                "type": "number"
+              },
+              {
+                "name": "budget",
+                "required": true,
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "by_type",
+            "required": true,
+            "type": "object",
+            "fields": []
+          }
         ]
       }
     ],
-    "result": [
-      { "name": "type", "required": true, "type": "string" },
-      { "name": "subtype", "required": true, "type": "string" },
-      { "name": "isError", "required": true, "type": "boolean" },
-      { "name": "durationMs", "required": false, "type": "number" },
-      { "name": "durationApiMs", "required": false, "type": "number" },
-      { "name": "numTurns", "required": false, "type": "number" },
-      { "name": "result", "required": true, "type": "string" },
-      { "name": "sessionId", "required": false, "type": "string" },
-      { "name": "total_cost_usd", "required": false, "type": "number" },
-      { "name": "modelUsage", "required": false, "type": "object" }
+    "result/error_during_execution": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "is_error",
+        "required": true,
+        "type": "boolean"
+      },
+      {
+        "name": "errors",
+        "required": true,
+        "type": "array"
+      },
+      {
+        "name": "terminal_reason",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "stop_reason",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "duration_ms",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "duration_api_ms",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "num_turns",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "total_cost_usd",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "usage",
+        "required": true,
+        "type": "object",
+        "fields": [
+          {
+            "name": "input_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "output_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "cache_creation_input_tokens",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "cache_read_input_tokens",
+            "required": true,
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "name": "modelUsage",
+        "required": true,
+        "type": "object"
+      },
+      {
+        "name": "permission_denials",
+        "required": true,
+        "type": "array"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "fast_mode_state",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "fast_mode_disabled_reason",
+        "required": false,
+        "type": "string"
+      }
     ],
-    "system": [
-      { "name": "type", "required": true, "type": "string" },
-      { "name": "subtype", "required": true, "type": "string" }
+    "system/api_retry": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "attempt",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "max_retries",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "retry_delay_ms",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "error_status",
+        "required": true,
+        "type": "number"
+      },
+      {
+        "name": "error",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "no_response",
+        "required": false,
+        "type": "object"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      }
+    ],
+    "rate_limit_event": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "rate_limit_info",
+        "required": true,
+        "type": "object",
+        "fields": [
+          {
+            "name": "status",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "resetsAt",
+            "required": true,
+            "type": "number"
+          },
+          {
+            "name": "rateLimitType",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "utilization",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "isUsingOverage",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "overageStatus",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "overageResetsAt",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "overageDisabledReason",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "overageInUse",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "surpassedThreshold",
+            "required": false,
+            "type": "number"
+          },
+          {
+            "name": "unifiedWindows",
+            "required": false,
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      }
+    ],
+    "result": [
+      {
+        "name": "type",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "subtype",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "is_error",
+        "required": true,
+        "type": "boolean"
+      },
+      {
+        "name": "session_id",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "uuid",
+        "required": true,
+        "type": "string"
+      },
+      {
+        "name": "api_error_status",
+        "required": false,
+        "type": "null"
+      },
+      {
+        "name": "terminal_reason",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "result",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "errors",
+        "required": false,
+        "type": "array"
+      },
+      {
+        "name": "stop_reason",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "duration_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "duration_api_ms",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "num_turns",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "total_cost_usd",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "usage",
+        "required": false,
+        "type": "object"
+      },
+      {
+        "name": "modelUsage",
+        "required": false,
+        "type": "object"
+      },
+      {
+        "name": "permission_denials",
+        "required": false,
+        "type": "array"
+      }
     ]
-  }
+  },
+  "cliVersion": "2.1.282"
 }

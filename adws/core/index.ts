@@ -187,15 +187,18 @@ export { startHeartbeat, stopHeartbeat } from './heartbeat';
 export { findHungOrchestrators, defaultHungDetectorDeps } from './hungOrchestratorDetector';
 export type { HungOrchestrator, HungDetectorDeps } from './hungOrchestratorDetector';
 
-export type { PhaseResult, PhaseFn } from './phaseRunner';
-export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
+export type { PhaseResult, PhaseFn, PhaseRunnerDeps, PostIssueComment } from './phaseRunner';
+export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel, systemClock } from './phaseRunner';
+
+export type { RateLimitWaitDecision, WaitClock } from './rateLimitWaitPolicy';
+export { RateLimitType, MIN_RATE_LIMIT_WAIT_MS, MAX_SLEEP_SLICE_MS, decideRateLimitWait, hasResetTime, sleepUntil } from './rateLimitWaitPolicy';
 
 export { AGENT_DEFAULT_TIMEOUT_MS, AGENT_PHASE_TIMEOUT_MAP, getAgentTimeoutForPhase } from './agentTimeouts';
 
 export { killProcessGroup } from './processKill';
 
 export type { PausedWorkflow } from './pauseQueue';
-export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from './pauseQueue';
+export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry, resetsAtIsoFromEpochSeconds } from './pauseQueue';
 
 export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
 export type { ReconcileDeps } from './remoteReconcile';

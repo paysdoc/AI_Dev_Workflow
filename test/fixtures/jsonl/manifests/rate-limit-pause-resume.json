@@ -13,5 +13,10 @@
       "path": "specs/plan.md",
       "contents": "# Implementation Plan (After Rate-Limit Recovery)\n\nMinimal plan stub seeded by the rate-limit-pause-resume manifest.\n"
     }
-  ]
+  ],
+  "response": {
+    "kind": "rate-limited",
+    "rateLimitType": "five_hour",
+    "limitedInvocations": 1
+  }
 }

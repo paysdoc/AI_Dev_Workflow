@@ -25,7 +25,7 @@ import { isProcessLive } from '../core/processLiveness';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
-import { handleRetryDirective } from './retryHandler';
+import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
@@ -34,6 +34,8 @@ import { releaseIssueSpawnLock } from './spawnGate';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
+import { probeRateLimit } from './rateLimitProbe';
+import type { ScanningCronIdentity } from './pauseQueueDecider';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
@@ -56,6 +58,11 @@ const processedPRs = new Set<number>();
 let cycleCount = 0;
 
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoIdentity);
+
+// This cron's own launch identity, handed to the pause-queue scanner so it acts only on the
+// entries it owns. Derived once from the same resolveCronRepo result the launch boundary
+// below is built from — never re-read from a fresh cwd-derived identity or GitContext.
+const scanningCron: ScanningCronIdentity = { repoId: cronRepoInfo, selfHost: targetRepo === null };
 
 // Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).
@@ -216,6 +223,17 @@ export async function runDocsIndexSweepTick(
 }
 
 /**
+ * Pause-queue scan dispatch: hands the scanner this cron's own launch identity (resolved
+ * once at startup) and the real rate-limit probe. No cadence gate here — the scanner owns
+ * PROBE_INTERVAL_CYCLES — and no swallow: a throw still reaches runGuardedTick, exactly as
+ * before this dispatch was factored out. Exported (with an injectable scan) so tests can
+ * drive the identity hand-off directly, following the file's injectable-tick idiom.
+ */
+export async function runPauseQueueScanTick(cycleCount: number, scan: typeof scanPauseQueue = scanPauseQueue): Promise<void> {
+  await scan(cycleCount, probeRateLimit, { scanningCron });
+}
+
+/**
  * Runs one cron tick and contains any escaped rejection. `checkAndTrigger` is
  * fired-and-forgotten from the entry-script guard (initial call and the setInterval
  * callback); without this guard a single throw anywhere in the tick — e.g. the
@@ -311,7 +329,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
 
   if (await handleAuthGateTick(boundary)) return;
 
-  await scanPauseQueue(cycleCount);
+  await runPauseQueueScanTick(cycleCount);
   await scanAuthQueue(boundary, buildTargetRepoArgs());
 
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
@@ -337,6 +355,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   const issues = listCronOpenIssues(boundary.providers.issueTracker);
   const linkedPrs = fetchLinkedPRs(boundary.providers.codeHost);
   const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
+  const targetRepoArgs = buildTargetRepoArgs();
 
   // Scan all fetched issues for ## Cancel before filterEligibleIssues.
   // Cancelled issues are recorded in a per-cycle set so they are skipped
@@ -350,7 +369,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
       handleCancelDirective(issue.number, issue.comments, boundary, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
     } else if (latestComment && isRetryComment(latestComment.body)) {
-      handleRetryDirective(issue.number, issue.comments);
+      handleRetryDirective(issue.number, issue.comments, buildRetryHandlerDeps(boundary, targetRepoArgs));
       // No cancelledThisCycle add: the reset to awaiting_merge must be picked up
       // this cycle by filterEligibleIssues (the awaiting_merge hoist re-dispatches adwMerge).
     }
@@ -378,7 +397,6 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   }
 
   const repoInfo = cronRepoInfo;
-  const targetRepoArgs = buildTargetRepoArgs();
 
   // Independent redrive pass: re-spawns adwUpgrade for a stranded #UPG (open,
   // adw:upgrade, not adw:blocked, no PR on its claim branch, spawn lock free/stale).

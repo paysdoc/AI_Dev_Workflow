@@ -14,7 +14,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Detects and early-terminates on auth errors, rate limits/API outages, context compaction, and output token threshold breaches — each resolves to a distinct `AgentResult` shape
 - Retries up to 3 times on transient `ENOENT` failures, clearing the `resolveClaudeCodePath` cache between attempts with exponential backoff
 - Retries once on expired OAuth token after verifying `claude auth status --json`; throws `AuthRequiredError` if auth is invalid or still failing after retry
-- Throws `RateLimitError` (no retry) when rate limiting or API outage is detected, signaling the orchestrator to pause
+- Throws `RateLimitError` (no retry) when rate limiting or API outage is detected, signaling the orchestrator to pause; carries `rateLimitType`/`resetsAt` (from `adws/types/agentTypes.ts`'s `RateLimitFacts`) through from the `AgentResult` when a rejected `rate_limit_event` supplied them, `undefined` otherwise — never defaulted
 - Saves every prompt to `<statePath>/prompts/<command>.txt` for replay and audit
 - Provides `runCommandAgent<T>()` as a typed wrapper: selects model and effort via `getModelForCommand`/`getEffortForCommand`, optionally extracts structured output via a caller-supplied `extractOutput` function, and runs a schema-validated retry loop (up to 10 retries, early-exit after 3 consecutive identical errors) using a corrective Haiku prompt
 - Provides `runGenerateBranchNameAgent` (invokes `/generate_branch_name` skill, returns `branchName`) and `runCommitAgent` (invokes `/commit` skill, validates and normalises the commit message prefix)
@@ -63,7 +63,7 @@ Guardrails injection is additionally governed by:
 ## Gotchas
 
 - The watchdog kill does not set a special exit code — `agentProcessHandler` resolves normally after the process group is killed; the `watchdogFired` boolean in `runClaudeAgentWithCommand` is the sole gate that surfaces `AgentTimeoutError` to the caller
-- Rate limit detection fires on `rateLimitRejected`, `serverErrorDetected`, OR `overloadedErrorDetected` — all three signal the same "pause" path
+- Rate limit detection fires on `rateLimitDetected` (renamed from `rateLimitRejected` — a documented `rate_limit`/429 `api_retry` or terminal `result.api_error_status: 429` sets it too, not only a rejected `rate_limit_event`), `serverErrorDetected`, OR `overloadedErrorDetected` — all three signal the same "pause" path. The rate-limited `AgentResult` carries `rateLimitType`/`resetsAt` only when a rejected event supplied them.
 - Context compaction resolves as `success: true` with `compactionDetected: true`; callers must check this flag and re-invoke rather than treating the result as a completed run
 - ENOENT retry clears the path cache and re-resolves the Claude CLI binary before each attempt; a permanently missing binary will exhaust all 3 attempts and return the last failed result (no exception)
 - Auth retry calls `execSync` with the full `process.env` (not the sandboxed env) so the CLI can access its own credentials at `HOME`
