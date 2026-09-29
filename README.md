@@ -27,7 +27,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, `stageClassifier` six-class taxonomy (active/awaiting_merge/retriable/resumable/terminal/human_gated) for recovery routing, and `worktreeReset`-driven takeover; for abandoned and `phase_timeout` workflows the `worktreeReuseGate` probes Class-A git-operability signals (`WorktreeProbe`) and resumes in-place when healthy, resetting only on fault.
 - **Resilience primitives** — a per-repo-owned pause queue for rate-limit/billing pause and resume (`pauseQueueDecider.ts` compares each entry's persisted `--target-repo` against the scanning cron's own launch identity — self-host crons own only entries recording no target repo — so a probe result from one cron's tick can never strike, refresh, resume, or evict an entry paused by a different repo's cron; `pauseQueueResume.ts` removes an entry from the queue before spawning its resumed orchestrator and re-appends it with an extra strike only if the spawn itself fails), auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor (`devServerJanitor.ts`, only treats a `TARGET_REPOS_DIR` entry as ADW-managed when it carries both a `.git` entry and the `.adw` marker directory written by `adw_init`, since the directory may be a general projects folder shared with non-ADW repos; a discovery failure for one repo is caught and logged rather than aborting the rest of the pass — #812), per-issue scenario sweep cron (14-day retention, promotion-tag-aware — a file carrying a live `@promotion-suggested-<date>` tag is exempted from deletion until the tag is declined or approved), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
 - **In-process rate-limit wait plan** — `rateLimitWaitPolicy.ts`'s pure `decideRateLimitWait` lets `phaseRunner.ts`'s `runPhase`/`runPhasesParallel` ride out a `five_hour` `RateLimitError` with a known reset time by sleeping in-process (`sleepUntil`, sliced under `MAX_SLEEP_SLICE_MS` so a suspended host or clock jump is noticed and no timer nears Node's `setTimeout` limit) and retrying the phase, instead of always exiting to the pause queue; any other rate-limit type, or a missing/stale reset time, still falls through to `handleRateLimitPause`. Each wait posts a progress comment via `formatRateLimitWaitComment` before sleeping.
-- **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
+- **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and persistence to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adws/triggers/promotionSweep.ts`, cron-dispatched via `runPromotionSweepTick` on the `PROMOTION_SWEEP_INTERVAL_CYCLES` cadence (also invocable by hand), lists tracked `features/per-issue/feature-{N}.feature` files, scores each with a deterministic vocabulary-registry scorer and auto-ramping threshold (`adws/promotion/`, no LLM), reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link (`promotionReconcileLink.ts`), and asks the pure `promotionSweepDecider` for one action (`originate | leave | done | decline | redrive | withdraw`). On `originate` it stamps `@promotion-suggested-<date>` on the file (a commit scoped to that single path, never `git add -A`) and files exactly one `hitl`-labelled issue with precise `git mv` + vocabulary-registration instructions (`promotionIssueBody.ts`) for a human to carry out as a direct relocation. Both the promotion sweep and the per-issue scenario sweep act on the repo of the cron's own launch-boundary `GitContext` — never a cwd-derived fallback — and skip (rather than misfire) when no launch context is available.
@@ -51,7 +51,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 
 ## About this project
 
-ADW began as an extension of the foundational orchestration patterns from IndyDevDan's [Agentic Engineer course](https://agenticengineer.com/) and grew over roughly 1,800 commits and 310 merged PRs into a production-shaped framework safe to run unattended against real repositories. It has been self-hosting since the first week — the project's own commits are produced by ADW driving its own implementation, with subjects prefixed `plan-orchestrator:`, `build-agent:`, `alignment-agent:`, `review-patch-agent:`, and so on. Running ADW against its own repository from the first week is where most of the design decisions came from — failures hit fast and had to be fixed before the next session.
+ADW began as an extension of the foundational orchestration patterns from IndyDevDan's [Agentic Engineer course](https://agenticengineer.com/) and grew over roughly 2,900 commits and 460 merged PRs into a production-shaped framework safe to run unattended against real repositories. It has been self-hosting since the first week — the project's own commits are produced by ADW driving its own implementation, with subjects prefixed `plan-orchestrator:`, `build-agent:`, `alignment-agent:`, `review-patch-agent:`, and so on. Running ADW against its own repository from the first week is where most of the design decisions came from — failures hit fast and had to be fixed before the next session.
 
 The most valuable artifact in this repository isn't the framework. It's the trail of failure modes that reshaped it, and the design decisions that came out of those failures. Most of what I learned about agentic systems came from operating one, not from reading about them.
 
@@ -67,11 +67,11 @@ These are the load-bearing choices. Each one was validated by an incident or a r
 
 **Stateless auto-merge gate.** The rule is `gate_open = (no hitl on issue) OR (PR is approved)`, re-evaluated on every cron tick rather than cached from workflow start. Human gating becomes a real-time decision: add `hitl` before the PR opens to defer merge, remove it later to re-enable. Any cached state was a source of "why didn't it merge?" support load; the stateless rule is trivially auditable.
 
-**BDD scenarios as the plan/implementation contract.** Scenarios are not just tests — they are the validation surface that catches plan-implementation drift. `validationAgent` and `resolutionAgent` enforce alignment with the issue body. Per-issue scenarios (input only, never executed) were split from regression scenarios (executed) because mixing them caused the runner to fail on draft scenarios and produced ambiguous "is this regression?" decisions.
+**BDD scenarios as the plan/implementation contract.** Scenarios are not just tests — they are the validation surface that catches plan-implementation drift. `validationAgent` and `resolutionAgent` enforce alignment with the issue body. Per-issue scenarios (run only by their own workflow's test phase, by `@adw-{N}` tag) were split from regression scenarios (the standing suite) because mixing them caused the runner to fail on draft scenarios and produced ambiguous "is this regression?" decisions.
 
 **LLM diff gate for chores.** Chores skip review and document by default but only auto-merge if Haiku classifies the diff as `safe`. `regression_possible` falls through to the full review path; classifier failure defaults to `regression_possible` (fail-safe). Chore volume is high and full review on every CSS tweak is wasteful, but unguarded auto-merge once produced a regression that triggered this design.
 
-**Cost dual-write (CSV + D1).** Cost tracking originally lived as CSV files committed by ADW into the target repo's git history. This produced a year's worth of merge and rebase bugs in two months (see failure modes below). The eventual fix was not another patch but a model change: dual-write to a Cloudflare D1-backed Worker, decoupling cost from the target repo's git history while keeping local CSV for offline analysis.
+**Cost persisted in D1, not in git.** Cost tracking originally lived as CSV files committed by ADW into the target repo's git history. This produced a year's worth of merge and rebase bugs in two months (see failure modes below). The eventual fix was not another patch but a model change: cost records are posted to a Cloudflare D1-backed Worker, decoupling cost from the target repo's git history. CSV and D1 were written side by side during the rollout; the CSV writer has since been removed.
 
 **Polymorphic prompts.** Slash command prompts for `/feature`, `/bug`, `/chore`, `/patch`, and `/pr_review` were unified around conditional sections that adapt to the issue type. Earlier each command had its own prompt and they drifted independently. The cutover folded scenario-writing rules and conditional docs into a single shared structure.
 
@@ -101,7 +101,7 @@ The fix was extracting `vcs/worktreeQuery.ts` as a typed surface and making bran
 
 ADW committed cost CSVs into the target repo's branch. This caused conflicts every time a workflow ran in parallel or after a rebase. Six bugs landed in three days (Mar 6 through Mar 9): unstaged-changes errors, deletion races, rebase errors, then a rewrite of the commit mechanism, then yet another deletion bug.
 
-The eventual fix was not another patch. It was a data-model change: dual-write to a Cloudflare D1-backed Worker, decoupling cost from target-repo git history.
+The eventual fix was not another patch. It was a data-model change: cost records go to a Cloudflare D1-backed Worker, decoupling cost from target-repo git history.
 
 **Lesson:** when fixes pile up against the same module faster than they stick, the data model is wrong.
 
@@ -142,6 +142,7 @@ If you want to evaluate the codebase directly, the recommended reading order is:
 5. `@paysdoc/devplatform/providers` (`forgeProviders()`) together with `@paysdoc/devplatform`'s port types — the provider abstraction, now supplied by the library rather than in-tree; `adws/core/launchGitContext.ts` calls `forgeProviders()` to assemble the same provider triple at the launch boundary, bound to the same identity as the GitContext.
 6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
 7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
+8. [specs/adr/README.md](specs/adr/README.md) — one record per design decision, including the ones that were replaced, each with its sources.
 
 ---
 
@@ -166,9 +167,9 @@ Thank you both.
 
 | Tool | Purpose | Install (macOS) | Install (Linux) |
 |------|---------|-----------------|-----------------|
-| [Node.js](https://nodejs.org/) (>= 18) | Required by Claude Code CLI | `brew install node` | `sudo apt install nodejs` |
+| [Node.js](https://nodejs.org/) (>= 18) | Runtime for ADW scripts (launched as `bunx tsx`) and for the Claude Code CLI | `brew install node` | `sudo apt install nodejs` |
 | [Git](https://git-scm.com/) | Version control, worktrees, branching | `brew install git` | `sudo apt install git` |
-| [Bun](https://bun.sh/) | Runtime, package manager, script runner | `brew install oven-sh/bun/bun` | `curl -fsSL https://bun.sh/install \| bash` |
+| [Bun](https://bun.sh/) | Package manager and script launcher | `brew install oven-sh/bun/bun` | `curl -fsSL https://bun.sh/install \| bash` |
 | [GitHub CLI](https://cli.github.com/) | Issue/PR operations, GraphQL, auth | `brew install gh` | `sudo apt install gh` |
 | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | AI agent execution | `npm install -g @anthropic-ai/claude-code` | `npm install -g @anthropic-ai/claude-code` |
 
@@ -315,8 +316,8 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 
 | Directory | Purpose |
 |---|---|
-| `features/regression/` | Promoted regression suite — executed by the test runner (`cucumber.js` is scoped here). |
-| `features/per-issue/` | Per-issue agent-input scenarios — **never** executed by the runner; retained for 14 days after the issue's PR merges and then swept by the cron probe. File naming: `feature-{issueNumber}.feature`. |
+| `features/regression/` | Promoted regression suite — run by the `@regression` tag. |
+| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe. File naming: `feature-{issueNumber}.feature`. |
 
 Top-level `features/*.feature` files were removed in the BDD cutover (issue #493). All promoted scenarios now live exclusively under `features/regression/`.
 
@@ -462,8 +463,11 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   └── SKILL.md
 │   ├── write-a-prd/
 │   │   └── SKILL.md
-│   └── write-a-skill/
-│       └── SKILL.md
+│   ├── write-a-skill/
+│   │   └── SKILL.md
+│   └── write-an-adr/
+│       ├── SKILL.md
+│       └── TEMPLATE.md
 └── settings.json
 templates/              # ADW framework-level templates
 ├── claude-settings-starter.json  # Canonical deny-list source for the guardrails `--settings` injection; also copied into target repos by `/adw_init`
@@ -1018,7 +1022,7 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
-├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
+├── per-issue/          # Per-issue scenarios — run by their own workflow's test phase only; swept 14 days after PR merges
 │   ├── step_definitions/  # Per-issue step definition files
 │   └── support/        # Per-issue Cucumber support (e.g. feature-846-ensure-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
@@ -1035,6 +1039,7 @@ features/               # BDD feature files (Gherkin .feature)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
+├── adr/                # Architecture Decision Records, one per design decision (index: specs/adr/README.md)
 ├── ADW_PYTHON_SUPPORT_RECOMMENDATION.md  # Standalone recommendation doc (Python stack support)
 ├── prd-cost-module-revamp.md  # Standalone PRD draft (cost module revamp)
 ├── patch/              # Generated patch specs
