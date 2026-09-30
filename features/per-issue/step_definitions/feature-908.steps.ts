@@ -459,20 +459,6 @@ Then('the pause-queue scanner relaunched nothing for issue {int}', function (iss
   assert.strictEqual(countFixtureInvocations(s.seededQueueEntries.get(issueNumber)), 0, `Expected the scanner not to have relaunched the fixture for issue ${issueNumber}`);
 });
 
-Then('the resumed comment is recorded on issue {int} in the target repository {string}', function (this: RegressionWorld, issueNumber: number, repoFullName: string) {
-  const requests = this.getRecordedRequests();
-  const found = requests.some((r) => {
-    if (r.method !== 'POST' || !r.url.includes(`/repos/${repoFullName}/issues/${issueNumber}/comments`)) return false;
-    try {
-      const body = JSON.parse(r.body) as Record<string, unknown>;
-      return typeof body['body'] === 'string' && body['body'].includes('## :arrow_forward: ADW Workflow Resuming');
-    } catch {
-      return false;
-    }
-  });
-  assert.ok(found, `Expected a resumed comment on issue ${issueNumber} in ${repoFullName}. Recorded: ${requests.map((r) => `${r.method} ${r.url}`).join(', ')}`);
-});
-
 Then(
   "the mock harness recorded zero comment posts on issue {int} in the cron host's own repository {string}",
   function (this: RegressionWorld, issueNumber: number, repoFullName: string) {

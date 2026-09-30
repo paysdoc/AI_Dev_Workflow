@@ -1,5 +1,5 @@
 import { When } from '@cucumber/cucumber';
-import { spawnSync } from 'child_process';
+import { spawnSync, execFileSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -251,6 +251,20 @@ When(
       body: payload,
     });
     */
+  },
+);
+
+// A bare `/` is alternation in a cucumber expression, so it is escaped.
+When(
+  'the git\\/gh guard is run across the repository',
+  function (this: RegressionWorld) {
+    try {
+      const stdout = execFileSync('bunx', ['tsx', 'adws/checkGitGhGuard.ts'], { cwd: ROOT, encoding: 'utf-8' });
+      this.gitGhGuardResult = { exitCode: 0, output: stdout };
+    } catch (err) {
+      const e = err as { status?: number | null; stdout?: string; stderr?: string };
+      this.gitGhGuardResult = { exitCode: e.status ?? 1, output: (e.stdout ?? '') + (e.stderr ?? '') };
+    }
   },
 );
 

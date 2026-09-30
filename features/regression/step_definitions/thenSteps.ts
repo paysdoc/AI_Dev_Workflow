@@ -1,4 +1,5 @@
 import { Then } from '@cucumber/cucumber';
+import { execFileSync } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -394,6 +395,46 @@ Then(
       this.targetBranch,
       branch,
       `Expected push to branch "${branch}" but World.targetBranch is "${this.targetBranch}"`,
+    );
+  },
+);
+
+Then('the resumed comment is recorded on issue {int} in the target repository {string}', function (this: RegressionWorld, issueNumber: number, repoFullName: string) {
+  const requests = this.getRecordedRequests();
+  const found = requests.some((r) => {
+    if (r.method !== 'POST' || !r.url.includes(`/repos/${repoFullName}/issues/${issueNumber}/comments`)) return false;
+    try {
+      const body = JSON.parse(r.body) as Record<string, unknown>;
+      return typeof body['body'] === 'string' && body['body'].includes('## :arrow_forward: ADW Workflow Resuming');
+    } catch {
+      return false;
+    }
+  });
+  assert.ok(found, `Expected a resumed comment on issue ${issueNumber} in ${repoFullName}. Recorded: ${requests.map((r) => `${r.method} ${r.url}`).join(', ')}`);
+});
+
+Then(
+  'the ADW TypeScript type-check passes',
+  function () {
+    try {
+      // Cucumber runs under `--import tsx`, which tsc does not need, so NODE_OPTIONS is blanked.
+      execFileSync('bunx', ['tsc', '--noEmit'], { cwd: ROOT, encoding: 'utf-8', env: { ...process.env, NODE_OPTIONS: '' } });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string };
+      assert.fail(`Expected the ADW TypeScript type-check to pass. Output:\n${(e.stdout ?? '') + (e.stderr ?? '')}`);
+    }
+  },
+);
+
+// A bare `/` is alternation in a cucumber expression, so it is escaped.
+Then(
+  'the git\\/gh guard reports no violations',
+  function (this: RegressionWorld) {
+    assert.ok(this.gitGhGuardResult, 'Expected the git/gh guard to have been run first');
+    assert.strictEqual(
+      this.gitGhGuardResult.exitCode,
+      0,
+      `Expected the guard to exit 0. Output:\n${this.gitGhGuardResult.output}`,
     );
   },
 );
