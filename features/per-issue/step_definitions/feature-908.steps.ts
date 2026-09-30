@@ -32,7 +32,7 @@ import { AGENTS_STATE_DIR, PROBE_INTERVAL_CYCLES } from '../../../adws/core/conf
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { readPauseQueue, appendToPauseQueue, removeFromPauseQueue, PAUSE_QUEUE_PATH, type PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
 import { scanPauseQueue } from '../../../adws/triggers/pauseQueueScanner.ts';
-import { scanningCronFor } from './feature-902-queue.steps.ts';
+import { scanningCronFor } from '../../regression/step_definitions/feature-902-queue.steps.ts';
 import { handleRetryDirective, buildRetryHandlerDeps } from '../../../adws/triggers/retryHandler.ts';
 import { dispatchWebhookEvent } from '../../../adws/triggers/trigger_webhook.ts';
 import { writeCronPid } from '../../../adws/triggers/cronProcessGuard.ts';
@@ -457,20 +457,6 @@ Then('the rate-limit pause queue still holds the entry for adwId {string}', func
 
 Then('the pause-queue scanner relaunched nothing for issue {int}', function (issueNumber: number) {
   assert.strictEqual(countFixtureInvocations(s.seededQueueEntries.get(issueNumber)), 0, `Expected the scanner not to have relaunched the fixture for issue ${issueNumber}`);
-});
-
-Then('the resumed comment is recorded on issue {int} in the target repository {string}', function (this: RegressionWorld, issueNumber: number, repoFullName: string) {
-  const requests = this.getRecordedRequests();
-  const found = requests.some((r) => {
-    if (r.method !== 'POST' || !r.url.includes(`/repos/${repoFullName}/issues/${issueNumber}/comments`)) return false;
-    try {
-      const body = JSON.parse(r.body) as Record<string, unknown>;
-      return typeof body['body'] === 'string' && body['body'].includes('## :arrow_forward: ADW Workflow Resuming');
-    } catch {
-      return false;
-    }
-  });
-  assert.ok(found, `Expected a resumed comment on issue ${issueNumber} in ${repoFullName}. Recorded: ${requests.map((r) => `${r.method} ${r.url}`).join(', ')}`);
 });
 
 Then(

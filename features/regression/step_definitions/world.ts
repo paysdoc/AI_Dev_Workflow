@@ -8,6 +8,11 @@ export interface GitInvocation {
   branch?: string;
 }
 
+export interface GitGhGuardResult {
+  exitCode: number;
+  output: string;
+}
+
 export class RegressionWorld extends World {
   /** Set in the @regression Before hook. */
   mockContext: MockContext | null = null;
@@ -32,6 +37,8 @@ export class RegressionWorld extends World {
   proofDir?: string;
 
   capturedProofComment?: string;
+
+  gitGhGuardResult?: GitGhGuardResult;
 
   constructor(options: IWorldOptions) {
     super(options);
