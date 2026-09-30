@@ -23,7 +23,7 @@ import { updateFixtureEnvelopes } from '../../../adws/jsonl/fixtureUpdater.ts';
 import { probeClaudeJsonlSchema } from '../../../adws/jsonl/schemaProbe.ts';
 import { DEFAULT_SCHEMA_PATH } from '../../../adws/jsonl/conformanceCheck.ts';
 import { copyState, readFixtureLines } from './feature-909.steps.ts';
-import { probeStub, resetFeature902ProbeState } from './feature-902.steps.ts';
+import { probeStub, resetFeature902ProbeState } from '../../regression/step_definitions/feature-902.steps.ts';
 
 const REPO_ROOT = process.cwd();
 const COMMITTED_SCHEMA_PATH = DEFAULT_SCHEMA_PATH;

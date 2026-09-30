@@ -33,6 +33,8 @@ export class RegressionWorld extends World {
 
   capturedProofComment?: string;
 
+  gitGhGuardRun?: { exitCode: number; output: string };
+
   constructor(options: IWorldOptions) {
     super(options);
   }
