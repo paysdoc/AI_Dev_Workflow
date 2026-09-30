@@ -1,4 +1,4 @@
-@adw-910 @adw-6a1674-pause-queue-waits-fo
+@regression @adw-910 @adw-6a1674-pause-queue-waits-fo
 Feature: The pause queue waits for the reset time the CLI reported — the pause records it, a pure decider gates every entry on it, the scanner runs no probe before it, and only a confirmed non-rate-limit failure counts a strike, with an eviction that leaves the workflow paused and names ## Retry as the recovery
 
   Issue #910 is the pause-queue slice of `specs/prd/rate-limit-indefinite-retry.md` (section
