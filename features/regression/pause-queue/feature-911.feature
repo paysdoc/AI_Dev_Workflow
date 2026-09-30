@@ -1,4 +1,4 @@
-@adw-911 @adw-gtxas1-per-repo-ownership-o
+@regression @adw-911 @adw-gtxas1-per-repo-ownership-o
 Feature: Every pause-queue entry has exactly one owning cron — the cron whose launch identity is the entry's target repository, or the self-host cron when the entry records none — so only that cron probes for it, strikes it, evicts it or resumes it; and a resume takes the entry off the queue before it spawns the orchestrator, putting it back with one more strike if the spawn dies inside the readiness window
 
   Issue #911 is the ownership slice of `specs/prd/rate-limit-indefinite-retry.md` (section "Pause
