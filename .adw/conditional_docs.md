@@ -819,7 +819,7 @@
     - adws/phases/stackCoherenceReporter.ts
     - adws/proof/**
   - Conditions:
-    - When working on proof artifact harvesting, PR proof publishing, scenario proof attachment, stack coherence reporting, or the `adws/proof/` module
+    - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, scenario proof attachment, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
     - 0022
