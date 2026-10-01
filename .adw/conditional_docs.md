@@ -464,6 +464,7 @@
     - adws/agents/__tests__/agentProcessHandler.test.ts
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
+    - When working on context-compaction handling in the agent process handler — the opt-in `killOnCompaction` flag, which agents are killed and restarted (build phase, unit-test path) versus run on, or `compactionDetected` results
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
 
 - app_docs/feature-9gjajh-classifier-and-routing.md

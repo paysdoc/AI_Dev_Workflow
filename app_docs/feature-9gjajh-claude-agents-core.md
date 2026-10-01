@@ -51,6 +51,7 @@ No configuration files govern the base spawn layer. Behaviour is governed by cal
 - `model` defaults to `'sonnet'`; overridden per-command by `getModelForCommand`
 - `effort` is optional; overridden per-command by `getEffortForCommand`
 - Watchdog timeout is looked up per phase name via `getAgentTimeoutForPhase`
+- `killOnCompaction` (default `false`) is threaded `handleAgentProcess` ← `runClaudeAgentWithCommand` ← `CommandAgentOptions`/`runBuildAgent`/`runTestAgent`/`runResolveTestAgent`. Only `buildPhase.ts` and `runUnitTestsWithRetry` (when `onCompactionDetected` is supplied) set it; the review phase's `runBuildAgent` calls leave it off
 - Token threshold for early termination is `MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD` (constants from `../core`)
 - Retry counts are module-level constants: `MAX_RETRIES = 10`, `MAX_CONSECUTIVE_IDENTICAL_ERRORS = 3`
 
