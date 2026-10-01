@@ -168,6 +168,7 @@
     - When `fetchLinkedPRs(codeHost)` is referenced — it now takes a `Pick<CodeHost, 'listPullRequests'>` instead of a `repoInfo`, reading `CodeHost.listPullRequests()` (every PR of the repo — open/closed/merged; new port method, #821)
     - When `buildUnaddressedCommentReads(boundary)`/`hasUnaddressedComments(prNumber, boundary)` are referenced — rewritten around `Pick<LaunchBoundary, 'providers' | 'gitContext'>`, shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`
     - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
+    - When `provisionAdwLabels(boundary, logger?)` is referenced — the never-throw wrapper called once from `trigger_cron.ts` at startup
     - When `ensureAdwLabelsExist(repoInfo, tracker, logger?)` is referenced — the one piece of label-provisioning policy kept from the deleted `labelManager.ts`, over `Pick<IssueTracker, 'ensureLabel'>`
     - When `getRepoInfo`, `fetchGitHubIssue`, `commentOnIssue` (the free function; `IssueTracker.commentOnIssue` the port method still exists), `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts`, `activateGitHubAppAuth`, or `activeRepo` are referenced and not found — the entire legacy free-function GitHub API layer was deleted in #821; every op now routes through a forge provider port (`IssueTracker`/`CodeHost`) reached via a `LaunchBoundary`. `getRepoInfo` survives only as a name-based reintroduction guard in `adws/guard/identityRule.ts`'s `CWD_DERIVED_IDENTITY_FNS` set
 
@@ -185,6 +186,7 @@
     - When `checkAndTrigger`'s top-of-function boundary-null guard (logs and returns; only reachable when the module is imported, never at tick time) or `trigger_cron.ts` constructing zero contexts (no `gitContextForRepo` import) is relevant
     - When working on the cron trigger loop, cron issue filtering, label eligibility for cron, cron process guard, repo resolver, or stage resolver
     - When working on `trigger_cron.ts`, `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `cronProcessGuard.ts`, `cronRepoResolver.ts`, or `cronStageResolver.ts`
+    - When an `adw:none` issue is still being taken over or merged by the cron, or when `provisionAdwLabels` / `adw:*` label provisioning at cron start is relevant
     - When working with `decideLabelRecovery`, `evaluateLabelRecovery`, or the `reserved_label` reason in `cronLabelEligibility.ts`
     - When a truly-unlabeled fresh issue is being filtered out of the cron sweep instead of falling through to downstream LLM classification (#754)
     - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper, or a multi-label conflict was cleaned up but the issue is not auto-recovering
@@ -205,6 +207,7 @@
     - adws/triggers/webhookEventBoundary.ts
     - adws/triggers/__tests__/webhookEventBoundary.test.ts
   - Conditions:
+    - When an `adw:none` issue still starts a run on the comment, dependency-closure, opened or cron path, or when the opt-out gate in `classifyAndSpawnWorkflow` is relevant
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
     - When working with `handleIssueClosedDependencyUnblock`, `selectDependents`, or `issueClosedUnblockRouter.ts` (the `issues.closed` dependency-unblock path)
