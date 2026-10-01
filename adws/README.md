@@ -186,7 +186,7 @@ bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
 - ADW ID (optional, auto-generated if not provided)
 
 **What it does:**
-1. Analyzes git diff against main branch
+1. Analyzes git diff against the default branch
 2. Generates technical documentation in `app_docs/`
 3. Updates conditional docs registry
 4. Optionally includes screenshots from review phase
@@ -450,7 +450,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
 
 #### Dependabot bump PRs (outside the pipeline)
 
-**What:** [`.github/dependabot.yml`](../.github/dependabot.yml) watches the npm registry for `@paysdoc/devplatform` only, weekly, against `dev`. PRs are labelled `dependencies` and come from branches like `dependabot/bun/paysdoc/devplatform-<version>`.
+**What:** [`.github/dependabot.yml`](../.github/dependabot.yml) watches the npm registry for `@paysdoc/devplatform` only, weekly, and opens its PRs against the branch its `target-branch` key names. PRs are labelled `dependencies` and come from branches like `dependabot/bun/paysdoc/devplatform-<version>`.
 
 **Merged by hand:** a human reviews the bump (check the library changelog, run `bun install`, `bun run test`, `bun run test:unit`, `bun run lint:git-guard`) and merges it. ADW never reviews or auto-merges these PRs.
 

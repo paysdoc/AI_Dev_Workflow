@@ -88,6 +88,8 @@ export interface Fixture {
   /** codeHost refusal flags for the two "refuses by name" health-check rows. */
   refuseListPullRequests: boolean;
   refuseAuthenticatedUser: boolean;
+  /** When true, getDefaultBranch records the call then refuses by name (throws), as the real code host does on a forge refusal. */
+  refuseDefaultBranch: boolean;
   /** When true, approvePullRequest records the call but reports { success: false }. */
   approveFails: boolean;
   /** When true, canApprovePullRequests records the call then refuses by name (throws). */
@@ -254,6 +256,7 @@ export function makeFixture(): Fixture {
     refuseIssueFetch: new Set(),
     refuseListPullRequests: false,
     refuseAuthenticatedUser: false,
+    refuseDefaultBranch: false,
     approveFails: false,
     refuseCanApprove: false,
     approvalsCountAsReviews: false,
@@ -419,6 +422,7 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
   return {
     getDefaultBranch() {
       record(callLog, 'getDefaultBranch');
+      if (fixture.refuseDefaultBranch) throw new Error('default branch lookup failed');
       return fixture.defaultBranch;
     },
     createPullRequest(options) {
@@ -523,7 +527,8 @@ function makeRecordingProviders(fixture: Fixture, callLog: CallRecord[], repoId:
   };
 }
 
-export function buildRecordingBoundary(owner: string, repo: string): void {
+/** `overrides` replaces any seam this harness wires, so a scenario can inject, for one, its own git identity. */
+export function buildRecordingBoundary(owner: string, repo: string, overrides: Partial<LaunchGitContextDeps> = {}): void {
   w.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-796-framework-'));
   w.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-796-target-repos-'));
   w.tempDirs.push(w.frameworkRoot, w.targetReposDir);
@@ -547,6 +552,7 @@ export function buildRecordingBoundary(owner: string, repo: string): void {
       w.mintedRepoId = options.identity;
       return makeRecordingProviders(w.activeFixture!, w.activeCallLog, options.identity);
     },
+    ...overrides,
   };
   w.boundary = buildLaunchBoundary(makeTargetRepo(owner, repo), deps);
 }

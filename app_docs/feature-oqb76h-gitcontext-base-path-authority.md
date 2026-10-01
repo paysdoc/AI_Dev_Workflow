@@ -62,6 +62,13 @@ The git core (`GitContext`) and the forge provider layer (`IssueTracker`/`CodeHo
 - Run the self-cleaning ratchet: re-parse every scanned file through `hasGuardedConstruction` (ignores the allowlist) to find files that still construct something, then `findStaleSanctionedEntries(seenFiles)` — the one PERMANENT entry that fails the build if it ever stops constructing anything
 - Exit `0` when no violations of any rule exist and no allowlist entry is stale; exit `1` otherwise with a `path:line [rule] command` listing and a per-rule remedy. Run as `bun run lint:git-guard` and as the sole step in `.github/workflows/git-cli-guard.yml` (`on: [pull_request, push]`)
 
+### `adws/checkBranchNames.ts` — the branch-name guard
+
+- Fails when non-test TypeScript (AST scan of string literals, so comments never count), markdown under `adws/`, or a slash command under `.claude/commands/` names a base branch to act on: a whole-literal name, an `origin/<name>` or `refs/heads/<name>` ref, a backticked name, a "<name> branch" phrase, or the words `master`/`develop`. `.github/dependabot.yml` is the one accepted exception
+- Exports `namesBranch`, `scanTypeScript`, `scanMarkdown`, `collectFiles`, `scanFiles` and `SCANNED_ROOTS`; the CLI takes an optional root directory, prints `file:line  text` plus a remedy, and exits 1 on any violation
+- Run as `bun run lint:branch-names` and as the `branch-names` job in `.github/workflows/git-cli-guard.yml`. Its Vitest test scans all of `adws/`, so `bun run test:unit` also fails on a new name there; `.claude/commands/` is checked only in CI because pipeline worktrees carry prompt copies from the runner clone, which can lag the branch
+- Code resolves the base branch with `codeHost.getDefaultBranch()`; prompts take a `defaultBranch` argument or read the `HEAD branch:` line of `git remote show origin`
+
 ## Contracts & Invariants
 
 - `commandEnv`/`exec()` (inside the library's `GitContext`) never write to `process.env`; the credential is resolved through the `TokenProvider` port on every call, never cached — two `GitContext` instances for two repos never share a credential, so `GH_TOKEN` bleed is structurally impossible
@@ -69,6 +76,7 @@ The git core (`GitContext`) and the forge provider layer (`IssueTracker`/`CodeHo
 - `crossCheckRepoIdentity`: absent persisted identity is a no-op (first-ever write stamps identity going forward); case-only differences (`Acme/WebApp` vs `acme/webapp`) are equal and never throw; a genuine mismatch throws `RepoIdentityMismatchError` and is never caught in `initializeWorkflow` — fail-closed is correct
 - The guard's `EXEMPT_PACKAGES` set is permanently empty — every `.ts`/`.tsx` file in the repo (outside tests) is scanned by all three rules; there is no structural exemption left to reintroduce
 - The guard's stdout `(0 allowlisted)` capstone line and the sanctioned-construction-sites block are load-bearing observables for the BDD suite
+- No file under `adws/` or `.claude/commands/` names a base branch; the protected branch is the default branch resolved at run time
 - `SANCTIONED_CONSTRUCTION_SITES` has exactly one PERMANENT entry (`adws/core/launchGitContext.ts`) and no TRANSITIONAL half; nothing may ever be added to it — a new construction site must call `buildLaunchBoundary` instead
 
 ## Configuration

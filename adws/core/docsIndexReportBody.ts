@@ -52,7 +52,8 @@ export function docsIndexViolationFingerprint(violations: readonly DocsIndexViol
 export interface BuildDocsIndexReportIssueInput {
   readonly violations: readonly DocsIndexViolation[];
   readonly indexPath: string;
-  readonly defaultBranch: string;
+  /** Null when the code host could not report it: the report then names no branch rather than guess one. */
+  readonly defaultBranch: string | null;
 }
 
 export interface DocsIndexReportIssueSpec {
@@ -77,12 +78,13 @@ export function buildDocsIndexReportIssue(input: BuildDocsIndexReportIssueInput)
   const { violations, indexPath, defaultBranch } = input;
   const title = `\`docs-index-health\`: ${violations.length} violation(s) in ${indexPath}`;
   const fingerprint = docsIndexViolationFingerprint(violations);
+  const location = defaultBranch === null ? `\`${indexPath}\`` : `\`${indexPath}\` on \`${defaultBranch}\``;
 
   const body = [
     DOCS_INDEX_REPORT_MARKER,
     `Fingerprint: ${fingerprint}`,
     '',
-    `The docs-index health sweep found ${violations.length} violation(s) in \`${indexPath}\` on \`${defaultBranch}\` that need a human decision.`,
+    `The docs-index health sweep found ${violations.length} violation(s) in ${location} that need a human decision.`,
     '',
     ...VIOLATION_SECTION_ORDER.flatMap((kind) => violationSection(kind, violations)),
     RESOLUTION_RULE,

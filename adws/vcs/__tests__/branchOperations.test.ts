@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { generateBranchName, validateSlug } from '../branchOperations';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  deleteRemoteBranchUnlessProtected,
+  generateBranchName,
+  isProtectedBranch,
+  validateSlug,
+  type RemoteBranchDeletionPorts,
+} from '../branchOperations';
 
 describe('generateBranchName — assembly correctness', () => {
   it('assembles feature branch with hyphen separator', () => {
@@ -161,5 +167,72 @@ describe('validateSlug — rejection: issue-number segment', () => {
 
   it('rejects a fully-prefixed slug returned by a drifted LLM', () => {
     expect(() => validateSlug('feature-issue-455-json-reporter-findings')).toThrow();
+  });
+});
+
+describe('isProtectedBranch', () => {
+  it('protects the default branch, whatever it is called', () => {
+    expect(isProtectedBranch('trunk', 'trunk')).toBe(true);
+  });
+
+  it('does not protect any other branch', () => {
+    expect(isProtectedBranch('feature-issue-1-x', 'trunk')).toBe(false);
+  });
+
+  it('does not take a branch for the default branch by a shared prefix', () => {
+    expect(isProtectedBranch('trunk-fix', 'trunk')).toBe(false);
+  });
+});
+
+describe('deleteRemoteBranchUnlessProtected', () => {
+  function makePorts(overrides: Partial<RemoteBranchDeletionPorts> = {}): RemoteBranchDeletionPorts {
+    return { getDefaultBranch: vi.fn(() => 'trunk'), deleteRemoteBranch: vi.fn(() => true), ...overrides };
+  }
+
+  it('deletes a branch that is not the default branch and returns the port result', () => {
+    const ports = makePorts();
+
+    expect(deleteRemoteBranchUnlessProtected(ports, 'feature-issue-1-x')).toBe(true);
+    expect(ports.deleteRemoteBranch).toHaveBeenCalledWith('feature-issue-1-x', undefined);
+  });
+
+  it('hands the working directory to the deletion', () => {
+    const ports = makePorts();
+
+    deleteRemoteBranchUnlessProtected(ports, 'feature-issue-1-x', '/repo/clone');
+
+    expect(ports.deleteRemoteBranch).toHaveBeenCalledWith('feature-issue-1-x', '/repo/clone');
+  });
+
+  it('returns false when the port could not delete the branch', () => {
+    const ports = makePorts({ deleteRemoteBranch: vi.fn(() => false) });
+
+    expect(deleteRemoteBranchUnlessProtected(ports, 'feature-issue-1-x')).toBe(false);
+  });
+
+  it('refuses the default branch without calling the deletion', () => {
+    const ports = makePorts();
+
+    expect(deleteRemoteBranchUnlessProtected(ports, 'trunk')).toBe(false);
+    expect(ports.deleteRemoteBranch).not.toHaveBeenCalled();
+  });
+
+  it('resolves the default branch for each deletion, so a repository that renames it stays protected', () => {
+    const getDefaultBranch = vi.fn().mockReturnValueOnce('trunk').mockReturnValueOnce('stable');
+    const ports = makePorts({ getDefaultBranch });
+
+    expect(deleteRemoteBranchUnlessProtected(ports, 'stable')).toBe(true);
+    expect(deleteRemoteBranchUnlessProtected(ports, 'stable')).toBe(false);
+  });
+
+  it('deletes nothing when the default branch cannot be resolved', () => {
+    const ports = makePorts({
+      getDefaultBranch: vi.fn(() => {
+        throw new Error('default branch lookup failed');
+      }),
+    });
+
+    expect(deleteRemoteBranchUnlessProtected(ports, 'feature-issue-1-x')).toBe(false);
+    expect(ports.deleteRemoteBranch).not.toHaveBeenCalled();
   });
 });

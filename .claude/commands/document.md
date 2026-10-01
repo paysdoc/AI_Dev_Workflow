@@ -3,20 +3,21 @@ target: false
 ---
 # Document Feature
 
-Generate or update concise current-state module documentation for implemented features by analyzing code changes against the main branch. This command creates or rewrites documentation in the `app_docs/` directory and keeps `.adw/conditional_docs.md` converged — one entry per module, never appending a duplicate. An entry may also name the decision records in `specs/adr/` that govern its module; the module doc lists the same records.
+Generate or update concise current-state module documentation for implemented features by analyzing code changes against the default branch. This command creates or rewrites documentation in the `app_docs/` directory and keeps `.adw/conditional_docs.md` converged — one entry per module, never appending a duplicate. An entry may also name the decision records in `specs/adr/` that govern its module; the module doc lists the same records.
 
 ## Variables
 
 adwId: $0
 specPath: $1 if provided, otherwise leave it blank
 documentationScreenshots_dir: $2 if provided, otherwise leave it blank
+defaultBranch: $3 if provided, otherwise the branch on the `HEAD branch:` line of `git remote show origin`
 
 ## Instructions
 
 ### 1. Analyze Changes
-- Run `git diff origin/main --stat` to see files changed and lines modified
-- Run `git diff origin/main --name-only` to get the list of changed files (the **touched files**)
-- For significant changes (>50 lines), run `git diff origin/main <file>` on specific files to understand the implementation details
+- Run `git diff origin/<defaultBranch> --stat` to see files changed and lines modified
+- Run `git diff origin/<defaultBranch> --name-only` to get the list of changed files (the **touched files**)
+- For significant changes (>50 lines), run `git diff origin/<defaultBranch> <file>` on specific files to understand the implementation details
 
 ### 2. Read Specification (if provided)
 - If `specPath` is provided, read the specification file to understand:

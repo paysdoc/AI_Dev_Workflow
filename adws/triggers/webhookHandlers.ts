@@ -8,6 +8,7 @@ import { closeAbandonedDependents } from './webhookGatekeeper';
 import { handleIssueClosedDependencyUnblock } from './issueClosedUnblockRouter';
 import type { AgentState } from '../types/agentTypes';
 import { resolvePrReviewTarget } from '../core/resolvePrReviewTarget';
+import { deleteRemoteBranchUnlessProtected } from '../vcs/branchOperations';
 
 /**
  * All ADW branches follow the format {prefix}/issue-{number}-{slug}.
@@ -56,7 +57,15 @@ function defaultIssueClosedDeps(boundary: LaunchBoundary | undefined): IssueClos
     // genuine fix: on a self-host issues.closed event this now resolves from REPO_ROOT
     // instead of a TARGET_REPOS_DIR path that doesn't exist for the framework repo.
     deleteRemoteBranch: boundary
-      ? (branchName, cwd) => boundary.gitContext.deleteRemoteBranch(branchName, cwd)
+      ? (branchName, cwd) =>
+          deleteRemoteBranchUnlessProtected(
+            {
+              getDefaultBranch: () => boundary.providers.codeHost.getDefaultBranch(),
+              deleteRemoteBranch: (branch, dir) => boundary.gitContext.deleteRemoteBranch(branch, dir),
+            },
+            branchName,
+            cwd,
+          )
       : () => false,
     closeAbandonedDependents: (n) => closeAbandonedDependents(n, boundary!.providers.issueTracker),
     handleIssueClosedDependencyUnblock: (n, args) => handleIssueClosedDependencyUnblock(n, boundary!, args),
