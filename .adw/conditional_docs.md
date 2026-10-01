@@ -534,17 +534,25 @@
     - adws/phases/docsSelfCheck.ts
     - adws/core/conditionalDocsRegistry.ts
     - adws/core/__tests__/conditionalDocsRegistry.test.ts
+    - adws/core/__tests__/conditionalDocsRegistryQueries.test.ts
+    - adws/core/__tests__/conditionalDocsRegistryMutations.test.ts
     - .adw/conditional_docs.md
     - .claude/commands/document.md
     - adws/checkLivingDocsIndex.ts
     - adws/core/docsIndexHealth.ts
     - adws/core/__tests__/docsIndexHealth.test.ts
+    - adws/core/__tests__/docsIndexHealthDecisions.test.ts
+    - adws/core/__tests__/fixtures/docsIndexEntries.ts
     - adws/core/docsDecisions.ts
     - adws/core/__tests__/docsDecisions.test.ts
+    - adws/core/__tests__/docsDecisionViolations.test.ts
+    - adws/core/__tests__/fixtures/decisionDocs.ts
     - adws/core/docsIndexReportBody.ts
     - adws/core/__tests__/docsIndexReportBody.test.ts
     - adws/triggers/docsIndexSweep.ts
     - adws/triggers/__tests__/docsIndexSweep.test.ts
+    - adws/triggers/__tests__/docsIndexSweepDecisions.test.ts
+    - adws/triggers/__tests__/fixtures/docsIndexSweepHarness.ts
     - adws/triggers/docsIndexSweepDefaults.ts
     - adws/triggers/__tests__/docsIndexSweepDefaults.test.ts
     - adws/__tests__/checkLivingDocsIndex.test.ts

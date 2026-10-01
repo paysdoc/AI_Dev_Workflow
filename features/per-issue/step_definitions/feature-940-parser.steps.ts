@@ -21,6 +21,20 @@ function requireParsed(): ConditionalDocsRegistry {
   return parserState.registry;
 }
 
+function assertDecisionsOf(registry: ConditionalDocsRegistry, row: IndexRow, i: number): void {
+  assert.strictEqual(registry.entries[i].docPath, row.docPath);
+  assert.deepStrictEqual(
+    registry.entries[i].decisions,
+    [...row.decisions],
+    `Expected the decision records of ${row.docPath}`,
+  );
+}
+
+function assertOwnsAndConditionsOf(registry: ConditionalDocsRegistry, row: IndexRow, i: number): void {
+  assert.deepStrictEqual(registry.entries[i].ownedGlobs, [...row.owns], `Owns globs of ${row.docPath}`);
+  assert.deepStrictEqual(registry.entries[i].conditions, conditionsFor(row.docPath), `Conditions of ${row.docPath}`);
+}
+
 function toRow(cells: Record<string, string>): IndexRow {
   return {
     docPath: cells['docPath'],
@@ -50,23 +64,13 @@ Then('the parsed entries list these decision records:', function (table: DataTab
   const registry = requireParsed();
   const rows = table.hashes().map(toRow);
   assert.strictEqual(registry.entries.length, rows.length, 'Expected one parsed entry per row');
-  rows.forEach((row, i) => {
-    assert.strictEqual(registry.entries[i].docPath, row.docPath);
-    assert.deepStrictEqual(
-      registry.entries[i].decisions,
-      [...row.decisions],
-      `Expected the decision records of ${row.docPath}`,
-    );
-  });
+  rows.forEach((row, i) => assertDecisionsOf(registry, row, i));
 });
 
 Then('every parsed entry keeps exactly the Owns globs and Conditions it was written with', function () {
   const registry = requireParsed();
   assert.strictEqual(registry.entries.length, parserState.rows.length, 'Expected one parsed entry per written entry');
-  parserState.rows.forEach((row, i) => {
-    assert.deepStrictEqual(registry.entries[i].ownedGlobs, [...row.owns], `Owns globs of ${row.docPath}`);
-    assert.deepStrictEqual(registry.entries[i].conditions, conditionsFor(row.docPath), `Conditions of ${row.docPath}`);
-  });
+  parserState.rows.forEach((row, i) => assertOwnsAndConditionsOf(registry, row, i));
 });
 
 When(
