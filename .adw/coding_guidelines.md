@@ -12,7 +12,7 @@
 ## General Practices
 
 - **Error handling** — Use try-catch at system boundaries. Provide meaningful error messages.
-- **Testing** — ADW itself does not use unit tests; agent-written unit tests are unreliable as quality gates because an agent can write tests that always pass, and they primarily test mocked implementations rather than real behaviour. BDD scenarios are ADW's validation mechanism. Unit tests remain available as an opt-in for target repos configured via `.adw/project.md`.
+- **Testing** — BDD scenarios are ADW's independent validation: a separate agent writes them, so they are the proof that behaviour matches the issue. Unit tests (Vitest, co-located `__tests__/`) cover pure logic at a finer grain; the implementing agent writes them, so they never stand in for scenario proof. Test behaviour through public interfaces, not mocked internals. The unit-test gate is `unitTests` in `.github/adw.yml` and is on unless a repo opts out.
 - **Performance** — Optimize critical paths (rendering, data processing). Profile before optimizing.
 - **Security** — Validate inputs, use secure authentication, encrypt sensitive data. Regularly review code for vulnerabilities.
 

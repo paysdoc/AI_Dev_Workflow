@@ -25,11 +25,11 @@ import {
   runOneProbeCycle,
   runTrackedProbeCycles,
   replayGhCommentLog,
-} from './feature-902-queue.steps.ts';
+} from '../../regression/step_definitions/feature-902-queue.steps.ts';
 import {
   setDeciderEntryForScanningCronTest,
   consultDeciderWithScanningCron,
-} from './feature-910.steps.ts';
+} from '../../regression/step_definitions/feature-910.steps.ts';
 import {
   createRealCronWorld,
   spawnRealCron,

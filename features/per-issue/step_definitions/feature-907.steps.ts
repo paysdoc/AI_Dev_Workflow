@@ -16,7 +16,7 @@ import { clearClaudeCodePathCache } from '../../../adws/core/index.ts';
 import { runClaudeAgentWithCommand } from '../../../adws/agents/claudeAgent.ts';
 import { RateLimitError } from '../../../adws/types/agentTypes.ts';
 import type { ProbeExecResult } from '../../../adws/triggers/rateLimitProbe.ts';
-import { probeStub, getLastProbeClassification, getLastAgentRunResult } from './feature-902.steps.ts';
+import { probeStub, getLastProbeClassification, getLastAgentRunResult } from '../../regression/step_definitions/feature-902.steps.ts';
 
 function withTrailingNewline(text: string): string {
   return text.endsWith('\n') ? text : `${text}\n`;
