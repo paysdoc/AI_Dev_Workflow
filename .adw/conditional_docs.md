@@ -197,6 +197,7 @@
     - adws/vcs/**
     - adws/phases/worktreeSetup.ts
   - Conditions:
+    - When working on the protected-branch check (`isProtectedBranch`, `deleteRemoteBranchUnlessProtected` in `adws/vcs/branchOperations.ts`) or the default branch resolved at run time before a remote-branch deletion
     - When working with `pushBranch` in `adws/vcs/commitOperations.ts` or the force-with-lease push behavior
     - When implementing or troubleshooting `ensureWorktree`, `createWorktree`, or `createWorktreeForNewBranch`
     - When working with `generateBranchName`, `validateSlug`, or branch naming in `adws/vcs/branchOperations.ts`
@@ -559,6 +560,7 @@
     - adws/triggers/__tests__/docsIndexSweepDefaults.test.ts
     - adws/__tests__/checkLivingDocsIndex.test.ts
   - Conditions:
+    - When working on the `/document` `defaultBranch` argument (`$3`, passed from `config.defaultBranch`) or the docs-index report body's branch clause when the default-branch lookup fails
     - When working on the document phase orchestrator step (`adws/phases/documentPhase.ts`) that invokes `/document`, commits, and pushes generated docs
     - When working on the living-docs convergence registry (`adws/core/conditionalDocsRegistry.ts`) — parsing, serializing, collapsing, or querying `.adw/conditional_docs.md`
     - When working on the per-write post-write guards (`adws/core/docsGuards.ts`, `adws/phases/docsSelfCheck.ts`) — bloat or regrowth flags on a just-produced doc
@@ -577,6 +579,8 @@
     - adws/core/repoIdentityCrossCheck.ts
     - adws/core/__tests__/repoIdentityCrossCheck.test.ts
     - adws/checkGitGhGuard.ts
+    - adws/checkBranchNames.ts
+    - adws/__tests__/checkBranchNames.test.ts
     - adws/guard/**
     - adws/phases/branchIdentityFallback.ts
     - adws/phases/__tests__/branchIdentityFallback.test.ts
@@ -601,6 +605,7 @@
     - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one `GitContext` and one bound provider triple per process, threaded into the assembly via `ForgeProvidersOptions.gitContext`
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
     - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its three rules (shellout, cwd-derived-identity, unsanctioned-construction), its empty `EXEMPT_PACKAGES` set, or its one-entry `SANCTIONED_CONSTRUCTION_SITES` allowlist
+    - When working on the branch-name guard (`adws/checkBranchNames.ts`, `bun run lint:branch-names`) or when a branch name written into `adws/` or `.claude/commands/` is flagged
     - When troubleshooting a wrong-repo worktree, `GH_TOKEN` bleed, or a construction site newly flagged by `lint:git-guard`
     - When working on the `.adw/providers.md` reader (`loadProviderConfig`/`parseCodeHostForge`/`parseIssueTrackerForge`, `adws/core/providerConfig.ts`)
     - When `buildLaunchBoundary`'s `forgeProviders`/`forgeDeps`/`forgeCredentials` seams or `buildAdwForgeDeps` (`adws/core/forgeWiring.ts`) are relevant
@@ -624,6 +629,7 @@
     - scripts/guardrails-probe.ts
     - templates/claude-settings-starter.json
     - adws/agents/claudeAgent.ts
+    - adws/agents/__tests__/commitIdentity.integration.test.ts
     - adws/agents/commandAgent.ts
     - adws/agents/gitAgent.ts
     - adws/agents/agentProcessHandler.ts
@@ -631,6 +637,7 @@
     - adws/agents/index.ts
     - adws/agents/__tests__/agentProcessHandler.test.ts
   - Conditions:
+    - When working on the git identity agent commits carry (the `GIT_AUTHOR_*`/`GIT_COMMITTER_*` overlay from `launchContext.gitContext.commandEnv()` in `runClaudeAgentWithCommand`) or when agent commits show the host's identity instead of the App's
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on context-compaction handling in the agent process handler — the opt-in `killOnCompaction` flag, which agents are killed and restarted (build phase, unit-test path) versus run on, or `compactionDetected` results
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
