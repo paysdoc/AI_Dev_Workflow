@@ -293,6 +293,11 @@ Execute every step in order, top to bottom.
 - **Wrong position.** A block placed before `Conditions:` still parses into `decisions`, but it
   re-serializes last, so the existing round-trip check reports it `non-canonical`. The canonical
   position needs no new code.
+- **Other headers.** The parser learns this one block, not every unknown one. A misspelt header
+  such as `  - Decision:` stays unrecognised, as every unknown header is today. Its items fall into
+  the list that was open, or are dropped when none was, so the round-trip check still reports
+  `non-canonical`. Do not carry unknown blocks through verbatim to satisfy the round trip: a
+  misspelt block would then never be checked against its doc.
 
 ### 3. Registry unit tests (`adws/core/__tests__/conditionalDocsRegistry.test.ts`)
 - Add `decisions: []` to every literal `ConditionalDocEntry` and to `CANONICAL_REGISTRY`.
@@ -312,7 +317,9 @@ Execute every step in order, top to bottom.
   - a block placed before `Conditions:` parses into `decisions` and serializes after
     `Conditions:`, so `serialize(parse(x)) !== x`;
   - an empty `  - Decisions:` header with no items serializes without the header, so it is
-    non-canonical, like an empty `Owns:`.
+    non-canonical, like an empty `Owns:`;
+  - a misspelt `  - Decision:` header after `Conditions:` is not learnt: its item lands in
+    `conditions`, `decisions` stays empty, and `serialize(parse(x)) !== x`.
 - Extend `collapseEntries`:
   - siblings with overlapping decisions merge into the de-duplicated union in first-seen order;
   - the purity test also covers `decisions`.
@@ -376,6 +383,10 @@ Write it as a pure module. It imports `path` (only `path.posix` is used) and a t
   call, not once per entry.
 - **Repositories without ADRs.** With no `specs/adr/` files, no blocks and no sections, every
   entry yields nothing. This is what keeps target repos green.
+  - The checks never skip when `specs/adr/` is missing. A block in such a repository names
+    records that do not exist: each number yields `unknown-decision` and each section link
+    `dead-decision-link`, so the gate fails. An upgraded `/document` must not invent records in a
+    target repo.
 
 ### 5. Decisions unit tests (`adws/core/__tests__/docsDecisions.test.ts`, new, mock-free)
 - `findAdrNumbers`:
@@ -418,6 +429,9 @@ Write it as a pure module. It imports `path` (only `path.posix` is used) and a t
     `0053` and `0044`. Result: `[]`.
   - **No ADRs:** `files` has no `specs/adr/`, the entries have no blocks and the docs have no
     sections. Result: `[]`.
+  - **No ADRs, with a block:** `files` has no `specs/adr/`, the block lists `0044` and the section
+    links it. Result: `unknown-decision 0044` and a `dead-decision-link`, but no mismatch, because
+    the number sets agree.
   - **Unrelated heading:** a doc with a `## Decisions` heading of prose and no ADR links, and no
     block. Result: `[]`.
   - **Unreadable doc:** `readDoc` returns `null` and the block lists `0044`. Result:
@@ -467,7 +481,8 @@ Write it as a pure module. It imports `path` (only `path.posix` is used) and a t
   - `Decisions: each doc's ## Decisions section matches its Decisions: block`. It fails on
     `decisions-mismatch` and prints `formatViolation` of each.
   - `Decisions: every listed record exists in specs/adr/`. It fails on `unknown-decision` and
-    `dead-decision-link`.
+    `dead-decision-link` and prints `formatViolation` of each, so the report names the doc and
+    the record even when block and section agree.
 - The exit rule does not change: `danglingRepairs.length > 0 || violations.length > 0` already
   covers the new kinds.
 - Extend the file's header comment: the gate also reads each indexed doc for its
@@ -485,6 +500,8 @@ Write it as a pure module. It imports `path` (only `path.posix` is used) and a t
   - **Unlisted record.** The section links a record that the block does not list: exit `1`.
   - **Unknown record.** A block lists `0099`, which has no file: exit `1`, and the report contains
     `unknown decision record` and `0099`.
+  - **No ADRs, with a block.** No `specs/adr/`, a block lists `0001` and the doc's section links
+    it: exit `1`, and the report names the doc and `0001`.
   - **Wrong slug.** The section links a wrong slug for an existing number: exit `1`, and the
     report contains `dead decision link`.
 
@@ -753,6 +770,7 @@ No test reads source text.
   - items isolated from the other lists;
   - an empty block is omitted;
   - a block before `Conditions:` is non-canonical;
+  - a misspelt `Decision:` header is not learnt and stays non-canonical;
   - malformed items round-trip;
   - collapse merges decisions;
   - upsert replaces decisions.
@@ -765,7 +783,8 @@ No test reads source text.
   - `applyRepairs` keeps `decisions`;
   - `formatViolation` renders the new kinds.
 - `adws/__tests__/checkLivingDocsIndex.test.ts` (extended): exit `0` without ADRs, exit `0` when
-  the halves match, exit `1` on a mismatch either way, on an unknown number and on a dead link.
+  the halves match, exit `1` on a mismatch either way, on an unknown number, on a dead link and on
+  a block in a repository with no ADRs.
   These are the acceptance criteria "the gate fails on a mismatch … and on an unknown ADR number;
   unit tests cover both" and "passes on a repository with no ADRs".
 - `adws/core/__tests__/docsIndexReportBody.test.ts` (extended): the new headings render, and the
@@ -782,6 +801,8 @@ No test reads source text.
     passes and the sweep reports nothing new.
   - With `specs/adr/` but a module no record governs: the entry has no block and the doc has no
     section, and the gate passes.
+  - With no `specs/adr/` but a block: each number is an `unknown-decision`, and the gate fails.
+    The checks do not skip a repository without `specs/adr/`.
 - **Mismatches.**
   - A block with no section, or a section with no block: `decisions-mismatch`.
   - The same records in another order, or listed twice: not a mismatch.
@@ -812,6 +833,8 @@ No test reads source text.
     block, last.
   - `Decisions:` written before `Conditions:`: `non-canonical`, first diverging line reported.
   - A `Decisions:` header with no items: `non-canonical`.
+  - A misspelt header such as `Decision:`: not learnt, so `non-canonical`, as any unknown header
+    is today.
   - `/document` collapsing siblings with overlapping blocks: one merged entry with the union.
 - **Readers.**
   - `readDoc` returns `null` (an unreadable doc): treated as a doc without a section.

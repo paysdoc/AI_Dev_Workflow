@@ -117,9 +117,10 @@ Feature: Module docs name the decision records that govern them: the index block
     • "lists these decision records" compares each parsed entry's records with its row, in
       order; an empty cell means none. "keeps exactly the Owns globs and Conditions it was
       written with" compares each parsed entry with what the Given wrote.
-    • "are collapsed into" parses the text and calls `collapseEntries` with both doc paths and
-      the surviving doc path, the helper that step 5 of `/document` names. "each once" checks
-      that the surviving entry holds every given record exactly once, in any order.
+    • "are collapsed into" parses the text and calls `collapseEntries` with both doc paths and,
+      as the merged entry, the surviving doc path and its conditions. Step 5 of `/document`
+      names this helper. "each once" checks that the surviving entry holds every given record
+      exactly once, in any order.
     • "a fixture repository whose living-docs index and module docs are healthy" builds a
       throwaway directory that today's gate passes, as `healthyEntries()` does in
       `adws/__tests__/checkLivingDocsIndex.test.ts`:
