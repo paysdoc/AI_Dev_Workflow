@@ -43,7 +43,7 @@ import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
 import { getSafeSubprocessEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
-import { runClaudeAgentWithCommand } from '../claudeAgent';
+import { runClaudeAgentWithCommand, type AgentLaunchContext } from '../claudeAgent';
 
 const mockSpawn = vi.mocked(spawn);
 const mockExecSync = vi.mocked(execSync);
@@ -344,6 +344,68 @@ describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
     );
 
     expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  describe('the launch identity', () => {
+    const BOT_IDENTITY = {
+      GIT_AUTHOR_NAME: 'paysdoc-adw[bot]',
+      GIT_AUTHOR_EMAIL: '3112553+paysdoc-adw[bot]@users.noreply.github.com',
+      GIT_COMMITTER_NAME: 'paysdoc-adw[bot]',
+      GIT_COMMITTER_EMAIL: '3112553+paysdoc-adw[bot]@users.noreply.github.com',
+    };
+
+    function launchContextWithIdentity(): AgentLaunchContext {
+      return {
+        selfHost: true,
+        adwId: 'adw-identity-1',
+        gitContext: {
+          mainRepoPath: vi.fn(),
+          commandEnv: () => ({ GH_TOKEN: 'installation-token', UNRELATED: 'from-command-env', ...BOT_IDENTITY }),
+        },
+      };
+    }
+
+    async function spawnEnvOf(subprocessEnv?: NodeJS.ProcessEnv, launchContext?: AgentLaunchContext): Promise<NodeJS.ProcessEnv> {
+      mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+      await runClaudeAgentWithCommand(
+        '/commit', 'args', 'commit-agent', '/tmp/out.jsonl',
+        'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
+        subprocessEnv, launchContext,
+      );
+      return (mockSpawn.mock.calls[0][2] as { env: NodeJS.ProcessEnv }).env;
+    }
+
+    it('reaches the agent from the launch context, replacing an ambient host identity, and its credential does not', async () => {
+      mockGetSafeSubprocessEnv.mockReturnValueOnce({ GH_TOKEN: 'ambient-token', GIT_AUTHOR_NAME: 'Host User' });
+
+      const env = await spawnEnvOf(undefined, launchContextWithIdentity());
+
+      expect(env).toMatchObject({ ...BOT_IDENTITY, GH_TOKEN: 'ambient-token' });
+    });
+
+    it('is only the four identity variables: nothing else the launch context holds reaches the agent', async () => {
+      mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+
+      const env = await spawnEnvOf(undefined, launchContextWithIdentity());
+
+      expect(env).toEqual({ ...BOT_IDENTITY, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' });
+    });
+
+    it('yields to an explicit subprocessEnv', async () => {
+      mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+
+      const env = await spawnEnvOf({ GIT_AUTHOR_NAME: 'explicit-author', GH_TOKEN: 'token-acme' }, launchContextWithIdentity());
+
+      expect(env).toMatchObject({ ...BOT_IDENTITY, GIT_AUTHOR_NAME: 'explicit-author', GH_TOKEN: 'token-acme' });
+    });
+
+    it('leaves the ambient identity alone when the launch context carries no gitContext', async () => {
+      mockGetSafeSubprocessEnv.mockReturnValueOnce({ GIT_AUTHOR_NAME: 'Host User' });
+
+      const env = await spawnEnvOf(undefined, { selfHost: true, adwId: 'adw-identity-1' });
+
+      expect(env.GIT_AUTHOR_NAME).toBe('Host User');
+    });
   });
 });
 

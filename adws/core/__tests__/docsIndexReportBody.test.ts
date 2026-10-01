@@ -108,6 +108,26 @@ describe('buildDocsIndexReportIssue', () => {
     const spec = buildDocsIndexReportIssue({ violations: [OVERLAP], indexPath: '.adw/conditional_docs.md', defaultBranch: 'dev' });
     expect(spec.title).toBe('`docs-index-health`: 1 violation(s) in .adw/conditional_docs.md');
   });
+
+  it('names the default branch the code host reports', () => {
+    const spec = buildDocsIndexReportIssue({ violations: [OVERLAP], indexPath: '.adw/conditional_docs.md', defaultBranch: 'trunk' });
+
+    expect(spec.body).toContain('in `.adw/conditional_docs.md` on `trunk` that need a human decision.');
+  });
+
+  it('names no branch when the default branch is unknown, and still names the index path', () => {
+    const spec = buildDocsIndexReportIssue({ violations: [OVERLAP], indexPath: '.adw/conditional_docs.md', defaultBranch: null });
+
+    expect(spec.body).toContain('in `.adw/conditional_docs.md` that need a human decision.');
+    expect(spec.body).not.toMatch(/ on `/);
+  });
+
+  it('computes the fingerprint from the violations only, so an unknown branch never refreshes an open report', () => {
+    const known = buildDocsIndexReportIssue({ violations: [OVERLAP], indexPath: '.adw/conditional_docs.md', defaultBranch: 'trunk' });
+    const unknown = buildDocsIndexReportIssue({ violations: [OVERLAP], indexPath: '.adw/conditional_docs.md', defaultBranch: null });
+
+    expect(parseDocsIndexReportMarker(unknown.body)).toEqual(parseDocsIndexReportMarker(known.body));
+  });
 });
 
 describe('parseDocsIndexReportMarker', () => {

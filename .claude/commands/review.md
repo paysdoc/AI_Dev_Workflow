@@ -14,7 +14,7 @@ scenarioProofPath: $3 if provided, otherwise empty
 
 ## Step 1: Gather Context
 
-- Retrieve the default branch: `git remote show origin` (parse for `main`, `develop`, etc.)
+- Retrieve the default branch: the branch on the `HEAD branch:` line of `git remote show origin`
 - Check current branch: `git branch`
 - View all changes: `git diff origin/<default>`
 - Read the spec file at `specFile` to understand requirements
