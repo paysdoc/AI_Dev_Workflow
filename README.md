@@ -580,8 +580,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── workspaceBinding.test.ts
 │   │   └── workspaceTrust.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates) — moved out of adws/github/labelManager.ts/prApi.ts (#820), which now re-export it
-│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
+│   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates)│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
