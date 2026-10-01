@@ -13,6 +13,13 @@ export interface LegacyModelUsage {
   readonly cacheReadInputTokens: number;
   readonly cacheCreationInputTokens: number;
   readonly costUSD: number;
+  /**
+   * `costUSD` is computed locally; `reportedCostUSD` is the Claude CLI's own figure.
+   * Each optional field is absent when any run merged into the entry lacked it.
+   */
+  readonly reportedCostUSD?: number;
+  readonly estimatedTokens?: TokenUsageMap;
+  readonly actualTokens?: TokenUsageMap;
 }
 
 export type LegacyModelUsageMap = Record<string, LegacyModelUsage>;
@@ -52,6 +59,8 @@ export interface TokenUsageExtractor {
   isFinalized(): boolean;
   /** CLI-reported total cost in USD (available after finalization). */
   getReportedCostUsd(): number | undefined;
+  /** The per-model `costUSD` from the result message's `modelUsage`; empty until finalization. */
+  getReportedCostUsdByModel(): Readonly<Record<string, number>>;
   /**
    * Returns the pre-finalization estimated usage snapshot for estimate-vs-actual comparison.
    * Before finalization, returns the current accumulated per-turn estimates.
@@ -88,9 +97,9 @@ export interface PhaseCostRecord {
   readonly provider: string;
   /** Extensible map of token type to token count. Keys include 'input', 'output', 'cache_read', 'cache_write'. */
   readonly tokenUsage: TokenUsageMap;
-  /** Cost computed from local pricing tables (equals reportedCostUsd until local computation is implemented). */
+  /** Cost computed from local pricing tables; the source of truth. */
   readonly computedCostUsd: number;
-  /** Cost as reported by the Claude CLI (undefined if the phase terminated before a result message). */
+  /** The Claude CLI's own figure from its result message; undefined when any run behind the record ended without one. */
   readonly reportedCostUsd: number | undefined;
   readonly status: PhaseCostStatus;
   /** Number of times the phase was retried (e.g. test/review retry loops). */
@@ -100,9 +109,9 @@ export interface PhaseCostRecord {
   readonly durationMs: number;
   /** ISO 8601 timestamp for when the record was created (phase completion time). */
   readonly timestamp: string;
-  /** Per-type estimated token usage snapshot before finalization (undefined until streaming estimation is implemented). */
+  /** Per-type streaming estimate taken just before the result message; undefined when any run behind the record produced none. */
   readonly estimatedTokens: TokenUsageMap | undefined;
-  /** Per-type actual token usage as reported by the CLI (undefined until streaming estimation is implemented). */
+  /** Per-type actual token usage as reported by the CLI; undefined when any run behind the record lacked a result message. */
   readonly actualTokens: TokenUsageMap | undefined;
 }
 
@@ -138,13 +147,13 @@ export function createPhaseCostRecords(options: CreatePhaseCostRecordsOptions): 
       cache_write: usage.cacheCreationInputTokens,
     },
     computedCostUsd: usage.costUSD,
-    reportedCostUsd: usage.costUSD,
+    reportedCostUsd: usage.reportedCostUSD,
     status,
     retryCount,
     contextResetCount,
     durationMs,
     timestamp,
-    estimatedTokens: undefined,
-    actualTokens: undefined,
+    estimatedTokens: usage.estimatedTokens,
+    actualTokens: usage.actualTokens,
   }));
 }

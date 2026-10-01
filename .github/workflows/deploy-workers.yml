@@ -1,11 +1,11 @@
 name: Deploy Workers
 
 on:
+  # No paths filter here: GitHub matches it against at most 300 changed files of a push,
+  # and a release from dev often changes more. The changes job decides instead.
   push:
     branches:
       - main
-    paths:
-      - 'workers/**'
 
 jobs:
   changes:
@@ -23,11 +23,16 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          # The pushed branch itself, so the diff starts at the commit the push replaced.
+          # The default, dev, is main's merge base after a release merge, so it finds nothing.
+          base: ${{ github.ref }}
           filters: |
             screenshot-router:
               - 'workers/screenshot-router/**'
+              - '.github/workflows/deploy-workers.yml'
             cost-api:
               - 'workers/cost-api/**'
+              - '.github/workflows/deploy-workers.yml'
 
   deploy-screenshot-router:
     name: Deploy screenshot-router
