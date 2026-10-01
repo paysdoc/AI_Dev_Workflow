@@ -23,7 +23,7 @@ export interface ProofCommentInput {
   /** Type-check / lint results — optional placeholder for future wiring. */
   verificationResults?: VerificationResult[];
   allSummaries?: string[];
-  /** Screenshot URLs — placeholder for future wiring. */
+  /** Public R2 URLs, embedded as images. */
   screenshotUrls?: string[];
 }
 
@@ -77,6 +77,13 @@ export function formatVerificationSection(results: VerificationResult[]): string
   ].join('\n');
 }
 
+export function formatScreenshotSection(screenshotUrls: readonly string[]): string {
+  const images = screenshotUrls
+    .map((url, i) => `[![Screenshot ${i + 1}](${url})](${url})`)
+    .join('\n');
+  return `<details>\n<summary>Screenshots (${screenshotUrls.length})</summary>\n\n${images}\n\n</details>`;
+}
+
 export function formatNonBlockerSection(issues: ReviewIssue[]): string {
   const items = issues.map(formatReviewIssueItem).join('\n');
   return `<details>\n<summary>Non-blocker issues (${issues.length})</summary>\n\n${items}\n\n</details>`;
@@ -100,7 +107,7 @@ export function formatScenarioOutputSection(tagResults: TagProofResult[]): strin
  * any workflow footer (ADW ID, token usage, ADW_SIGNATURE).
  */
 export function formatReviewProofComment(input: ProofCommentInput): string {
-  const { passed, reviewSummary, scenarioProof, blockerIssues, nonBlockerIssues, verificationResults } = input;
+  const { passed, reviewSummary, scenarioProof, blockerIssues, nonBlockerIssues, verificationResults, screenshotUrls } = input;
 
   const statusHeader = passed
     ? '## :white_check_mark: Review Passed'
@@ -118,6 +125,10 @@ export function formatReviewProofComment(input: ProofCommentInput): string {
 
   if (verificationResults && verificationResults.length > 0) {
     sections.push(formatVerificationSection(verificationResults));
+  }
+
+  if (screenshotUrls && screenshotUrls.length > 0) {
+    sections.push(formatScreenshotSection(screenshotUrls));
   }
 
   if (nonBlockerIssues.length > 0) {
