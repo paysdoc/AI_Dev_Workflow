@@ -26,6 +26,8 @@ The SDLC Orchestrators module provides two top-level workflow drivers — `adwSd
 - All error handlers (`handleWorkflowError`, `handleRateLimitPause`, `handleWorkflowDiscarded`) call `process.exit` synchronously, so the `finally` block in `runWithOrchestratorLifecycle` does not run on those paths
 - `WorkflowConfig` is immutable after `initializeWorkflow` returns; phases read from it but do not write back to it (they write to `AgentStateManager` instead)
 - GitHub App auth is activated at the start of `initializeWorkflow` so child processes spawned by phase agents do not inherit a stale `GH_TOKEN`; if a GitHub App is configured but `GITHUB_PAT` is absent, initialization fails immediately
+- `adwSdlc`, `adwPlanBuildReview` and `adwPlanBuildTestReview` pass the review loop's final `reviewPassed` to `decidePostReviewOutcome`. On `skipDocAndPR` they call `executeSdlcReviewFailedHandoff`, persist metadata with `reviewPassed: false` and return normally before any document, PR or proof-publish phase, so `awaiting_merge` is never written
+- `adwPlanBuildReview` and `adwPlanBuildTestReview` export `executePlanBuildReview(config, phases?)` / `executePlanBuildTestReview(config, phases?)`. These run what `main()` runs inside `runWithOrchestratorLifecycle`, with the phase functions injectable (`PlanBuildReviewPhases` / `PlanBuildTestReviewPhases`, real phases by default). `main()` runs only when the file is executed directly
 
 ## Configuration
 

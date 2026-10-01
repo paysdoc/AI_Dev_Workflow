@@ -474,7 +474,10 @@ templates/              # ADW framework-level templates
 └── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
 adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
+│   ├── adwChore.test.ts
 │   ├── adwMerge.test.ts
+│   ├── adwPlanBuildReview.test.ts
+│   ├── adwPlanBuildTestReview.test.ts
 │   ├── adwUpgrade.test.ts
 │   ├── checkGitGhGuard.test.ts
 │   ├── checkLivingDocsIndex.test.ts
@@ -580,7 +583,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── workspaceBinding.test.ts
 │   │   └── workspaceTrust.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates)│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
+│   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates)
+│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
