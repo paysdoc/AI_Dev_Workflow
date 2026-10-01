@@ -42,3 +42,11 @@ The test and scenario phases validate the implementation against the project's t
 - `scenarioTestFixLoop.ts` runs `executeScenarioFixPhase` before incrementing `scenarioRetries`; the fix phase runs before the retry count is visible to state observers
 - `applyLabel` for `ADW_UNVERIFIED_LABEL` in `unitTestPhase.ts` is wrapped in a try/catch because GitHub App auth lacks label-write permission; failure is silently swallowed
 - A promotion issue's own `@adw-<issueNumber>` review-proof tag has no matching scenarios once scenario authoring is skipped; with `optional: true` on a zero-match tag, its tag outcome is `{ passed: true, skipped: true }` and never counts toward `hasBlockerFailures` — the run stays green on that tag while the relocated scenario's own `@regression` tag pass still proves the promotion for real. Do not make that tag non-optional without exempting promotion issues, or every promotion run reddens once scenario authoring stops producing a matching scenario.
+
+## Decisions
+
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline

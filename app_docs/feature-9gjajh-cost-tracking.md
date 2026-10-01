@@ -43,3 +43,7 @@ Exchange rates are fetched at runtime (see `cost/exchangeRates.ts`). The currenc
 - `LegacyModelUsage.costUSD` is the local computation, not the CLI's figure. Models missing from the pricing table fall back to Sonnet pricing and will show divergence warnings; that is the check working as intended.
 - `estimatedTokens`/`actualTokens` stay on the record and are not sent to D1 (no columns for them).
 - The D1 dual-write path lives in `cost/d1Client.ts` and is separate from the legacy CSV pipeline.
+
+## Decisions
+
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database

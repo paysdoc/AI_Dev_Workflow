@@ -21,19 +21,27 @@ const VIOLATION_SECTION_HEADINGS: Record<DocsIndexViolation['kind'], string> = {
   'duplicate-entry': 'Duplicate entries',
   'non-canonical': 'Non-canonical serialization',
   'count-out-of-band': 'Entry count out of band',
+  'decisions-mismatch': 'Decisions out of step with the index',
+  'unknown-decision': 'Unknown decision records',
+  'dead-decision-link': 'Dead decision links',
 };
 
-/** Section display order — judgement calls that name a pair first, then the singular findings. */
+/** Section display order — judgement calls that name a pair first, then the singular findings. A kind missing here is silently left out of the body. */
 const VIOLATION_SECTION_ORDER: readonly DocsIndexViolation['kind'][] = [
   'overlap',
   'orphan-doc',
   'duplicate-entry',
+  'decisions-mismatch',
+  'unknown-decision',
+  'dead-decision-link',
   'non-canonical',
   'count-out-of-band',
 ];
 
-const RESOLUTION_RULE =
-  'Resolution rule: the module doc keeps its package globs; the feature doc loses the overlapping glob; a feature-vs-feature overlap goes to the newest doc.';
+const RESOLUTION_RULE = [
+  'Resolution rule: the module doc keeps its package globs; the feature doc loses the overlapping glob; a feature-vs-feature overlap goes to the newest doc.',
+  "A decisions finding resolves toward the index: its `Decisions:` block is authoritative, so rewrite the doc's `## Decisions` section from it, and correct or remove a number that names no record.",
+].join(' ');
 
 /** Order-independent: sorts the formatted violation lines before hashing, so reordering the same violation set never changes the fingerprint. */
 export function docsIndexViolationFingerprint(violations: readonly DocsIndexViolation[]): string {

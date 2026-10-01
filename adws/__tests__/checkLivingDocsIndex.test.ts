@@ -31,10 +31,10 @@ function makeFixtureDir(): string {
   return dir;
 }
 
-function writeDocFile(dir: string, relPath: string): void {
+function writeDocFile(dir: string, relPath: string, body = `# ${relPath}\n`): void {
   const full = path.join(dir, relPath);
   mkdirSync(path.dirname(full), { recursive: true });
-  writeFileSync(full, `# ${relPath}\n`);
+  writeFileSync(full, body);
 }
 
 function writeIndex(dir: string, entries: ConditionalDocEntry[]): void {
@@ -47,11 +47,11 @@ function healthyEntries(dir: string): ConditionalDocEntry[] {
   const entries: ConditionalDocEntry[] = [];
   for (let i = 0; i < count; i++) {
     const docPath = `app_docs/feature-fixture${i}.md`;
-    entries.push({ docPath, ownedGlobs: [], conditions: ['When X'] });
+    entries.push({ docPath, ownedGlobs: [], conditions: ['When X'], decisions: [] });
     writeDocFile(dir, docPath);
   }
-  entries.push({ docPath: 'README.md', ownedGlobs: [], conditions: ['Always'] });
-  entries.push({ docPath: 'adws/README.md', ownedGlobs: [], conditions: ['Always'] });
+  entries.push({ docPath: 'README.md', ownedGlobs: [], conditions: ['Always'], decisions: [] });
+  entries.push({ docPath: 'adws/README.md', ownedGlobs: [], conditions: ['Always'], decisions: [] });
   writeDocFile(dir, 'README.md');
   writeDocFile(dir, 'adws/README.md');
   return entries;
@@ -74,7 +74,7 @@ describe('runLivingDocsIndexCheck', () => {
     const expected: string[] = [];
     for (let i = 0; i < 20; i++) {
       const docPath = `app_docs/feature-ghost${i}.md`;
-      entries.push({ docPath, ownedGlobs: [], conditions: ['When a ghost entry is present'] });
+      entries.push({ docPath, ownedGlobs: [], conditions: ['When a ghost entry is present'], decisions: [] });
       expected.push(docPath);
     }
     writeIndex(dir, entries);
@@ -89,7 +89,7 @@ describe('runLivingDocsIndexCheck', () => {
   it('exits 0 with a WARN line when the only finding is a dead glob', () => {
     const dir = makeFixtureDir();
     const entries = healthyEntries(dir);
-    entries.push({ docPath: 'app_docs/feature-deadglob.md', ownedGlobs: ['adws/gone.ts'], conditions: ['When X'] });
+    entries.push({ docPath: 'app_docs/feature-deadglob.md', ownedGlobs: ['adws/gone.ts'], conditions: ['When X'], decisions: [] });
     writeDocFile(dir, 'app_docs/feature-deadglob.md');
     writeIndex(dir, entries);
 
@@ -104,8 +104,8 @@ describe('runLivingDocsIndexCheck', () => {
   it('exits 1 on an overlapping Owns: glob pair', () => {
     const dir = makeFixtureDir();
     const entries = healthyEntries(dir);
-    entries.push({ docPath: 'app_docs/feature-a.md', ownedGlobs: ['adws/shared/*.ts'], conditions: ['When X'] });
-    entries.push({ docPath: 'app_docs/feature-b.md', ownedGlobs: ['adws/shared/x.ts'], conditions: ['When X'] });
+    entries.push({ docPath: 'app_docs/feature-a.md', ownedGlobs: ['adws/shared/*.ts'], conditions: ['When X'], decisions: [] });
+    entries.push({ docPath: 'app_docs/feature-b.md', ownedGlobs: ['adws/shared/x.ts'], conditions: ['When X'], decisions: [] });
     writeDocFile(dir, 'app_docs/feature-a.md');
     writeDocFile(dir, 'app_docs/feature-b.md');
     writeDocFile(dir, 'adws/shared/x.ts'); // a tracked (non-doc) source file the globs both own
@@ -128,7 +128,7 @@ describe('runLivingDocsIndexCheck', () => {
   it('does not prune a nested directory that merely shares a basename with a top-level runtime-state dir (adws/agents/, adws/phases/logs/)', () => {
     const dir = makeFixtureDir();
     const entries = healthyEntries(dir);
-    entries.push({ docPath: 'app_docs/feature-agents.md', ownedGlobs: ['adws/agents/realAgent.ts'], conditions: ['When X'] });
+    entries.push({ docPath: 'app_docs/feature-agents.md', ownedGlobs: ['adws/agents/realAgent.ts'], conditions: ['When X'], decisions: [] });
     writeDocFile(dir, 'app_docs/feature-agents.md');
     writeDocFile(dir, 'adws/agents/realAgent.ts');
     writeIndex(dir, entries);
@@ -137,5 +137,125 @@ describe('runLivingDocsIndexCheck', () => {
 
     expect(exitCode).toBe(0);
     expect(lines.join('\n')).not.toContain('adws/agents/realAgent.ts');
+  });
+});
+
+describe('runLivingDocsIndexCheck — decisions', () => {
+  const SECTION_LABEL = "Decisions: each doc's ## Decisions section matches its Decisions: block";
+  const EXISTS_LABEL = 'Decisions: every listed record exists in specs/adr/';
+  const DOC = 'app_docs/feature-decided.md';
+
+  function writeAdr(dir: string, record: string, slug = 'first'): void {
+    writeDocFile(dir, `specs/adr/${record}-${slug}.md`, `# ADR-${record}\n`);
+  }
+
+  function sectionLinking(...targets: string[]): string {
+    return ['# Decided', '', '## Decisions', '', ...targets.map((t) => `- [ADR](${t}) — a title`), ''].join('\n');
+  }
+
+  function indexWithDecidedDoc(dir: string, decisions: string[], body: string): void {
+    const entries = healthyEntries(dir);
+    entries.push({ docPath: DOC, ownedGlobs: [], conditions: ['When X'], decisions });
+    writeDocFile(dir, DOC, body);
+    writeIndex(dir, entries);
+  }
+
+  it('passes both Decisions lines over a repository with no ADRs and no blocks', () => {
+    const dir = makeFixtureDir();
+    writeIndex(dir, healthyEntries(dir));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toContain(`  ✔ PASS  ${SECTION_LABEL}`);
+    expect(lines).toContain(`  ✔ PASS  ${EXISTS_LABEL}`);
+  });
+
+  it('exits 0 when the section links exactly the records of the block and the records exist', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+
+    expect(exitCode).toBe(0);
+    expect(lines).toContain(`  ✔ PASS  ${SECTION_LABEL}`);
+    expect(lines).toContain(`  ✔ PASS  ${EXISTS_LABEL}`);
+  });
+
+  it('exits 1 and names the doc and the record when the block lists a record the doc has no section for', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    indexWithDecidedDoc(dir, ['0001'], '# Decided\n');
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+    const report = lines.join('\n');
+
+    expect(exitCode).toBe(1);
+    expect(lines).toContain(`  ✖ FAIL  ${SECTION_LABEL}`);
+    expect(report).toContain(DOC);
+    expect(report).toContain('0001');
+  });
+
+  it('exits 1 when the section links a record the block does not list', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    writeAdr(dir, '0002', 'second');
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md', '../specs/adr/0002-second.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toContain(`  ✖ FAIL  ${SECTION_LABEL}`);
+    expect(lines.join('\n')).toContain('0002');
+  });
+
+  it('exits 1 on a block that lists a record with no file, naming the finding and the record', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    indexWithDecidedDoc(dir, ['0099'], sectionLinking('../specs/adr/0099-missing.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+    const report = lines.join('\n');
+
+    expect(exitCode).toBe(1);
+    expect(lines).toContain(`  ✖ FAIL  ${EXISTS_LABEL}`);
+    expect(report).toContain('unknown decision record');
+    expect(report).toContain('0099');
+  });
+
+  it('exits 1 on a block in a repository with no ADRs, naming the doc and the record', () => {
+    const dir = makeFixtureDir();
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+    const report = lines.join('\n');
+
+    expect(exitCode).toBe(1);
+    expect(report).toContain(DOC);
+    expect(report).toContain('0001');
+  });
+
+  it('exits 1 on a section link with the wrong slug for an existing record', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-old-slug.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+
+    expect(exitCode).toBe(1);
+    expect(lines).toContain(`  ✖ FAIL  ${EXISTS_LABEL}`);
+    expect(lines.join('\n')).toContain('dead decision link');
+  });
+
+  it('exits 1 on a section without a block, because the block is authoritative', () => {
+    const dir = makeFixtureDir();
+    writeAdr(dir, '0001');
+    indexWithDecidedDoc(dir, [], sectionLinking('../specs/adr/0001-first.md'));
+
+    const { exitCode, lines } = runLivingDocsIndexCheck(dir);
+
+    expect(exitCode).toBe(1);
+    expect(lines.join('\n')).toContain(DOC);
   });
 });

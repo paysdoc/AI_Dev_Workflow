@@ -50,3 +50,15 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 - `listCronOpenIssues` swallows fetch errors and returns `[]` — this is a deliberate tick-level fail-soft policy distinct from the `IssueTracker.listIssues` port method it calls, which throws (see `app_docs/feature-9gjajh-providers.md`). Cron cannot afford one bad poll to escape and kill the interval loop.
 - `#UPG` (`adw:upgrade`) tracking issues stay out of the standard candidate loop precisely because they read as `reserved_label`, not because they lack a label — `upgradeRedrive.ts` depends on this filtering, so the `reserved_label` guard cannot be removed outright, only narrowed to exclude truly-unlabeled issues (#754). Before #754, `decideLabelRecovery` rejected every fresh issue with `classification === null` — including ones with no `adw:*` label at all — as `no_adw_label`, which silently stranded unlabeled issues whenever the webhook (the only other classifier) was down. That guard sat *before* `in_progress_comment` and `linked_closed_pr` in the precedence chain, so a truly-unlabeled issue that also tripped one of those later guards was misreported as `no_adw_label`/`reserved_label` instead of its real reason — this is now correctly distinguished.
 - `void promise` is not a rejection handler on Node ≥ 15 — an unhandled rejection terminates the process by default. Every fire-and-forget async call from the entry-script guard must go through a guard like `runGuardedTick`, not a bare `void`. This is exactly how the cron trigger crash-looped: janitor discovery constructed a `GitContext` for a repo the GitHub App was not installed on, the 404 threw out of `checkAndTrigger`, `void checkAndTrigger()` had no rejection handler, and the webhook's `ensureCronProcess` respawned the killed process every ~5 minutes (#812).
+
+## Decisions
+
+- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

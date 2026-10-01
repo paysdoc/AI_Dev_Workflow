@@ -38,3 +38,9 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 - `killProcessGroup` targets the process group (negative PID), not just the process. If the target process was started without its own process group (e.g. without `detached: true`), the kill will also reach sibling processes in the same group.
 - `retryWithResolution` accumulates cost state in a closure-local object; callers that need to merge cost with an outer tracker must do so using the returned `RetryResult` fields, not by reading state mid-loop.
 - `AGENT_PHASE_TIMEOUT_MAP` is populated at module initialisation using `process.env.AGENT_DEFAULT_TIMEOUT_MS`; tests that set this env var after module load will not see the updated default in the static map.
+
+## Decisions
+
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0035](../specs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it

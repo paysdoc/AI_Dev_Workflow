@@ -5,35 +5,9 @@ vi.mock('../../core', () => ({
 }));
 
 import { runDocsIndexSweep } from '../docsIndexSweep';
-import { serializeConditionalDocs, type ConditionalDocsRegistry, type ConditionalDocEntry } from '../../core/conditionalDocsRegistry';
 import { assessDocsIndexHealth, type DocsIndexRepair } from '../../core/docsIndexHealth';
 import { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, type DocsIndexReportIssueSpec } from '../../core/docsIndexReportBody';
-import type { LaunchBoundary } from '../../core';
-import type { RepoIdentifier } from '@paysdoc/devplatform';
-import { Platform } from '@paysdoc/devplatform';
-
-function entry(overrides: Partial<ConditionalDocEntry> & { docPath: string }): ConditionalDocEntry {
-  return { ownedGlobs: [], conditions: ['When X'], ...overrides };
-}
-
-function registryContent(entries: ConditionalDocEntry[]): string {
-  const registry: ConditionalDocsRegistry = { preamble: '# Conditional Documentation\n', entries };
-  return serializeConditionalDocs(registry);
-}
-
-/** Fully-injected boundary — no SweepBase is ever prepared since every base-dependent dep is overridden in these tests. */
-function makeFakeBoundary(selfHost = true): LaunchBoundary {
-  const repoId: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
-  return {
-    gitContext: { owner: 'test-owner', repo: 'test-repo', selfHost } as unknown as LaunchBoundary['gitContext'],
-    repoId,
-    providers: { issueTracker: {} as never, codeHost: {} as never },
-  } as LaunchBoundary;
-}
-
-function reportRef(number: number, fingerprint: string, state = 'OPEN') {
-  return { number, body: `${DOCS_INDEX_REPORT_MARKER}\nFingerprint: ${fingerprint}\n`, state };
-}
+import { entry, registryContent, makeFakeBoundary, reportRef } from './fixtures/docsIndexSweepHarness';
 
 describe('runDocsIndexSweep — repair persistence', () => {
   it('20 dangling entries → persistIndex receives content with exactly those entries gone, repairs.length === 20', async () => {
@@ -45,6 +19,7 @@ describe('runDocsIndexSweep — repair persistence', () => {
     const persistIndex = vi.fn((_content: string, _repairs: readonly DocsIndexRepair[]) => Promise.resolve());
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => files,
       persistIndex,
@@ -68,6 +43,7 @@ describe('runDocsIndexSweep — repair persistence', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => liveEntries.map((e) => e.docPath),
       persistIndex,
@@ -90,6 +66,7 @@ describe('runDocsIndexSweep — repair persistence', () => {
     const persistIndex = vi.fn((_content: string, _repairs: readonly DocsIndexRepair[]) => Promise.resolve());
     await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => files,
       persistIndex,
@@ -117,6 +94,7 @@ describe('runDocsIndexSweep — one-issue reconcile', () => {
     const fileReport = vi.fn((_spec: DocsIndexReportIssueSpec) => 101);
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => overlapContent,
       listFiles: () => overlapFiles,
       persistIndex: vi.fn(),
@@ -136,13 +114,14 @@ describe('runDocsIndexSweep — one-issue reconcile', () => {
   });
 
   it('violations with an open report of the same fingerprint → no fileReport/refreshReport (unchanged)', async () => {
-    const { violations } = assessDocsIndexHealth({ content: overlapContent, files: overlapFiles }, null);
+    const { violations } = assessDocsIndexHealth({ content: overlapContent, files: overlapFiles, readDoc: () => null }, null);
     const fingerprint = docsIndexViolationFingerprint(violations);
     const fileReport = vi.fn();
     const refreshReport = vi.fn();
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => overlapContent,
       listFiles: () => overlapFiles,
       persistIndex: vi.fn(),
@@ -163,6 +142,7 @@ describe('runDocsIndexSweep — one-issue reconcile', () => {
     const refreshReport = vi.fn();
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => overlapContent,
       listFiles: () => overlapFiles,
       persistIndex: vi.fn(),
@@ -182,6 +162,7 @@ describe('runDocsIndexSweep — one-issue reconcile', () => {
     const refreshReport = vi.fn();
     await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => overlapContent,
       listFiles: () => overlapFiles,
       persistIndex: vi.fn(),
@@ -204,6 +185,7 @@ describe('runDocsIndexSweep — one-issue reconcile', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => files,
       persistIndex: vi.fn(),
@@ -226,6 +208,7 @@ describe('runDocsIndexSweep — target-repo band skip and edge cases', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(false),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => entries.map((e) => e.docPath),
       persistIndex: vi.fn(),
@@ -247,6 +230,7 @@ describe('runDocsIndexSweep — target-repo band skip and edge cases', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => null,
       listFiles,
       persistIndex,
@@ -269,6 +253,7 @@ describe('runDocsIndexSweep — target-repo band skip and edge cases', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => [],
       persistIndex: vi.fn(() => Promise.reject(new Error('push failed'))),
@@ -293,6 +278,7 @@ describe('runDocsIndexSweep — target-repo band skip and edge cases', () => {
 
     const report = await runDocsIndexSweep({
       boundary: makeFakeBoundary(),
+      readDoc: () => null,
       readIndex: () => content,
       listFiles: () => files,
       persistIndex: vi.fn(),

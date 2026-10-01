@@ -34,3 +34,9 @@ R2 upload requires `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_A
 - `leadingSegment(relPath)` groups uploaded screenshots by the first path segment of their relative path (e.g. the scenario folder name). When an image lives at the root of the artifacts directory, it is grouped under the literal string `'Screenshots'`.
 - `harvestProofArtifacts` uses an iterative DFS stack rather than recursion to avoid stack overflow on deep artifact trees.
 - `formatPrProofComment` does not append `ADW_SIGNATURE`; the caller (`publishPrProof`) must append it. This keeps the formatter pure and testable without the signature string.
+
+## Decisions
+
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail

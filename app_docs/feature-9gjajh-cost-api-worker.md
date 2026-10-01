@@ -35,3 +35,8 @@ Worker secrets required: `COST_API_TOKEN`, and `ALLOWED_ORIGINS` (optional, for 
 - `ALLOWED_ORIGINS` is an optional env binding; the CORS handler must handle its absence gracefully.
 - D1 batch statements are constructed synchronously and executed in a single round-trip; errors in any statement cause the batch to fail atomically.
 - The `migrated` field on `IngestRecord` marks records ingested via the historical CSV migration script; it has no effect on queries.
+
+## Decisions
+
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
