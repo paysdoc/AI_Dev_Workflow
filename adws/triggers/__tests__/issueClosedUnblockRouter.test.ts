@@ -10,11 +10,13 @@ import { parseDependencies, parseKeywordProximityDependencies } from '../issueDe
 import { Platform } from '@paysdoc/devplatform';
 import type { IssueListEntry } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
+import { classifyAndSpawnWorkflow } from '../webhookGatekeeper';
 
 vi.mock('../../core', () => ({
   log: vi.fn(),
   LOGS_DIR: '/logs',
 }));
+vi.mock('../webhookGatekeeper', () => ({ classifyAndSpawnWorkflow: vi.fn(() => Promise.resolve()) }));
 
 const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
@@ -144,6 +146,16 @@ describe('buildDefaultDependencyUnblockDeps — issue tracker routing', () => {
 
     expect(boundary.providers.issueTracker.listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
     expect(result).toEqual([{ number: 10, body: 'Blocked by #5' }]);
+  });
+});
+
+describe('buildDefaultDependencyUnblockDeps — spawn path', () => {
+  it('spawns through classifyAndSpawnWorkflow, the gate that holds the adw:none opt-out', async () => {
+    const boundary = makeBoundary(() => []);
+
+    await buildDefaultDependencyUnblockDeps(boundary).spawn(29, TARGET_ARGS);
+
+    expect(classifyAndSpawnWorkflow).toHaveBeenCalledWith(29, boundary, TARGET_ARGS);
   });
 });
 

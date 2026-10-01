@@ -5,7 +5,7 @@ import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
 import type { LaunchBoundary } from '../core';
 import type { IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
-import { issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../core/adwLabels';
+import { issueTypeToAdwLabel, ADW_UPGRADE_LABEL, readAdwLabelNames } from '../core/adwLabels';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
@@ -68,6 +68,19 @@ export async function classifyAndSpawnWorkflow(
     return;
   }
 
+  // fetchLabels is fail-open ([] on error) — the same "proceed when the check cannot
+  // complete" policy the legacy issueHasLabel had.
+  const labels = issueTracker.fetchLabels(issueNumber);
+
+  // adw:none wins on every spawn path, so it is read here, live, before evaluateCandidate
+  // locks, kills or resets anything. Only the cron arrives holding the spawn lock (its
+  // precomputed decision), and releaseIssueSpawnLock unlinks whoever owns the file.
+  if (readAdwLabelNames(labels).optOut) {
+    log(`Issue #${issueNumber}: opted out via adw:none, skipping spawn`);
+    if (precomputedDecision) releaseIssueSpawnLock(repoId, issueNumber);
+    return;
+  }
+
   // Upgrade-tracking issues (adw:upgrade) are driven solely by adwUpgrade.tsx, never by
   // normal classification. Must be intercepted BEFORE evaluateCandidate: otherwise the
   // classifier reads the #UPG issue's title, mislabels it (e.g. as a chore), and re-enters
@@ -75,9 +88,7 @@ export async function classifyAndSpawnWorkflow(
   // Routing it to adwUpgrade is also the self-heal: adwUpgrade's own per-issue lifecycle
   // lock makes re-dispatch idempotent (live → no-op, dead → resume), so no separate watchdog
   // is needed. We release the spawn lock here so adwUpgrade can acquire its lifecycle lock.
-  // fetchLabels is fail-open ([] on error) — the same "proceed when the check cannot
-  // complete" policy the legacy issueHasLabel had.
-  if (issueTracker.fetchLabels(issueNumber).includes(ADW_UPGRADE_LABEL)) {
+  if (labels.includes(ADW_UPGRADE_LABEL)) {
     log(`Issue #${issueNumber}: adw:upgrade tracking issue, routing to adwUpgrade`, 'success');
     spawnDetached('bunx', ['tsx', 'adws/adwUpgrade.tsx', String(issueNumber), ...targetRepoArgs]);
     releaseIssueSpawnLock(repoId, issueNumber);

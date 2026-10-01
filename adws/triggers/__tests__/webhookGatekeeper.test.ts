@@ -38,6 +38,7 @@ vi.mock('../../core/agentState', () => ({
 
 import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
 import { parseDependencies } from '../issueDependencies';
+import { classifyIssueForTrigger } from '../../core/issueClassifier';
 import { Platform } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../core';
 import type { IssueTracker } from '@paysdoc/devplatform';
@@ -97,6 +98,77 @@ describe('classifyAndSpawnWorkflow — adw:upgrade short-circuit (Bug C′)', ()
 
     expect(evaluateCandidateMock).toHaveBeenCalledTimes(1);
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwUpgrade.tsx'))).toBe(false);
+  });
+});
+
+describe('classifyAndSpawnWorkflow — adw:none wins on every spawn path', () => {
+  beforeEach(() => {
+    spawnMock.mockClear();
+    releaseIssueSpawnLockMock.mockClear();
+    evaluateCandidateMock.mockReset();
+    vi.mocked(classifyIssueForTrigger).mockClear();
+  });
+
+  it('comment path: spawns nothing, evaluates no candidate, spends no classification and releases no lock', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:none']) });
+
+    await classifyAndSpawnWorkflow(41, boundary, TARGET_ARGS);
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(evaluateCandidateMock).not.toHaveBeenCalled();
+    expect(classifyIssueForTrigger).not.toHaveBeenCalled();
+    expect(releaseIssueSpawnLockMock).not.toHaveBeenCalled();
+  });
+
+  it('dependency-closure path: adw:none beats a classification label', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:bug', 'adw:none']) });
+
+    await classifyAndSpawnWorkflow(41, boundary, TARGET_ARGS);
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(evaluateCandidateMock).not.toHaveBeenCalled();
+  });
+
+  it('issues.opened path: a precomputed classification does not get past adw:none', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:bug', 'adw:none']) });
+
+    await classifyAndSpawnWorkflow(42, boundary, TARGET_ARGS, undefined, undefined, {
+      precomputedClassification: '/bug',
+      issueTitle: 'Fix login',
+    });
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(evaluateCandidateMock).not.toHaveBeenCalled();
+  });
+
+  it('cron path: spawns nothing and releases the spawn lock the cron took for the issue', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:chore', 'adw:none']) });
+
+    await classifyAndSpawnWorkflow(43, boundary, TARGET_ARGS, 'adw-prior', { kind: 'spawn_fresh' }, {
+      precomputedClassification: '/chore',
+      issueTitle: 'Bump deps',
+    });
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(releaseIssueSpawnLockMock).toHaveBeenCalledWith(REPO_INFO, 43);
+  });
+
+  it('does not route an adw:upgrade issue to adwUpgrade when it also carries adw:none', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:upgrade', 'adw:none']) });
+
+    await classifyAndSpawnWorkflow(44, boundary, TARGET_ARGS);
+
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('control: an issue without adw:none still spawns, reading its labels once', async () => {
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:bug']) });
+    evaluateCandidateMock.mockReturnValue({ kind: 'spawn_fresh' });
+
+    await classifyAndSpawnWorkflow(45, boundary, TARGET_ARGS);
+
+    expect(spawnedScripts().some((a) => a.endsWith('adws/adwChore.tsx'))).toBe(true);
+    expect(boundary.providers.issueTracker.fetchLabels).toHaveBeenCalledTimes(1);
   });
 });
 

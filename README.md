@@ -665,7 +665,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── prCommentDetector.test.ts
 │   │   ├── workflowCommentsBase.test.ts
 │   │   └── workflowCommentsIssue.test.ts
-│   ├── adwLabelProvisioning.ts  # Idempotently ensures the six adw:* labels exist on a repo (ensureAdwLabelsExist) — the one piece of label-provisioning policy kept from the deleted labelManager.ts
+│   ├── adwLabelProvisioning.ts  # Idempotently ensures the eight adw:* labels exist on a repo (ensureAdwLabelsExist) — the one piece of label-provisioning policy kept from the deleted labelManager.ts
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions; readers injected via required NotifierDeps, built by buildNotifierDeps(ctx, repoId) (consumed by adws/core/forgeWiring.ts's adwGitHubForgeDeps, #823; formerly adws/providers/repoContext.ts)
 │   ├── issueLinkMarker.ts  # Canonical issue-link marker contract for PR bodies (bodyLinksIssue, closing-keyword conventions)
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Closes"/"Implements #N" body scan; fetchLinkedPRs(codeHost) now reads via the CodeHost.listPullRequests() port method instead of a repoInfo-based free function
