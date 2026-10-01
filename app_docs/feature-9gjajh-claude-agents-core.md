@@ -75,3 +75,15 @@ Guardrails injection is additionally governed by:
 - `**/logs/` was added to `.gitignore` because Claude Code hook logs can land in any directory an agent `cd`'s into (not just the repo root) when `CLAUDE_HOOKS_LOG_DIR` is unset or misconfigured — a defense-in-depth guard against the same worktree-leak class the absolute-path invariant above prevents by construction
 - `formatDenialNotice()` returns `null` (not an empty string) when `count` is 0, specifically so a clean run's stage comment gets no denial line appended — callers must treat the return as optional, not always-render
 - The gate's `readAdwYml` dependency reads from `input.worktreePath`, not `REPO_ROOT` — the canary is per-target-repo, and a self-host run never reaches that check anyway (short-circuited earlier)
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0010](../specs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
+- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory

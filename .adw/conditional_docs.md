@@ -12,6 +12,8 @@
     - When working on JUnit XML parsing, test verdict derivation, or scenario proof pass/fail resolution
     - When working on `testReportParser.ts`, `testVerdict.ts`, or `resolveVerdict.ts`
     - When debugging why a test phase verdict is wrong, how JUnit reports are aggregated, or the missing-vs-unparseable report ambiguity
+  - Decisions:
+    - 0043
 
 - app_docs/feature-9gjajh-hash-and-versioning.md
   - Owns:
@@ -29,6 +31,8 @@
     - When working on ADW hash computation (input hash, regen verification), ADW version strings, ADW IDs, or upgrade claims
     - When working on `hashComputer.ts`, `adwVersion.ts`, `adwId.ts`, or `upgradeClaim.ts`
     - When the `adwUpgrade` self-upgrade loop, hash-based regen guard, upgrade-failure cap, or upgrade redrive cron pass is involved (`upgradeFailureCap.ts`, `adws/triggers/upgradeRedrive.ts`)
+  - Decisions:
+    - 0042
 
 - app_docs/feature-9gjajh-workflow-lifecycle-phases.md
   - Owns:
@@ -50,6 +54,22 @@
     - When working on workflow initialization, completion, upgrade gating, orchestrator locking, progress gating, branch name resolution, auth pause, depaudit setup, Gherkin freeze, or phase comment helpers in `adws/phases/`
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
+  - Decisions:
+    - 0002
+    - 0011
+    - 0016
+    - 0019
+    - 0023
+    - 0025
+    - 0033
+    - 0034
+    - 0036
+    - 0039
+    - 0042
+    - 0043
+    - 0046
+    - 0047
+    - 0055
 
 - app_docs/feature-9gjajh-pr-and-merge-phases.md
   - Owns:
@@ -70,6 +90,12 @@
     - When working on post-review-outcome routing (`resolvePrReviewTarget`, `resolvePrReviewSpawn`, `decidePostReviewOutcome`, `executeSdlcReviewFailedHandoff`)
     - When working on `resolvePrReviewInvocation` (the branch→PR/adwId resolution `adwPrReview.tsx` runs after the launch boundary exists) or `readUnaddressedComments` (the pr-review bot/self/ADW-signed comment filter, decomposed off the legacy `prCommentDetector` composite, #820)
     - When working on `handlePRReviewWorkflowError`'s HITL Blocked notification — since #844 its notifier deps default to `buildNotifierDeps(() => repoContext, repoContext.repoId)`, not a `config.base.gitContext` read
+  - Decisions:
+    - 0016
+    - 0019
+    - 0028
+    - 0031
+    - 0048
 
 - app_docs/feature-9gjajh-issue-routing-and-eligibility.md
   - Owns:
@@ -92,6 +118,18 @@
     - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
     - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`) or its persist orchestration (`perIssueSweepPersist.ts`) in `adws/triggers/`
     - When working on region-overlap serialization/detection (`regionOverlap.ts`, `regionOverlapSignals.ts`) or resume-spawn resolution (`adws/core/resolveResumeSpawn.ts`)
+  - Decisions:
+    - 0008
+    - 0012
+    - 0031
+    - 0032
+    - 0037
+    - 0039
+    - 0041
+    - 0047
+    - 0048
+    - 0049
+    - 0055
 
 - README.md
   - Conditions:
@@ -113,6 +151,12 @@
   - Conditions:
     - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
+  - Decisions:
+    - 0014
+    - 0018
+    - 0031
+    - 0043
+    - 0049
 
 - app_docs/feature-9gjajh-bdd-regression-suite.md
   - Owns:
@@ -127,6 +171,9 @@
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
     - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
     - When working on the Docker-based hermetic regression-suite runner (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
+  - Decisions:
+    - 0021
+    - 0037
 
 - app_docs/feature-9gjajh-build-and-plan-phases.md
   - Owns:
@@ -139,6 +186,11 @@
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
+  - Decisions:
+    - 0023
+    - 0024
+    - 0047
+    - 0056
 
 - app_docs/feature-9gjajh-worktree-and-vcs.md
   - Owns:
@@ -156,6 +208,12 @@
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
+  - Decisions:
+    - 0002
+    - 0034
+    - 0042
+    - 0047
+    - 0050
 
 - app_docs/feature-9gjajh-github-api.md
   - Owns:
@@ -170,6 +228,9 @@
     - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
     - When `ensureAdwLabelsExist(repoInfo, tracker, logger?)` is referenced — the one piece of label-provisioning policy kept from the deleted `labelManager.ts`, over `Pick<IssueTracker, 'ensureLabel'>`
     - When `getRepoInfo`, `fetchGitHubIssue`, `commentOnIssue` (the free function; `IssueTracker.commentOnIssue` the port method still exists), `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts`, `activateGitHubAppAuth`, or `activeRepo` are referenced and not found — the entire legacy free-function GitHub API layer was deleted in #821; every op now routes through a forge provider port (`IssueTracker`/`CodeHost`) reached via a `LaunchBoundary`. `getRepoInfo` survives only as a name-based reintroduction guard in `adws/guard/identityRule.ts`'s `CWD_DERIVED_IDENTITY_FNS` set
+  - Decisions:
+    - 0041
+    - 0051
 
 - app_docs/feature-9gjajh-cron-triggers.md
   - Owns:
@@ -192,6 +253,16 @@
     - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
     - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
     - When working with `runGuardedTick`, or when the cron trigger crash-loops / is respawned by the webhook after an unhandled rejection (#812)
+  - Decisions:
+    - 0012
+    - 0028
+    - 0029
+    - 0032
+    - 0034
+    - 0036
+    - 0039
+    - 0041
+    - 0048
 
 - app_docs/feature-9gjajh-webhook-triggers.md
   - Owns:
@@ -221,6 +292,16 @@
     - When wiring a new synchronous or asynchronous webhook request-path call that must be contained by `dispatchWebhookEvent`/`containEventFailure` or reported via `reportWebhookEventFailure`
     - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
     - When editing the per-event cwd-isolation assertions in `webhookRepoResolver.test.ts` (§3a, §4) — they are pinned by `getCurrentBranch()` (a git op), not `defaultBranch()`, because repo-API `gh` calls became framework-rooted in issue #775 and no longer carry per-repo cwd signal
+  - Decisions:
+    - 0001
+    - 0008
+    - 0012
+    - 0028
+    - 0032
+    - 0036
+    - 0039
+    - 0041
+    - 0046
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
@@ -248,6 +329,19 @@
     - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the ownership gate (`skip_not_owner`, evaluated before the reset gate), the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
     - When working on the pause-queue resume path (`pauseQueueResume.ts`) — `resumeWorkflow` removes the queue entry before spawning the orchestrator (remove-before-spawn) and re-appends it with a strike via `appendToPauseQueue` if the spawn fails inside its readiness window
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
+  - Decisions:
+    - 0012
+    - 0025
+    - 0028
+    - 0032
+    - 0034
+    - 0035
+    - 0036
+    - 0039
+    - 0047
+    - 0048
+    - 0052
+    - 0055
 
 - app_docs/feature-9gjajh-promotion-system.md
   - Owns:
@@ -267,18 +361,24 @@
     - When working on promotion tag-state tracking (`adws/core/promotionTagState.ts`)
     - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
     - When working on the rot/reuse advisory PR comment (`adws/phases/promotionRotAdvisory.ts`, `rotAdvisoryFormat.ts`, `adws/agents/rotAnalysisAgent.ts`, `.claude/commands/promote_regression_vocabulary.md`)
+  - Decisions:
+    - 0049
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
     - adws/cost/**
   - Conditions:
     - When working on LLM cost computation, cost reporting, D1 cost storage, exchange rate fetching, or cost helpers in `adws/cost/`
+  - Decisions:
+    - 0026
 
 - app_docs/feature-9gjajh-r2-storage.md
   - Owns:
     - adws/r2/**
   - Conditions:
     - When working on Cloudflare R2 bucket management, R2 upload service, or R2 client in `adws/r2/`
+  - Decisions:
+    - 0022
 
 - app_docs/feature-9gjajh-jsonl-schema.md
   - Owns:
@@ -286,6 +386,10 @@
   - Conditions:
     - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
     - When working on the CI envelope conformance gate (`.github/workflows/envelope-conformance.yml`, the pinned Claude CLI version, or `bun run jsonl:probe:check`)
+  - Decisions:
+    - 0021
+    - 0052
+    - 0055
 
 - app_docs/feature-9gjajh-types.md
   - Owns:
@@ -293,6 +397,9 @@
   - Conditions:
     - When working on shared ADW type definitions: `AgentState`, workflow types, issue types, data types, issue routing, or the types module in `adws/types/`
     - When `GitHubIssue`/`GitHubComment`/`PRDetails`/`PRReviewComment`/`PRListItem`/`IssueCommentSummary` are not found in `adws/types/` — moved to `adws/providers/github/domain/` (#817)
+  - Decisions:
+    - 0015
+    - 0029
 
 - app_docs/feature-9gjajh-health-check.md
   - Owns:
@@ -304,18 +411,26 @@
     - When the self-host `LaunchBoundary` construction in `main()`, its `providers` mint's own try/catch, or the webhook `/health` endpoint needs changes
     - When troubleshooting the mandatory-token construction failure path in the health check
     - When `healthCheck.tsx` or `healthCheckChecks.ts` appear in the git/gh guard ALLOWLIST (they must not — they are now scanned clean)
+  - Decisions:
+    - 0057
 
 - app_docs/feature-9gjajh-cost-api-worker.md
   - Owns:
     - workers/cost-api/**
   - Conditions:
     - When working on the Cloudflare Worker that exposes cost data via API, its routes, D1 queries, or wrangler configuration in `workers/cost-api/`
+  - Decisions:
+    - 0026
+    - 0030
 
 - app_docs/feature-9gjajh-screenshot-router-worker.md
   - Owns:
     - workers/screenshot-router/**
   - Conditions:
     - When working on the Cloudflare Worker that routes screenshot requests in `workers/screenshot-router/`
+  - Decisions:
+    - 0022
+    - 0030
 
 - app_docs/feature-9gjajh-commands-and-skills.md
   - Owns:
@@ -351,6 +466,20 @@
     - .claude/hooks/**
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
+  - Decisions:
+    - 0005
+    - 0014
+    - 0015
+    - 0018
+    - 0024
+    - 0027
+    - 0031
+    - 0033
+    - 0037
+    - 0042
+    - 0043
+    - 0050
+    - 0054
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
   - Owns:
@@ -358,6 +487,8 @@
   - Conditions:
     - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
     - When working on the comment-only de-bloat sweep of `features/per-issue/` files (see `app_docs/feature-m363ky-comment-only-guard.md` for the guard itself)
+  - Decisions:
+    - 0037
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:
@@ -382,6 +513,18 @@
     - When working on root-level configuration: `package.json`, `tsconfig.json`, `biome.json`, `vitest.config.ts`, `README.md`, `.github/` workflows, `UBIQUITOUS_LANGUAGE.md`, `known_issues.md`, or `.adw/` project metadata files
     - When working on `.github/dependabot.yml` (the `@paysdoc/devplatform` version-update config) or `.github/adw.yml` (the ADW policy switches file)
     - When troubleshooting why a Dependabot bump PR was or wasn't picked up by ADW's triggers
+  - Decisions:
+    - 0005
+    - 0009
+    - 0018
+    - 0019
+    - 0021
+    - 0022
+    - 0030
+    - 0037
+    - 0051
+    - 0054
+    - 0057
 
 - app_docs/feature-9gjajh-document-phase.md
   - Owns:
@@ -396,18 +539,26 @@
     - adws/checkLivingDocsIndex.ts
     - adws/core/docsIndexHealth.ts
     - adws/core/__tests__/docsIndexHealth.test.ts
+    - adws/core/docsDecisions.ts
+    - adws/core/__tests__/docsDecisions.test.ts
     - adws/core/docsIndexReportBody.ts
     - adws/core/__tests__/docsIndexReportBody.test.ts
     - adws/triggers/docsIndexSweep.ts
     - adws/triggers/__tests__/docsIndexSweep.test.ts
     - adws/triggers/docsIndexSweepDefaults.ts
+    - adws/triggers/__tests__/docsIndexSweepDefaults.test.ts
     - adws/__tests__/checkLivingDocsIndex.test.ts
   - Conditions:
     - When working on the document phase orchestrator step (`adws/phases/documentPhase.ts`) that invokes `/document`, commits, and pushes generated docs
     - When working on the living-docs convergence registry (`adws/core/conditionalDocsRegistry.ts`) — parsing, serializing, collapsing, or querying `.adw/conditional_docs.md`
     - When working on the per-write post-write guards (`adws/core/docsGuards.ts`, `adws/phases/docsSelfCheck.ts`) — bloat or regrowth flags on a just-produced doc
     - When working on whole-index docs health, the docs-index CI gate, or the docs-index cron sweep (`adws/core/docsIndexHealth.ts`, `docsIndexReportBody.ts`, `adws/checkLivingDocsIndex.ts`, `adws/triggers/docsIndexSweep.ts`, `docsIndexSweepDefaults.ts`)
+    - When working on the module-doc ↔ ADR mapping (`Decisions:` blocks, `## Decisions` sections, `adws/core/docsDecisions.ts`) or a decisions finding from the docs gate or sweep
     - When troubleshooting a dangling index entry, an orphaned module doc, an overlapping `Owns:` glob, or the docs-index entry count outside its band
+  - Decisions:
+    - 0042
+    - 0044
+    - 0053
 
 - app_docs/feature-oqb76h-gitcontext-base-path-authority.md
   - Owns:
@@ -447,6 +598,13 @@
     - When `unsanctioned-construction` and `cwd-derived-identity` disagree on a context constructor fed a direct identity-read call (`gitContextForRepo(readLocalRepoIdentity(root))`) — `isIdentityReadComposite` (`identityRule.ts`) is the sole adjudicator of that composite and `constructionRule.ts` defers to it; every other construction shape is still flagged by callee name alone
     - When a `@paysdoc/devplatform` symbol is missing or misbehaving — the git core and the forge adapters live in `paysdoc/devplatform`; ADW pins an exact version and Dependabot proposes bumps; there is no in-repo fallback
     - When `adws/gitContext/` or `adws/providers/` are referenced and not found — both directories were deleted in issue #840; every symbol they used to hold now comes from `@paysdoc/devplatform`, `@paysdoc/devplatform/providers`, or `@paysdoc/devplatform/git`
+  - Decisions:
+    - 0003
+    - 0005
+    - 0011
+    - 0016
+    - 0046
+    - 0051
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:
@@ -465,6 +623,16 @@
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
+  - Decisions:
+    - 0001
+    - 0010
+    - 0015
+    - 0020
+    - 0023
+    - 0026
+    - 0039
+    - 0050
+    - 0052
 
 - app_docs/feature-9gjajh-classifier-and-routing.md
   - Owns:
@@ -481,6 +649,11 @@
     - When working on issue classification (feature/bug/chore/etc.), model routing decisions, workflow-type-to-phase mapping, or workflow comment parsing
     - When working on `issueClassifier.ts`, `modelRouting.ts`, `workflowMapping.ts`, or `workflowCommentParsing.ts`
     - When working on the pure ADW label vocabulary (`adwLabels.ts`: `ADW_*_LABEL` constants, `ADW_LABEL_DEFINITIONS`, `readAdwLabelNames`, `shouldSkipScenarioAuthoring`, `hasRegressionPromotionLabel`, `hasWontFixLabelName`, `resolveAdwLabelDefinition`, moved out of `adws/github/labelManager.ts`/`prApi.ts` in #820, which now re-export it)
+  - Decisions:
+    - 0010
+    - 0032
+    - 0041
+    - 0049
 
 - app_docs/feature-9gjajh-claude-stream-parser.md
   - Owns:
@@ -498,6 +671,16 @@
     - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, the phase runner loop, or the in-process rate-limit wait policy
     - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, `phaseRunner.ts`, or `rateLimitWaitPolicy.ts`
     - When debugging how ADW reads Claude Code's stdout/stderr, how phases are sequenced by the runner, or how a five-hour rate limit is ridden out in-process
+  - Decisions:
+    - 0001
+    - 0003
+    - 0020
+    - 0023
+    - 0025
+    - 0026
+    - 0029
+    - 0039
+    - 0055
 
 - app_docs/feature-9gjajh-coordination-kernel.md
   - Owns:
@@ -514,6 +697,10 @@
     - When working on process liveness, heartbeat signals, hung orchestrator detection, or agent timeout enforcement in `adws/core/`
     - When debugging a stuck or zombie orchestrator process
     - When working on `processLiveness.ts`, `heartbeat.ts`, `hungOrchestratorDetector.ts`, `agentTimeouts.ts`, `retryOrchestrator.ts`, or `processKill.ts`
+  - Decisions:
+    - 0023
+    - 0034
+    - 0035
 
 - app_docs/feature-9gjajh-dev-server-and-ports.md
   - Owns:
@@ -533,6 +720,11 @@
     - When working on `devServerLifecycle.ts`, `portAllocator.ts`, `remoteReconcile.ts`, or `targetRepoManager.ts`
     - When working on `convertToSshUrl` (`adws/core/sshCloneUrl.ts`, #844) — ADW-owned and host-neutral (`https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`, anything else passed through), re-exported by `targetRepoManager.ts` at the stable import path; no longer the GitHub-only adapter helper
     - When working on Claude Code workspace trust (`ensureWorkspaceTrusted`, `adws/core/workspaceTrust.ts`, #846) — the once-per-repo `~/.claude.json` `projects[<workspacePath>].hasTrustDialogAccepted` write performed by `ensureTargetRepoWorkspace` on both the clone and fetch branches; atomic tmp+rename, exact-key, skip-and-warn on missing/corrupt/unwritable, never on the per-spawn `claudeAgent.ts` path
+  - Decisions:
+    - 0003
+    - 0031
+    - 0034
+    - 0050
 
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:
@@ -551,6 +743,14 @@
   - Conditions:
     - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwPromotionSweep`, `adwUpgrade`, `adwClearComments`
     - When working on top-level `adws/index.ts` exports or `adwBuildHelpers.ts`
+  - Decisions:
+    - 0001
+    - 0027
+    - 0028
+    - 0036
+    - 0038
+    - 0042
+    - 0048
 
 - app_docs/feature-9gjajh-freeze-and-coherence.md
   - Owns:
@@ -563,6 +763,8 @@
   - Conditions:
     - When working on scenario freeze guards, stack coherence checking (conflicting merge candidates), or step definition auto-detection
     - When working on `stackCoherenceCheck.ts`, `resolveFreezeGuard.ts`, or `stepDefDetection.ts`
+  - Decisions:
+    - 0043
 
 - app_docs/feature-9gjajh-pause-and-auth-queues.md
   - Owns:
@@ -573,6 +775,10 @@
     - When working on the ADW pause queue (orchestrators waiting for a resume signal) or the auth gate (401/auth-failure classification and Slack notification)
     - When working on `pauseQueue.ts` or `authGate.ts`
     - When debugging a stuck pause or an auth failure that killed in-flight agents
+  - Decisions:
+    - 0025
+    - 0039
+    - 0055
 
 - app_docs/feature-9gjajh-plan-and-build-agents.md
   - Owns:
@@ -583,6 +789,8 @@
   - Conditions:
     - When working on the plan agent, alignment agent, build agent, or install agent in `adws/agents/`
     - When working on `planAgent.ts`, `alignmentAgent.ts`, `buildAgent.ts`, or `installAgent.ts`
+  - Decisions:
+    - 0024
 
 - app_docs/feature-9gjajh-pr-and-document-agents.md
   - Owns:
@@ -600,6 +808,10 @@
     - adws/proof/**
   - Conditions:
     - When working on proof artifact harvesting, PR proof publishing, scenario proof attachment, stack coherence reporting, or the `adws/proof/` module
+  - Decisions:
+    - 0014
+    - 0022
+    - 0043
 
 - app_docs/feature-9gjajh-review-and-diff-phases.md
   - Owns:
@@ -608,6 +820,10 @@
     - adws/phases/reviewPatchHelpers.ts
   - Conditions:
     - When working on the review phase, diff evaluation phase, or review patch helpers in `adws/phases/`
+  - Decisions:
+    - 0027
+    - 0031
+    - 0038
 
 - app_docs/feature-9gjajh-review-and-patch-agents.md
   - Owns:
@@ -619,6 +835,9 @@
     - adws/agents/validationAgent.ts
   - Conditions:
     - When working on review, diff evaluation, patch, refactor, resolution, or validation agents in `adws/agents/`
+  - Decisions:
+    - 0027
+    - 0031
 
 - app_docs/feature-9gjajh-scenario-and-stepdef-agents.md
   - Owns:
@@ -630,6 +849,9 @@
     - adws/agents/testRetry.ts
   - Conditions:
     - When working on BDD scenario runner, scenario writer agent, scenario fidelity agent, step def generation agent, test agent, or test retry in `adws/agents/`
+  - Decisions:
+    - 0014
+    - 0043
 
 - app_docs/feature-9gjajh-sdlc-orchestrators.md
   - Owns:
@@ -643,6 +865,14 @@
   - Conditions:
     - When working on the top-level SDLC workflow orchestrators: `adwSdlc`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildReview`, `adwPlanBuildTest`, `adwPlanBuildTestReview`
     - When working on workflow-level phase sequencing in `workflowPhases.ts`
+  - Decisions:
+    - 0001
+    - 0014
+    - 0024
+    - 0028
+    - 0031
+    - 0045
+    - 0048
 
 - app_docs/feature-9gjajh-slack-and-logging.md
   - Owns:
@@ -653,6 +883,8 @@
   - Conditions:
     - When working on Slack notifications, the ADW structured logger, or shared utility functions in `adws/core/`
     - When working on `slackNotifier.ts`, `logger.ts`, or `utils.ts`
+  - Decisions:
+    - 0020
 
 - app_docs/feature-9gjajh-state-and-config.md
   - Owns:
@@ -673,6 +905,14 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+  - Decisions:
+    - 0003
+    - 0005
+    - 0020
+    - 0029
+    - 0043
+    - 0050
+    - 0057
 
 - app_docs/feature-m363ky-comment-only-guard.md
   - Owns:
@@ -681,3 +921,5 @@
     - When working on the comment-only guard (`bun run lint:comment-only`) that proves a set of files differs from a base ref only in comments, JSDoc, and whitespace
     - When working on `checkCommentOnly.ts`'s TS token-stream normalization, feature-file DocString handling, or its `CommentOnlyViolation` reporting
     - When troubleshooting a comment de-bloat sweep batch's guard pass/fail, or why a file was reported `code-changed`/`absent-at-base`/`absent-in-working-tree`/`unsupported-file-kind`
+  - Decisions:
+    - 0054

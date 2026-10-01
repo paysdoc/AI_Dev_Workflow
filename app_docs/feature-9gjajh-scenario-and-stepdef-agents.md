@@ -32,3 +32,8 @@ All agents delegate model selection and effort level to `getModelForCommand` / `
 - `testAgent.ts` distinguishes between an empty JSON array `[]` (valid — no tests found) and missing JSON (error): a regex check for `/\[[\s\S]*\]/` determines which branch is taken before returning a structured error.
 - `runResolveScenarioAgent` embeds `applicationUrl` inside the failure JSON payload rather than passing it as a separate argument — the resolver skill must know to read `applicationUrl` from the JSON body.
 - Log file names for `runResolveTestAgent` include `failedTest.test_name` directly; names with path separators or special characters could produce unexpected file locations.
+
+## Decisions
+
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail

@@ -17,10 +17,19 @@ const CANONICAL = `# Conditional Documentation
     - adws/vcs/**
   - Conditions:
     - When working on \`adws/vcs/\` VCS module
+  - Decisions:
+    - 0042
+    - 0044
 
 - app_docs/feature-legacy.md
   - Conditions:
     - When working on \`adws/legacy/\` module
+
+- app_docs/feature-legacy-decided.md
+  - Conditions:
+    - When working on \`adws/decided/\` module
+  - Decisions:
+    - 0053
 `;
 
 const CANONICAL_REGISTRY: ConditionalDocsRegistry = {
@@ -30,11 +39,19 @@ const CANONICAL_REGISTRY: ConditionalDocsRegistry = {
       docPath: 'app_docs/feature-new.md',
       ownedGlobs: ['adws/vcs/**'],
       conditions: ['When working on `adws/vcs/` VCS module'],
+      decisions: ['0042', '0044'],
     },
     {
       docPath: 'app_docs/feature-legacy.md',
       ownedGlobs: [],
       conditions: ['When working on `adws/legacy/` module'],
+      decisions: [],
+    },
+    {
+      docPath: 'app_docs/feature-legacy-decided.md',
+      ownedGlobs: [],
+      conditions: ['When working on `adws/decided/` module'],
+      decisions: ['0053'],
     },
   ],
 };
@@ -159,13 +176,98 @@ describe('malformed / edge cases', () => {
   });
 });
 
+describe('Decisions: block', () => {
+  const withBlock = (block: string): string => `# Conditional Documentation
+
+- app_docs/feature-a.md
+  - Owns:
+    - adws/a/**
+  - Conditions:
+    - When working on a
+${block}`;
+
+  it('parses the items into decisions, verbatim and in order, without leaking into the other lists', () => {
+    const reg = parseConditionalDocs(withBlock('  - Decisions:\n    - 0053\n    - 0042\n'));
+
+    expect(reg.entries[0].decisions).toEqual(['0053', '0042']);
+    expect(reg.entries[0].ownedGlobs).toEqual(['adws/a/**']);
+    expect(reg.entries[0].conditions).toEqual(['When working on a']);
+  });
+
+  it('does not let the next entry inherit the block', () => {
+    const content = withBlock('  - Decisions:\n    - 0042\n') + '\n- app_docs/feature-b.md\n  - Conditions:\n    - When working on b\n';
+
+    const reg = parseConditionalDocs(content);
+
+    expect(reg.entries[1].decisions).toEqual([]);
+    expect(reg.entries[1].conditions).toEqual(['When working on b']);
+    expect(serializeConditionalDocs(reg)).toBe(content);
+  });
+
+  it('an entry without the block parses to decisions: [] and serializes without a Decisions: line', () => {
+    const content = withBlock('');
+
+    const reg = parseConditionalDocs(content);
+
+    expect(reg.entries[0].decisions).toEqual([]);
+    expect(serializeConditionalDocs(reg)).toBe(content);
+    expect(serializeConditionalDocs(reg)).not.toContain('Decisions:');
+  });
+
+  it.each(['44', 'ADR-0044', '0044 '])('a malformed item %j round-trips byte-identically', (item) => {
+    const content = withBlock(`  - Decisions:\n    - ${item}\n`);
+
+    expect(parseConditionalDocs(content).entries[0].decisions).toEqual([item]);
+    expect(serializeConditionalDocs(parseConditionalDocs(content))).toBe(content);
+  });
+
+  it('a block placed before Conditions: parses into decisions but serializes after Conditions:, so it is non-canonical', () => {
+    const content = `# Conditional Documentation
+
+- app_docs/feature-a.md
+  - Owns:
+    - adws/a/**
+  - Decisions:
+    - 0044
+  - Conditions:
+    - When working on a
+`;
+
+    const reg = parseConditionalDocs(content);
+
+    expect(reg.entries[0].decisions).toEqual(['0044']);
+    expect(reg.entries[0].conditions).toEqual(['When working on a']);
+    expect(serializeConditionalDocs(reg)).not.toBe(content);
+    expect(serializeConditionalDocs(reg)).toBe(withBlock('  - Decisions:\n    - 0044\n'));
+  });
+
+  it('an empty Decisions: header serializes without the header, so it is non-canonical like an empty Owns:', () => {
+    const content = withBlock('  - Decisions:\n');
+
+    const reg = parseConditionalDocs(content);
+
+    expect(reg.entries[0].decisions).toEqual([]);
+    expect(serializeConditionalDocs(reg)).not.toBe(content);
+  });
+
+  it('a misspelt Decision: header is not learnt — its item lands in conditions and the round trip fails', () => {
+    const content = withBlock('  - Decision:\n    - 0044\n');
+
+    const reg = parseConditionalDocs(content);
+
+    expect(reg.entries[0].decisions).toEqual([]);
+    expect(reg.entries[0].conditions).toEqual(['When working on a', '0044']);
+    expect(serializeConditionalDocs(reg)).not.toBe(content);
+  });
+});
+
 describe('findOwningEntry', () => {
   const registry: ConditionalDocsRegistry = {
     preamble: '# Conditional Documentation\n\n',
     entries: [
-      { docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
-      { docPath: 'app_docs/feature-foo.md', ownedGlobs: ['adws/foo/*.ts'], conditions: [] },
-      { docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['legacy'] },
+      { docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'], conditions: [], decisions: [] },
+      { docPath: 'app_docs/feature-foo.md', ownedGlobs: ['adws/foo/*.ts'], conditions: [], decisions: [] },
+      { docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['legacy'], decisions: [] },
     ],
   };
 
@@ -197,7 +299,7 @@ describe('findOwningEntry', () => {
   it('legacy entries (empty ownedGlobs) never match', () => {
     const legacyRegistry: ConditionalDocsRegistry = {
       preamble: '',
-      entries: [{ docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['foo'] }],
+      entries: [{ docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['foo'], decisions: [] }],
     };
     const entry = findOwningEntry(legacyRegistry, ['anything.ts']);
     expect(entry).toBeUndefined();
@@ -207,8 +309,8 @@ describe('findOwningEntry', () => {
     const multiRegistry: ConditionalDocsRegistry = {
       preamble: '',
       entries: [
-        { docPath: 'app_docs/first.md', ownedGlobs: ['adws/**'], conditions: [] },
-        { docPath: 'app_docs/second.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
+        { docPath: 'app_docs/first.md', ownedGlobs: ['adws/**'], conditions: [], decisions: [] },
+        { docPath: 'app_docs/second.md', ownedGlobs: ['adws/vcs/**'], conditions: [], decisions: [] },
       ],
     };
     const entry = findOwningEntry(multiRegistry, ['adws/vcs/worktreeReset.ts']);
@@ -225,8 +327,8 @@ describe('upsertEntry', () => {
   const baseRegistry: ConditionalDocsRegistry = {
     preamble: '# Conditional Documentation\n\n',
     entries: [
-      { docPath: 'app_docs/feature-a.md', ownedGlobs: ['adws/a/**'], conditions: ['old cond'] },
-      { docPath: 'app_docs/feature-b.md', ownedGlobs: ['adws/b/**'], conditions: ['b cond'] },
+      { docPath: 'app_docs/feature-a.md', ownedGlobs: ['adws/a/**'], conditions: ['old cond'], decisions: [] },
+      { docPath: 'app_docs/feature-b.md', ownedGlobs: ['adws/b/**'], conditions: ['b cond'], decisions: [] },
     ],
   };
 
@@ -235,6 +337,7 @@ describe('upsertEntry', () => {
       docPath: 'app_docs/feature-c.md',
       ownedGlobs: ['adws/c/**'],
       conditions: ['c cond'],
+      decisions: [],
     };
     const result = upsertEntry(baseRegistry, newEntry);
     expect(result.entries).toHaveLength(3);
@@ -246,6 +349,7 @@ describe('upsertEntry', () => {
       docPath: 'app_docs/feature-a.md',
       ownedGlobs: ['adws/a/**', 'adws/a-extra/**'],
       conditions: ['new cond'],
+      decisions: [],
     };
     const result = upsertEntry(baseRegistry, updated);
     expect(result.entries).toHaveLength(2);
@@ -258,11 +362,13 @@ describe('upsertEntry', () => {
       docPath: 'app_docs/feature-new.md',
       ownedGlobs: ['adws/new/**'],
       conditions: ['cond v1'],
+      decisions: [],
     };
     const entry2: ConditionalDocEntry = {
       docPath: 'app_docs/feature-new.md',
       ownedGlobs: ['adws/new/**'],
       conditions: ['cond v2'],
+      decisions: [],
     };
     const after1 = upsertEntry(baseRegistry, entry1);
     const after2 = upsertEntry(after1, entry2);
@@ -271,9 +377,20 @@ describe('upsertEntry', () => {
     expect(matching[0].conditions).toEqual(['cond v2']);
   });
 
+  it("an updated entry's decisions replace the old ones", () => {
+    const decided: ConditionalDocsRegistry = {
+      preamble: '',
+      entries: [{ docPath: 'app_docs/feature-a.md', ownedGlobs: [], conditions: ['c'], decisions: ['0001', '0002'] }],
+    };
+
+    const result = upsertEntry(decided, { docPath: 'app_docs/feature-a.md', ownedGlobs: [], conditions: ['c'], decisions: ['0003'] });
+
+    expect(result.entries[0].decisions).toEqual(['0003']);
+  });
+
   it('upsertEntry is pure — original registry is not mutated', () => {
     const original = JSON.parse(JSON.stringify(baseRegistry)) as ConditionalDocsRegistry;
-    upsertEntry(baseRegistry, { docPath: 'app_docs/feature-a.md', ownedGlobs: [], conditions: ['mutated'] });
+    upsertEntry(baseRegistry, { docPath: 'app_docs/feature-a.md', ownedGlobs: [], conditions: ['mutated'], decisions: [] });
     expect(baseRegistry).toEqual(original);
   });
 });
@@ -281,7 +398,7 @@ describe('upsertEntry', () => {
 describe('glob matcher boundary cases', () => {
   const makeSingleEntry = (glob: string): ConditionalDocsRegistry => ({
     preamble: '',
-    entries: [{ docPath: 'app_docs/doc.md', ownedGlobs: [glob], conditions: [] }],
+    entries: [{ docPath: 'app_docs/doc.md', ownedGlobs: [glob], conditions: [], decisions: [] }],
   });
 
   const matches = (glob: string, filePath: string): boolean =>
@@ -329,10 +446,10 @@ describe('findOwningEntries', () => {
   const registry: ConditionalDocsRegistry = {
     preamble: '# Conditional Documentation\n\n',
     entries: [
-      { docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
-      { docPath: 'app_docs/feature-cost.md', ownedGlobs: ['adws/cost/**'], conditions: [] },
-      { docPath: 'app_docs/feature-all.md', ownedGlobs: ['adws/**'], conditions: [] },
-      { docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['legacy'] },
+      { docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'], conditions: [], decisions: [] },
+      { docPath: 'app_docs/feature-cost.md', ownedGlobs: ['adws/cost/**'], conditions: [], decisions: [] },
+      { docPath: 'app_docs/feature-all.md', ownedGlobs: ['adws/**'], conditions: [], decisions: [] },
+      { docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['legacy'], decisions: [] },
     ],
   };
 
@@ -352,7 +469,7 @@ describe('findOwningEntries', () => {
   it('legacy entries (empty ownedGlobs) never appear', () => {
     const legacyRegistry: ConditionalDocsRegistry = {
       preamble: '',
-      entries: [{ docPath: 'app_docs/legacy.md', ownedGlobs: [], conditions: ['foo'] }],
+      entries: [{ docPath: 'app_docs/legacy.md', ownedGlobs: [], conditions: ['foo'], decisions: [] }],
     };
     expect(findOwningEntries(legacyRegistry, ['anything.ts'])).toEqual([]);
   });
@@ -361,9 +478,9 @@ describe('findOwningEntries', () => {
     const multi: ConditionalDocsRegistry = {
       preamble: '',
       entries: [
-        { docPath: 'app_docs/a.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
-        { docPath: 'app_docs/b.md', ownedGlobs: ['adws/**'], conditions: [] },
-        { docPath: 'app_docs/c.md', ownedGlobs: ['adws/cost/**'], conditions: [] },
+        { docPath: 'app_docs/a.md', ownedGlobs: ['adws/vcs/**'], conditions: [], decisions: [] },
+        { docPath: 'app_docs/b.md', ownedGlobs: ['adws/**'], conditions: [], decisions: [] },
+        { docPath: 'app_docs/c.md', ownedGlobs: ['adws/cost/**'], conditions: [], decisions: [] },
       ],
     };
     const entries = findOwningEntries(multi, ['adws/vcs/foo.ts']);
@@ -381,10 +498,10 @@ describe('collapseEntries', () => {
   const base: ConditionalDocsRegistry = {
     preamble: '# Conditional Documentation\n\n',
     entries: [
-      { docPath: 'app_docs/sib-a.md', ownedGlobs: ['adws/cost/a/**'], conditions: ['cond-a'] },
-      { docPath: 'app_docs/sib-b.md', ownedGlobs: ['adws/cost/b/**'], conditions: ['cond-b'] },
-      { docPath: 'app_docs/sib-c.md', ownedGlobs: ['adws/cost/c/**'], conditions: ['cond-c'] },
-      { docPath: 'app_docs/unrelated.md', ownedGlobs: ['adws/other/**'], conditions: ['other'] },
+      { docPath: 'app_docs/sib-a.md', ownedGlobs: ['adws/cost/a/**'], conditions: ['cond-a'], decisions: ['0026'] },
+      { docPath: 'app_docs/sib-b.md', ownedGlobs: ['adws/cost/b/**'], conditions: ['cond-b'], decisions: ['0026', '0030'] },
+      { docPath: 'app_docs/sib-c.md', ownedGlobs: ['adws/cost/c/**'], conditions: ['cond-c'], decisions: [] },
+      { docPath: 'app_docs/unrelated.md', ownedGlobs: ['adws/other/**'], conditions: ['other'], decisions: ['0009'] },
     ],
   };
 
@@ -402,8 +519,8 @@ describe('collapseEntries', () => {
     const withOverlap: ConditionalDocsRegistry = {
       preamble: '',
       entries: [
-        { docPath: 'app_docs/x.md', ownedGlobs: ['adws/cost/**', 'adws/shared/**'], conditions: [] },
-        { docPath: 'app_docs/y.md', ownedGlobs: ['adws/cost/**', 'adws/extra/**'], conditions: [] },
+        { docPath: 'app_docs/x.md', ownedGlobs: ['adws/cost/**', 'adws/shared/**'], conditions: [], decisions: [] },
+        { docPath: 'app_docs/y.md', ownedGlobs: ['adws/cost/**', 'adws/extra/**'], conditions: [], decisions: [] },
       ],
     };
     const { registry: r } = collapseEntries(
@@ -417,6 +534,33 @@ describe('collapseEntries', () => {
       'adws/shared/**',
       'adws/extra/**',
     ]);
+  });
+
+  it('merged decisions is the de-duplicated union in first-seen order', () => {
+    const withOverlap: ConditionalDocsRegistry = {
+      preamble: '',
+      entries: [
+        { docPath: 'app_docs/x.md', ownedGlobs: [], conditions: [], decisions: ['0002', '0001'] },
+        { docPath: 'app_docs/y.md', ownedGlobs: [], conditions: [], decisions: ['0001', '0003'] },
+        { docPath: 'app_docs/z.md', ownedGlobs: [], conditions: [], decisions: ['0003', '0004'] },
+      ],
+    };
+    const { registry: r } = collapseEntries(
+      withOverlap,
+      ['app_docs/x.md', 'app_docs/y.md', 'app_docs/z.md'],
+      { docPath: 'app_docs/x.md', conditions: ['merged'] },
+    );
+    expect(r.entries).toHaveLength(1);
+    expect(r.entries[0].decisions).toEqual(['0002', '0001', '0003', '0004']);
+  });
+
+  it('a collapse whose siblings carry no decisions yields an entry with decisions: []', () => {
+    const { registry: r } = collapseEntries(
+      base,
+      ['app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-c.md', conditions: ['merged'] },
+    );
+    expect(r.entries.find((e) => e.docPath === 'app_docs/sib-c.md')?.decisions).toEqual([]);
   });
 
   it('prunedDocPaths equals the non-survivor collapsed paths', () => {

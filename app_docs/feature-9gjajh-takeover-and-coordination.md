@@ -88,3 +88,18 @@ The table below summarizes the `StageClass` → decision mapping both `evaluateC
 - **Dynamic phaseRunner stages** (`${phaseName}_running`, `${phaseName}_completed`, e.g. `plan_running`, `test_completed`) are not `WorkflowStage` literals. Always use `classifyStageString` (not `classifyStage`) when reading a raw `string` from the state file.
 - **`isActiveStage` is NOT the same as `active`.** The compat bridge preserves a different set. Do not replace `isActiveStage` calls in `devServerJanitor.ts` or `webhookHandlers.ts` with `classifyStageString(s) === 'active'` without migrating the grace semantics.
 - **`## Retry`'s paused path removes the queue entry before spawning and never rewrites `workflowStage`.** Both choices are load-bearing: removing first stops the scanner from resuming the same adwId a second time later, and writing no state means a failed spawn can't masquerade as a live orchestrator (which a written `resuming` would) or get raced by the very next cron tick (which a written `abandoned` would). The child's per-issue spawn lock — released right after the spawn call so the child can take it as its lifetime lock — is what actually guards against a duplicate, not a state write.
+
+## Decisions
+
+- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0035](../specs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

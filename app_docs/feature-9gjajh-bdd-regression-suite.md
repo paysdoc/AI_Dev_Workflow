@@ -79,3 +79,8 @@ The regression suite runs via Cucumber.js. Configuration (paths, require globs, 
 - `createGitMockDir`'s temp dir is prefixed `adw-git-mock-` and is unique per call (via `mkdtempSync`), so there is no fixed-name collision risk between concurrent setups.
 - `test/fixtures/jsonl/envelopes/` is not just fixture data — `bun run jsonl:check` (see the JSONL Schema doc) validates every template in that directory against the committed schema and ADW's parsers, so a stub envelope change that drifts from the real CLI fails the same CI gate a fixture drift would.
 - `test/mocks/__tests__/test-harness.test.ts` exercises the mock-infrastructure invariants directly (writable-location assertion via `os.tmpdir()`, teardown-always-closes-server by calling `startMockServer` directly before teardown, and setup-crash-safety by pointing `TMPDIR` at a non-existent path) — it's the fastest way to reproduce either bug deterministically without Docker.
+
+## Decisions
+
+- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary

@@ -37,3 +37,7 @@ Exchange rates are fetched at runtime (see `cost/exchangeRates.ts`). The currenc
 - `computePrimaryModelTokens` uses a case-insensitive `includes` check against the model tier string (e.g., `'opus'`), so it matches any versioned model ID that contains the tier name. This means a primary model of `'sonnet'` would incorrectly match `claude-sonnet-4-5` and `claude-sonnet-3-7`.
 - `persistTokenCounts` reads the existing `state.json` first to preserve all other metadata fields before merging; callers must supply the correct `statePath`.
 - The D1 dual-write path lives in `cost/d1Client.ts` and is separate from the legacy CSV pipeline.
+
+## Decisions
+
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database

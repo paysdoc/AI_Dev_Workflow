@@ -51,3 +51,11 @@ GitHub App authentication is resolved per-command through the `TokenProvider` po
 - Phase functions written for generic workflows (e.g. `executeScenarioTestPhase`) are typed for `WorkflowConfig`, not `PRReviewWorkflowConfig` — call sites must pass `config.base`.
 - `executeSdlcReviewFailedHandoff` is extracted into its own module (`sdlcReviewHandoff.ts`) rather than inlined in `adwSdlc.tsx`'s `main()`, so BDD scenarios can drive the SDLC review-failed handoff without spawning a full orchestrator subprocess. Unlike `completePRReviewWorkflow`, it does not co-stamp `orchestratorScript` — SDLC doesn't need it there because SDLC's own init already persists `orchestratorScript: 'adws/adwSdlc.tsx'`.
 - The `review_failed` terminal comment carries the branch name and a `## Retry` instruction (`formatReviewFailedComment` in `adws/forge/workflowCommentsIssue.ts`) so operators know where to push a fix; a legacy `review_failed` state that predates `orchestratorScript` being persisted has no way to route a `## Retry` back to PR-review and falls back to SDLC.
+
+## Decisions
+
+- [ADR-0016](../specs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
+- [ADR-0019](../specs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

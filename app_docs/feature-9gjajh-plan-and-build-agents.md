@@ -34,3 +34,7 @@ All four agents delegate configuration (model selection, effort level) to `getMo
 - `formatIssueContextAsArgs` and `runPlanAgent` both independently filter ADW bot comments and extract actionable content — they are not shared; changes to filtering logic must be applied in both places.
 - The Alignment Agent passes the `worktreePath` as the `scenarioGlob` positional argument (fourth arg), not a file glob string — the `/align_plan_scenarios` command is responsible for interpreting it.
 - On alignment parse failure the workflow is never blocked, but the `warnings` array in the returned `AlignmentResult` will contain a raw preview of the unparseable output, which may contain sensitive plan content.
+
+## Decisions
+
+- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment

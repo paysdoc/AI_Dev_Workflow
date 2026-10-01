@@ -17,6 +17,9 @@ const OVERLAP: DocsIndexViolation = {
 };
 const ORPHAN: DocsIndexViolation = { kind: 'orphan-doc', docPath: 'app_docs/feature-orphan.md' };
 const COUNT: DocsIndexViolation = { kind: 'count-out-of-band', count: 70, band: { min: 25, max: 60 } };
+const MISMATCH: DocsIndexViolation = { kind: 'decisions-mismatch', docPath: 'app_docs/feature-mismatch.md', onlyInBlock: ['0044'], onlyInSection: [] };
+const UNKNOWN: DocsIndexViolation = { kind: 'unknown-decision', docPath: 'app_docs/feature-unknown.md', adr: '0099' };
+const DEAD: DocsIndexViolation = { kind: 'dead-decision-link', docPath: 'app_docs/feature-dead.md', target: '../specs/adr/0044-old.md' };
 
 describe('docsIndexViolationFingerprint', () => {
   it('is stable across violation ordering', () => {
@@ -28,6 +31,12 @@ describe('docsIndexViolationFingerprint', () => {
   it('differs when the violation set differs', () => {
     const a = docsIndexViolationFingerprint([OVERLAP]);
     const b = docsIndexViolationFingerprint([OVERLAP, ORPHAN]);
+    expect(a).not.toBe(b);
+  });
+
+  it('differs when a decisions violation is added', () => {
+    const a = docsIndexViolationFingerprint([OVERLAP]);
+    const b = docsIndexViolationFingerprint([OVERLAP, MISMATCH]);
     expect(a).not.toBe(b);
   });
 
@@ -53,6 +62,46 @@ describe('buildDocsIndexReportIssue', () => {
     expect(spec.body).toContain('app_docs/feature-b.md');
     expect(spec.body).toContain('app_docs/feature-orphan.md');
     expect(spec.body).toContain('70');
+  });
+
+  it('gives each decisions finding its own heading and names its doc', () => {
+    const spec = buildDocsIndexReportIssue({ violations: [MISMATCH, UNKNOWN, DEAD], indexPath: '.adw/conditional_docs.md', defaultBranch: 'dev' });
+
+    expect(spec.body).toContain('## Decisions out of step with the index');
+    expect(spec.body).toContain('## Unknown decision records');
+    expect(spec.body).toContain('## Dead decision links');
+    expect(spec.body).toContain('app_docs/feature-mismatch.md');
+    expect(spec.body).toContain('app_docs/feature-unknown.md');
+    expect(spec.body).toContain('app_docs/feature-dead.md');
+    expect(spec.body).toContain('0099');
+  });
+
+  it('lists the decisions sections after the duplicate entries and before the non-canonical and count sections', () => {
+    const NON_CANONICAL: DocsIndexViolation = { kind: 'non-canonical', firstDiffLine: 3 };
+    const DUPLICATE: DocsIndexViolation = { kind: 'duplicate-entry', docPath: 'app_docs/feature-dup.md' };
+    const spec = buildDocsIndexReportIssue({
+      violations: [COUNT, NON_CANONICAL, DEAD, UNKNOWN, MISMATCH, DUPLICATE],
+      indexPath: '.adw/conditional_docs.md',
+      defaultBranch: 'dev',
+    });
+
+    const positions = [
+      '## Duplicate entries',
+      '## Decisions out of step with the index',
+      '## Unknown decision records',
+      '## Dead decision links',
+      '## Non-canonical serialization',
+      '## Entry count out of band',
+    ].map((heading) => spec.body.indexOf(heading));
+
+    expect(positions.every((p) => p >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it('says a decisions finding resolves toward the index, whose Decisions: block is authoritative', () => {
+    const spec = buildDocsIndexReportIssue({ violations: [MISMATCH], indexPath: '.adw/conditional_docs.md', defaultBranch: 'dev' });
+
+    expect(spec.body).toContain('`Decisions:` block is authoritative');
   });
 
   it('titles with the violation count and index path', () => {
