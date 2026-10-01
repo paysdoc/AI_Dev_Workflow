@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD } from '../core';
 import { parseJsonlOutput, createJsonlParserState, type ProgressCallback, type ProgressInfo } from '../core/claudeStreamParser';
-import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing, type ModelUsageMap, computeTotalTokens } from '../cost';
+import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing, toLegacyModelUsageMap, type ModelUsageMap, computeTotalTokens } from '../cost';
 import type { ModelUsageMap as CostModelUsageMap } from '../cost/types';
 import type { AgentResult } from '../types/agentTypes';
 
@@ -11,25 +11,6 @@ function computeEstimatedCostUsd(usage: CostModelUsageMap): number {
   return Object.entries(usage).reduce((total, [model, tokens]) => {
     return total + computeCost(tokens, getAnthropicPricing(model));
   }, 0);
-}
-
-/**
- * Converts the new-format ModelUsageMap (snake_case keys) to the old-format
- * ModelUsageMap (camelCase fields) for backward compatibility with existing cost reporting.
- */
-function toOldModelUsageMap(usage: CostModelUsageMap): ModelUsageMap {
-  return Object.fromEntries(
-    Object.entries(usage).map(([model, tokens]) => [
-      model,
-      {
-        inputTokens: tokens['input'] ?? 0,
-        outputTokens: tokens['output'] ?? 0,
-        cacheReadInputTokens: tokens['cache_read'] ?? 0,
-        cacheCreationInputTokens: tokens['cache_write'] ?? 0,
-        costUSD: computeCost(tokens, getAnthropicPricing(model)),
-      },
-    ]),
-  );
 }
 
 export function handleAgentProcess(
@@ -149,9 +130,8 @@ export function handleAgentProcess(
         ? extractor.getReportedCostUsd()
         : computeEstimatedCostUsd(extractorUsage);
 
-      const resolvedModelUsage: ModelUsageMap | undefined = Object.keys(extractorUsage).length > 0
-        ? toOldModelUsageMap(extractorUsage)
-        : undefined;
+      const legacyUsage = toLegacyModelUsageMap(extractor);
+      const resolvedModelUsage: ModelUsageMap | undefined = Object.keys(legacyUsage).length > 0 ? legacyUsage : undefined;
 
       const costSource: AgentResult['costSource'] = extractorFinalized
         ? 'extractor_finalized'

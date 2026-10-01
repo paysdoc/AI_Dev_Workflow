@@ -101,3 +101,56 @@ describe('handleAgentProcess — rate-limit facts', () => {
     expect(result.rateLimited).toBeUndefined();
   });
 });
+
+describe('handleAgentProcess — cost figures', () => {
+  const model = 'claude-sonnet-4-5-20250929';
+
+  const assistantLine = JSON.stringify({
+    type: 'assistant',
+    message: {
+      id: 'msg_1',
+      model,
+      usage: { input_tokens: 1000, cache_creation_input_tokens: 400, cache_read_input_tokens: 2000 },
+      content: [{ type: 'text', text: 'x'.repeat(1600) }],
+    },
+  });
+
+  const resultLine = JSON.stringify({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: 'done',
+    session_id: 's-1',
+    total_cost_usd: 0.0252,
+    modelUsage: {
+      [model]: { inputTokens: 1000, outputTokens: 500, cacheReadInputTokens: 2000, cacheCreationInputTokens: 400, costUSD: 0.0252 },
+    },
+  });
+
+  async function run(lines: string[], exitCode: number) {
+    const { child } = createFakeChild();
+    const resultPromise = handleAgentProcess(child, 'cost-agent', tmpOutputFile(), undefined, undefined, model);
+    (child.stdout as unknown as EventEmitter).emit('data', Buffer.from(lines.join('\n') + '\n'));
+    (child as unknown as EventEmitter).emit('close', exitCode);
+    return resultPromise;
+  }
+
+  it('keeps costUSD as the local computation and carries the CLI figure, the streamed estimate and the actual counts', async () => {
+    const result = await run([assistantLine, resultLine], 0);
+
+    const usage = result.modelUsage?.[model];
+    expect(usage?.costUSD).toBeCloseTo(0.0126, 10);
+    expect(usage?.reportedCostUSD).toBe(0.0252);
+    expect(usage?.estimatedTokens).toEqual({ input: 1000, cache_write: 400, cache_read: 2000, output: 400 });
+    expect(usage?.actualTokens).toEqual({ input: 1000, output: 500, cache_read: 2000, cache_write: 400 });
+  });
+
+  it('carries the streamed estimate but no reportedCostUSD and no actual counts when the run ends before the result message', async () => {
+    const result = await run([assistantLine], 1);
+
+    const usage = result.modelUsage?.[model];
+    expect(usage?.estimatedTokens).toEqual({ input: 1000, cache_write: 400, cache_read: 2000, output: 400 });
+    expect(usage).not.toHaveProperty('reportedCostUSD');
+    expect(usage).not.toHaveProperty('actualTokens');
+  });
+});

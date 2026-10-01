@@ -1,28 +1,49 @@
-import type { LegacyModelUsageMap, CostBreakdown, CurrencyAmount } from './types.ts';
-import { emptyLegacyModelUsage } from './types.ts';
+import type { LegacyModelUsage, LegacyModelUsageMap, CostBreakdown, CurrencyAmount, TokenUsageMap } from './types.ts';
 import { AgentStateManager } from '../core/agentState';
 import { fetchExchangeRates, CURRENCY_SYMBOLS } from './exchangeRates';
+
+function sumTokenUsageMaps(a: TokenUsageMap, b: TokenUsageMap): TokenUsageMap {
+  const tokenTypes = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return Object.fromEntries([...tokenTypes].map(tokenType => [tokenType, (a[tokenType] ?? 0) + (b[tokenType] ?? 0)]));
+}
+
+/**
+ * The optional figures are summed only when both entries carry them: a figure that covers only
+ * some of a record's runs must not be compared with one that covers all of them.
+ */
+function mergeModelUsage(existing: LegacyModelUsage | undefined, usage: LegacyModelUsage): LegacyModelUsage {
+  if (!existing) return { ...usage };
+
+  return {
+    inputTokens: existing.inputTokens + usage.inputTokens,
+    outputTokens: existing.outputTokens + usage.outputTokens,
+    cacheReadInputTokens: existing.cacheReadInputTokens + usage.cacheReadInputTokens,
+    cacheCreationInputTokens: existing.cacheCreationInputTokens + usage.cacheCreationInputTokens,
+    costUSD: existing.costUSD + usage.costUSD,
+    ...(existing.reportedCostUSD !== undefined && usage.reportedCostUSD !== undefined && {
+      reportedCostUSD: existing.reportedCostUSD + usage.reportedCostUSD,
+    }),
+    ...(existing.estimatedTokens && usage.estimatedTokens && {
+      estimatedTokens: sumTokenUsageMaps(existing.estimatedTokens, usage.estimatedTokens),
+    }),
+    ...(existing.actualTokens && usage.actualTokens && {
+      actualTokens: sumTokenUsageMaps(existing.actualTokens, usage.actualTokens),
+    }),
+  };
+}
 
 export function mergeModelUsageMaps(...maps: LegacyModelUsageMap[]): LegacyModelUsageMap {
   const result: LegacyModelUsageMap = {};
 
   for (const map of maps) {
     for (const [model, usage] of Object.entries(map)) {
-      const existing = result[model] ?? emptyLegacyModelUsage();
-      result[model] = {
-        inputTokens: existing.inputTokens + usage.inputTokens,
-        outputTokens: existing.outputTokens + usage.outputTokens,
-        cacheReadInputTokens: existing.cacheReadInputTokens + usage.cacheReadInputTokens,
-        cacheCreationInputTokens: existing.cacheCreationInputTokens + usage.cacheCreationInputTokens,
-        costUSD: existing.costUSD + usage.costUSD,
-      };
+      result[model] = mergeModelUsage(result[model], usage);
     }
   }
 
   return result;
 }
 
-/** Sums costUSD across all models using CLI-reported cost as source of truth. */
 export function computeTotalCostUsd(usageMap: LegacyModelUsageMap): number {
   return Object.values(usageMap).reduce((sum, usage) => sum + usage.costUSD, 0);
 }

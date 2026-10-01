@@ -152,17 +152,16 @@ describe('GET /api/projects/:id/costs/breakdown', () => {
     expect(body[1]).toMatchObject({ model: 'gpt-4o', provider: 'openai', totalCost: 3 });
   });
 
-  it('uses reported_cost_usd when present (COALESCE)', async () => {
-    const projectId = await seedProject('Coalesce Test', 'coalesce');
-    // reported_cost_usd is 2.0, computed is 0.5 — should prefer reported
+  it('totals computed_cost_usd and ignores reported_cost_usd', async () => {
+    const projectId = await seedProject('Computed Test', 'computed');
     await seedCostRecord(projectId, 1, 'plan', 'claude-sonnet-4-6', 'anthropic', 0.5, 2.0);
 
     const res = await get(`/api/projects/${projectId}/costs/breakdown`);
     const [entry] = await res.json() as Array<{ totalCost: number }>;
-    expect(entry?.totalCost).toBe(2.0);
+    expect(entry?.totalCost).toBe(0.5);
   });
 
-  it('falls back to computed_cost_usd when reported is null', async () => {
+  it('totals computed_cost_usd when reported_cost_usd is null', async () => {
     const projectId = await seedProject('Fallback Test', 'fallback');
     await seedCostRecord(projectId, 1, 'plan', 'claude-sonnet-4-6', 'anthropic', 1.23, null);
 
@@ -280,8 +279,8 @@ describe('GET /api/projects/:id/costs/issues', () => {
     expect(issue?.phases[0]?.tokenUsage).toEqual([]);
   });
 
-  it('uses COALESCE: prefers reported_cost_usd over computed_cost_usd', async () => {
-    const projectId = await seedProject('Coalesce Issues', 'coalesce-issues');
+  it('totals computed_cost_usd and ignores reported_cost_usd', async () => {
+    const projectId = await seedProject('Computed Issues', 'computed-issues');
     await seedCostRecord(projectId, 1, 'plan', 'm', 'anthropic', 0.5, 2.0);
 
     const res = await get(`/api/projects/${projectId}/costs/issues`);
@@ -289,7 +288,7 @@ describe('GET /api/projects/:id/costs/issues', () => {
       totalCost: number;
       phases: Array<{ cost: number }>
     }>;
-    expect(issue?.totalCost).toBe(2.0);
-    expect(issue?.phases[0]?.cost).toBe(2.0);
+    expect(issue?.totalCost).toBe(0.5);
+    expect(issue?.phases[0]?.cost).toBe(0.5);
   });
 });
