@@ -700,6 +700,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── providers/anthropic/  # Anthropic token usage extraction
 │   │   ├── extractor.ts
 │   │   ├── index.ts
+│   │   ├── legacyModelUsage.ts
 │   │   └── pricing.ts
 │   ├── reporting/      # Cost reporting
 │   │   ├── commentFormatter.ts

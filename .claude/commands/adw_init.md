@@ -74,7 +74,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Script Execution` — How to run project scripts
 
 4. **Create `.adw/conditional_docs.md`**
-   - If `.adw/conditional_docs.md` already exists and is not empty, leave it unchanged and skip the rest of this step. `/document` maintains it, and its `Owns:` and `Decisions:` blocks cannot be regenerated from the code.
    - Generate `.adw/conditional_docs.md` with conditional documentation entries based on the project structure
    - Include `README.md` with relevant conditions
    - Include any documentation directories found in the project
