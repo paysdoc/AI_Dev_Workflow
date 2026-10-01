@@ -55,6 +55,13 @@ The workflow treats its live leg as optional. No path through the job may skip t
   - `app_docs/feature-9gjajh-jsonl-schema.md` lines 5 and 31;
   - `app_docs/feature-9gjajh-root-config.md` line 26.
 - **Test.** Add a contract test, `adws/__tests__/envelopeConformanceWorkflow.test.ts`, in the style of `adws/__tests__/deployWorkersWorkflow.test.ts`. It runs the live step's own script under `bash -e`, the shell Actions uses for a `run` step with no `shell`, once with an empty key and once with a key.
+- **Scenarios.** Write the step definitions for `features/per-issue/feature-939.feature`. They run the whole workflow file the way a GitHub runner would, against a stand-in Claude CLI, and check only what the run produces:
+  - §1 (AC1): with the secret absent, the run fails, an error names `ANTHROPIC_API_KEY`, and no warning names it;
+  - §2 (AC2): with the secret present, the live probe runs on that key, and a conforming answer without a rate-limit event leaves the run green;
+  - §3: with the secret present, an answer that lacks a required field fails the run, naming the field;
+  - §4: the type-check passes.
+
+  AC3 has no scenario. It is a documentation change, checked by review and by the grep checks under Validation Commands.
 
 ## Steps to Reproduce
 1. `gh secret list --repo paysdoc/AI_Dev_Workflow` lists no `ANTHROPIC_API_KEY`.
@@ -68,6 +75,7 @@ The workflow treats its live leg as optional. No path through the job may skip t
    - the skip path exists;
    - the secret appears twice;
    - an empty key runs the probe and exits 0 instead of failing.
+7. Once the step definitions of step 3 exist, `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"` against the unfixed workflow fails §1 of `features/per-issue/feature-939.feature`: the run without the secret is green and raises a `::warning` naming `ANTHROPIC_API_KEY`. §2, §3 and §4 pass.
 
 ## Root Cause Analysis
 The live leg was optional by design. The plan for #909 (`specs/issue-909-adw-uk9ams-stream-json-envelope-sdlc_planner-envelope-conformance-gate.md`, Solution item 7 and task 9) said to "run `bun run jsonl:probe:check` when an `ANTHROPIC_API_KEY` secret is present and emit a workflow warning when it is not (the repo has no such secret today, so the PR is green and the live leg activates the moment the human adds it)".
@@ -97,12 +105,23 @@ Use these files to fix the bug:
   - a missing required field;
   - a CLI that produced no output.
 
-  Unchanged.
-- `adws/core/environment.ts` — `SAFE_ENV_VARS` and `getSafeSubprocessEnv()` forward `ANTHROPIC_API_KEY` to the probe's CLI subprocess. Unchanged.
+  It prints a missing required field by its path on stderr, for example `Missing required fields: result/success.is_error`; that is the error §3 expects. Unchanged.
+- `adws/jsonl/schemaMerge.ts` — `PROBE_OWNED_TYPES` is `system/init`, `assistant` and `result/success`, so the live check never requires `rate_limit_event` (§2). `findLiveDrift` checks only that fields are present. Unchanged.
+- `adws/core/environment.ts` — unchanged:
+  - `SAFE_ENV_VARS` and `getSafeSubprocessEnv()` forward `ANTHROPIC_API_KEY` to the probe's CLI subprocess.
+  - `resolveClaudeCodePath()` uses `CLAUDE_CODE_PATH` when it is set and `which claude` otherwise. With `CLAUDE_CODE_PATH` unset, the probe reaches the scenarios' stand-in `claude` on PATH.
+  - `dotenv.config()` runs on import. That is why the scenarios run in a throwaway checkout: the host's env file could otherwise set `CLAUDE_CODE_PATH` or `ANTHROPIC_API_KEY`.
+- `features/per-issue/feature-939.feature` — this issue's BDD scenarios (§1–§4; see Solution Statement):
+  - They execute `.github/workflows/envelope-conformance.yml` as a GitHub runner would, in a throwaway copy of the checkout, against a stand-in `claude` on PATH. They never read the workflow for an assertion.
+  - Its "Notes for the step definitions" specify the runner, the checkout, the environment, the stand-in and every phrase.
+  - The file exists, so the build agent runs in TDD mode (`/implement-tdd`, `adws/agents/buildAgent.ts:72-73`) and writes the step definitions in `features/per-issue/step_definitions/`.
+- `features/per-issue/step_definitions/feature-936-workflowConfig.ts` — the precedent for reading a workflow file in step definitions without a YAML library. It understands only block-style YAML, and any shape it does not know throws.
+- `adws/jsonl/fixtures/session-rate-limited.jsonl`, `adws/jsonl/fixtures/assistant-text.jsonl`, `adws/jsonl/fixtures/result-success.jsonl` — the committed captures from which the scenarios build the stand-in's conforming answer.
+- `features/step_definitions/ensureCronOnEveryEventSteps.ts` and `features/regression/step_definitions/thenSteps.ts` — they define `the ADW codebase is checked out` and `the ADW TypeScript type-check passes`, which §4 reuses. Do not redefine them.
 - `package.json` — the `jsonl:check` and `jsonl:probe:check` scripts. Unchanged.
 - `adws/__tests__/deployWorkersWorkflow.test.ts` — the precedent: a contract test that reads a workflow file as text, with no YAML dependency.
 - `test/mocks/__tests__/claude-cli-stub.test.ts` — the precedent for spawning a subprocess from a Vitest test.
-- `adws/checkGitGhGuard.ts` — `bun run lint:git-guard` flags only commands that start with `git` or `gh`. The new test spawns `bash` and a fake `bun`, so it passes the guard.
+- `adws/checkGitGhGuard.ts` — `bun run lint:git-guard` flags only commands that start with `git` or `gh`. The new test spawns `bash` and a fake `bun`, so it passes the guard. `features/` is exempt, so the step definitions may run `git ls-files` to build their throwaway checkout.
 - `vitest.config.ts` — `adws/**/__tests__/**/*.test.ts` picks up the new test.
 - `README.md` — line 19 says the workflow runs `jsonl:probe:check` "once an `ANTHROPIC_API_KEY` secret is configured". Line 958 (the directory tree) is not wrong and stays as it is.
 - `.github/dependabot.yml` — Dependabot opens weekly `@paysdoc/devplatform` bump PRs against `dev`. Their `pull_request` runs see Dependabot secrets, not Actions secrets; see Notes.
@@ -113,6 +132,7 @@ Use these files to fix the bug:
 
 ### New Files
 - `adws/__tests__/envelopeConformanceWorkflow.test.ts` — a contract test proving that the live leg cannot be skipped, that the secret reaches the live step only, that a missing key fails with a message naming it, and that a present key runs the probe.
+- `features/per-issue/step_definitions/feature-939*.ts` — the step definitions for `feature-939.feature`, with the workflow runner and the stand-in Claude CLI they need. Name them like the `feature-936-*` files.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -164,7 +184,30 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Keep nesting at depth 2 or less and extract any callback longer than about 3 lines into a named function (coding guidelines).
 - Run `bunx vitest run adws/__tests__/envelopeConformanceWorkflow.test.ts`. Against the current workflow, cases 1, 2 and 3 fail and case 4 passes.
 
-### 3. Make the live step mandatory
+### 3. Write the step definitions for the scenarios (red)
+- Read `features/per-issue/feature-939.feature` in full. Its "Notes for the step definitions" are the specification of the runner, the checkout, the environment, the stand-in `claude` and each phrase. Follow them exactly. In particular:
+  - **Never spawn the real Claude CLI, and never let the run install anything.**
+    - `claude` and `npm` are stand-ins on PATH.
+    - `bun install` is shadowed to do nothing, and every other `bun` command runs the real `bun`.
+  - **Run the workflow; never read it for an assertion.**
+    - The workflow file is read only to execute it, with a block-YAML reader like `feature-936-workflowConfig.ts`.
+    - A shape the reader does not know throws, which is a scenario error, never a failed run.
+    - Add no YAML library.
+    - The text assertions belong to the Vitest contract test of step 2, not to the step definitions.
+  - **Run in a throwaway checkout.**
+    - The run happens in a throwaway copy of the files that `git ls-files --cached --others --exclude-standard` lists, with `node_modules` linked to the ADW checkout's own. It never runs in the ADW checkout itself.
+    - The environment is built from nothing: no `ANTHROPIC_API_KEY`, `CLAUDE_CODE_PATH` or `MOCK_*` from the host.
+    - Remove every temporary directory after each scenario, in an `After` hook scoped to `@adw-939`.
+  - **Pick a timeout for the When step.** The runner kills a workflow step after 60 seconds, and that is also the default step timeout set in `features/regression/support/hooks.ts`. Give the When step a longer timeout, so that a hung step fails the run instead of timing out the scenario.
+- Reuse the existing §4 phrases (see Relevant Files) and define every other phrase of the file.
+- Follow the coding guidelines: nesting depth of 2 or less, named helpers, no `any`.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"`. Against the current workflow:
+  - §1 fails on `Then the workflow run fails`, because the run is green and raises a warning naming `ANTHROPIC_API_KEY`;
+  - §2, §3 and §4 pass.
+
+  A scenario error does not count as red: fix the step definitions until §1 fails on that assertion.
+
+### 4. Make the live step mandatory
 - In `.github/workflows/envelope-conformance.yml`, delete the job-level `env:` block (lines 21–22, `env:` and `HAS_ANTHROPIC_KEY: ...`). The job has no other job-level env.
 - Replace the live step (lines 48–52) and delete the warning step (lines 54–56), so the job ends like this:
   ```yaml
@@ -194,8 +237,9 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Keep the order. The offline leg runs first, so its result is reported even when the secret is missing.
 - The YAML comment is the only comment added. It states a limit the YAML cannot show (ADR-0054). Do not add others.
 - Run `bunx vitest run adws/__tests__/envelopeConformanceWorkflow.test.ts`; all four cases pass.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"`; all four scenarios pass.
 
-### 4. Replace the Divergence section of ADR-0055
+### 5. Replace the Divergence section of ADR-0055
 - In `specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md`, delete lines 74–77: the `## Divergence` heading, its blank line, item 1 and the blank line after it. The last bullet of `### Confirmation` ("The repository has no required status checks, …") is then followed by one blank line and `## More Information`.
 - Add this bullet as the first bullet under `## More Information`. It must be a single line:
   ```md
@@ -208,7 +252,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Do not edit `specs/adr/README.md`. The status stays `accepted`, and the index does not list divergences.
 - Do not edit ADR-0057 or ADR-0021 (see Notes).
 
-### 5. Correct the documents that describe the optional live leg
+### 6. Correct the documents that describe the optional live leg
 - `README.md`, line 19. Replace the last sentence:
   - from: `` `.github/workflows/envelope-conformance.yml` runs `jsonl:check` on every pull request against a pinned Claude CLI version, plus `jsonl:probe:check` once an `ANTHROPIC_API_KEY` secret is configured. ``
   - to: `` `.github/workflows/envelope-conformance.yml` runs `jsonl:check` and the live `jsonl:probe:check` on every pull request against a pinned Claude CLI version; the live check authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run. ``
@@ -224,22 +268,22 @@ IMPORTANT: Execute every step in order, top to bottom.
   - to: `` runs `bun run jsonl:check`, then `bun run jsonl:probe:check`, which authenticates with the `ANTHROPIC_API_KEY` secret and fails the run with an error naming the secret when it is missing). ``
 - Do not edit `.adw/conditional_docs.md`. Its condition text still fits.
 
-### 6. Run the validation commands
+### 7. Run the validation commands
 - Run every command under `Validation Commands` and fix anything that fails before finishing.
 
 ## Validation Commands
 Execute every command to validate the bug is fixed with zero regressions.
 
 **Lint, type checks and build**
-- `bun run lint` — ESLint, including the new test.
-- `bunx tsc --noEmit` — type check.
+- `bun run lint` — ESLint, including the new test and the new step definitions.
+- `bunx tsc --noEmit` — type check, including the new step definitions. §4 runs this same check.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — type check of `adws/`, including the new test.
 - `bun run build` — build.
 - `bun run lint:git-guard` — the new test under `adws/` must not shell out to git or gh.
 - `bun run lint:docs-index` — the two edited living docs still pass the docs-index health gate.
 
 **Tests**
-- `bunx vitest run adws/__tests__/envelopeConformanceWorkflow.test.ts` — the contract test. Before step 3, cases 1–3 fail (the bug reproduced). After step 3, all pass.
+- `bunx vitest run adws/__tests__/envelopeConformanceWorkflow.test.ts` — the contract test. Before step 4, cases 1–3 fail (the bug reproduced). After step 4, all pass.
 - `bun run test:unit` — the full unit suite: the step-1 baseline plus the new file, all passing.
 - `bun run jsonl:check` — the offline leg still exits 0. No schema or fixture changed.
 
@@ -249,10 +293,10 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `grep -n 'bun run jsonl:probe:check' .github/workflows/envelope-conformance.yml` — the live step still runs the probe.
 - `! grep -n '^## Divergence' specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md` — the section is removed.
 - `test "$(sed -n '/^## More Information/,$p' specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md | grep -c '^\* Known limit:')" = 1` — exactly one known-limit note, under `## More Information`.
-- ``! grep -rn -E 'once an `ANTHROPIC_API_KEY` secret is configured|once a secret is configured|gates whether the live leg runs|warning instead of failing' README.md app_docs/`` — no document still describes the optional leg. Before the fix this matches exactly the four sentences of step 5.
+- ``! grep -rn -E 'once an `ANTHROPIC_API_KEY` secret is configured|once a secret is configured|gates whether the live leg runs|warning instead of failing' README.md app_docs/`` — no document still describes the optional leg. Before the fix this matches exactly the four sentences of step 6.
 
 **Scenarios**
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"` — the scenarios the scenario agent writes for this issue.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"` — the four scenarios of `features/per-issue/feature-939.feature`. Before step 4, §1 fails: the run without the secret is green and warns. §2, §3 and §4 pass. After step 4, all four pass. No scenario may reach the real Claude CLI or install anything.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite.
 
 ## Notes
@@ -262,7 +306,7 @@ Execute every command to validate the bug is fixed with zero regressions.
   - no `any`;
   - immutable values, with a fresh `env` object per run;
   - comments only for what the code cannot say, with no issue numbers (ADR-0054).
-- **No new library.** The test uses `fs`, `os`, `path` and `child_process` only. It reads the workflow as text, like `deployWorkersWorkflow.test.ts`. `yaml` is only a transitive dependency and is deliberately not imported.
+- **No new library.** The test uses `fs`, `os`, `path` and `child_process` only. It reads the workflow as text, like `deployWorkersWorkflow.test.ts`. `yaml` is only a transitive dependency and is deliberately not imported. The step definitions do not import it either: they read the workflow with a block-YAML reader, as `feature-936-workflowConfig.ts` does.
 - **Human steps (`hitl`).** These are owner actions; the build agent cannot perform them.
   - **Before merge:** `gh secret set ANTHROPIC_API_KEY --repo paysdoc/AI_Dev_Workflow`. Until then this PR's own conformance run fails at `Live envelope check against the pinned CLI`, with the error annotation naming `ANTHROPIC_API_KEY`. That failure is acceptance criterion 1, shown on the real workflow:
     - `gh run list --workflow envelope-conformance.yml --branch bugfix-issue-939-fail-conformance-gate-missing-secret --limit 1` shows `failure`;
@@ -284,5 +328,12 @@ Execute every command to validate the bug is fixed with zero regressions.
 - **Out of scope, observed in run `36938167526`:**
   - the Node 20 deprecation warning for `actions/checkout@v4` and `actions/setup-node@v4`;
   - the notice that `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19.
+- **Out of scope, recorded by the scenario agent (F2 in `feature-939.feature`): a key the API rejects still passes the live leg.**
+  - A made-up key once reached a real Claude CLI. The CLI answered with an API-error assistant message and a `result/success` message, and the presence-only check reported "Live envelope check passed".
+  - A revoked, expired or mistyped secret would therefore leave the run green without a successful probe.
+  - The issue's criteria name only the absent secret, so this fix leaves that case alone, and no scenario pins it. Whether the gate should also fail on it is the owner's call.
 - **Uncommitted `.claude/` changes in the worktree.** The worktree has uncommitted edits under `.claude/commands/` and `.claude/skills/depaudit-triage/` that predate this plan. They revert newer prompt text on the branch. They are not part of this fix and must not be committed with it (ADR-0056).
-- **BDD scenarios.** The scenarios for `@adw-939` are written by the separate scenario agent; this plan does not write them.
+- **BDD scenarios.**
+  - The separate scenario agent wrote `features/per-issue/feature-939.feature`; this plan does not write scenarios.
+  - The build agent writes its step definitions (step 3). They assert only on what a run produces: its conclusion, annotations and step output, and what the stand-in CLI recorded. They never assert on the workflow's text.
+  - The structural checks (no skip path; the secret used once) stay in the Vitest contract test.
