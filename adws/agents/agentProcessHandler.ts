@@ -20,6 +20,7 @@ export function handleAgentProcess(
   onProgress: ProgressCallback | undefined,
   statePath: string | undefined,
   model: string,
+  killOnCompaction = false,
 ): Promise<AgentResult> {
   return new Promise((resolve) => {
     const state = createJsonlParserState(model);
@@ -63,7 +64,7 @@ export function handleAgentProcess(
         claude.kill('SIGTERM');
       }
 
-      if (!compactionDetected && state.compactionDetected) {
+      if (killOnCompaction && !compactionDetected && state.compactionDetected) {
         compactionDetected = true;
         log(`${agentName}: Context compaction detected — killing process to restart with fresh context.`, 'info');
         if (statePath) {

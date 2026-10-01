@@ -66,6 +66,7 @@ export async function runBuildAgent(
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
   launchContext?: AgentLaunchContext,
+  killOnCompaction = false,
 ): Promise<AgentResult> {
   const worktreePath = cwd ?? process.cwd();
   const scenarioFiles = findScenarioFiles(issue.number, worktreePath);
@@ -102,5 +103,6 @@ ${scenarioFiles.join('\n')}`
     cwd,
     subprocessEnv,
     launchContext,
+    killOnCompaction,
   });
 }

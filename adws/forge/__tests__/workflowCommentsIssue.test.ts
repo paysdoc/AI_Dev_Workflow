@@ -119,3 +119,17 @@ describe('formatRateLimitWaitComment', () => {
     expect(isAdwComment(body)).toBe(true);
   });
 });
+
+describe('formatWorkflowComment — compaction recovery comments', () => {
+  const ctx = { issueNumber: 929, adwId: 'test-adw', tokenContinuationNumber: 2 };
+
+  it.each([
+    ['compaction_recovery', 'Context Compaction Recovery'],
+    ['test_compaction_recovery', 'Test Compaction Recovery'],
+  ] as const)('formats %s under its own heading, which reads back as that stage', (stage, heading) => {
+    const body = formatWorkflowComment(stage, ctx);
+    expect(body).toContain(`## :warning: ${heading}`);
+    expect(body).toContain('**Continuation:** #2');
+    expect(parseWorkflowStageFromComment(body)).toBe(stage);
+  });
+});
