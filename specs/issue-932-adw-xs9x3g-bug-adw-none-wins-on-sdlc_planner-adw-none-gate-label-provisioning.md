@@ -136,6 +136,14 @@ Use these files to fix the bug:
   - changed: `adws/triggers/__tests__/webhookGatekeeper.test.ts`, `adws/triggers/__tests__/cronIssueFilter.test.ts`, `adws/triggers/__tests__/issueClosedUnblockRouter.test.ts`, `adws/forge/__tests__/adwLabelProvisioning.test.ts`;
   - unchanged: `adws/triggers/__tests__/issueOpenedRouter.test.ts` (it already covers the opened path) and `adws/triggers/__tests__/cronLabelEligibility.test.ts`;
   - precedent for a prompt-file contract test: `adws/__tests__/prTemplateMarker.test.ts`.
+- BDD scenarios and their harness:
+  - `features/per-issue/feature-932.feature`: the 23 `@adw-932` scenarios. §1 pins the opt-out on every path, §2 the unchanged conflict handling, §3 provisioning at cron start, §4 routing by label, §5 the type-check and git/gh guard. Its "HOW THESE ROWS RUN" notes are the harness specification. Do not edit the scenarios.
+  - `features/per-issue/step_definitions/feature-796.steps.ts`: the recording boundary, its call-log assertions and `world796()`. Its recording tracker is extended, not forked.
+  - `features/per-issue/step_definitions/feature-820.steps.ts`: the `… in the recording tracker carries the label(s) …` and `… is titled …` Givens. Reuse them; redefining one is an AmbiguousStepDefinition.
+  - `features/per-issue/step_definitions/feature-908.steps.ts`: the precedent for driving `dispatchWebhookEvent` with a mint override, and for saving and emptying `agents/paused_queue.json` around a cron tick.
+  - `features/regression/step_definitions/realCronProcess.ts`: `spawnRealCron` and `killRealCronWorld`, for §3.
+  - `features/regression/step_definitions/feature-902-queue.steps.ts`: `createGhMockDir` and `enableBunxRelaunchIntercept`, the precedents for the `gh` and `bunx` shadows.
+  - `test/mocks/claude-cli-stub.ts`: the Claude CLI stub that the recording wrapper calls.
 - Conditional docs that match this task (`.adw/conditional_docs.md`):
   - `app_docs/feature-9gjajh-webhook-triggers.md`: `classifyAndSpawnWorkflow`, `issueClosedUnblockRouter.ts`, `routeIssueOpened`.
   - `app_docs/feature-9gjajh-cron-triggers.md`: `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `trigger_cron.ts`.
@@ -149,6 +157,7 @@ Use these files to fix the bug:
 
 - `adws/triggers/__tests__/trigger_webhook.test.ts`: drives `dispatchWebhookEvent` and proves the comment path reaches the gate.
 - `adws/__tests__/depauditTriageSkill.test.ts`: a contract test for the skill. It checks that the skill has no orchestrator command, that it applies `adw:bug` at creation with the catalogue's colour and description, and that `adw:bug` routes to `adwSdlc.tsx`.
+- `features/per-issue/step_definitions/feature-932.steps.ts`: the step definitions for the 19 phrases that the `@adw-932` scenarios introduce.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -298,14 +307,35 @@ IMPORTANT: Execute every step in order, top to bottom.
 - for `def = resolveAdwLabelDefinition('adw:bug')`, it contains `--color ${def.color}` and `--description '${def.description}'`;
 - `ADW_CLASSIFICATION_LABELS['adw:bug']` is `'/bug'`, and `issueTypeToOrchestratorMap['/bug']` (from `adws/types/issueRouting.ts`) is `'adws/adwSdlc.tsx'`.
 
-### 6. Remove the resolved Divergence sections
+### 6. Write the step definitions for the `@adw-932` scenarios (`features/per-issue/step_definitions/feature-932.steps.ts`)
+
+`features/per-issue/feature-932.feature` has 23 scenarios. The two §5 backstops reuse registered phrases (T22, W16/T34) and already run. The other 21 use 19 phrases that have no definition yet. Follow the feature's "HOW THESE ROWS RUN" notes. In short:
+
+- **Reuse; do not redefine.** Use the feature-796 recording boundary with its call-log assertions, and the feature-820 label and title Givens. Their hooks do not fire for `@adw-932`, so this file owns reset and cleanup and scopes every hook to `@adw-932`.
+- **Extend the feature-796 recording tracker; do not fork it.** `fetchIssue`, `fetchComments`, `getIssueState` and `listIssues` must return the same seeded bodies, comments, states and creation/update times. Anything not seeded keeps today's answer, so the features that already use the tracker are unaffected.
+- **Never launch a real orchestrator.** Put a recording `bunx` first on PATH. It logs its full argv and exits at once. Compare scripts repo-relative.
+- **Never call the real Claude CLI.** Point `CLAUDE_CODE_PATH` at a recording wrapper around `test/mocks/claude-cli-stub.ts`. Call `clearClaudeCodePathCache()` when you set it and when you restore it.
+- **Webhook rows** drive the real `dispatchWebhookEvent` with a mint override that returns the recording boundary.
+  - Register this process's PID for the repository (`writeCronPid`), so that `ensureCronProcess` launches nothing.
+  - Save and restore `agents/.auth_gate` and `GITHUB_WEBHOOK_SECRET`.
+  - Wait, with a time limit, for the asynchronous handling to finish before asserting.
+- **Cron rows** call the exported `checkAndTrigger(boundary)`.
+  - Seed creation and update times well before `GRACE_PERIOD_MS`.
+  - Save and empty `agents/paused_queue.json` around the tick.
+  - In `After`, remove the spawn locks under both identities, and remove `agents/<adwId>`.
+- **§3** launches the real cron through `spawnRealCron`. Give it its own `RealCronWorld`, a throwaway `TARGET_REPOS_DIR`, and a recording `gh` first on PATH. The `bunx` recorder must be off PATH at that moment. Kill the cron with `killRealCronWorld` in an `@adw-932` `After` hook.
+- Work one scenario at a time.
+  - The feature's description lists the rows that fail today. Each must fail before the code from steps 1–5 makes it pass.
+  - Every other row must pass today and keep passing.
+
+### 7. Remove the resolved Divergence sections
 
 - `specs/adr/0041-label-based-classification.md`: delete lines 77–81 (the `## Divergence` heading, both items and the blank line after them). The last bullet of `### Confirmation` is then followed by one blank line and `## More Information`.
 - `specs/adr/0033-depaudit-as-dependency-gate.md`: delete lines 62–65 (the `## Divergence` heading, item 1 and the blank line after it).
 - Change nothing else in either record. The front matter, `### Confirmation` and `## More Information` stay byte-for-byte, as the write-an-adr rule requires. That includes ADR-0041's "`adw:none` overrides on every path; see Divergence."
 - `specs/adr/README.md` needs no change.
 
-### 7. Run the validation commands
+### 8. Run the validation commands
 
 - Run every command in `Validation Commands`, in order.
 
@@ -335,9 +365,11 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `bun run build`
   - The build passes.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --format summary`
-  - 0 undefined and 0 ambiguous steps. Baseline: `265 scenarios (265 skipped)`, plus any `@adw-932` scenarios the scenario writer adds.
+  - 0 undefined and 0 ambiguous steps.
+  - Before step 6 it reports `288 scenarios (21 undefined, 267 skipped)`: the 265-scenario baseline plus the 23 `@adw-932` scenarios.
+  - After step 6: `288 scenarios (288 skipped)`.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-932" --format summary`
-  - Every scenario passes. The count is 0 if none were written.
+  - All 23 scenarios pass.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary`
   - The full regression gate. Baseline: `122 scenarios (42 pending, 80 passed)` and `886 steps (42 pending, 86 skipped, 758 passed)`.
   - Expect the same counts, with 0 failed, 0 undefined and 0 ambiguous.
@@ -355,7 +387,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - **Failed label reads.**
   - On GitHub, `fetchLabels` is fail-open: it returns `[]` on error. A failed read on the comment or dependency-closure path therefore proceeds as if the issue had no labels. The `adw:upgrade` check already follows this policy, and the port cannot tell "no labels" from "error".
   - The Jira adapter throws from `fetchLabels` and from `ensureLabel`. The first is not new, because `classifyAndSpawnWorkflow` already calls it. The second makes `provisionAdwLabels` log one warning per label at cron start. Neither crashes the cron.
-- **Regression harness.** Only the `@adw-911` scenario launches a real cron (`features/regression/step_definitions/realCronProcess.ts`). Its PATH carries a `gh` shadow (`feature-902-queue.steps.ts` `createGhMockDir`) that exits 0 for `gh label create`. Provisioning therefore costs that scenario about one second of its 20-second first-tick budget and makes no network call. Nothing in it asserts on the extra log line.
+- **Regression harness.** Apart from this issue's own §3 rows, only the `@adw-911` scenario launches a real cron (`features/regression/step_definitions/realCronProcess.ts`). Its PATH carries a `gh` shadow (`feature-902-queue.steps.ts` `createGhMockDir`) that exits 0 for `gh label create`. Provisioning therefore costs that scenario about one second of its 20-second first-tick budget and makes no network call. Nothing in it asserts on the extra log line.
 - **Out of scope, unchanged:**
   - the ADR-0032 heading directives (`## Cancel` and `## Retry`), which ADR-0041 leaves untouched;
   - pause-queue and auth-queue resumes, which continue a run that already started;
@@ -372,4 +404,8 @@ Execute every command to validate the bug is fixed with zero regressions.
   - `app_docs/feature-9gjajh-commands-and-skills.md`: the triage skill's label.
   - `README.md:664`: also says "six".
 - **Glossary.** `UBIQUITOUS_LANGUAGE.md` still defines "ADW Command" as a slash command in the issue body, which has been out of date since ADR-0041. It is not touched here.
-- **BDD scenarios.** A separate agent writes the `@adw-932` scenarios. The unit tests above are the implementing agent's own.
+- **BDD scenarios.**
+  - A separate agent wrote the 23 `@adw-932` scenarios in `features/per-issue/feature-932.feature`.
+  - The implementing agent writes their step definitions (step 6) as well as the unit tests above.
+  - The rows pin the behaviour on every path, not where the check sits.
+  - AC3 (the skill) and AC4 (the ADRs) have no scenario; the feature explains why. The skill contract test and the validation greps cover them.
