@@ -21,6 +21,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
   - Replace `{descriptive-name}` with a short, descriptive name based on the chore (e.g., "update-readme", "fix-tests", "refactor-auth")
 - Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase and put together a plan to accomplish the chore.
+- Research is read-only. Read files and use `cat`, `grep`, `ls` and `git log/show/diff`. Do NOT run tests, builds, linters, type checks or the plan's `Validation Commands`, and do not dry-run them to see whether they fail today. The build agent runs them.
+- Write exactly one file: the plan. Do not create or edit anything else: no reproduction tests, no scratch files, no source changes.
+- Planning runs under a hard time limit. Write the plan as soon as your research answers every section of the `Plan Format`. Once it is written, stop. Do not revise it to match `features/` files that appear while you work; aligning the plan with the scenarios is a separate, later step.
 - Respect requested files in the `Relevant Files` section.
 - If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback for older repos), planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. Also read `.adw/coding_guidelines.md` if present (or `guidelines/coding_guidelines.md` as a fallback).
@@ -66,7 +69,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 ## Validation Commands
 Execute every command to validate the chore is complete with zero regressions.
 
-<list commands you'll use to validate with 100% confidence the chore is complete with zero regressions. every command must execute without errors so be specific about what you want to run to validate the chore is complete with zero regressions. Don't validate with curl commands.>
+<list commands you'll use to validate with 100% confidence the chore is complete with zero regressions. every command must execute without errors so be specific about what you want to run to validate the chore is complete with zero regressions. Don't validate with curl commands. List these commands; do not execute them while planning.>
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues
 - `bun run build` - Build the application to verify no build errors
