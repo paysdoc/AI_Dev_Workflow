@@ -56,3 +56,11 @@ The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file'
 - `probeWorktree` returns a probe with `registration: 'missing'` and benign defaults when `resolveGitDir` returns `null` (e.g. directory absent from disk) so the gate resets without the shell throwing. All side effects (`fs.rmSync`, `execSync`) are isolated inside `buildDefaultProbeDeps`; the exported functions are testable via injected deps.
 - `pushBranch` uses `--force-if-includes` (git ≥ 2.30) alongside `--force-with-lease`. A bare `--force-with-lease` after a fetch would lease against the just-fetched tip and always succeed — `--force-if-includes` restores the safety check by requiring the fetched remote tip to be in the local reflog. If a rewrite happened in a different clone/worktree (tip absent from local reflog), the push refuses with the distinct lease error and manual intervention is required.
 - `adwUpgrade.tsx` has its own separate branch-push (claim-branch) with `non-fast-forward` "park as loser" semantics; it is intentionally NOT routed through `pushBranch`.
+
+## Decisions
+
+- [ADR-0002](../specs/adr/0002-worktree-per-issue.md) — One git worktree per issue
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories

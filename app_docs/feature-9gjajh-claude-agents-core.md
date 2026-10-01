@@ -11,7 +11,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Attaches a per-phase watchdog timer (via `getAgentTimeoutForPhase`) and kills the process group on expiry, throwing `AgentTimeoutError`
 - Streams stdout through `parseJsonlOutput` to extract turn counts, tool call counts, and the final result message
 - Extracts real-time token usage via `AnthropicTokenUsageExtractor` and injects it into progress callbacks
-- Detects and early-terminates on auth errors, rate limits/API outages, context compaction, and output token threshold breaches — each resolves to a distinct `AgentResult` shape
+- Detects and early-terminates on auth errors, rate limits/API outages, and output token threshold breaches, and on context compaction only when the caller passes `killOnCompaction` — each resolves to a distinct `AgentResult` shape
 - Retries up to 3 times on transient `ENOENT` failures, clearing the `resolveClaudeCodePath` cache between attempts with exponential backoff
 - Retries once on expired OAuth token after verifying `claude auth status --json`; throws `AuthRequiredError` if auth is invalid or still failing after retry
 - Throws `RateLimitError` (no retry) when rate limiting or API outage is detected, signaling the orchestrator to pause; carries `rateLimitType`/`resetsAt` (from `adws/types/agentTypes.ts`'s `RateLimitFacts`) through from the `AgentResult` when a rejected `rate_limit_event` supplied them, `undefined` otherwise — never defaulted
@@ -31,7 +31,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Every spawned process is detached (`detached: true`) so `killProcessGroup(-pid)` can reach grandchildren (e.g., orphaned heredoc pipelines)
 - The `AgentResult.success` field is `false` whenever the process exits non-zero OR the final JSONL result carries `isError: true`; token-limit and compaction terminations resolve as `success: true` with their respective flags set
 - `costSource` is always present on resolved results; value is `'extractor_finalized'` when the CLI emits a cost summary line, otherwise `'extractor_estimated'`
-- `runCommandAgent` never throws on extraction failure — it retries via a fresh Haiku session; `OutputValidationError` is only thrown after all retries are exhausted
+- `runCommandAgent` never throws on extraction failure — it retries via a fresh Haiku session; `OutputValidationError` is only thrown after all retries are exhausted. A run stopped on compaction skips extraction and the retry loop (its output is cut off and its caller restarts it), so its `parsed` is `undefined`; the Haiku correction retry never receives `killOnCompaction`
 - `extractOutput` functions must return `ExtractionResult<T>` (never throw) so the retry loop can distinguish parse failures from code errors
 - Commit message validation in `runCommitAgent` always guarantees the returned `commitMessage` starts with the correct `<agentName>: <keyword>:` prefix, stripping malformed prefixes if needed
 - `AuthRequiredError` and `RateLimitError` are always thrown (never returned in `AgentResult`) so callers cannot silently ignore them
@@ -51,6 +51,7 @@ No configuration files govern the base spawn layer. Behaviour is governed by cal
 - `model` defaults to `'sonnet'`; overridden per-command by `getModelForCommand`
 - `effort` is optional; overridden per-command by `getEffortForCommand`
 - Watchdog timeout is looked up per phase name via `getAgentTimeoutForPhase`
+- `killOnCompaction` (default `false`) is threaded `handleAgentProcess` ← `runClaudeAgentWithCommand` ← `CommandAgentOptions`/`runBuildAgent`/`runTestAgent`/`runResolveTestAgent`. Only `buildPhase.ts` and `runUnitTestsWithRetry` (when `onCompactionDetected` is supplied) set it; the review phase's `runBuildAgent` calls leave it off
 - Token threshold for early termination is `MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD` (constants from `../core`)
 - Retry counts are module-level constants: `MAX_RETRIES = 10`, `MAX_CONSECUTIVE_IDENTICAL_ERRORS = 3`
 
@@ -64,7 +65,7 @@ Guardrails injection is additionally governed by:
 
 - The watchdog kill does not set a special exit code — `agentProcessHandler` resolves normally after the process group is killed; the `watchdogFired` boolean in `runClaudeAgentWithCommand` is the sole gate that surfaces `AgentTimeoutError` to the caller
 - Rate limit detection fires on `rateLimitDetected` (renamed from `rateLimitRejected` — a documented `rate_limit`/429 `api_retry` or terminal `result.api_error_status: 429` sets it too, not only a rejected `rate_limit_event`), `serverErrorDetected`, OR `overloadedErrorDetected` — all three signal the same "pause" path. The rate-limited `AgentResult` carries `rateLimitType`/`resetsAt` only when a rejected event supplied them.
-- Context compaction resolves as `success: true` with `compactionDetected: true`; callers must check this flag and re-invoke rather than treating the result as a completed run
+- Context compaction terminates the agent only when the caller passes `killOnCompaction`, which only the build phase and the unit-test path do, because they restart the agent. The result is then `success: true` with `compactionDetected: true`; the caller must check this flag and re-invoke rather than treating the result as a completed run. Every other agent runs on with the compacted context and resolves normally, without `compactionDetected`
 - ENOENT retry clears the path cache and re-resolves the Claude CLI binary before each attempt; a permanently missing binary will exhaust all 3 attempts and return the last failed result (no exception)
 - Auth retry calls `execSync` with the full `process.env` (not the sandboxed env) so the CLI can access its own credentials at `HOME`
 - `runCommitAgent` throws on non-success exit (unlike most agents which return the result); callers must not inspect `result.success` after the call
@@ -75,3 +76,15 @@ Guardrails injection is additionally governed by:
 - `**/logs/` was added to `.gitignore` because Claude Code hook logs can land in any directory an agent `cd`'s into (not just the repo root) when `CLAUDE_HOOKS_LOG_DIR` is unset or misconfigured — a defense-in-depth guard against the same worktree-leak class the absolute-path invariant above prevents by construction
 - `formatDenialNotice()` returns `null` (not an empty string) when `count` is 0, specifically so a clean run's stage comment gets no denial line appended — callers must treat the return as optional, not always-render
 - The gate's `readAdwYml` dependency reads from `input.worktreePath`, not `REPO_ROOT` — the canary is per-target-repo, and a self-host run never reaches that check anyway (short-circuited earlier)
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0010](../specs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
+- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SDLC Orchestrators module provides two top-level workflow drivers — `adwSdlc.tsx` (full pipeline) and `adwPlanBuild.tsx` (lightweight pipeline) — that coordinate all agent phases for a GitHub issue from initialization through PR creation. They compose reusable phase functions from `workflowPhases.ts` and delegate lifecycle concerns (locking, heartbeating, state management) to supporting modules in `phases/`.
+The SDLC Orchestrators module provides the top-level SDLC workflow drivers — `adwSdlc.tsx` (full pipeline), `adwPlanBuild.tsx` (lightweight pipeline) and the `adwPlanBuildReview.tsx` / `adwPlanBuildTestReview.tsx` variants with a review loop — that coordinate all agent phases for a GitHub issue from initialization through PR creation. A review loop that ends with blockers stops the run at `review_failed` instead of opening a PR. They compose reusable phase functions from `workflowPhases.ts` and delegate lifecycle concerns (locking, heartbeating, state management) to supporting modules in `phases/`.
 
 ## Responsibilities
 
@@ -11,6 +11,7 @@ The SDLC Orchestrators module provides two top-level workflow drivers — `adwSd
 - Run a heartbeat for the duration of execution so staleness detection can reclaim dead locks
 - Execute ordered phase sequences via `runPhase` and `runPhasesParallel`:
   - **adwSdlc**: Install -> Plan + Scenario (parallel) -> Alignment -> Build -> StepDef -> UnitTest -> ScenarioTestFixLoop -> Review/Patch/Retest loop (bounded by `MAX_REVIEW_RETRY_ATTEMPTS`) -> Document -> PR -> ProofPublish
+  - **adwPlanBuildReview** / **adwPlanBuildTestReview**: the same phases up to the review/patch/retest loop, then the failed-review gate, then PR (the test variant also runs StepDef and ScenarioTestFixLoop, and publishes proof after the PR)
   - **adwPlanBuild**: Install -> Plan -> Build -> UnitTest -> PR (no scenarios, no review, no document phase)
 - Track cumulative token costs via `CostTracker` and persist them on all exit paths (success, pause, error)
 - Write `awaiting_merge` to top-level state after PR approval (adwSdlc only); `adwMerge.tsx` handles completion
@@ -26,6 +27,8 @@ The SDLC Orchestrators module provides two top-level workflow drivers — `adwSd
 - All error handlers (`handleWorkflowError`, `handleRateLimitPause`, `handleWorkflowDiscarded`) call `process.exit` synchronously, so the `finally` block in `runWithOrchestratorLifecycle` does not run on those paths
 - `WorkflowConfig` is immutable after `initializeWorkflow` returns; phases read from it but do not write back to it (they write to `AgentStateManager` instead)
 - GitHub App auth is activated at the start of `initializeWorkflow` so child processes spawned by phase agents do not inherit a stale `GH_TOKEN`; if a GitHub App is configured but `GITHUB_PAT` is absent, initialization fails immediately
+- `adwSdlc`, `adwPlanBuildReview` and `adwPlanBuildTestReview` pass the review loop's final `reviewPassed` to `decidePostReviewOutcome`. On `skipDocAndPR` they call `executeSdlcReviewFailedHandoff`, persist metadata with `reviewPassed: false` and return normally before any document, PR or proof-publish phase, so `awaiting_merge` is never written
+- `adwPlanBuildReview` and `adwPlanBuildTestReview` export `executePlanBuildReview(config, phases?)` / `executePlanBuildTestReview(config, phases?)`. These run what `main()` runs inside `runWithOrchestratorLifecycle`, with the phase functions injectable (`PlanBuildReviewPhases` / `PlanBuildTestReviewPhases`, real phases by default). `main()` runs only when the file is executed directly
 
 ## Configuration
 
@@ -50,3 +53,13 @@ Per-repo configuration (read from the worktree at init time):
 - `adwPlanBuild` skips scenarios, alignment, review, and document phases entirely; it is not a subset of adwSdlc's phases at runtime — it calls `completeWorkflow` rather than writing `awaiting_merge`, so its terminal state is different
 - Branch name is persisted to top-level state only when it is non-empty; the `cwd` override path never sets `branchName`, so it must not clobber a previously persisted name
 - For target-repo workflows, `--target-repo` must be passed on resume; omitting it causes the respawned orchestrator to target the cron host's repo instead of the intended target
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0045](../specs/adr/0045-kpi-module-removed.md) — KPI module removed
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

@@ -70,10 +70,6 @@ Checked on 2026-09-29 by reading the code.
 * `adws/phases/__tests__/progressGate.test.ts` was run with Vitest and passed. `adws/agents/__tests__/agentProcessHandler.test.ts` and `claudeAgent.test.ts` exist but were not run.
 * No CI workflow runs the unit tests; they run through `bun run test:unit`.
 
-## Divergence
-
-1. **Phases other than build and unit test are killed on compaction and not restarted.** `agentProcessHandler.ts` kills every agent on compaction, but only `buildPhase.ts` and the unit-test path (`adws/agents/testRetry.ts`, `adws/phases/unitTestPhase.ts`) restart it. A search for `compactionDetected` finds no other consumer. The review handling that #299 added lived in `adws/agents/reviewRetry.ts`, which was removed on 2026-04-08 (commit a805a4b6, see [ADR-0031](0031-active-test-phase-passive-review-judge.md)). The stage `review_compaction_recovery` and its comment formatter remain, and nothing posts it. Ruling (owner, 2026-09-29): only build and tests restart on compaction. The other phases should run on with the compacted context; killing them and accepting partial output is a bug.
-
 ## More Information
 
 * The plans for #559, #560 and #561 name a parent PRD, `specs/prd/build-context-reset-progress-gate.md`. It is not in the repository, so its rationale (the plans mention "novelty over size-growth") could not be read.

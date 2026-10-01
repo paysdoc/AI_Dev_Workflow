@@ -10,7 +10,7 @@ export interface PostReviewOutcome {
 /**
  * Performs no I/O — total function over a boolean.
  *
- * SDLC callers must honour skipDocAndPR by exiting before doc+PR phases.
+ * Every orchestrator with a review loop must honour skipDocAndPR by stopping before its document and PR phases.
  */
 export function decidePostReviewOutcome(reviewPassed: boolean): PostReviewOutcome {
   if (!reviewPassed) {

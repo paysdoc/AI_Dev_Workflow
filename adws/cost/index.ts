@@ -20,7 +20,7 @@ export type {
 export { emptyLegacyModelUsage as emptyModelUsage, emptyLegacyModelUsageMap as emptyModelUsageMap } from './types.ts';
 
 export { computeCost, checkDivergence } from './computation.ts';
-export { AnthropicTokenUsageExtractor, ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './providers/anthropic/index.ts';
+export { AnthropicTokenUsageExtractor, ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing, toLegacyModelUsageMap } from './providers/anthropic/index.ts';
 
 export {
   FALLBACK_EUR_RATE,

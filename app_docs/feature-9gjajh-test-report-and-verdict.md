@@ -37,3 +37,7 @@ No configuration. The XML parser is module-level and fixed. Callers supply file 
 - `postResolveAligned` is optional: `undefined` (signal absent) is treated as aligned and does not block a `pass`. Only `false` (signal explicitly negative) triggers `hard-fail`.
 - The `passed` count in `TestReport` is derived as `total - failed - skipped`, not read from JUnit attributes; attribute-level counts are ignored entirely.
 - `readJUnitReport` uses `fs.existsSync` before reading, so callers cannot distinguish a race where the file disappears between the existence check and the read — both cases return `null`.
+
+## Decisions
+
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail

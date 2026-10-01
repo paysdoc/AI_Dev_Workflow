@@ -489,3 +489,57 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
     }
   });
 });
+
+describe('runClaudeAgentWithCommand — compaction kill opt-in', () => {
+  const killOnCompactionArgs = (): boolean[] => mockHandleAgentProcess.mock.calls.map(call => call[6] as boolean);
+
+  const runRestartingAgent = () => runClaudeAgentWithCommand(
+    '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+    'sonnet', undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    true,
+  );
+
+  it('leaves an agent running through a compaction unless its caller restarts it', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl');
+
+    expect(killOnCompactionArgs()).toEqual([false]);
+  });
+
+  it('asks for the kill on the first spawn when the caller restarts the agent', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runRestartingAgent();
+
+    expect(killOnCompactionArgs()).toEqual([true]);
+  });
+
+  it('keeps the request on the ENOENT retry spawn', async () => {
+    mockHandleAgentProcess
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: false, output: 'spawn ENOENT' })
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runRestartingAgent();
+
+    expect(killOnCompactionArgs()).toEqual([true, true]);
+  });
+
+  it('keeps the request on the auth retry spawn', async () => {
+    vi.useFakeTimers();
+    try {
+      mockHandleAgentProcess
+        .mockResolvedValueOnce({ ...BASE_RESULT, success: false, authExpired: true })
+        .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+      mockExecSync.mockReturnValueOnce(Buffer.from(JSON.stringify({ loggedIn: true, email: 'user@test.com', subscriptionType: 'pro' })));
+
+      const agentPromise = runRestartingAgent();
+      await vi.advanceTimersByTimeAsync(2001);
+      await agentPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(killOnCompactionArgs()).toEqual([true, true]);
+  });
+});

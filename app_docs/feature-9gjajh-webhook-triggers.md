@@ -71,3 +71,15 @@ Server port defaults to `process.env.PORT || 8001`. `GITHUB_WEBHOOK_SECRET` enab
 - **The dispatch is extracted, not deleted or relocated.** `dispatchWebhookEvent` holds the exact previous callback body, moved verbatim into a top-level function below `const server = …` (function declarations hoist, so file order is preserved) — every `if (event === …)` branch stays in `trigger_webhook.ts` in the same order. `webhookEventBoundary.ts` holds only the boundary/reporting logic, which has no branch-marker coupling.
 - **`adws/__tests__/triggerWebhook.test.ts` asserts on source text**, not runtime behaviour — brace-matched extraction of the catch blocks (`getOpenedCatchBlock`/`getCommentCatchBlock`) plus a wiring guard (`try {` + `containEventFailure(` in the `req.on('end'` body; `.catch(` terminating the `/health` IIFE). Real containment behaviour is proven by `features/per-issue/feature-776.feature` (`@adw-776`, 16 scenarios) instead.
 - **Every contained failure pings Slack, unthrottled.** A retry storm (GitHub redelivering a failing event) produces one alert per delivery by design — an ongoing outage should be loud. No dedup/rate-limit exists; if needed, it belongs in `slackNotifier.ts`.
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0008](../specs/adr/0008-webhook-endpoint-via-cloudflare-tunnel.md) — Webhook endpoint through a Cloudflare Tunnel, with signed payloads
+- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0046](../specs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh

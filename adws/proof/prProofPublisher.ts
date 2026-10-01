@@ -1,35 +1,14 @@
 /**
  * Pure half: formatPrProofComment — composes JUnit summary + inline screenshots.
- * Impure half: publishPrProof — harvests → uploads → formats → posts.
+ * Impure half: publishPrProof — uploads through uploadProofArtifacts, then formats and posts.
  *
- * No side effects in the pure formatter. All I/O (fs, R2, GitHub) is in publishPrProof.
+ * No side effects in the pure formatter. The only I/O here is the GitHub comment; fs and R2 are in proofUploader.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { log } from '../core/logger';
-import { CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } from '../core/environment';
-import { uploadToR2 } from '../r2/uploadService';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
-import { harvestProofArtifacts } from './proofArtifactHarvester';
+import { isR2Configured, uploadProofArtifacts } from './proofUploader';
 import type { ProofCommentInput, PublishDeps, TagProofResultLike, UploadedArtifact } from './types';
-
-const CONTENT_TYPE_MAP: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-};
-
-function contentTypeForExt(ext: string): string {
-  return CONTENT_TYPE_MAP[ext.toLowerCase()] ?? 'image/png';
-}
-
-function leadingSegment(relPath: string): string {
-  const parts = relPath.split('/');
-  return parts.length > 1 ? parts[0] : 'Screenshots';
-}
 
 function formatImageEmbed(fileName: string, url: string): string {
   return `[![${fileName}](${url})](${url})\n${url}`;
@@ -112,10 +91,6 @@ export function formatPrProofComment(input: ProofCommentInput): string {
   return sections.join('\n\n');
 }
 
-function isR2Configured(): boolean {
-  return Boolean(CLOUDFLARE_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
-}
-
 /** Non-fatal — any error is caught and logged. */
 export async function publishPrProof(deps: PublishDeps): Promise<void> {
   const {
@@ -124,7 +99,7 @@ export async function publishPrProof(deps: PublishDeps): Promise<void> {
     prNumber,
     repoInfo,
     adwId,
-    uploader = uploadToR2,
+    uploader,
     commenter,
   } = deps;
 
@@ -138,28 +113,12 @@ export async function publishPrProof(deps: PublishDeps): Promise<void> {
   }
 
   try {
-    const artifacts = harvestProofArtifacts(artifactsDir);
+    // Gated here as well as inside the uploader, so an injected uploader is skipped without credentials
+    // and the comment carries the "R2 is not configured" note.
     const r2Configured = isR2Configured();
-    const uploaded: UploadedArtifact[] = [];
-
-    if (r2Configured && artifacts.length > 0) {
-      const { owner, repo } = repoInfo;
-      for (const artifact of artifacts) {
-        try {
-          const ext = path.extname(artifact.absPath);
-          const key = `proof/${adwId}/${artifact.relPath}`;
-          const body = fs.readFileSync(artifact.absPath);
-          const result = await uploader({ owner, repo, key, body, contentType: contentTypeForExt(ext) });
-          uploaded.push({
-            scenario: leadingSegment(artifact.relPath),
-            url: result.url,
-            fileName: path.basename(artifact.relPath),
-          });
-        } catch (err) {
-          log(`publishPrProof: failed to upload ${artifact.relPath} — ${err}`, 'warn');
-        }
-      }
-    }
+    const uploaded = r2Configured
+      ? await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader })
+      : [];
 
     const body = formatPrProofComment({
       tagResults: scenarioProof.tagResults,

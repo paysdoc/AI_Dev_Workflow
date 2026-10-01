@@ -53,7 +53,6 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
   token_limit_recovery:    'resumable',
   compaction_recovery:     'resumable',
   test_compaction_recovery:   'resumable',
-  review_compaction_recovery: 'resumable',
   plan_validating:         'resumable',
   plan_validated:          'resumable',
   plan_resolving:          'resumable',

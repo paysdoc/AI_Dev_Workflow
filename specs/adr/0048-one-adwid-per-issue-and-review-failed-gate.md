@@ -62,15 +62,6 @@ Checked on 2026-09-29:
 
 Unit tests also cover `resolvePrReviewTarget` and `resolveResumeSpawn`. No CI gate checks that every orchestrator uses the gate.
 
-## Divergence
-
-The gate is not applied by every orchestrator that has a review loop. Reading the code on 2026-09-29:
-
-* `adws/adwChore.tsx` runs a review loop when the diff judge escalates ([ADR-0027](0027-llm-diff-gate-for-chores.md)). After the loop it runs the document phase, opens the PR, pre-approves it when the issue has no `hitl` label, and writes `awaiting_merge` (lines 96 to 134). Nothing tests `reviewPassed`; the value is only stored in metadata.
-* `adws/adwPlanBuildReview.tsx` and `adws/adwPlanBuildTestReview.tsx` likewise open the PR and write `awaiting_merge` after the loop without testing `reviewPassed`. They do not pre-approve.
-
-Ruling by the owner on 2026-09-29: the gate applies to every orchestrator with a review loop. A chore normally has none; once the diff judge escalates, the normal review rules apply. The behaviour of `adwChore.tsx` is a bug. The ruling named `adwChore.tsx`; the other two orchestrators fall within its scope but were not named. The false green on #840 (2026-09-22) was a chore run.
-
 ## More Information
 
 * Incident of record: #712 and PR #715.

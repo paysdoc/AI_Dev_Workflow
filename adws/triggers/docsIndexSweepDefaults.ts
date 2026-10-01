@@ -34,6 +34,7 @@ const CLOSE_REPORT_COMMENT = 'Docs index is healthy again — closed by the docs
 
 export interface DocsIndexSweepDefaultDeps {
   readIndex: () => string | null;
+  readDoc: (docPath: string) => string | null;
   listFiles: () => string[];
   persistIndex: (content: string, repairs: readonly DocsIndexRepair[]) => Promise<void>;
   listReportCandidates: () => DocsIndexReportIssueRef[];
@@ -58,16 +59,20 @@ export function makeDocsIndexSweepDefaults(
 ): DocsIndexSweepDefaultDeps {
   const { issueTracker } = boundary.providers;
 
+  const readFromWorktree = (relPath: string): string | null => {
+    const base = getBase();
+    if (!base) return null;
+    try {
+      return fs.readFileSync(path.join(base.worktreePath, relPath), 'utf-8');
+    } catch {
+      return null;
+    }
+  };
+
   return {
-    readIndex: () => {
-      const base = getBase();
-      if (!base) return null;
-      try {
-        return fs.readFileSync(path.join(base.worktreePath, INDEX_PATH), 'utf-8');
-      } catch {
-        return null;
-      }
-    },
+    readIndex: () => readFromWorktree(INDEX_PATH),
+
+    readDoc: readFromWorktree,
 
     listFiles: () => {
       const base = getBase();

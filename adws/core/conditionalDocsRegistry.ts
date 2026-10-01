@@ -4,9 +4,14 @@
 //       - <glob>
 //     - Conditions:
 //       - <condition line, verbatim incl. backticks>
+//     - Decisions:
+//       - <four-digit ADR number>
 //
 // Rules:
 //   - Owns: block omitted when ownedGlobs is empty (legacy compatibility)
+//   - Decisions: block omitted when decisions is empty
+//   - Decisions: comes last so a parser that predates it reads the items as Conditions lines,
+//     which nothing repairs, rather than as Owns globs, which the sweep prunes
 //   - Entries separated by a single blank line
 //   - preamble holds the "# Conditional Documentation" header text above the first entry
 //   - Exactly one trailing newline
@@ -15,6 +20,7 @@ export interface ConditionalDocEntry {
   docPath: string;
   ownedGlobs: string[];
   conditions: string[];
+  decisions: string[];
 }
 
 export interface ConditionalDocsRegistry {
@@ -53,13 +59,16 @@ export function matchesGlob(glob: string, filePath: string): boolean {
   return globToRegExp(glob).test(filePath);
 }
 
+type ActiveList = 'owns' | 'conditions' | 'decisions' | null;
+
 function applyListItem(
   entry: ConditionalDocEntry,
-  list: 'owns' | 'conditions' | null,
+  list: ActiveList,
   text: string,
 ): void {
   if (list === 'owns') entry.ownedGlobs.push(text);
   else if (list === 'conditions') entry.conditions.push(text);
+  else if (list === 'decisions') entry.decisions.push(text);
 }
 
 export function parseConditionalDocs(content: string): ConditionalDocsRegistry {
@@ -83,19 +92,21 @@ export function parseConditionalDocs(content: string): ConditionalDocsRegistry {
 
   const entries: ConditionalDocEntry[] = [];
   let currentEntry: ConditionalDocEntry | null = null;
-  let activeList: 'owns' | 'conditions' | null = null;
+  let activeList: ActiveList = null;
 
   for (let i = firstEntryLine; i < lines.length; i++) {
     const line = lines[i];
 
     if (/^- /.test(line)) {
       if (currentEntry) entries.push(currentEntry);
-      currentEntry = { docPath: line.slice(2), ownedGlobs: [], conditions: [] };
+      currentEntry = { docPath: line.slice(2), ownedGlobs: [], conditions: [], decisions: [] };
       activeList = null;
     } else if (/^ {2}- Owns:/.test(line)) {
       activeList = 'owns';
     } else if (/^ {2}- Conditions:/.test(line)) {
       activeList = 'conditions';
+    } else if (/^ {2}- Decisions:/.test(line)) {
+      activeList = 'decisions';
     } else if (/^ {4}- /.test(line)) {
       if (!currentEntry) continue;
       applyListItem(currentEntry, activeList, line.slice(6));
@@ -118,6 +129,12 @@ function serializeEntry(entry: ConditionalDocEntry): string {
   s += '\n  - Conditions:';
   for (const cond of entry.conditions) {
     s += `\n    - ${cond}`;
+  }
+  if (entry.decisions.length > 0) {
+    s += '\n  - Decisions:';
+    for (const adr of entry.decisions) {
+      s += `\n    - ${adr}`;
+    }
   }
   return s;
 }
@@ -152,14 +169,14 @@ export function findOwningEntries(
   );
 }
 
-function unionGlobs(globLists: string[][]): string[] {
+function unionDistinct(lists: string[][]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
-  for (const globs of globLists) {
-    for (const g of globs) {
-      if (!seen.has(g)) {
-        seen.add(g);
-        result.push(g);
+  for (const items of lists) {
+    for (const item of items) {
+      if (!seen.has(item)) {
+        seen.add(item);
+        result.push(item);
       }
     }
   }
@@ -182,7 +199,8 @@ export function collapseEntries(
   const mergedEntry: ConditionalDocEntry = {
     docPath: merged.docPath,
     conditions: merged.conditions,
-    ownedGlobs: unionGlobs(collapsed.map((e) => e.ownedGlobs)),
+    ownedGlobs: unionDistinct(collapsed.map((e) => e.ownedGlobs)),
+    decisions: unionDistinct(collapsed.map((e) => e.decisions)),
   };
 
   const kept: ConditionalDocEntry[] = [];

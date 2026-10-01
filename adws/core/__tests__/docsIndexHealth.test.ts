@@ -9,15 +9,8 @@ import {
   DEFAULT_COUNT_BAND,
   type DocsIndexRepair,
 } from '../docsIndexHealth';
-import { serializeConditionalDocs, type ConditionalDocsRegistry, type ConditionalDocEntry } from '../conditionalDocsRegistry';
-
-function entry(overrides: Partial<ConditionalDocEntry> & { docPath: string }): ConditionalDocEntry {
-  return { ownedGlobs: [], conditions: ['When X'], ...overrides };
-}
-
-function registryOf(entries: ConditionalDocEntry[]): ConditionalDocsRegistry {
-  return { preamble: '# Conditional Documentation\n', entries };
-}
+import { serializeConditionalDocs, type ConditionalDocEntry } from '../conditionalDocsRegistry';
+import { entry, registryOf } from './fixtures/docsIndexEntries';
 
 const FIXTURE_ENTRIES: ConditionalDocEntry[] = [
   entry({ docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'] }),
@@ -135,6 +128,7 @@ describe('applyRepairs', () => {
   });
 });
 
+
 describe('findViolations', () => {
   it('detects an orphan doc file that no entry indexes, and never flags app_docs/assets/**', () => {
     const registry = registryOf([entry({ docPath: 'app_docs/feature-live.md' })]);
@@ -223,7 +217,7 @@ describe('assessDocsIndexHealth', () => {
     const files = entries.filter((e) => e.docPath !== 'app_docs/feature-ghost.md').map((e) => e.docPath);
     const content = serializeConditionalDocs(registry);
 
-    const assessment = assessDocsIndexHealth({ content, files });
+    const assessment = assessDocsIndexHealth({ content, files, readDoc: () => null });
 
     expect(assessment.repairs).toContainEqual({ kind: 'drop-dangling-entry', docPath: 'app_docs/feature-ghost.md' });
     expect(assessment.repaired.entries).toHaveLength(DEFAULT_COUNT_BAND.max);
@@ -236,12 +230,13 @@ describe('assessDocsIndexHealth', () => {
     const files = entries.map((e) => e.docPath).concat(entries.map((_e, i) => `adws/mod${i}/x.ts`));
     const content = serializeConditionalDocs(registry);
 
-    const assessment = assessDocsIndexHealth({ content, files });
+    const assessment = assessDocsIndexHealth({ content, files, readDoc: () => null });
 
     expect(assessment.repairs).toEqual([]);
     expect(assessment.violations).toEqual([]);
   });
 });
+
 
 describe('formatViolation', () => {
   it('truncates an overlap violation to 5 files with a trailing count', () => {
@@ -250,5 +245,29 @@ describe('formatViolation', () => {
     expect(line).toContain('a.ts, b.ts, c.ts, d.ts, e.ts');
     expect(line).toContain('… and 2 more');
     expect(line).not.toContain('f.ts');
+  });
+
+  it('renders a decisions mismatch with each list ascending', () => {
+    const line = formatViolation({ kind: 'decisions-mismatch', docPath: 'app_docs/feature-a.md', onlyInBlock: ['0003', '0002'], onlyInSection: ['0007'] });
+
+    expect(line).toBe('decisions mismatch: app_docs/feature-a.md — only in its Decisions: block: 0002, 0003; only in its ## Decisions section: 0007');
+  });
+
+  it('renders an empty side of a decisions mismatch as none', () => {
+    const line = formatViolation({ kind: 'decisions-mismatch', docPath: 'app_docs/feature-a.md', onlyInBlock: [], onlyInSection: ['0044'] });
+
+    expect(line).toBe('decisions mismatch: app_docs/feature-a.md — only in its Decisions: block: none; only in its ## Decisions section: 0044');
+  });
+
+  it('renders an unknown decision record', () => {
+    const line = formatViolation({ kind: 'unknown-decision', docPath: 'app_docs/feature-a.md', adr: '0099' });
+
+    expect(line).toBe('unknown decision record: app_docs/feature-a.md lists 0099, which has no file in specs/adr/');
+  });
+
+  it('renders a dead decision link', () => {
+    const line = formatViolation({ kind: 'dead-decision-link', docPath: 'app_docs/feature-a.md', target: '../specs/adr/0044-old.md' });
+
+    expect(line).toBe('dead decision link: app_docs/feature-a.md links ../specs/adr/0044-old.md, which is not a file');
   });
 });
