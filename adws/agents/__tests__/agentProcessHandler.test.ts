@@ -101,3 +101,44 @@ describe('handleAgentProcess — rate-limit facts', () => {
     expect(result.rateLimited).toBeUndefined();
   });
 });
+
+describe('handleAgentProcess — context compaction', () => {
+  const compactBoundary = JSON.stringify({ type: 'system', subtype: 'compact_boundary' }) + '\n';
+
+  it('lets an agent run on through a compaction by default, and resolves with its final result', async () => {
+    const { child, wasKilled } = createFakeChild();
+    const outputFile = tmpOutputFile();
+    const stdout = child.stdout as unknown as EventEmitter;
+
+    const resultPromise = handleAgentProcess(child, 'review-agent', outputFile, undefined, undefined, 'haiku');
+
+    stdout.emit('data', Buffer.from(compactBoundary));
+    expect(wasKilled()).toBe(false);
+
+    const draft = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'draft verdict' }] } });
+    const final = JSON.stringify({ type: 'result', subtype: 'success', isError: false, result: 'final verdict', sessionId: 's1' });
+    stdout.emit('data', Buffer.from(draft + '\n' + final + '\n'));
+    (child as unknown as EventEmitter).emit('close', 0);
+
+    const result = await resultPromise;
+    expect(result.success).toBe(true);
+    expect(result.output).toBe('final verdict');
+    expect(result.sessionId).toBe('s1');
+    expect(result.compactionDetected).toBeUndefined();
+  });
+
+  it('kills an agent on compaction when its caller restarts it, and reports the run as compacted', async () => {
+    const { child, wasKilled } = createFakeChild();
+    const outputFile = tmpOutputFile();
+
+    const resultPromise = handleAgentProcess(child, 'build-agent', outputFile, undefined, undefined, 'haiku', true);
+
+    (child.stdout as unknown as EventEmitter).emit('data', Buffer.from(compactBoundary));
+    expect(wasKilled()).toBe(true);
+    (child as unknown as EventEmitter).emit('close', null);
+
+    const result = await resultPromise;
+    expect(result.success).toBe(true);
+    expect(result.compactionDetected).toBe(true);
+  });
+});

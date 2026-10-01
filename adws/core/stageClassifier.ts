@@ -83,7 +83,6 @@ export function classifyStage(stage: WorkflowStage): StageClass {
     case 'token_limit_recovery':
     case 'compaction_recovery':
     case 'test_compaction_recovery':
-    case 'review_compaction_recovery':
     case 'plan_validating':
     case 'plan_validated':
     case 'plan_resolving':

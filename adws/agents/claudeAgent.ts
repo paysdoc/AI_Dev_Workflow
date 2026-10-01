@@ -54,6 +54,8 @@ export interface AgentLaunchContext {
  *   injection and to resolve ADW_MAIN_REPO_PATH via its `gitContext`.
  *   Absent → treated as self-host, so an un-threaded caller never injects (fail-safe = today's
  *   behaviour).
+ * @param killOnCompaction - Only a caller that restarts the agent when the result carries
+ *   `compactionDetected` sets this; every other agent runs on with its compacted context.
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -69,6 +71,7 @@ export async function runClaudeAgentWithCommand(
   phaseName?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
   launchContext?: AgentLaunchContext,
+  killOnCompaction = false,
 ): Promise<AgentResult> {
   // Each arg is single-quoted to preserve formatting
   const escapeArg = (a: string): string => `'${a.replace(/'/g, "'\\''")}'`;
@@ -153,7 +156,7 @@ export async function runClaudeAgentWithCommand(
     if (claude.pid !== undefined) killProcessGroup(claude.pid, 5_000);
   }, timeoutMs);
 
-  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
+  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model, killOnCompaction);
   // When the watchdog kills the process group, the child eventually emits 'close' and
   // handleAgentProcess resolves normally. The watchdogFired guard below (not a special
   // exit-code branch in agentProcessHandler) is what surfaces the timeout to the caller.
@@ -181,7 +184,7 @@ export async function runClaudeAgentWithCommand(
         if (retryProcess.pid !== undefined) killProcessGroup(retryProcess.pid, 5_000);
       }, timeoutMs);
 
-      lastResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+      lastResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model, killOnCompaction);
       clearTimeout(retryWatchdog);
 
       if (retryWatchdogFired) {
@@ -223,7 +226,7 @@ export async function runClaudeAgentWithCommand(
 
     await delay(2000);
     const retryProcess = spawn(resolvedPath, cliArgs, spawnOptions);
-    const retryResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+    const retryResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model, killOnCompaction);
 
     if (retryResult.authExpired) {
       log(`${agentName}: Auth still failing after retry. Manual re-auth required (claude auth login).`, 'error');
