@@ -482,6 +482,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── checkGitGhGuard.test.ts
 │   ├── checkLivingDocsIndex.test.ts
 │   ├── depauditSetup.test.ts
+│   ├── deployWorkersWorkflow.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
@@ -491,10 +492,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── agentProcessHandler.test.ts
 │   │   ├── claudeAgent.test.ts
+│   │   ├── commandAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
-│   │   └── scenarioFidelityAgent.test.ts
+│   │   ├── scenarioFidelityAgent.test.ts
+│   │   ├── testAgent.test.ts
+│   │   └── testRetry.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -524,6 +528,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
+│   │   │   ├── decisionDocs.ts  # Shared fixture module docs for the decisions tests
+│   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures
 │   │   │   └── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
@@ -531,9 +537,14 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
+│   │   ├── conditionalDocsRegistryMutations.test.ts
+│   │   ├── conditionalDocsRegistryQueries.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── docsDecisionViolations.test.ts
+│   │   ├── docsDecisions.test.ts
 │   │   ├── docsGuards.test.ts
 │   │   ├── docsIndexHealth.test.ts
+│   │   ├── docsIndexHealthDecisions.test.ts
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
@@ -696,10 +707,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
-│   │   └── extractor.test.ts
+│   │   ├── d1Client.test.ts
+│   │   ├── extractor.test.ts
+│   │   └── phaseCostRecords.test.ts
 │   ├── providers/anthropic/  # Anthropic token usage extraction
 │   │   ├── extractor.ts
 │   │   ├── index.ts
+│   │   ├── legacyModelUsage.ts  # Legacy model-usage shape handling
 │   │   └── pricing.ts
 │   ├── reporting/      # Cost reporting
 │   │   ├── commentFormatter.ts
@@ -738,6 +752,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
+│   │   ├── buildPhase.test.ts
 │   │   ├── decidePostReviewOutcome.test.ts
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
@@ -816,6 +831,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
+│   │   ├── docsIndexSweepDecisions.test.ts
+│   │   ├── docsIndexSweepDefaults.test.ts
 │   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
@@ -838,7 +855,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── webhookEventBoundary.test.ts
 │   │   ├── webhookGatekeeper.test.ts
 │   │   ├── webhookHandlers.test.ts
-│   │   └── webhookRepoResolver.test.ts
+│   │   ├── webhookRepoResolver.test.ts
+│   │   └── fixtures/
+│   │       └── docsIndexSweepHarness.ts  # Shared harness for the docs-index sweep tests
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler
 │   ├── retryHandler.ts   # Retry directive handler: resets merge_blocked → awaiting_merge (no worktree teardown); respawns `paused` workflows
@@ -956,7 +975,7 @@ workers/                # Cloudflare Workers
 │   │   ├── cors.ts         # CORS middleware
 │   │   ├── index.ts        # Worker entry point
 │   │   ├── ingest.ts       # POST /api/cost handler
-│   │   ├── migrations/     # D1 SQL migrations
+│   │   ├── migrations/     # D1 SQL migrations (0001_initial.sql)
 │   │   ├── queries.ts      # D1 query helpers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
