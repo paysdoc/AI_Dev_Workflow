@@ -65,7 +65,6 @@ Checked on 2026-09-29:
 
 ## Divergence
 
-1. **The deploy workflow does not deploy.** The deploy workflow has not deployed since 2026-04-02. Its path filter compares `main` with the default branch `dev` ("Changes will be detected between dev and main"), finds 0 changed files after a merge from `dev`, and skips both deploy jobs. The runs of 2026-04-08, 2026-07-30 and 2026-09-25 all ended that way (`gh run view`, 2026-09-29). See [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md) for the branch model. Ruling (owner, 2026-09-29): a bug. The Workers were not deployed by hand. The last functional change to the cost API (2026-04-02) was deployed; the observability configuration of 2026-07-30 was not.
 2. **Screenshots never reach the issue's review comments.** `screenshotUrls` in the review comment formatters (`adws/forge/workflowCommentsIssue.ts`) is never set by any caller, so the review-comment path of #278 is dead code. Ruling (owner, 2026-09-29): screenshots were meant to appear in the review comments on the issue as well. A bug.
 
 ## More Information

@@ -351,4 +351,50 @@ describe('AnthropicTokenUsageExtractor', () => {
       expect(est2['tampered']).toBeUndefined();
     });
   });
+
+  describe('getReportedCostUsdByModel()', () => {
+    it('is empty before any result message', () => {
+      expect(extractor.getReportedCostUsdByModel()).toEqual({});
+    });
+
+    it('returns the costUSD the result message reports for its model', () => {
+      extractor.onChunk(JSON.stringify(RESULT_MESSAGE) + '\n');
+      expect(extractor.getReportedCostUsdByModel()).toEqual({ 'claude-sonnet-4-5-20250929': 0.0123 });
+    });
+
+    it('gives each model of a multi-model result its own figure, not the session total', () => {
+      const multiModelResult = {
+        type: 'result',
+        total_cost_usd: 0.05,
+        modelUsage: {
+          'claude-opus-4-6': { inputTokens: 2000, outputTokens: 1000, costUSD: 0.04 },
+          'claude-haiku-4-5-20251001': { inputTokens: 500, outputTokens: 200, costUSD: 0.01 },
+        },
+      };
+      extractor.onChunk(JSON.stringify(multiModelResult) + '\n');
+      expect(extractor.getReportedCostUsdByModel()).toEqual({
+        'claude-opus-4-6': 0.04,
+        'claude-haiku-4-5-20251001': 0.01,
+      });
+    });
+
+    it('leaves out a model whose modelUsage entry carries no costUSD', () => {
+      const partialResult = {
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4-6': { inputTokens: 2000, outputTokens: 1000, costUSD: 0.04 },
+          'claude-haiku-4-5-20251001': { inputTokens: 500, outputTokens: 200 },
+        },
+      };
+      extractor.onChunk(JSON.stringify(partialResult) + '\n');
+      expect(extractor.getReportedCostUsdByModel()).toEqual({ 'claude-opus-4-6': 0.04 });
+    });
+
+    it('returns a copy, so changing the returned object does not affect a later call', () => {
+      extractor.onChunk(JSON.stringify(RESULT_MESSAGE) + '\n');
+      const first = extractor.getReportedCostUsdByModel() as Record<string, number>;
+      first['tampered'] = 1;
+      expect(extractor.getReportedCostUsdByModel()['tampered']).toBeUndefined();
+    });
+  });
 });

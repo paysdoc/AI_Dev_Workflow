@@ -273,6 +273,8 @@
     - adws/cost/**
   - Conditions:
     - When working on LLM cost computation, cost reporting, D1 cost storage, exchange rate fetching, or cost helpers in `adws/cost/`
+    - When working on `reportedCostUsd`, `estimatedTokens`/`actualTokens` on phase cost records, the cost divergence check, `toLegacyModelUsageMap`, or `mergeModelUsageMaps`
+    - When troubleshooting cost records that show the computed cost as the reported cost, or an empty estimate-vs-actual report
 
 - app_docs/feature-9gjajh-r2-storage.md
   - Owns:
