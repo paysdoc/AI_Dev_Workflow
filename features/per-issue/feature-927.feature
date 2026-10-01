@@ -89,9 +89,11 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
       orchestrator. Today only adwChore pre-approves;
     • the §3 phase-order assertions fail for a fix that drops the document phase or the proof
       from the passing path, or moves either to the other side of the pull request;
-    • §4 fails for a chore gate fed `reviewPassed ?? false`. A chore the diff judge rules safe
-      runs no review and so has no verdict. Such a gate would stop every safe chore at
-      `review_failed`.
+    • §4 fails for a chore gate that a chore the diff judge did not escalate can reach, for
+      example one placed after the escalation branch and fed `reviewPassed ?? false`. A chore
+      the diff judge rules safe runs no review and so has no verdict. Such a gate would stop
+      every safe chore at `review_failed`. Inside the escalation branch, where only a reviewed
+      chore arrives, the same `reviewPassed ?? false` is harmless and §4 stays green.
   §3 and §4 are GREEN today and must stay green.
 
   ── WHY SOME CRITERIA GET NO SCENARIO OF THEIR OWN ──────────────────────────────────────────
