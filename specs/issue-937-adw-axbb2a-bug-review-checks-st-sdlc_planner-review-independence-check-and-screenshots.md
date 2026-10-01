@@ -27,7 +27,7 @@ Under ADR-0024 one agent writes both the step definitions and the implementation
 
 ## Solution Statement
 1. **Prompt:** add `## Step 4: Step Definition Independence Check` to `.claude/commands/review.md`, between Step 3 (Coding Guidelines Check) and `## Issue Severity Reference`. It inspects only the step-definition files added or modified in the branch diff, skips itself when there are none, and emits one `blocker` reviewIssue with `remediationStrategy: "patch"` for each violating file. It is a code-reading step. It does not run tests and does not touch Strategy A/B, so how the reviewer obtains proof is unchanged (ADR-0031).
-2. **Upload helper:** extract the harvest → upload half of `publishPrProof` into a new non-throwing function `uploadProofArtifacts` in `adws/proof/proofUploader.ts`, together with `isR2Configured`. `publishPrProof` calls it and keeps byte-identical behaviour (same `proof/{adwId}/{relPath}` keys, same comment).
+2. **Upload helper:** extract the harvest → upload half of `publishPrProof` into a new non-throwing function `uploadProofArtifacts` in `adws/proof/proofUploader.ts`, together with `isR2Configured`. Its uploader is an injectable seam whose default is the real `uploadToR2`. An uploader passed in `deps`, or one installed through the test-only `setProofUploaderForTesting`, replaces R2 and counts as configured. Only the default `uploadToR2` is gated on `isR2Configured()`. This is the seam the BDD scenarios of `features/per-issue/feature-937.feature` install their stand-in screenshot store through. `publishPrProof` calls it and keeps byte-identical behaviour (same `proof/{adwId}/{relPath}` keys, same comment).
 3. **Wiring:** `executeReviewPhase` uploads the images of the proof it judged (`ctx.scenarioProof.artifactsDir`) through `uploadProofArtifacts`. It always assigns `ctx.screenshotUrls` with the resulting URLs, so a stale list from an earlier attempt never survives, and only then posts `review_passed`/`review_failed`. The upload is skipped (empty list) when there is no `repoContext`, i.e. self-host with no comment to post, or no scenario proof.
 4. **Formatters:** move `formatScreenshotSection` from `workflowCommentsIssue.ts` into `proofCommentFormatter.ts` as an export. Render it from `formatReviewProofComment` when `screenshotUrls` is non-empty, and pass `ctx.screenshotUrls` into the `ProofCommentInput` from both review formatters. The fallback path reuses the moved helper and its output does not change.
 5. **ADRs:** delete the `## Divergence` section of ADR-0024 and item 2 (the whole `## Divergence` section) of ADR-0022. Nothing else in either record changes: the write-an-adr skill allows only `status`, `superseded-by`, `## Divergence` and the supersession note to change after acceptance.
@@ -39,6 +39,7 @@ Both defects show up by reading the code; neither needs a live run.
 3. In `adws/forge/workflowCommentsIssue.ts`, `formatReviewPassedComment` (line 198) and `formatReviewFailedComment` (line 228) build a `ProofCommentInput` without `screenshotUrls` whenever `ctx.scenarioProof` is set. In `adws/forge/proofCommentFormatter.ts`, `formatReviewProofComment` (line 102) never reads `input.screenshotUrls`.
 4. In `adws/adwSdlc.tsx`, `executeReviewPhase` (line 77) posts the review comment before `executePRPhase` (line 116) and `executeProofPublishPhase` (line 117). `publishPrProof` (`adws/proof/prProofPublisher.ts:120`) returns `Promise<void>`, so its `uploaded` URLs stay local.
 5. Behaviour check: `formatWorkflowComment('review_passed', { issueNumber: 1, adwId: 'x', scenarioProof: { tagResults: [], hasBlockerFailures: false, resultsFilePath: '/p.md', artifactsDir: '/a' }, screenshotUrls: ['https://screenshots.paysdoc.nl/repo/proof/x/s/1.png'] })` returns a body without the URL. The new unit tests in Step 6 assert the opposite and fail before the fix.
+6. Once its step definitions exist, `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-937"` fails every row of `features/per-issue/feature-937.feature` that has screenshots (§1, §2 and the refused-upload row of §3): nothing is uploaded before the review comment, and the comment embeds no image. The two rows without screenshots and the type-check row pass.
 
 ## Root Cause Analysis
 - **Independence check.** The prompt half of #307 was never merged (`git log --all -S'ndependence' -- .claude/commands/review.md` finds no commit). The 2026-04-08 passive-judge rewrite (a805a4b6, ADR-0031) rebuilt `review.md` from the pre-#307 text, so the gap carried over. The control that ADR-0024's "Bad" consequence relies on ("The review check was meant to cover this") does not exist.
@@ -63,7 +64,9 @@ Use these files to fix the bug:
 - `adws/proof/types.ts` — `UploadedArtifact`, `UploaderFn`, `PublishDeps`; gains the uploader's deps interface.
 - `adws/proof/index.ts` — barrel; re-export the new uploader.
 - `adws/r2/uploadService.ts` / `adws/r2/types.ts` — `uploadToR2` (default uploader) and `UploadOptions`/`UploadResult`; unchanged.
-- `adws/core/environment.ts` — `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` are module-level constants read at import time. Tests must `vi.mock('../../core/environment', …)` to simulate a configured R2, as `adws/cost/__tests__/d1Client.test.ts:4` does.
+- `adws/core/environment.ts` — `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` are module-level constants read at import time, after `dotenv.config()` has loaded `.env`. Unit tests must `vi.mock('../../core/environment', …)` to simulate a configured R2, as `adws/cost/__tests__/d1Client.test.ts:4` does. A cucumber step cannot toggle these constants. The BDD scenarios therefore replace R2 through the `setProofUploaderForTesting` seam (Step 1), never through the environment. Through the environment, a run without credentials would upload nothing, and a run with credentials in `.env` would reach the real R2.
+- `adws/core/guardrailsGate.ts` — `setGuardrailsGateDepsForTesting` (lines 93–103) is the precedent for a test-only module-level seam that BDD steps install and then reset with `null`. `setProofUploaderForTesting` follows it.
+- `features/per-issue/feature-937.feature` — this issue's BDD scenarios (§1–§4). They run the real `executeScenarioTestPhase` and then the real `executeReviewPhase(config, proofPath)`, and replace only R2. Their steps install a recording stand-in through `setProofUploaderForTesting` around that run, and reset it in an `@adw-937`-scoped `After`. The file exists, so the build agent runs in TDD mode (`/implement-tdd`, `adws/agents/buildAgent.ts:72-73`) and writes the step definitions in `features/per-issue/step_definitions/`.
 - `adws/forge/workflowCommentsIssue.ts` — `WorkflowContext.screenshotUrls`, `formatReviewPassedComment`, `formatReviewFailedComment`, and the private `formatScreenshotSection` that moves out.
 - `adws/forge/proofCommentFormatter.ts` — `ProofCommentInput.screenshotUrls` placeholder and `formatReviewProofComment`, which must render screenshots.
 - `adws/phases/scenarioTestPhase.ts` — sets `config.ctx.scenarioProof` (line 138); `artifactsDir` comes from `adws/phases/scenarioProof.ts` (wiped and recreated on every run). Read only, not changed.
@@ -81,7 +84,7 @@ Use these files to fix the bug:
 - `app_docs/feature-9gjajh-review-and-patch-agents.md` — conditional doc for `adws/agents/reviewAgent.ts` (`ReviewResult` / `ReviewIssue` shapes; not changed).
 
 ### New Files
-- `adws/proof/proofUploader.ts` — `isR2Configured()` and `uploadProofArtifacts(deps)`: harvest the proof directory, upload each image to R2 under `proof/{adwId}/{relPath}`, and return the `UploadedArtifact[]` that succeeded. Never throws. Shared by the review phase (issue comment) and `publishPrProof` (PR comment). Covered by the existing `adws/proof/**` conditional-docs glob.
+- `adws/proof/proofUploader.ts` — `isR2Configured()`, `uploadProofArtifacts(deps)` and the test-only `setProofUploaderForTesting(uploader | null)`. `uploadProofArtifacts` harvests the proof directory, uploads each image under `proof/{adwId}/{relPath}` (to R2 by default, or to an injected or installed uploader), and returns the `UploadedArtifact[]` that succeeded. Never throws. Shared by the review phase (issue comment) and `publishPrProof` (PR comment). Covered by the existing `adws/proof/**` conditional-docs glob.
 - `adws/proof/__tests__/proofUploader.test.ts` — unit tests for `uploadProofArtifacts`.
 - `adws/phases/__tests__/reviewPhaseScreenshots.test.ts` — unit tests showing that `executeReviewPhase` puts the uploaded URLs on the issue's review comment.
 
@@ -99,18 +102,32 @@ IMPORTANT: Execute every step in order, top to bottom.
     readonly uploader?: UploaderFn;
   }
   ```
+- Add a test-only seam to `proofUploader.ts`, following `setGuardrailsGateDepsForTesting` (`adws/core/guardrailsGate.ts:93-103`):
+  ```ts
+  let installedUploader: UploaderFn | null = null;
+
+  /**
+   * Test-only seam: an installed uploader replaces R2 for every call that injects none, and counts
+   * as configured, so BDD steps can record uploads without R2 credentials. Pass `null` to restore R2.
+   */
+  export function setProofUploaderForTesting(uploader: UploaderFn | null): void {
+    installedUploader = uploader;
+  }
+  ```
 - Export `async function uploadProofArtifacts(deps: UploadProofDeps): Promise<UploadedArtifact[]>`:
-  - It returns `[]` without calling the uploader when `isR2Configured()` is false.
-  - Otherwise it harvests with `harvestProofArtifacts(artifactsDir)` and uploads each artifact **sequentially** (not `Promise.all`: `uploadToR2` calls `ensureBucket` per upload, and parallel first uploads would race bucket creation). Key: `` `proof/${adwId}/${artifact.relPath}` ``; body: `fs.readFileSync(artifact.absPath)`; `contentType: contentTypeForExt(path.extname(artifact.absPath))`. Each success maps to `{ scenario: leadingSegment(relPath), url: result.url, fileName: path.basename(relPath) }`. Results come back in harvest (sorted `relPath`) order.
+  - It resolves its uploader as `deps.uploader ?? installedUploader`. Only when neither is set does it fall back to the real `uploadToR2`, and only that fallback is gated: it returns `[]` without uploading when `isR2Configured()` is false.
+  - An injected or installed uploader counts as configured and is never gated on `isR2Configured()`. That check reads environment constants fixed at import, so gating on it would leave the BDD stand-in unused in a test run without R2 credentials.
+  - Then it harvests with `harvestProofArtifacts(artifactsDir)` and uploads each artifact **sequentially** (not `Promise.all`: `uploadToR2` calls `ensureBucket` per upload, and parallel first uploads would race bucket creation). Key: `` `proof/${adwId}/${artifact.relPath}` ``; body: `fs.readFileSync(artifact.absPath)`; `contentType: contentTypeForExt(path.extname(artifact.absPath))`. Each success maps to `{ scenario: leadingSegment(relPath), url: result.url, fileName: path.basename(relPath) }`. Results come back in harvest (sorted `relPath`) order.
   - Put the per-artifact body (read + upload + map, inside `try/catch`) in a named helper, e.g. `uploadOne(artifact, deps): Promise<UploadedArtifact | null>`. On error it logs `warn` (`` `uploadProofArtifacts: failed to upload ${artifact.relPath} — ${err}` ``) and returns `null`. This keeps nesting ≤ 2.
   - It **never throws**: wrap the harvest call too and log `warn` + return `[]` on an unexpected error, because ADR-0022 says "Upload is non-fatal". State the contract in a one-line comment, in the style of the existing "Non-fatal — any error is caught and logged" comments.
-- Default `uploader` to `uploadToR2`.
 - Update `adws/proof/prProofPublisher.ts`:
   - Remove the moved helpers.
-  - In `publishPrProof`, keep the `prNumber <= 0` and `!artifactsDir || !scenarioProof` guards. Then, inside the existing `try`, compute `const r2Configured = isR2Configured();` and `const uploaded = await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });`. Format and post exactly as today.
+  - In `publishPrProof`, keep the `prNumber <= 0` and `!artifactsDir || !scenarioProof` guards. Then, inside the existing `try`, compute `const r2Configured = isR2Configured();` and `const uploaded = r2Configured ? await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader }) : [];`. Format and post exactly as today.
+  - Drop the `uploader = uploadToR2` destructuring default and pass `deps.uploader` through as given, because `uploadProofArtifacts` owns the default.
+  - Keep the `r2Configured` gate in `publishPrProof`. Today an injected uploader is also skipped when R2 is not configured, and the PR comment then carries the "R2 is not configured" note. Without the gate, an injected uploader would upload in that case and change the comment.
   - Behaviour must be byte-identical: same keys, same comment, same "R2 is not configured" note.
   - Fix the header comment's "Impure half" line to say that `publishPrProof` uploads through `uploadProofArtifacts`, then formats and posts.
-- Re-export `uploadProofArtifacts`, `isR2Configured` and the `UploadProofDeps` type from `adws/proof/index.ts`.
+- Re-export `uploadProofArtifacts`, `isR2Configured`, `setProofUploaderForTesting` and the `UploadProofDeps` type from `adws/proof/index.ts`.
 
 ### Step 2: Render screenshots in the scenario-proof review comment (`adws/forge/proofCommentFormatter.ts`)
 - Add and export `formatScreenshotSection(screenshotUrls: readonly string[]): string`. Move the body from `workflowCommentsIssue.ts` and drop the leading `\n\n`, because the sections here are joined with `\n\n` like the other `format*Section` helpers:
@@ -144,6 +161,7 @@ IMPORTANT: Execute every step in order, top to bottom.
     return uploaded.map(artifact => artifact.url);
   }
   ```
+- The helper passes no `uploader`, so the upload goes through the default seam: the stand-in installed with `setProofUploaderForTesting` if a test installed one, otherwise R2 when it is configured. Do not add an uploader parameter to `executeReviewPhase`. `feature-937.feature`'s steps call it as `executeReviewPhase(config, proofPath)` and install their stand-in through the seam.
 - In `executeReviewPhase`, right after `runReviewAgent(...)` resolves and **before** the `if (reviewPassed)` branch, assign unconditionally: `ctx.screenshotUrls = await uploadReviewedProofScreenshots(config);`.
   - Unconditional assignment matters: the orchestrator re-runs the scenario test (which wipes `artifactsDir`) between review attempts, so a list from an earlier attempt must never leak into a later comment.
   - Placing it after the agent call means a throwing agent (rate limit, auth) never triggers an upload.
@@ -153,7 +171,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 ### Step 5: Add the independence check to `.claude/commands/review.md`
 - Insert a new section `## Step 4: Step Definition Independence Check` between `## Step 3: Coding Guidelines Check` and `## Issue Severity Reference`. Do not edit Step 1, Step 2 (Strategy A/B), Step 3, or the proof instructions in `.adw/review_proof.md`.
 - The section must contain these elements (wording may be tightened, the substance may not):
-  - **Purpose.** Step definitions must test the behaviour the scenarios describe, through what the system observably does, independently of how the implementation is written. They must not be shaped to make the implementation pass.
+  - **Purpose.** Step definitions must be independent of the implementation: written against the observable behaviour the scenarios describe, not shaped to make the build agent's code pass.
   - **Scope / guard.**
     - From `git diff origin/<default> --name-only`, select the added or modified (not deleted) files that define BDD steps. That means any file registering Given/When/Then steps (for example `Given(`/`When(`/`Then(` in cucumber-js, `@given`/`@when`/`@then` in pytest-bdd or behave).
     - `## Step Def Directory` in `.adw/scenarios.md` names the usual location, but per-issue and regression suites may keep their own `step_definitions/` directories.
@@ -192,13 +210,16 @@ IMPORTANT: Execute every step in order, top to bottom.
   6. The review agent rejects (`mockRunReviewAgent.mockRejectedValue(...)`). The uploader is not called.
 
 ### Step 8: Unit tests: the extracted uploader (`adws/proof/__tests__/proofUploader.test.ts`)
-- `vi.mock('../../core/environment', () => ({ CLOUDFLARE_ACCOUNT_ID: 'acct', R2_ACCESS_KEY_ID: 'key', R2_SECRET_ACCESS_KEY: 'secret' }))` so R2 counts as configured. If the module under test needs other exports from `environment`, use the `importOriginal` spread pattern from `adws/phases/__tests__/workflowInit.test.ts:48`. Mock `../../core/logger` if it pulls in heavy imports.
+- `vi.mock('../../core/environment', () => ({ CLOUDFLARE_ACCOUNT_ID: 'acct', R2_ACCESS_KEY_ID: 'key', R2_SECRET_ACCESS_KEY: 'secret' }))` so R2 counts as configured. If the module under test needs other exports from `environment`, use the `importOriginal` spread pattern from `adws/phases/__tests__/workflowInit.test.ts:48`. Mock `../../core/logger` if it pulls in heavy imports. Also mock `vi.mock('../../r2/uploadService', () => ({ uploadToR2: vi.fn() }))`, so that the real R2 client is never reached and the default path can be asserted. Reset the seam with `setProofUploaderForTesting(null)` in `afterEach`.
 - Create a temp dir (`fs.mkdtempSync`) containing `login/step-1.png`, `checkout/step-2.jpg`, `flat.webp` and `notes.txt`. Use a recording `uploader` that returns `{ url: 'https://fake/' + key, bucket, key }`. Assert:
   - The uploader is called once per image (3), never for `notes.txt`. Keys are `proof/{adwId}/checkout/step-2.jpg`, `proof/{adwId}/flat.webp`, `proof/{adwId}/login/step-1.png` (sorted), with content types `image/jpeg`, `image/webp`, `image/png`.
   - The returned artifacts carry `scenario` = leading segment (`'Screenshots'` for the flat file), `fileName` = basename, and `url` from the uploader, in harvest order.
   - When the uploader throws for one artifact, that artifact is skipped, the others are returned, and the function resolves (no throw).
   - A nonexistent `artifactsDir` resolves to `[]` without calling the uploader.
-- Optional: an "R2 not configured → `[]`, uploader never called" case using `vi.resetModules()` + `vi.doMock` of `../../core/environment` with empty strings and a dynamic `import('../proofUploader')`.
+  - The seam. When `deps.uploader` is absent, an uploader installed with `setProofUploaderForTesting` receives the uploads and `uploadToR2` is not called. An injected `deps.uploader` takes precedence over the installed one. After `setProofUploaderForTesting(null)`, the default `uploadToR2` receives the uploads again.
+- R2 not configured. Use `vi.resetModules()` + `vi.doMock` of `../../core/environment` with empty strings, then a dynamic `import('../proofUploader')`:
+  - With neither an injected nor an installed uploader, it resolves to `[]` and `uploadToR2` is never called.
+  - An injected uploader, and an installed one, are still called, because they count as configured. This is the contract the BDD stand-in relies on.
 
 ### Step 9: Remove the resolved divergences from the ADRs
 - `specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md`: delete the entire `## Divergence` section (heading plus item 1), leaving `## More Information` directly after `### Confirmation`'s last line ("No CI gate enforces this decision."). Change nothing else: not the front matter, Context, Decision Outcome, Consequences ("The review check was meant to cover this." stays), Confirmation, or More Information.
@@ -231,13 +252,18 @@ Type check, lint, build:
 
 BDD (proof publishing must be unchanged after the extraction):
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@python-e2e"` — drives `harvestProofArtifacts` → `formatPrProofComment` → `publishPrProof`.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-937"` — this issue's scenarios, if the scenario writer produced any.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-937"` — this issue's scenarios (`features/per-issue/feature-937.feature`). All of them must pass, and the real R2 must never be reached: the stand-in is installed through `setProofUploaderForTesting`. Before the fix, every row with screenshots fails. The two rows without screenshots and the type-check row pass before and after.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — zero regressions across the regression suite, including the review-phase surface rows 07/08/15.
 
 ## Notes
 - Strictly follow `.adw/coding_guidelines.md`, in particular: nesting ≤ 2 (extract the per-artifact upload body), files < 300 lines (`reviewPhase.ts` is at 271), no `any`, immutable data, and the **Comments** rule (no issue numbers in code or prompt, no restating or name-echoing comments, fix the two stale `screenshotUrls` comments rather than adding more).
 - **Do not change how the reviewer obtains proof (ADR-0031).** No edits to Strategy A/B in `review.md`, to `.adw/review_proof.md`, to the review agent's arguments, or to `scenarioTestPhase`/`runScenarioProof`. The new Step 4 reads code and does not produce proof. The screenshot upload happens in the orchestrating TypeScript after the agent returns, so the agent's inputs are untouched.
 - **Why upload in the review phase and not reuse `executeProofPublishPhase`:** the review comment is posted before the PR exists (`adwSdlc.tsx` lines 77 vs 116–117). A failed review creates no PR at all, and `adwPlanBuildReview`/`adwChore` never run proof publish. The review phase is the only point where every orchestrator has the reviewed proof and is about to post the comment.
+- **Test seam for the BDD scenarios.** `feature-937.feature` runs the real scenario test phase and the real review phase, and replaces only R2. Its steps install a recording stand-in through `setProofUploaderForTesting` and reset it with `null` afterwards.
+  - The stand-in must count as configured (Step 1).
+  - The review phase must reach it through the default seam, not through a new parameter (Step 4).
+  - Only the default `uploadToR2` stays gated on `isR2Configured()`. With nothing installed, which is always the case in production, behaviour is exactly as described above.
+  - The seam's module-level `let` is the one deliberate mutable binding, as in `guardrailsGate.ts`.
 - **Interpretation of "a review that produced screenshots":** under the passive judge the reviewer itself produces no images. The screenshots are the images the scenario run wrote to `ADW_PROOF_DIR` (`ctx.scenarioProof.artifactsDir`) for the proof that this review judged. "The uploaded proof URLs" are their R2 URLs under `proof/{adwId}/…`, the same keys the PR proof comment uses. The review agent's own `screenshots` JSON field (local paths such as `scenario_proof.md`) is deliberately not used: it is LLM-authored and non-deterministic, and using it would mean changing the proof instructions.
 - **Known, accepted behaviour:**
   - (1) `executeProofPublishPhase` uploads the same images again after the PR phase. The keys are identical and so are the bytes (no scenario run happens between the final review and proof publish), so this is an idempotent overwrite and nothing is duplicated. Deduplicating it would couple the PR publisher to review-phase state for a negligible saving.
