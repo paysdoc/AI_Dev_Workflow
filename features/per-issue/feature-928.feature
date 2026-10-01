@@ -107,21 +107,23 @@ Feature: Every agent ADW starts takes its model and effort from the routing tabl
       spawn function's default still names a model.
 
   ── WHY SOME CRITERIA GET NO SCENARIO OF THEIR OWN ──────────────────────────────────────────
-  AC2's and AC4's unit tests, and AC1's unit test if the build chooses one over a lint rule, are
-  obligations on the vitest suite, which the build and test phases discharge. §2, §4 and §1's
-  model-literal rows are their behavioural counterparts here. AC6 (the four Divergence sections
+  The unit tests for AC1, AC2 and AC4 are obligations on the vitest suite, which the build and
+  test phases discharge. §2, §4 and §1's model-literal rows are their behavioural counterparts
+  here. AC6 (the four Divergence sections
   removed in the same pull request) and the document edits of ADR-0057 item 2 (`.env.sample`,
   `README.md`, `adws/README.md` and each orchestrator's header comment) change files, not
   behaviour. A scenario could only grep them, which the rot rules forbid, so review owns them.
   The usage text is the one place where the running system tells the operator what the key
-  does, and §5 asserts it. `adwPrReview.tsx` prints a usage text of its own that names no
-  environment variable, so §5 has no row for it; its header comment is among the documents
-  review owns. The two `claude auth status --json` runs, in the cron's auth-gate tick
-  (`adws/triggers/trigger_cron.ts`) and in the agent spawn's re-check after an expired token
-  (`adws/agents/claudeAgent.ts`), copy ADW's whole environment today. The issue's "every
-  `claude` process" covers them. No scenario drives them: reaching them needs an auth gate on
-  disk, or an expired-token reply followed by a status answer, which this harness does not
-  stage. The vitest suite is where they are asserted. The values `/resolve_conflict` and the
+  does, and §5 asserts it. ADR-0057's decision outcome also asks the health check to say what
+  the key does. The issue and Divergence item 1 ask only that the check stop requiring the key,
+  so §5 asserts that and pins no message from the check. `adwPrReview.tsx` prints a usage text
+  of its own that names no environment variable, so §5 has no row for it; its header comment
+  is among the documents review owns. The two `claude auth status --json` runs, in the cron's
+  auth-gate tick (`adws/triggers/trigger_cron.ts`) and in the agent spawn's re-check after an
+  expired token (`adws/agents/claudeAgent.ts`), copy ADW's whole environment today. The issue's
+  "every `claude` process" covers them. No scenario drives them: reaching them needs an auth
+  gate on disk, or an expired-token reply followed by a status answer, which this harness does
+  not stage. The vitest suite is where they are asserted. The values `/resolve_conflict` and the
   retry's command get in the tables are the build's choice (ADR-0010: the values are tuning),
   so no row pins them; every row reads them back from the tables at run time.
 
@@ -166,10 +168,11 @@ Feature: Every agent ADW starts takes its model and effort from the routing tabl
       reports a failed deny matrix against the stand-in, and that is fine.
     • READING THE RECORDS. `--model` and `--effort` are read by flag position in argv. "with no
       effort flag" means no `--effort` in argv. "was started for {string}" selects the records
-      whose slash command equals the given one and ignores the rest. That also covers a
-      guardrails probe run that a target-repo spawn decision may start, though the test-deps
-      override in `guardrailsGate.ts` is the cleaner way to keep that decision from probing or
-      injecting `--settings`. "was started {int} times" counts every record.
+      whose slash command equals the given one and ignores the rest; it fails when none
+      match. That also covers a guardrails probe run that a target-repo spawn decision may
+      start, though the test-deps override in `guardrailsGate.ts` is the cleaner way to keep
+      that decision from probing or injecting `--settings`. "was started {int} times" counts
+      every record.
     • ROUTING EXPECTATIONS come from the real routing module at step time, through
       `getModelForCommand(command, body)` and `getEffortForCommand(command, body)`. The body is
       a short issue text; for "asks for {string}" the quoted keyword is appended to it.
@@ -201,7 +204,7 @@ Feature: Every agent ADW starts takes its model and effort from the routing tabl
       command agent returns the output the retry produced" compares the result's `parsed` with
       what the validator extracts from the valid text. "a command agent runs {string}", without
       output validation, passes no `extractOutput`, so no retry runs.
-    • THE RETRY is the second record.
+    • THE RETRY is the second record. Every retry step fails when there is no second record.
         – "a slash command followed only by its arguments": the prompt is `/<name>` followed by
           zero or more arguments quoted the way `runClaudeAgentWithCommand` quotes them (single
           quotes, embedded quotes escaped), and nothing else.
@@ -244,19 +247,23 @@ Feature: Every agent ADW starts takes its model and effort from the routing tabl
     • THE USAGE TEXT. "the {string} orchestrator is asked for its usage" runs
       `bunx tsx adws/<orchestrator> --help` from the repository root with `NODE_OPTIONS`
       cleared, and captures stdout and stderr. The exit code is not asserted; it is 1 today.
-      The key's entry is the line naming it plus any continuation lines indented under it.
+      The key's entry is the line naming it, plus the lines right after it that are indented
+      deeper than it. The entry never includes the next variable's line: today's `GITHUB_PAT`
+      line says "(Optional)", and reading it would let the optional row pass against today's
+      text. A usage text with no line naming the key fails both rows.
       "presents {string} as optional": the entry matches /optional/i. "says that setting
       {string} moves billing from the Claude subscription to the API": the entry matches
       /subscription/i, /\bAPI\b/ and /bill/i.
-    • THE MODEL-LITERAL CHECK is whichever gate the build adds for AC1: a lint rule, a guard
-      script run like `lint:git-guard`, or a unit test. "run across the repository" runs it
-      over the checkout; "reports no violations" is exit 0, with the check's output shown on
-      failure. "run over the fixture source tree" runs the same check with the fixture tree as
-      its root: a guard script or ESLint with the tree as `cwd` (clear `NODE_OPTIONS`, as
-      feature-816's runner for the git/gh guard does), or a unit test whose scan root can be
-      pointed at the tree. If the gate has no such seam, add one. "fails naming {string}" is a
-      non-zero exit whose output contains the path. The fixture tree is a throwaway directory
-      holding only the named file, written in the given form:
+    • THE MODEL-LITERAL CHECK is the guard script the build adds for AC1,
+      `adws/checkModelLiterals.ts` (`bun run lint:model-literals`). Its unit test runs the same
+      scan over the checkout. The scenarios run the script the way feature-816's runner runs the
+      git/gh guard: `bunx tsx <repo>/adws/checkModelLiterals.ts` with `NODE_OPTIONS` cleared.
+      The script scans `adws/` and `scripts/` under its working directory. "run across the
+      repository" runs it with the checkout as `cwd`; "reports no violations" is exit 0, with
+      the check's output shown on failure. "run over the fixture source tree" runs it with the
+      fixture tree as `cwd`. "fails naming {string}" is a non-zero exit whose output contains
+      the path. The fixture tree is a throwaway directory holding only the named file, written
+      in the given form:
         – "as an argument to the agent spawn function":
           `runClaudeAgentWithCommand('/commit', [], 'fixture', outputFile, '<model>')`;
         – "after a --model flag in a Claude CLI argument list":

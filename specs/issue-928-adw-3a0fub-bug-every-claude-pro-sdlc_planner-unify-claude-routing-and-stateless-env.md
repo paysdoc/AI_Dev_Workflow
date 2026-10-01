@@ -57,7 +57,7 @@ Every site that starts `claude` outside that function rebuilt the spawn by hand 
   - Set the fast effort of `/promote_regression_vocabulary` to `undefined`.
   - Add a `PROBE_MODEL` constant to `modelRouting.ts` for the one-turn probes, which run no slash command.
   - Make the three call sites read `getModelForCommand`/`getEffortForCommand`, point the probes at `PROBE_MODEL`, and remove the `'sonnet'` default from `runClaudeAgentWithCommand`.
-  - Two unit tests guard this. One asserts that no Haiku entry carries an effort. The other parses production source and fails on any spawn call site that passes a literal model.
+  - Two unit tests guard this. One asserts that no Haiku entry carries an effort. The other runs a model-literal check over production source and fails on any spawn call site that passes a literal model. The check is a guard script, `adws/checkModelLiterals.ts` (`bun run lint:model-literals`), so it can also run over another root, such as the fixture trees of the `@adw-928` scenarios.
 - **The retry is a command (ADR-0015).**
   - Add `.claude/commands/correct_output.md`.
   - The retry loop writes the invalid output to a file in the logs directory and runs `/correct_output` with positional arguments. Its model and effort are routed like every other command's.
@@ -65,7 +65,7 @@ Every site that starts `claude` outside that function rebuilt the spawn by hand 
 - **One stateless launch environment (ADR-0052).**
   - Add `buildClaudeLaunchEnv(overlay?)` to `adws/core/environment.ts`. It returns the allowlisted environment, then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`. The switch comes last so no caller can turn memory back on.
   - Every `claude` start uses it: the agent spawn and its retries, both auth-status checks, the three probes and the health check's version probe.
-  - Unit tests observe the environment that each probe's child process actually receives.
+  - Unit tests observe the environment that each probe's child process, the version check and the cron's auth-status check actually receive.
 - **The key is optional (ADR-0057).**
   - The environment check has no required variables. It reports whether billing runs on the subscription or the API, and warns when the key is set.
   - The listed documents present the key as optional and state its billing effect.
@@ -154,6 +154,11 @@ Use these files to fix the bug:
 - `adws/core/guardrailsProbe.ts`: `runGuardrailsProbe()`, the production seam that runs the script as a subprocess. The new integration test drives the script through it.
 - `adws/triggers/trigger_cron.ts`: `handleAuthGateTick` runs `claude auth status --json` with `{ ...process.env }`.
 
+**Model-literal check**
+- `adws/checkGitGhGuard.ts`: the pattern for the new check. It walks the tree with `fs`, parses with the TypeScript compiler API and scans from `process.cwd()`. It prints `file:line` per violation and exits 1. Its `main()` runs only when `process.argv[1]` includes the script name, so a unit test can import its exported helpers.
+- `package.json`: gains `lint:model-literals`.
+- `features/per-issue/step_definitions/feature-816.steps.ts`: runs the git/gh guard with a throwaway fixture tree as `cwd` and `NODE_OPTIONS` cleared. The `@adw-928` model-literal scenarios run the new check the same way.
+
 **Health check**
 - `adws/healthCheckChecks.ts`: `checkEnvironmentVariables` requires the key. `checkClaudeCodeCLI` and `execCommand` run `claude --version`.
 - `adws/healthCheck.tsx`: prints `details.required` in the environment section. Its usage text names the key.
@@ -188,6 +193,7 @@ Use these files to fix the bug:
 - `adws/agents/__tests__/claudeAgent.test.ts`: mocks `getSafeSubprocessEnv`, has 16 calls that rely on the `'sonnet'` default, and has three statelessness tests.
 - `adws/triggers/__tests__/autoMergeHandler.test.ts`: expects `'sonnet', undefined`.
 - `adws/triggers/__tests__/rateLimitProbe.test.ts`: mocks the `../../core` barrel.
+- `adws/triggers/__tests__/trigger_cron.test.ts`: stubs the module's side-effect dependencies and spreads the real `../../core` barrel into its mock. It gains an auth-gate tick test.
 - `adws/core/__tests__/environment.test.ts`: the `getSafeSubprocessEnv` tests.
 - `adws/__tests__/healthCheckChecks.test.ts`: has no environment-check tests yet.
 
@@ -212,7 +218,8 @@ Use these files to fix the bug:
 
 - `.claude/commands/correct_output.md`: the output-validation retry as a slash command.
 - `adws/core/__tests__/modelRouting.test.ts`: table integrity. No Haiku entry carries an effort, and the new commands are routed.
-- `adws/core/__tests__/modelRoutingCallSites.test.ts`: parses production source and fails on any spawn call site that names a model literally.
+- `adws/checkModelLiterals.ts`: the model-literal check. It exports pure helpers and has a CLI that scans `adws/` and `scripts/` under `process.cwd()`.
+- `adws/__tests__/checkModelLiterals.test.ts`: runs the check over the repository and fails on any spawn call site that names a model literally.
 - `adws/core/__tests__/fixtures/recordingClaudeCli.ts`: an executable fake `claude` that records the environment it was started with.
 - `adws/agents/__tests__/commandAgent.test.ts`: the retry runs `/correct_output` with a routed model and effort and a file argument.
 - `adws/jsonl/__tests__/schemaProbe.test.ts`: the schema probe's child process runs under the launch environment.
@@ -372,10 +379,10 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `runClaudePrint` uses `'--model', PROBE_MODEL` (from `'../adws/core/modelRouting'`) and `env: buildClaudeLaunchEnv({ CLAUDE_HOOKS_LOG_DIR: hookLogDir })` (from `'../adws/core/environment'`).
   - In the header comment, change "Spawns a real `claude -p` (haiku)" so it names the probe model instead of a tier.
   - Do not add an entry-point guard, and do not move code: `void main()` stays unconditional. A guard that compares `process.argv[1]` with `import.meta.url` is false when the script is reached through a symlinked path; this was verified with `bunx tsx` under macOS `/tmp`. The script would then exit 0 without probing, and `runGuardrailsProbe()` reads exit 0 as a pass.
-- Create `adws/core/__tests__/fixtures/recordingClaudeCli.ts`, which exports `createRecordingClaudeCli()`:
+- Create `adws/core/__tests__/fixtures/recordingClaudeCli.ts`, which exports `createRecordingClaudeCli(options?: { stdout?: string })`:
   - In a fresh `mkdtempSync` directory, write an executable `/bin/sh` script (`mode 0o755`).
   - Each run of the script appends one tab-separated line with `$CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `$CLAUDE_HOOKS_LOG_DIR` and `$ADW_RECORDING_SENTINEL` to a record file. Bake the absolute path of the record file into the script: a path passed through the environment would be dropped by the allowlist.
-  - The script prints nothing and exits 0.
+  - The script prints `stdout` and exits 0. By default it prints nothing. Bake `stdout` into the script as well, for example into a file next to the record that the script `cat`s.
   - Return `{ cliPath, readInvocations(), cleanup() }`, where `readInvocations()` parses the record lines into `{ memory, hooksLogDir, sentinel }`.
 
   The fixture sits in `adws/` because `adws/tsconfig.json` sets `rootDir: "."`. An adws test that imports from `test/` or `scripts/` fails `tsc -p adws/tsconfig.json` with TS6059 (verified).
@@ -398,6 +405,11 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### 10. Start the auth-status check and the version check under the launch environment
 - `adws/triggers/trigger_cron.ts` `handleAuthGateTick`: use `env: buildClaudeLaunchEnv()`, added to the existing `'../core'` import. `trigger_cron.test.ts` spreads the real barrel into its mock, so the builder is available there.
+- `adws/triggers/__tests__/trigger_cron.test.ts`: add `describe('auth-gate tick')`. No scenario reaches the two `claude auth status --json` runs, so the vitest suite asserts both. Step 4 covers the agent spawn's re-check; this test covers the cron's.
+  - Mock `../../core/authGate`, `../scanAuthQueue` and `../../core/slackNotifier`, so the tick touches no gate file, auth queue or webhook. The `authGate` mock spreads the real module and replaces `readAuthGate` and `clearAuthGate`. `readAuthGate` returns `null` by default and a gate record in this test.
+  - Create the recording CLI with `{ stdout: '{"loggedIn":true}' }`. Set it as `CLAUDE_CODE_PATH`, call `clearClaudeCodePathCache()` and set the sentinel.
+  - `await checkAndTrigger({} as LaunchBoundary)`. The logged-in branch clears the gate and returns before any other sweep runs.
+  - Expect one invocation with `memory === '1'` and `sentinel === ''`. Restore the environment, clear the cache and clean up.
 - `adws/healthCheckChecks.ts`:
   - `execCommand(command: string, env?: NodeJS.ProcessEnv)` passes `env` to `execSync`. When `env` is undefined, other callers keep today's inheritance.
   - `checkClaudeCodeCLI` calls `` execCommand(`${resolvedPath} --version`, buildClaudeLaunchEnv()) ``.
@@ -459,22 +471,25 @@ IMPORTANT: Execute every step in order, top to bottom.
 - `specs/adr/README.md` needs no change; the statuses stay `accepted`.
 
 ### 15. Add the call-site guard: no literal model outside the routing module
-- Create `adws/core/__tests__/modelRoutingCallSites.test.ts`. It uses the TypeScript compiler API (`import * as ts from 'typescript'`), as `adws/checkGitGhGuard.ts` and `adws/guard/*` do.
-- In the test, define a pure `findLiteralModelCallSites(fileName, sourceText): string[]`. It parses with `ts.createSourceFile` (TSX script kind for `.tsx`), walks the tree, and reports `file:line` for three shapes. "Literal" means `ts.isStringLiteralLike`.
-  1. An array literal in which a `'--model'` literal is followed by another literal. This is the probes' argv.
-  2. A call to `runClaudeAgentWithCommand` whose fifth argument (`model`) is a literal.
-  3. A parameter named `model` with a literal default.
-- Enumerate every `.ts`/`.tsx` file under `adws/` and `scripts/` with `fs`:
-  - skip any path with a `__tests__`, `node_modules` or `dist` segment, and skip `adws/core/modelRouting.ts`;
-  - take the root from `REPO_ROOT` in `adws/core/environment.ts`;
-  - read the files instead of importing them, so the `adws/tsconfig.json` `rootDir` is not crossed.
-  
-  Expect the findings to be `[]`, and list them in the failure message.
-- Add a self-check so the guard cannot pass vacuously:
-  - a snippet with `spawnSync(p, ['--model', 'haiku'])`, `runClaudeAgentWithCommand('/x', [], 'a', 'o', 'sonnet')` and `function f(model = 'opus') {}` yields exactly three findings;
-  - the same shapes written with `PROBE_MODEL` or `getModelForCommand(...)` yield none.
+- Create `adws/checkModelLiterals.ts`, modelled on `adws/checkGitGhGuard.ts`. It uses the TypeScript compiler API (`import * as ts from 'typescript'`) and imports nothing from `adws/core`. It exports two functions:
+  - `findLiteralModelCallSites(fileName, sourceText): string[]`. It parses with `ts.createSourceFile` (TSX script kind for `.tsx`), walks the tree, and reports `file:line` for three shapes. "Literal" means `ts.isStringLiteralLike`.
+    1. An array literal in which a `'--model'` literal is followed by another literal. This is the probes' argv.
+    2. A call to `runClaudeAgentWithCommand` whose fifth argument (`model`) is a literal.
+    3. A parameter named `model` with a literal default, with or without a type annotation.
+  - `scanForLiteralModels(root): string[]`. It enumerates every `.ts`/`.tsx` file under `<root>/adws` and `<root>/scripts` with `fs`, and reports each finding with its path relative to `root`, in `/` form:
+    - skip a missing `adws/` or `scripts/` directory;
+    - skip any path with a `__tests__`, `node_modules` or `dist` segment, and skip `adws/core/modelRouting.ts`;
+    - read the files instead of importing them, so the `adws/tsconfig.json` `rootDir` is not crossed.
+- Its `main()` scans `process.cwd()`. It prints each finding on its own line and exits 1, or prints a pass line and exits 0. As in `checkGitGhGuard.ts`, `main()` runs only when `process.argv[1]` includes `checkModelLiterals`, so the unit test can import the module.
+- Add `"lint:model-literals": "bunx tsx adws/checkModelLiterals.ts"` to `package.json`.
+- The `@adw-928` model-literal scenarios run the script the way feature-816 runs the git/gh guard: `bunx tsx <repo>/adws/checkModelLiterals.ts` with `NODE_OPTIONS` cleared. The `cwd` is the checkout for the repository-wide row, and a throwaway fixture tree for the failing rows. A finding names the file relative to that root, for example `scripts/fixture-probe.ts:1`.
+- Create `adws/__tests__/checkModelLiterals.test.ts`:
+  - `scanForLiteralModels(REPO_ROOT)`, with `REPO_ROOT` from `adws/core/environment.ts`, is `[]`. List the findings in the failure message.
+  - Add a self-check so the guard cannot pass vacuously:
+    - a snippet with `spawnSync(p, ['--model', 'haiku'])`, `runClaudeAgentWithCommand('/x', [], 'a', 'o', 'sonnet')` and `function f(model = 'opus') {}` yields exactly three findings;
+    - the same shapes written with `PROBE_MODEL` or `getModelForCommand(...)` yield none.
 - Test code (unit tests, `features/`, `test/`) is out of scope and may still pass literal models, for example `features/per-issue/step_definitions/feature-907.steps.ts`.
-- Before steps 4–9 this test lists the seven findings. After them it passes. This is the acceptance test for "a unit test or lint rule fails if one is added".
+- Before steps 4–9 the check lists the seven findings. After them it passes. The unit test is the acceptance test for "a unit test or lint rule fails if one is added". The package script is the seam that the scenarios and operators run; it does not need wiring into CI.
 
 ### 16. Run the Validation Commands
 - Run every command in `Validation Commands`, and fix any failure before finishing.
@@ -507,12 +522,13 @@ Execute every command to validate the bug is fixed with zero regressions.
     ```
 - Targeted unit tests:
   ```bash
-  bunx vitest run adws/core/__tests__/modelRouting.test.ts adws/core/__tests__/modelRoutingCallSites.test.ts adws/core/__tests__/environment.test.ts adws/agents/__tests__/claudeAgent.test.ts adws/agents/__tests__/commandAgent.test.ts adws/triggers/__tests__/autoMergeHandler.test.ts adws/triggers/__tests__/rateLimitProbe.test.ts adws/jsonl/__tests__/schemaProbe.test.ts adws/core/__tests__/guardrailsProbe.integration.test.ts adws/__tests__/healthCheckChecks.test.ts adws/__tests__/adwUpgrade.test.ts adws/triggers/__tests__/trigger_cron.test.ts
+  bunx vitest run adws/core/__tests__/modelRouting.test.ts adws/__tests__/checkModelLiterals.test.ts adws/core/__tests__/environment.test.ts adws/agents/__tests__/claudeAgent.test.ts adws/agents/__tests__/commandAgent.test.ts adws/triggers/__tests__/autoMergeHandler.test.ts adws/triggers/__tests__/rateLimitProbe.test.ts adws/jsonl/__tests__/schemaProbe.test.ts adws/core/__tests__/guardrailsProbe.integration.test.ts adws/__tests__/healthCheckChecks.test.ts adws/__tests__/adwUpgrade.test.ts adws/triggers/__tests__/trigger_cron.test.ts
   ```
 - Full unit suite: `bun run test:unit`
 - Lint: `bun run lint`
 - Type check, root and adws project: `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json`
 - Build: `bun run build`
+- Model-literal check over the checkout. It must report no findings and exit 0: `bun run lint:model-literals`
 - Git/gh guard: `bun run lint:git-guard`
 - Docs index gate, because app_docs are edited: `bun run lint:docs-index`
 - JSONL conformance (`schemaProbe.ts` is touched, and CI runs this on every PR): `bun run jsonl:check`
@@ -534,7 +550,16 @@ Execute every command to validate the bug is fixed with zero regressions.
   - the guardrails probe script runs `main()` when it is imported, and an entry-point guard would risk a silent pass;
   - adws tests cannot import from `scripts/`.
   
-  The recording fake CLI uses the same technique as feature-909's throwaway CLI script. These same public seams suit the BDD step definitions for `@adw-928`: `checkEnvironmentVariables()`, `buildClaudeLaunchEnv()`, `runClaudeProbe()`, `checkClaudeJsonlSchema()`, `runGuardrailsProbe()`, `PROBE_MODEL` and the routing tables.
+  The recording fake CLI uses the same technique as feature-909's throwaway CLI script.
+- The `@adw-928` scenarios observe the same CLI boundary with a stand-in of their own. It records argv, the full environment and the working directory, and answers with stream-json. Their step definitions drive these seams, as the feature file's notes describe:
+  - the `runInitCommand` that `buildDefaultUpgradeDeps` supplies, and `mergeWithConflictResolution`;
+  - `runCommandAgent` and `runClaudeAgentWithCommand`;
+  - `copyClaudeAssetsToWorktree`, which puts the retry's command file into a target worktree;
+  - `probeRateLimit()` with its default exec, `checkClaudeJsonlSchema(schemaPath)` over a throwaway copy of the schema, `runGuardrailsProbe()` and `checkClaudeCodeCLI()`;
+  - `checkEnvironmentVariables()`;
+  - `getModelForCommand`/`getEffortForCommand` and the four exported tables;
+  - each orchestrator's `--help` usage text;
+  - `adws/checkModelLiterals.ts`, run as a process (step 15).
 - The probes keep their inline prompts (`ping`, `say hello` and the deny-matrix prompts). ADR-0015 places them outside the slash-command rule because they do no pipeline work, and the issue asks only that the retry become a command file.
 - Wiring and side effects of the new command file:
   - `copyClaudeAssetsToWorktree` copies it into target worktrees on every `initializeWorkflow`, including resumes. There it is gitignored (`target: false`).
