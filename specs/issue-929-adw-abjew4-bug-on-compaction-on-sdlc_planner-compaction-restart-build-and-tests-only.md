@@ -10,7 +10,7 @@ issueJson: `{"number":929,"title":"bug: on compaction only build and tests resta
 
 Only two callers restart a compacted agent:
 - **The build phase.** `adws/phases/buildPhase.ts:187-237` starts the build agent again with a continuation prompt.
-- **The unit-test path.** `adws/core/retryOrchestrator.ts:89-98` and `121-130`, together with `adws/agents/testRetry.ts:97-99`, run the test agent or test resolver again without using up a retry.
+- **The unit-test path.** `adws/core/retryOrchestrator.ts:89-98` and `121-130`, together with `adws/agents/testRetry.ts:97-99`, restart without using up a retry. A compacted test agent is run again. A compacted test-resolution agent sends the loop back to run the unit tests again.
 
 No other agent's caller reads `compactionDetected`. Among them are plan, plan validation and alignment, scenario writer, step definitions, scenario fix, the passive review judge, the review phase's patch, refactor and build agents (`adws/phases/reviewPatchHelpers.ts:59` and `109`), document, PR-review plan and build (`adws/phases/prReviewPhase.ts:251`), install, the rot advisory, the commit and branch-name agents, and the classifier. For all of them, compaction ends the run early, and the caller treats the cut-off output as a finished, successful run.
 
@@ -108,11 +108,11 @@ Use these files to fix the bug:
 - `adws/agents/__tests__/claudeAgent.test.ts`: has an existing harness that mocks `spawn` and `handleAgentProcess`. Gets a pass-through test.
 - `adws/phases/__tests__/reviewPhase.test.ts`: style reference for phase tests with mocked agent runners. Must keep passing unchanged.
 - `features/per-issue/feature-929.feature`: this issue's BDD scenarios, written in parallel by the scenario writer:
-  - §1 and §2: build and unit-test restart;
-  - §3: run-on rows for plan, step-definition, review, review-patch build, scenario-resolution, document and PR review build;
-  - §4: the retired stage.
+  - §1 and §2: build and unit-test restart. A compacted test agent is run again; a compacted test-resolution agent sends the phase back to run the unit tests again. Neither restart uses up a retry;
+  - §3: run-on rows for plan, step-definition, review, review-patch build, scenario-resolution, document and PR review build. Also one end-to-end review scenario: the review phase passes on the final verdict its review agent reached after the compaction, not on the draft verdict written before it, and posts no compaction recovery comment;
+  - §4: the retired stage. A "Review Compaction Recovery" comment is no longer read as a stage, and the formatter no longer produces that heading. The build and test recovery comments still parse to their stages, which classify as `resumable`, and the type-check passes.
 
-  They match this plan. The build agent drives them with `/implement-tdd`.
+  They match this plan. The feature file and its step definitions name the retired stage on purpose, so the dead-code grep in Step 7 and in `Validation Commands` excludes `feature-929*` files. The build agent drives them with `/implement-tdd`.
 - `app_docs/feature-9gjajh-claude-agents-core.md`: the living doc that owns `agentProcessHandler`, `claudeAgent` and `commandAgent`. Line 14 (Responsibilities) and line 67 (Gotchas) say every agent is terminated on compaction; both are updated.
 - `app_docs/feature-9gjajh-build-and-plan-phases.md`: conditional doc for `buildPhase.ts` (build continuation loop). Context only; still accurate.
 - `app_docs/feature-9gjajh-scenario-and-stepdef-agents.md`: conditional doc for `testAgent.ts` and `testRetry.ts`. Context only.
@@ -214,7 +214,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - **`adws/core/__tests__/stageClassifier.test.ts`:** delete the `review_compaction_recovery: 'resumable',` row from `EXPECTED`. Because of the `Record<WorkflowStage, StageClass>` type, `tsc` would otherwise reject it as an excess property.
 - **`adws/core/workflowCommentParsing.ts`:** delete the `':warning: Review Compaction Recovery': 'review_compaction_recovery',` entry from `STAGE_HEADER_MAP`.
 - **`adws/forge/workflowCommentsIssue.ts`:** delete `formatReviewCompactionRecoveryComment` and the line `case 'review_compaction_recovery': …` in `formatWorkflowComment`. Keep `compaction_recovery` and `test_compaction_recovery`, which `buildPhase.ts` and `unitTestPhase.ts` still post.
-- Check that nothing else in code references the stage: `grep -rn "review_compaction_recovery\|formatReviewCompactionRecoveryComment\|Review Compaction Recovery" adws features test` must return nothing. The historical plans in `specs/` are records; leave them as they are.
+- Check that nothing else in code references the stage: `grep -rn --exclude='feature-929*' "review_compaction_recovery\|formatReviewCompactionRecoveryComment\|Review Compaction Recovery" adws features test` must return nothing. The exclusion skips this issue's own feature file and step definitions. Their §4 scenarios name the retired stage on purpose, to show that it is gone. The historical plans in `specs/` are records; leave them as they are.
 
 ### 8. Update the decision record and the living doc
 - **`specs/adr/0023-context-exhaustion-is-a-reset.md`:**
@@ -236,7 +236,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 
 - `bunx vitest run adws/agents/__tests__/agentProcessHandler.test.ts`: the reproduction. Before Step 2 the run-on compaction test fails because the agent is killed. After the fix, both compaction tests and the four existing rate-limit and auth tests pass.
 - `bunx vitest run adws/agents/__tests__/agentProcessHandler.test.ts adws/agents/__tests__/claudeAgent.test.ts adws/agents/__tests__/testRetry.test.ts adws/phases/__tests__/buildPhase.test.ts adws/phases/__tests__/reviewPhase.test.ts adws/core/__tests__/stageClassifier.test.ts adws/core/__tests__/workflowCommentParsing.test.ts adws/forge/__tests__/workflowCommentsIssue.test.ts`: the targeted suites. Baseline at planning time, before any change: the `agentProcessHandler`, `claudeAgent`, `stageClassifier`, `workflowCommentsIssue` and `reviewPhase` suites passed 117 of 117 tests.
-- `! grep -rn "review_compaction_recovery\|formatReviewCompactionRecoveryComment\|Review Compaction Recovery" adws features test`: the dead stage and formatter are gone.
+- `! grep -rn --exclude='feature-929*' "review_compaction_recovery\|formatReviewCompactionRecoveryComment\|Review Compaction Recovery" adws features test`: the dead stage and formatter are gone. `feature-929*` files are excluded because this issue's §4 scenarios and their step definitions name the retired stage in order to assert that it is gone.
 - `! grep -n "^## Divergence" specs/adr/0023-context-exhaustion-is-a-reset.md`: the Divergence section of ADR-0023 is removed.
 - `bun run lint`: lint.
 - `bunx tsc --noEmit`: type check. This includes the stage taxonomy compile-time checks, the `never` guard in `classifyStage` and the `Record<WorkflowStage, StageClass>` table.
@@ -261,6 +261,8 @@ Execute every command to validate the bug is fixed with zero regressions.
   - `runResolveScenarioAgent`;
   - `runPrReviewBuildAgent`;
   - the plan, step-definition, review and document runners.
+
+  The §3 end-to-end review scenario depends on Step 2's normal completion branch. A run that was not killed returns its final `result` line as `output`, not the text streamed before the compaction. So the review phase reads the final verdict, not the draft one.
 
   The §4 formatter scenario expects `formatWorkflowComment('review_compaction_recovery', …)` to fall through to the generic `## ADW Workflow Update` body once the case is removed. That is the existing `default` branch, so no new code is needed for it.
 - **`AgentResult.compactionDetected` keeps its meaning**, "terminated because of compaction". It is set only after an opt-in kill, so `buildPhase.ts`, `retryOrchestrator.ts`, `testRetry.ts` and `unitTestPhase.ts` read it as before.
