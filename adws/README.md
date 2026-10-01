@@ -294,7 +294,7 @@ bunx tsx adws/adwChore.tsx <issueNumber> [adw-id]
 5. PR (creates pull request)
 6. Diff Evaluation (Haiku classifies diff as `safe` or `regression_possible`)
    - `safe` → auto-approve + auto-merge
-   - `regression_possible` → review → document → auto-merge
+   - `regression_possible` → review → document → auto-merge; a review that still has blockers after its retries stops at `review_failed` instead (no document, no PR, no approval)
 
 **Notes:**
 - No scenario writer or plan-scenario alignment on this path

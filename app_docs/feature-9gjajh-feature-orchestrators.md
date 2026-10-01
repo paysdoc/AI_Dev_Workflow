@@ -26,6 +26,7 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 - `adwUpgrade` never force-pushes the claim branch; a non-fast-forward rejection means another orchestrator owns the claim, so this instance parks silently as the loser.
 - All orchestrators handle `AuthRequiredError` by pausing state and exiting rather than crashing.
 - Cost and model-usage totals are accumulated via `CostTracker` and persisted in the completion metadata for every orchestrator that uses `initializeWorkflow`.
+- `adwChore` runs a review loop only when the diff judge does not return `safe`. An escalated chore whose review still has blockers after `MAX_REVIEW_RETRY_ATTEMPTS` applies `adwSdlc`'s gate: it writes `review_failed` and stops, with no document phase, no PR, no pre-approval and no `awaiting_merge`. The orchestrator's entry point is `executeChore(config, phases?)`, with `ChorePhases` injectable and the real phases by default. `main()` runs only when the file is executed directly.
 
 ## Configuration
 
