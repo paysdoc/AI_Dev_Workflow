@@ -2,7 +2,7 @@
 
 ## Overview
 
-The JSONL schema module is ADW's only contract with the Claude CLI's `--output-format stream-json` envelope — Anthropic has declined to publish a stable schema for it (claude-code#53516). It provides a live probe that reconciles `adws/jsonl/schema.json` against the pinned CLI, a conformance checker that validates fixture files against that schema and through ADW's parsers, and a fixture updater for keeping test fixtures current. `.github/workflows/envelope-conformance.yml` runs the checker (and, once a secret is configured, the live probe's read-only `--check` mode) on every pull request.
+The JSONL schema module is ADW's only contract with the Claude CLI's `--output-format stream-json` envelope — Anthropic has declined to publish a stable schema for it (claude-code#53516). It provides a live probe that reconciles `adws/jsonl/schema.json` against the pinned CLI, a conformance checker that validates fixture files against that schema and through ADW's parsers, and a fixture updater for keeping test fixtures current. `.github/workflows/envelope-conformance.yml` runs the checker and the live probe's read-only `--check` mode on every pull request.
 
 ## Responsibilities
 
@@ -28,7 +28,7 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 
 - `CLAUDE_CODE_PATH` environment variable (or `claude` on PATH) determines which CLI binary the probe spawns, resolved through `resolveClaudeCodePath()`.
 - The probe spawns in a fresh temp directory (`getSafeSubprocessEnv()`'s allowed vars only) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
-- `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; `ANTHROPIC_API_KEY` is the CI secret that gates whether the live leg runs at all.
+- `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; in CI the session authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run with an error naming it.
 - Schema and fixtures paths default to sibling directories of the module files; every entry point accepts overrides for use from tests (a throwaway schema copy, a throwaway fixtures directory).
 
 ## Gotchas
