@@ -483,7 +483,7 @@ function makeRecordingProviders(fixture: Fixture, callLog: CallRecord[], repoId:
   };
 }
 
-function buildRecordingBoundary(owner: string, repo: string): void {
+export function buildRecordingBoundary(owner: string, repo: string): void {
   w.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-796-framework-'));
   w.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-796-target-repos-'));
   w.tempDirs.push(w.frameworkRoot, w.targetReposDir);

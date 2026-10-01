@@ -51,6 +51,14 @@ function toTokenUsageMap(entry: RawModelUsageEntry): TokenUsageMap {
   return map;
 }
 
+function toReportedCostByModel(modelUsage: Record<string, RawModelUsageEntry>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(modelUsage).flatMap(([model, entry]): [string, number][] =>
+      typeof entry.costUSD === 'number' ? [[model, entry.costUSD]] : [],
+    ),
+  );
+}
+
 /** Estimates output tokens from text content block character lengths (~4 chars/token). */
 function estimateOutputTokens(content: Array<{ type: string; text?: string }> | undefined): number {
   if (!content) return 0;
@@ -70,6 +78,7 @@ export class AnthropicTokenUsageExtractor implements TokenUsageExtractor {
   private modelUsage: ModelUsageMap = {};
   private finalized = false;
   private reportedCostUsd: number | undefined = undefined;
+  private reportedCostUsdByModel: Record<string, number> = {};
 
   private estimatedUsage: ModelUsageMap = {};
   /** Snapshot of estimatedUsage taken just before finalization. */
@@ -154,6 +163,7 @@ export class AnthropicTokenUsageExtractor implements TokenUsageExtractor {
       this.modelUsage = Object.fromEntries(
         Object.entries(msg.modelUsage).map(([model, entry]) => [model, toTokenUsageMap(entry)]),
       );
+      this.reportedCostUsdByModel = toReportedCostByModel(msg.modelUsage);
     }
 
     this.finalized = true;
@@ -172,6 +182,10 @@ export class AnthropicTokenUsageExtractor implements TokenUsageExtractor {
 
   getReportedCostUsd(): number | undefined {
     return this.reportedCostUsd;
+  }
+
+  getReportedCostUsdByModel(): Readonly<Record<string, number>> {
+    return { ...this.reportedCostUsdByModel };
   }
 
   getEstimatedUsage(): ModelUsageMap {

@@ -73,3 +73,17 @@ This module determines whether an issue is eligible for ADW processing and route
 - `resolveResumeSpawn`'s SDLC default means a `review_failed` state that predates `orchestratorScript` being persisted resumes as SDLC even if it was actually a PR-review run — the risk is bounded, since `orchestratorScript` has been stamped by both orchestrators since this resolver shipped.
 - The promotion-tag parser/serializer (`parsePromotionTagState`, `serializePromotionTagState`, `isPromotionExempt`) lives in `adws/core/promotionTagState.ts` as a dependency-free pure module (no fs/git/gh imports) so it is unit-testable in isolation from the sweep's I/O; only `parsePromotionTagState`/`isPromotionExempt` are wired into the sweep today — `serializePromotionTagState` is built and unit-tested for a later automated promotion-sweep slice that will write the marker, and is not yet called from any production writer.
 - `DEFAULT_DEPS.listWorktrees` (`devServerJanitor.ts`) constructs a `GitContext`, whose constructor probes the token provider; with the GitHub App configured that throws `HTTP 404` for any repo the App is not installed on — by design (#791/#792). Isolate it in the caller; never soften the resolver.
+
+## Decisions
+
+- [ADR-0008](../specs/adr/0008-webhook-endpoint-via-cloudflare-tunnel.md) — Webhook endpoint through a Cloudflare Tunnel, with signed payloads
+- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

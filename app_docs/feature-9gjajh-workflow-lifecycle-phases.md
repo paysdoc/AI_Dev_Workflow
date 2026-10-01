@@ -65,3 +65,21 @@ This module covers the cross-cutting phases that govern the start, end, and stru
 - `handleWorkflowDiscarded`'s board/Slack notification (`notifyBlockedTransition`, with an optional 5th `notifierDeps` parameter for test injection) is gated on `repoContext.repoId.platform === Platform.GitHub` and reached through `adws/forge/hitlBoardNotifier.ts`, not through the `IssueTracker`/`CodeHost` provider pair directly — it is a deliberately unmigrated, GitHub-specific notification path. Since #844, the production `NotifierDeps` are built via `notifierDeps ?? buildNotifierDeps(() => repoContext, repoContext.repoId)` — a `RepoContext` already satisfies `NotifierPorts` (`{issueTracker, codeHost}`), so the caller no longer reads `config.gitContext` at all and the old "no GitContext on this workflow config — skipping" warn-and-skip branch is gone. `handlePRReviewWorkflowError` (`adws/phases/prReviewCompletion.ts`) follows the identical pattern for the PR-review path (`source: 'review_error'`); `adwMerge.tsx`/`adwPrReview.tsx` pass `buildNotifierDeps(() => providers, repoId)`/`buildNotifierDeps(() => boundary.providers, boundary.repoId)` respectively at their own call sites.
 - `markStatePausedAuthForLiveOrchestrator` is called by the cron's auth-gate tick path (SIGTERM sweep) to update state without firing workflow comments.
 - `describeProgressGateAbort` returns distinct messages for `no_progress` and `backstop` because the corrective actions are opposite — no-progress requires issue redesign while backstop requires splitting the issue.
+
+## Decisions
+
+- [ADR-0002](../specs/adr/0002-worktree-per-issue.md) — One git worktree per issue
+- [ADR-0011](../specs/adr/0011-provider-ports-and-immutable-repo-context.md) — Platform access goes through provider ports bound to an immutable RepoContext
+- [ADR-0016](../specs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
+- [ADR-0019](../specs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0033](../specs/adr/0033-depaudit-as-dependency-gate.md) — depaudit as the dependency gate for ADW-managed repositories
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0046](../specs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

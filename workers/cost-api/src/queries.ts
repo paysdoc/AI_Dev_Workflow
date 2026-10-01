@@ -70,7 +70,7 @@ export async function handleGetCostBreakdown(projectId: string, env: Env): Promi
 
   const { results } = await env.DB
     .prepare(`
-      SELECT model, provider, SUM(COALESCE(reported_cost_usd, computed_cost_usd)) AS total_cost
+      SELECT model, provider, SUM(computed_cost_usd) AS total_cost
       FROM cost_records
       WHERE project_id = ?
       GROUP BY model, provider
@@ -99,7 +99,7 @@ export async function handleGetCostIssues(projectId: string, env: Env): Promise<
   const [phaseCosts, tokenUsage] = await Promise.all([
     env.DB
       .prepare(`
-        SELECT issue_number, phase, SUM(COALESCE(reported_cost_usd, computed_cost_usd)) AS cost
+        SELECT issue_number, phase, SUM(computed_cost_usd) AS cost
         FROM cost_records
         WHERE project_id = ?
         GROUP BY issue_number, phase

@@ -10,7 +10,7 @@ import {
 import { type ConditionalDocEntry } from '../conditionalDocsRegistry';
 
 function entry(docPath: string, ownedGlobs: string[]): ConditionalDocEntry {
-  return { docPath, ownedGlobs, conditions: [] };
+  return { docPath, ownedGlobs, conditions: [], decisions: [] };
 }
 
 function sz(docPath: string, lineCount: number): DocSize {
@@ -123,15 +123,15 @@ describe('checkRegrowth', () => {
 
   it('two legacy entries (ownedGlobs: []) → no flag', () => {
     const entries: ConditionalDocEntry[] = [
-      { docPath: 'app_docs/a.md', ownedGlobs: [], conditions: ['x'] },
-      { docPath: 'app_docs/b.md', ownedGlobs: [], conditions: ['y'] },
+      { docPath: 'app_docs/a.md', ownedGlobs: [], conditions: ['x'], decisions: [] },
+      { docPath: 'app_docs/b.md', ownedGlobs: [], conditions: ['y'], decisions: [] },
     ];
     expect(checkRegrowth(entries)).toEqual([]);
   });
 
   it('one legacy + one real entry → no flag', () => {
     const entries: ConditionalDocEntry[] = [
-      { docPath: 'app_docs/a.md', ownedGlobs: [], conditions: ['x'] },
+      { docPath: 'app_docs/a.md', ownedGlobs: [], conditions: ['x'], decisions: [] },
       entry('app_docs/b.md', ['adws/vcs/**']),
     ];
     expect(checkRegrowth(entries)).toEqual([]);

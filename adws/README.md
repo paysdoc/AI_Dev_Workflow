@@ -792,7 +792,7 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Library Install Command` — How to install new libraries
   - `## Script Execution` — How to run project scripts
 
-- **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries
+- **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries; an entry may also carry a `Decisions:` block naming the records in `specs/adr/` that govern its module, mirrored by the doc's `## Decisions` section
 
 - **`.adw/scenarios.md`** — BDD scenario configuration (see [BDD Scenario Configuration](#bdd-scenario-configuration) below)
 

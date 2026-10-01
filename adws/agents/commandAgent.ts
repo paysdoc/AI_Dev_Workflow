@@ -50,6 +50,8 @@ export interface CommandAgentOptions {
   subprocessEnv?: NodeJS.ProcessEnv;
   /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection. */
   launchContext?: AgentLaunchContext;
+  /** Set only by a caller that restarts the agent when the result carries `compactionDetected`. */
+  killOnCompaction?: boolean;
 }
 
 /** When T is void, parsed is undefined. */
@@ -160,7 +162,7 @@ export async function runCommandAgent<T = void>(
   options: CommandAgentOptions,
 ): Promise<CommandAgentResult<T>> {
   const { command, agentName, outputFileName, extractOutput } = config;
-  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName, subprocessEnv, launchContext } = options;
+  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName, subprocessEnv, launchContext, killOnCompaction } = options;
 
   const outputFile = path.join(logsDir, outputFileName);
   const model = getModelForCommand(command, issueBody);
@@ -180,9 +182,11 @@ export async function runCommandAgent<T = void>(
     phaseName,
     subprocessEnv,
     launchContext,
+    killOnCompaction,
   );
 
-  if (!extractOutput) {
+  // A run stopped on compaction is cut off by design and its caller restarts it, so its output is not validated.
+  if (!extractOutput || result.compactionDetected) {
     return { ...result, parsed: undefined as T };
   }
 

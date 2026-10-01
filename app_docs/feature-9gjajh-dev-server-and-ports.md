@@ -48,3 +48,10 @@ This module manages the full lifecycle of development server processes needed du
 - HTTPS clone URLs are silently converted to SSH; if SSH keys are not configured, the clone will fail with an opaque git error
 - **`convertToSshUrl` is host-neutral (#844), not GitHub-only** — any `https://<host>/<owner>/<repo>[.git]` two-segment URL converts to `git@<host>:<owner>/<repo>.git` (a GitLab or self-hosted target now converts too, needing an SSH key on the box HTTPS did not); anything else (`ssh://`, an explicit port, a three-segment path, `http://`, a non-URL string) passes through unchanged. Lives in `adws/core/sshCloneUrl.ts`, not the GitHub adapter.
 - Trust is keyed on the main repo root, not the worktree — one entry per target repo; `~/.claude.json` is shared with every live Claude session, hence tmp+rename and never a per-spawn write
+
+## Decisions
+
+- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories

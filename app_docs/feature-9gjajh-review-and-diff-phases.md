@@ -36,3 +36,9 @@ The review and diff phases govern the quality gate before a PR is merged. The re
 - `diffEvaluationPhase.ts` uses a 10 MB `maxBuffer` for `execSync git diff`; very large diffs are truncated by the shell before reaching the agent
 - `reviewPatchHelpers.ts` runs `runBuildAgent` with the patch agent's raw output as the plan content; the build agent interprets that output as instructions, not a standard plan file
 - `executeReviewPatchCycle` pushes the branch via `pushBranch(branchName, worktreePath)` unconditionally after committing; if the commit produced no changes (all patches were no-ops), the push is still attempted
+
+## Decisions
+
+- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR

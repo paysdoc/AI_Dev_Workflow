@@ -36,3 +36,7 @@ This module provides structured console logging and Slack webhook notifications 
 - `ensureLogsDirectory()` reads `LOGS_DIR` from the `environment` module at import time; if that value is wrong or unset, directory creation silently uses whatever path is resolved.
 - `sendSlackDetectionNotification()` and `sendSlackRecoveryNotification()` are fire-and-forget at their call sites in `authGate`; any call site that must guarantee delivery before process exit (e.g. `moveIssueToStatus`) must `await` the promise rather than discarding it with `void`.
 - Auth-related error strings in `NON_RETRYABLE_PATTERNS` are matched with `String.includes()` (substring, case-sensitive). Variations in error message formatting from different `gh` CLI versions may bypass the fast-fail path.
+
+## Decisions
+
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules

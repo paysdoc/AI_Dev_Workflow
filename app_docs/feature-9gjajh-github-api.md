@@ -43,3 +43,8 @@ This module documents:
 - `adws/forge/` helpers are deliberately not extractable library code — the module docblock in `issueLinkMarker.ts` says so explicitly: this is ADW application logic built on top of the forge ports, not part of the forge-neutral `@paysdoc/devplatform` library surface.
 - `hitlBoardNotifier.ts`'s `buildNotifierDeps` is consumed from two places: `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (wired to `onStatusMoved` for the HITL Slack ping on a move to `BoardStatus.Review`) and any direct caller building its own `NotifierDeps` (`adwMerge.tsx`, `adwPrReview.tsx`, `prReviewCompletion.ts`, `workflowCompletion.ts` — the latter two pass `() => repoContext`, since a `RepoContext` already satisfies `NotifierPorts`). All go through the boundary's `IssueTracker`/`CodeHost` ports via the `resolvePorts` thunk — never a `createGhRepoApi(ctx)` bound view or a fresh construction.
 - The digit-boundary guard in `issueLinkPattern` is a trailing negative lookahead (`(?!\d)`), so `Closes #1` does not falsely match inside a PR body that also says `Closes #12` — verified by reading the regex directly, not assumed from prior prose.
+
+## Decisions
+
+- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code

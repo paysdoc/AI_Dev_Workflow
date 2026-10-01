@@ -36,3 +36,8 @@ Model and effort for `/patch` are resolved dynamically from `getModelForCommand(
 - `diffEvaluatorAgent` uses a regex match (`/\{[\s\S]*?"verdict"[\s\S]*?\}/`) rather than `extractJson` — it will match the first JSON-like object containing `verdict`, which may differ from `extractJson` behavior on multi-object outputs.
 - `resolutionAgent` spreads `result.parsed` as `resolutionResult` without a null guard; if the retry loop exhausts without a valid parse, it throws before reaching the return, so callers must handle `OutputValidationError` at the phase level.
 - `reviewAgent`'s `screenshots` field is declared in the schema and interface but is not consumed by this agent — it is passed through from the `/review` command output for callers that want it.
+
+## Decisions
+
+- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge

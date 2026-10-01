@@ -53,3 +53,13 @@ Per-repo configuration (read from the worktree at init time):
 - `adwPlanBuild` skips scenarios, alignment, review, and document phases entirely; it is not a subset of adwSdlc's phases at runtime — it calls `completeWorkflow` rather than writing `awaiting_merge`, so its terminal state is different
 - Branch name is persisted to top-level state only when it is non-empty; the `cwd` override path never sets `branchName`, so it must not clobber a previously persisted name
 - For target-repo workflows, `--target-repo` must be passed on resume; omitting it causes the respawned orchestrator to target the cron host's repo instead of the intended target
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0045](../specs/adr/0045-kpi-module-removed.md) — KPI module removed
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

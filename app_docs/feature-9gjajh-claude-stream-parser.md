@@ -46,3 +46,15 @@ This module is the shared core layer for parsing Claude Code agent output and dr
 - `extractJson` tries a direct `JSON.parse` first, then falls back to the first `{...}` match. A document containing multiple JSON objects returns only the first; trailing content is silently dropped.
 - `buildRepoIdentifier` calls `getRepoInfo()` (which reads the local git remote) when `targetRepo` is null; this will throw if the process is not running inside a git repository with a GitHub remote.
 - The `ORCHESTRATOR_SCRIPT_BY_NAME` map uses `adwSdlc` as the default for both `sdlc-orchestrator` and `feature-orchestrator`; they resolve to the same script and are indistinguishable via `orchestratorNamesForScript`.
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

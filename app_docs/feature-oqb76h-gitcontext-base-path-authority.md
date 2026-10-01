@@ -93,3 +93,12 @@ Guard configuration lives in `adws/checkGitGhGuard.ts` (`EXEMPT_DIR_NAMES`, `EXE
 - **A context constructor fed a direct identity read is adjudicated once, not twice** — `gitContextForRepo(readLocalRepoIdentity(root))` and `forgeProviders({identity: getRepoInfo()})` shaped calls are `cwd-derived-identity`'s composite alone (`isIdentityReadComposite`, `identityRule.ts`); `unsanctioned-construction` imports that predicate and returns early on it rather than flagging the callee name itself. Every other construction — including one fed an already-resolved identity variable, `gitContextForRepo(threadedIdentity)` — is still flagged by `unsanctioned-construction` exactly as before.
 - **The known evasion is unchanged and deliberately out of scope**: both name-based rules (`cwd-derived-identity`, `unsanctioned-construction`) match bare identifier text, so an aliased import (`import { GitContext as GC }`) would evade both. This predates the library switchover and stays out of scope.
 - **When a `@paysdoc/devplatform` symbol is missing or misbehaving** — the git core and the forge adapters live in `paysdoc/devplatform`; ADW pins an exact version and Dependabot proposes bumps; there is no in-repo fallback or re-implementation to fall back on.
+
+## Decisions
+
+- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0011](../specs/adr/0011-provider-ports-and-immutable-repo-context.md) — Platform access goes through provider ports bound to an immutable RepoContext
+- [ADR-0016](../specs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
+- [ADR-0046](../specs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh
+- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code

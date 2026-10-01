@@ -32,3 +32,7 @@ No configuration. Framework-to-extension mappings and language token tables are 
 - The freeze guard operates on path strings only — it does not check file content or git status. A renamed `.feature` file or a path constructed with a non-standard extension will not be caught.
 - `hasStepDefinitions` performs a synchronous recursive directory walk on every call; avoid calling it in hot loops on large trees.
 - `cargo` is listed before `go test` in the language token table specifically because the string `"cargo test"` contains `"go test"` as a substring; reordering these entries would cause Rust commands to be misidentified as Go.
+
+## Decisions
+
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail

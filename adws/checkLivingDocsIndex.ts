@@ -9,6 +9,9 @@
  * A dead `Owns:` glob is a non-fatal WARNING — a chore PR that renames a file
  * must not be blocked; the sweep prunes it within one cadence.
  *
+ * The gate also reads each indexed doc for its `## Decisions` section and holds
+ * it to the entry's `Decisions:` block and to the records in `specs/adr/`.
+ *
  * Run via: bunx tsx adws/checkLivingDocsIndex.ts [rootDir]
  * Exits 0 if the index is clean (warnings aside), 1 otherwise.
  */
@@ -66,6 +69,16 @@ function visitDir(dir: string, rootDir: string, acc: string[]): void {
   }
 }
 
+function readDocFrom(rootDir: string): (docPath: string) => string | null {
+  return (docPath) => {
+    try {
+      return fs.readFileSync(path.join(rootDir, docPath), 'utf-8');
+    } catch {
+      return null;
+    }
+  };
+}
+
 function pushCheck(lines: string[], label: string, passed: boolean, detail: string | undefined): void {
   lines.push(`  ${passed ? '✔ PASS' : '✖ FAIL'}  ${label}`);
   if (!passed && detail) lines.push(`         ${detail.replace(/\n/g, '\n         ')}`);
@@ -78,7 +91,7 @@ export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lin
   }
 
   const files = listRepoFiles(rootDir);
-  const { registry, repairs, violations } = assessDocsIndexHealth({ content, files }, DEFAULT_COUNT_BAND);
+  const { registry, repairs, violations } = assessDocsIndexHealth({ content, files, readDoc: readDocFrom(rootDir) }, DEFAULT_COUNT_BAND);
 
   const isKind = <K extends DocsIndexRepair['kind']>(kind: K) =>
     (r: DocsIndexRepair): r is Extract<DocsIndexRepair, { kind: K }> => r.kind === kind;
@@ -89,6 +102,8 @@ export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lin
   const duplicates = violations.filter((v) => v.kind === 'duplicate-entry');
   const orphans = violations.filter((v) => v.kind === 'orphan-doc');
   const overlaps = violations.filter((v) => v.kind === 'overlap');
+  const decisionMismatches = violations.filter((v) => v.kind === 'decisions-mismatch');
+  const missingRecords = violations.filter((v) => v.kind === 'unknown-decision' || v.kind === 'dead-decision-link');
   const countViolations = violations.filter((v) => v.kind === 'count-out-of-band');
 
   const docCount = files.filter(isFeatureDocPath).length;
@@ -122,6 +137,20 @@ export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lin
     'No overlapping ownedGlobs (regrowth guard)',
     overlaps.length === 0,
     overlaps.length > 0 ? overlaps.map(formatViolation).join('\n') : undefined,
+  );
+
+  pushCheck(
+    lines,
+    "Decisions: each doc's ## Decisions section matches its Decisions: block",
+    decisionMismatches.length === 0,
+    decisionMismatches.length > 0 ? decisionMismatches.map(formatViolation).join('\n') : undefined,
+  );
+
+  pushCheck(
+    lines,
+    'Decisions: every listed record exists in specs/adr/',
+    missingRecords.length === 0,
+    missingRecords.length > 0 ? missingRecords.map(formatViolation).join('\n') : undefined,
   );
 
   pushCheck(

@@ -47,3 +47,13 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 - `adwUpgrade` reuses an existing worktree for the claim branch but immediately hard-resets it to `origin/<claim-branch>` to avoid a stale-commit non-fast-forward push failure (#627).
 - The `adwUpgrade` failure comment intentionally avoids the `## <emoji>` heading pattern and the `<!-- adw-bot -->` marker so that `isAdwComment()` does not count a failed upgrade as an in-progress workflow (User Story 22).
 - All five orchestrators exit 0 on spawn-lock contention; callers must not interpret exit 0 as proof of success.
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
