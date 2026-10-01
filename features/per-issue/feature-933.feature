@@ -25,23 +25,29 @@ Feature: ADW names no branch to act on — the protected branch and the docs-ind
   host's git identity, with agent prefixes such as `plan-orchestrator:` and `build-agent:`.
   Ruling (owner, 2026-09-29): every pipeline commit must carry the App's identity.
 
-  The cause, as found while writing these scenarios. The pull request must state it.
+  The cause, as found while writing these scenarios and completed by the plan. The pull request
+  must state it.
     • An agent commits through `runCommitAgent`, which starts the Claude CLI on `/commit`. The
       CLI runs `git commit` itself, in the environment ADW gave it: `getSafeSubprocessEnv()` plus
-      the `subprocessEnv` the caller passes.
+      the `subprocessEnv` the caller passes. The conflict resolver commits the same way: the
+      `/resolve_conflict` agent finalizes its merge by running `git commit` itself.
     • The App's identity reaches git only through `GitContext.commandEnv()`, which sets
       `GIT_AUTHOR_*` and `GIT_COMMITTER_*`.
-    • Three call sites the orchestrators run pass no `subprocessEnv`: the plan phase
-      (`plan-orchestrator:`), the alignment phase (`alignment-agent:`) and the build phase's
-      final commit (`build-agent:`). The build phase's batch-boundary commit, after a context
-      reset, does pass it. That is why some `build-agent:` commits carry the App identity and
-      some do not. The plan validation phase passes none either, but no orchestrator runs it.
+    • Four call sites the orchestrators run pass no `subprocessEnv`: the plan phase
+      (`plan-orchestrator:`), the alignment phase (`alignment-agent:`), the build phase's
+      final commit (`build-agent:`), and the conflict resolver's spawn in
+      `adws/triggers/autoMergeHandler.ts`, which `adwMerge.tsx` runs
+      (`merge: resolve conflicts between <branch> and <base>`). The build phase's batch-boundary
+      commit, after a context reset, does pass it. That is why some `build-agent:` commits carry
+      the App identity and some do not. The plan validation phase passes none either, but no
+      orchestrator runs it.
     • Nothing in the host's environment names the App, so git falls back to the host's own
       identity: `Martin <martin@macmini.local>`.
     • The document, review-patch, scenario-fix, pre-PR and PR-review commits pass
       `commandEnv()`, and carry the App identity.
   `git log origin/dev --since=2026-09-01 --no-merges` agrees: no `plan-orchestrator:` or
   `alignment-agent:` commit carries the App identity, and `build-agent:` commits carry both.
+  With merges included, no `merge: resolve conflicts …` commit carries the App identity either.
 
   The labels below are the section numbers used for the scenario groups further down (§1–§6):
 
@@ -65,6 +71,8 @@ Feature: ADW names no branch to act on — the protected branch and the docs-ind
     §4  THE COMMITS THAT CARRY THE HOST IDENTITY TODAY (AC3). The host's git identity is in git
         config and none is in the environment, as on the cron host. The commit the plan,
         alignment or build phase makes in the worktree is authored and committed by the App.
+        The conflict resolver's merge commit has no row; see "WHY SOME CRITERIA GET NO SCENARIO
+        OF THEIR OWN".
 
     §5  THE COMMITS THAT CARRY THE APP IDENTITY TODAY STAY THAT WAY. The same, for the commits
         of the document, review, scenario fix, PR and PR review phases.
@@ -107,7 +115,13 @@ Feature: ADW names no branch to act on — the protected branch and the docs-ind
   would assert a file's contents, which the Rot-Detection Rubric forbids, so the review checks
   it. The prompts `/document`, `/resolve_failed_test` and `/clean_local_repo` run only inside a
   real Claude session, which this harness never starts. §1's checkout row holds them to the
-  rule without reading them.
+  rule without reading them. The conflict resolver's merge commit (`merge: resolve conflicts …`)
+  also carries the host identity today, but has no §4 row. A row would have to drive a real
+  merge conflict through the auto-merge loop. And a merge brings in commits the conflict
+  resolver did not make, so "every commit the phase added" could not hold. The plan's
+  integration test (`adws/agents/__tests__/commitIdentity.integration.test.ts`) commits through
+  the conflict resolver's spawn in a real worktree and checks for the App identity. The plan puts
+  the fix once in the agent runner, which every spawn shares.
 
   Not pinned here, and left to the plan:
     • the form of the check: a lint script with a `lint:` package script that CI runs, as
@@ -126,7 +140,8 @@ Feature: ADW names no branch to act on — the protected branch and the docs-ind
       branch. The library's list keeps them protected unless the dependency changes;
     • where the identity fix sits: at each call site, or once in the agent runner, from the
       launch context's `GitContext`. The §4 and §5 rows run the real phase functions and pass
-      either way;
+      either way. A fix at each call site would also have to reach the conflict resolver's
+      spawn, which no row runs;
     • what the docs-index report says about the branch when the lookup fails, beyond naming
       none of the four.
 
