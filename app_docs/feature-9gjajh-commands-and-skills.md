@@ -9,7 +9,7 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 - Define the `prime` command: instructs the agent to read `git ls-files`, `README.md`, `adws/README.md`, and the `conditional_docs.md` guide to orient itself to the codebase before any task.
 - Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/patch`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
 - Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup).
-- Define per-phase agent commands (`/implement`, `/implement-tdd`, `/test`, `/review`, `/patch`, `/document`, `/scenario_writer`, `/generate_step_definitions`).
+- Define per-phase agent commands (`/implement`, `/implement-tdd`, `/test`, `/review` (includes a Step 4 step-definition independence check that reports each violating file as a `blocker` with `remediationStrategy: "patch"`), `/patch`, `/document`, `/scenario_writer`, `/generate_step_definitions`).
 - Define utility commands (`/commit`, `/pull_request`, `/classify_issue`, `/generate_branch_name`, `/find_issue_dependencies`, `/extract_dependencies`).
 - Define validation commands (`/validate_plan_scenarios`, `/resolve_plan_scenarios`, `/align_plan_scenarios`, `/validate_scenario_fidelity`, `/diff_evaluator`, `/resolve_failed_test`, `/resolve_failed_scenario`).
 - Define the `conditional_docs` guide, which maps task types to additional documentation files the agent should read before planning or building.

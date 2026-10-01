@@ -700,6 +700,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── providers/anthropic/  # Anthropic token usage extraction
 │   │   ├── extractor.ts
 │   │   ├── index.ts
+│   │   ├── legacyModelUsage.ts  # Converts token usage maps into the legacy per-model usage shape
 │   │   └── pricing.ts
 │   ├── reporting/      # Cost reporting
 │   │   ├── commentFormatter.ts
@@ -903,10 +904,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── proof/              # PR proof publishing module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── prProofPublisher.test.ts
-│   │   └── proofArtifactHarvester.test.ts
+│   │   ├── proofArtifactHarvester.test.ts
+│   │   └── proofUploader.test.ts
 │   ├── index.ts
 │   ├── prProofPublisher.ts     # Formats JUnit summary + screenshots and posts proof comment to PR
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
+│   ├── proofUploader.ts        # Harvests the proof directory and uploads its images to R2; shared by the review phase and the PR proof comment
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
 ├── guard/              # Git/GH CLI Guard rule modules (#795) — the extraction-readiness rule (extractionRule.ts) and its tests were retired along with adws/gitContext/adws/providers (#840)
