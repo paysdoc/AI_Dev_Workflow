@@ -419,3 +419,75 @@ describe('filterEligibleIssues — abandoned in processedSpawns appears in eligi
     expect(filteredAnnotations.join(',')).not.toContain('#638(processed)');
   });
 });
+
+describe('evaluateIssue — adw:none opts out on every stage', () => {
+  const OPTED_OUT = { eligible: false, reason: 'label:opt_out' };
+
+  function makeOptedOutIssue(number = 9) {
+    return makeIssue({ number, labels: [{ name: 'adw:none' }], updatedAt: OLD_DATE });
+  }
+
+  it('drops a fresh issue although no label evaluator is injected', () => {
+    const result = evaluateIssue(makeOptedOutIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, () => freshResolution());
+
+    expect(result).toEqual(OPTED_OUT);
+  });
+
+  it('drops a fresh issue with a prior adwId, which the label evaluator never sees', () => {
+    const evaluator = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: true }));
+
+    const result = evaluateIssue(
+      makeOptedOutIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => takeoverResolution(), new Set(), evaluator,
+    );
+
+    expect(result).toEqual(OPTED_OUT);
+    expect(evaluator).not.toHaveBeenCalled();
+  });
+
+  it.each(['abandoned', 'phase_timeout'])('drops an issue at stage %s, so no take-over is dispatched', (stage) => {
+    const resolveStage = () => makeResolution(stage, 'adw-prior', NOW - 200_000);
+
+    const result = evaluateIssue(makeOptedOutIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result).toEqual(OPTED_OUT);
+  });
+
+  it('drops an awaiting_merge issue, so no merge is dispatched', () => {
+    const resolveStage = () => makeResolution('awaiting_merge', 'adw-prior');
+
+    const result = evaluateIssue(makeOptedOutIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result).toEqual(OPTED_OUT);
+  });
+
+  it('keeps the cancelled-this-cycle reason ahead of the opt-out', () => {
+    const result = evaluateIssue(
+      makeOptedOutIssue(9), NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => freshResolution(), new Set([9]),
+    );
+
+    expect(result).toEqual({ eligible: false, reason: 'cancelled' });
+  });
+
+  it('filterEligibleIssues leaves the issue out of eligible and annotates it #N(label:opt_out)', () => {
+    const resolveStage = () => makeResolution('abandoned', 'adw-prior', NOW - 200_000);
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues(
+      [makeOptedOutIssue(12)], NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage,
+    );
+
+    expect(eligible).toHaveLength(0);
+    expect(filteredAnnotations).toContain('#12(label:opt_out)');
+  });
+
+  it('control: the same abandoned issue without the label stays eligible for take-over', () => {
+    const issue = makeIssue({ number: 9, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('abandoned', 'adw-prior', NOW - 200_000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+  });
+});
