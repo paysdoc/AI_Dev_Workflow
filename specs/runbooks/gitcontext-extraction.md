@@ -186,8 +186,10 @@ The filtered tree is `src/` only: no manifest, no tsconfig, no test config.
 7. **No branch protection.** ADW's merge path is a bare `gh pr merge --merge`
    with no `--auto` and no status-check polling, so required checks would
    reject every ADW merge while CI is pending, starting with the upgrade
-   regen PR. ADW's own `dev` and `main` are unprotected for the same reason.
-   Revisit if the merge path ever learns to wait for checks.
+   regen PR. ADW's own `dev` and `main` carry no required status checks for
+   the same reason; a ruleset there requires a pull request and forbids
+   deletion and force push. Revisit if the merge path ever learns to wait
+   for checks.
 
 ## 5. Add the Forge glossary entry (ADW side, any time before A1)
 

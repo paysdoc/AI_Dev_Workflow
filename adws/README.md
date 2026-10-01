@@ -763,9 +763,9 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 
 ### Branch Naming
 ```
-{type}-{issueNumber}-{adwId}-{slug}
+{prefix}-issue-{issueNumber}-{slug}
 ```
-Example: `feat-456-e5f6g7h8-add-user-authentication`
+Example: `feature-issue-456-add-user-authentication`
 
 ### Project Configuration (`.adw/` Directory)
 
