@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SDLC Orchestrators module provides two top-level workflow drivers — `adwSdlc.tsx` (full pipeline) and `adwPlanBuild.tsx` (lightweight pipeline) — that coordinate all agent phases for a GitHub issue from initialization through PR creation. They compose reusable phase functions from `workflowPhases.ts` and delegate lifecycle concerns (locking, heartbeating, state management) to supporting modules in `phases/`.
+The SDLC Orchestrators module provides the top-level SDLC workflow drivers — `adwSdlc.tsx` (full pipeline), `adwPlanBuild.tsx` (lightweight pipeline) and the `adwPlanBuildReview.tsx` / `adwPlanBuildTestReview.tsx` variants with a review loop — that coordinate all agent phases for a GitHub issue from initialization through PR creation. A review loop that ends with blockers stops the run at `review_failed` instead of opening a PR. They compose reusable phase functions from `workflowPhases.ts` and delegate lifecycle concerns (locking, heartbeating, state management) to supporting modules in `phases/`.
 
 ## Responsibilities
 
@@ -11,6 +11,7 @@ The SDLC Orchestrators module provides two top-level workflow drivers — `adwSd
 - Run a heartbeat for the duration of execution so staleness detection can reclaim dead locks
 - Execute ordered phase sequences via `runPhase` and `runPhasesParallel`:
   - **adwSdlc**: Install -> Plan + Scenario (parallel) -> Alignment -> Build -> StepDef -> UnitTest -> ScenarioTestFixLoop -> Review/Patch/Retest loop (bounded by `MAX_REVIEW_RETRY_ATTEMPTS`) -> Document -> PR -> ProofPublish
+  - **adwPlanBuildReview** / **adwPlanBuildTestReview**: the same phases up to the review/patch/retest loop, then the failed-review gate, then PR (the test variant also runs StepDef and ScenarioTestFixLoop, and publishes proof after the PR)
   - **adwPlanBuild**: Install -> Plan -> Build -> UnitTest -> PR (no scenarios, no review, no document phase)
 - Track cumulative token costs via `CostTracker` and persist them on all exit paths (success, pause, error)
 - Write `awaiting_merge` to top-level state after PR approval (adwSdlc only); `adwMerge.tsx` handles completion

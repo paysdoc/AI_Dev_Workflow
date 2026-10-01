@@ -551,6 +551,7 @@
   - Conditions:
     - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwPromotionSweep`, `adwUpgrade`, `adwClearComments`
     - When working on top-level `adws/index.ts` exports or `adwBuildHelpers.ts`
+    - When working on `adwChore`'s diff-judge escalation, its failed-review stop (`review_failed`, no document/PR/approval), or its injectable entry point (`executeChore`, `ChorePhases`)
 
 - app_docs/feature-9gjajh-freeze-and-coherence.md
   - Owns:
@@ -643,6 +644,7 @@
   - Conditions:
     - When working on the top-level SDLC workflow orchestrators: `adwSdlc`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildReview`, `adwPlanBuildTest`, `adwPlanBuildTestReview`
     - When working on workflow-level phase sequencing in `workflowPhases.ts`
+    - When working on the failed-review gate in `adwSdlc`, `adwPlanBuildReview` or `adwPlanBuildTestReview` (`decidePostReviewOutcome` → `review_failed` stop), or on their injectable entry points (`executePlanBuildReview`, `executePlanBuildTestReview`, `PlanBuildReviewPhases`, `PlanBuildTestReviewPhases`)
 
 - app_docs/feature-9gjajh-slack-and-logging.md
   - Owns:
