@@ -104,7 +104,12 @@ Use these files to fix the bug:
 - `adws/core/promotionReconcileLink.ts` (`PromotionIssueRef`), `adws/core/promotionTagState.ts` (`serializePromotionTagState`), `adws/core/promotionSweepDecider.ts` — consumed as-is.
 - `adws/triggers/trigger_cron.ts` — `runPromotionSweepTick` / `boundPromotionSweep`; unchanged (the sweep's signature is unchanged).
 - `adws/triggers/__tests__/promotionSweepDefaults.test.ts`, `adws/triggers/__tests__/perIssueSweepPersist.test.ts` — updated unit tests. `docsIndexSweep*.test.ts`, `perIssueScenarioSweep.test.ts` and `trigger_cron.test.ts` must stay green.
-- `features/per-issue/feature-934.feature` — this issue's BDD scenarios (threshold outline, marker-PR flow incl. decline/withdraw/merge-refused/foreign-branch host, HTML-comment outline, wording, the regression dry-run listing, type-check). The production seams below are shaped for them.
+- `features/per-issue/feature-934.feature` — this issue's BDD scenarios. The production seams below are shaped for them:
+  - the threshold outline (0, 1, 2 and 4 merged promotions against 8 additions give 3, 4, 5 and 7), and the mixed row in which only promotion issues closed by a pull request merged in the last 90 days count;
+  - the score-4 pair: the candidate is suggested at threshold 3 and left at threshold 5;
+  - the marker-PR flow: originate, a cron host on another branch with uncommitted work, a stale cron-host checkout, two candidates in one sweep, a refused merge, decline, withdraw, and the 14-day per-issue sweep sparing a candidate whose marker landed;
+  - the HTML-comment outline, the body wording, and the `@adw-` tag-removal instruction;
+  - the regression dry-run listing and the type-check.
 - `features/regression/hashing/feature-537.feature`, `features/regression/upgrade/feature-729.feature`, `features/regression/pause-queue/feature-910.feature`, `features/regression/pause-queue/feature-911.feature` — strip the `@adw-` tags.
 - `features/regression/step_definitions/feature-537.steps.ts`, `feature-729.steps.ts`, `feature-910.steps.ts`, `feature-911.steps.ts`, `feature-902.steps.ts`, `feature-902-queue.steps.ts` — tag-scoped hooks to re-key, and two header docblocks that quote the expressions.
 - `features/regression/vocabulary.md` — three section headings name `(@adw-537)`, `(@adw-910)`, `(@adw-911)`.
