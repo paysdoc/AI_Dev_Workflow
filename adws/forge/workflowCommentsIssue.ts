@@ -3,7 +3,7 @@ import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/w
 import type { ReviewIssue } from '../agents/reviewAgent';
 import type { ScenarioProofResult } from '../phases/scenarioProof';
 import type { PhaseCostRecord } from '../cost/types';
-import { formatReviewProofComment, type ProofCommentInput } from './proofCommentFormatter';
+import { formatReviewProofComment, formatScreenshotSection, type ProofCommentInput } from './proofCommentFormatter';
 
 export interface WorkflowContext {
   issueNumber: number | null;
@@ -41,7 +41,7 @@ export interface WorkflowContext {
   maxReviewAttempts?: number;
   /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
   runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
-  /** Public URLs of screenshots uploaded to R2 (set when applicationType is 'web'). */
+  /** Public R2 URLs of the images from the scenario proof the review judged; set by the review phase. */
   screenshotUrls?: string[];
   /** Scenario proof result from the final review iteration. */
   scenarioProof?: ScenarioProofResult;
@@ -186,14 +186,6 @@ function formatReviewRunningComment(ctx: WorkflowContext): string {
   return `## :mag: Review Running\n\nRunning automated code review...${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
-function formatScreenshotSection(screenshotUrls: string[]): string {
-  if (screenshotUrls.length === 0) return '';
-  const images = screenshotUrls
-    .map((url, i) => `[![Screenshot ${i + 1}](${url})](${url})`)
-    .join('\n');
-  return `\n\n<details>\n<summary>Screenshots (${screenshotUrls.length})</summary>\n\n${images}\n\n</details>`;
-}
-
 function formatReviewPassedComment(ctx: WorkflowContext): string {
   if (ctx.scenarioProof) {
     const input: ProofCommentInput = {
@@ -203,6 +195,7 @@ function formatReviewPassedComment(ctx: WorkflowContext): string {
       blockerIssues: [],
       nonBlockerIssues: ctx.nonBlockerIssues ?? [],
       allSummaries: ctx.allSummaries,
+      screenshotUrls: ctx.screenshotUrls,
     };
     const body = formatReviewProofComment(input);
     return `${body}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
@@ -212,7 +205,7 @@ function formatReviewPassedComment(ctx: WorkflowContext): string {
     ? `\n\n${truncateText(ctx.reviewSummary, 2000)}`
     : '';
   const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
-    ? formatScreenshotSection(ctx.screenshotUrls)
+    ? `\n\n${formatScreenshotSection(ctx.screenshotUrls)}`
     : '';
   const nonBlockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity !== 'blocker');
   const nonBlockerSection = nonBlockers.length > 0
@@ -234,6 +227,7 @@ function formatReviewFailedComment(ctx: WorkflowContext): string {
       blockerIssues: blockers,
       nonBlockerIssues: ctx.nonBlockerIssues ?? [],
       allSummaries: ctx.allSummaries,
+      screenshotUrls: ctx.screenshotUrls,
     };
     const body = formatReviewProofComment(input);
     return `${body}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
@@ -244,7 +238,7 @@ function formatReviewFailedComment(ctx: WorkflowContext): string {
     ? `\n\n**Remaining blocker issues (${blockers.length}):**\n${blockers.map(formatReviewIssueItem).join('\n')}`
     : '';
   const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
-    ? formatScreenshotSection(ctx.screenshotUrls)
+    ? `\n\n${formatScreenshotSection(ctx.screenshotUrls)}`
     : '';
   return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}${screenshotSection}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }

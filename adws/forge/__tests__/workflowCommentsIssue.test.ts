@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { formatWorkflowComment, formatRateLimitWaitComment } from '../workflowCommentsIssue';
 import { computeTestVerdict } from '../../core/testVerdict';
 import { parseWorkflowStageFromComment, isAdwComment } from '../../core/workflowCommentParsing';
+import type { ReviewIssue } from '../../agents/reviewAgent';
+import type { ScenarioProofResult } from '../../phases/scenarioProof';
 
 // These tests pin the corrected
 // copy and couple it back to the real verdict resolver so a future re-key of
@@ -131,5 +133,99 @@ describe('formatWorkflowComment — compaction recovery comments', () => {
     expect(body).toContain(`## :warning: ${heading}`);
     expect(body).toContain('**Continuation:** #2');
     expect(parseWorkflowStageFromComment(body)).toBe(stage);
+  });
+});
+
+describe('formatWorkflowComment — review comments embed screenshot URLs', () => {
+  const scenarioProof: ScenarioProofResult = {
+    tagResults: [],
+    hasBlockerFailures: false,
+    resultsFilePath: '/tmp/scenario_proof.md',
+    artifactsDir: '/tmp/artifacts',
+  };
+  const screenshotUrls = [
+    'https://screenshots.paysdoc.nl/repo/proof/adw-1/login/step-1.png',
+    'https://screenshots.paysdoc.nl/repo/proof/adw-1/checkout/step-2.png',
+  ];
+  const blocker: ReviewIssue = {
+    reviewIssueNumber: 1,
+    issueDescription: 'The login form accepts an empty password',
+    issueResolution: 'Reject an empty password',
+    issueSeverity: 'blocker',
+  };
+  const ctx = { issueNumber: 937, adwId: 'adw-1' };
+
+  describe('when a scenario proof exists', () => {
+    it('embeds every URL as an image link under a Screenshots summary in a passing review', () => {
+      const body = formatWorkflowComment('review_passed', { ...ctx, scenarioProof, screenshotUrls });
+
+      expect(body).toContain('## :white_check_mark: Review Passed');
+      expect(body).toContain('<summary>Screenshots (2)</summary>');
+      expect(body).toContain(`[![Screenshot 1](${screenshotUrls[0]})](${screenshotUrls[0]})`);
+      expect(body).toContain(`[![Screenshot 2](${screenshotUrls[1]})](${screenshotUrls[1]})`);
+    });
+
+    it('embeds every URL in a failing review and still lists the blocker', () => {
+      const body = formatWorkflowComment('review_failed', {
+        ...ctx,
+        scenarioProof,
+        screenshotUrls,
+        reviewIssues: [blocker],
+      });
+
+      expect(body).toContain('## :x: Review Failed');
+      expect(body).toContain(`[![Screenshot 1](${screenshotUrls[0]})](${screenshotUrls[0]})`);
+      expect(body).toContain(`[![Screenshot 2](${screenshotUrls[1]})](${screenshotUrls[1]})`);
+      expect(body).toContain('<summary>Blocker issues (1)</summary>');
+      expect(body).toContain(blocker.issueDescription);
+    });
+
+    it.each([
+      ['absent', undefined],
+      ['empty', []],
+    ] as const)('has no Screenshots section when screenshotUrls is %s', (_label, urls) => {
+      const passed = formatWorkflowComment('review_passed', { ...ctx, scenarioProof, screenshotUrls: urls && [...urls] });
+      const failed = formatWorkflowComment('review_failed', {
+        ...ctx,
+        scenarioProof,
+        screenshotUrls: urls && [...urls],
+        reviewIssues: [blocker],
+      });
+
+      expect(passed).not.toContain('Screenshots (');
+      expect(failed).not.toContain('Screenshots (');
+    });
+  });
+
+  describe('when there is no scenario proof', () => {
+    it('still embeds the URLs in a passing review', () => {
+      const body = formatWorkflowComment('review_passed', { ...ctx, screenshotUrls });
+
+      expect(body).toContain('<summary>Screenshots (2)</summary>');
+      expect(body).toContain(`[![Screenshot 1](${screenshotUrls[0]})](${screenshotUrls[0]})`);
+    });
+
+    it('still embeds the URLs in a failing review', () => {
+      const body = formatWorkflowComment('review_failed', { ...ctx, screenshotUrls, reviewIssues: [blocker] });
+
+      expect(body).toContain('<summary>Screenshots (2)</summary>');
+      expect(body).toContain(`[![Screenshot 2](${screenshotUrls[1]})](${screenshotUrls[1]})`);
+    });
+  });
+
+  describe('stage recovery', () => {
+    it.each([
+      ['review_passed', 'scenario proof'],
+      ['review_failed', 'scenario proof'],
+      ['review_passed', 'no scenario proof'],
+      ['review_failed', 'no scenario proof'],
+    ] as const)('reads %s with %s the same with screenshots as without', (stage, proof) => {
+      const base = { ...ctx, ...(proof === 'scenario proof' ? { scenarioProof } : {}) };
+
+      const withScreenshots = formatWorkflowComment(stage, { ...base, screenshotUrls });
+      const withoutScreenshots = formatWorkflowComment(stage, base);
+
+      expect(parseWorkflowStageFromComment(withScreenshots)).toBe(parseWorkflowStageFromComment(withoutScreenshots));
+    });
   });
 });

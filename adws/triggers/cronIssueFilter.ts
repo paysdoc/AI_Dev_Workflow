@@ -5,6 +5,7 @@
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
+import { readAdwLabelNames } from '../core/adwLabels';
 import { decideSerialization, parseRelevantFilesSection } from './regionOverlap';
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
@@ -75,6 +76,12 @@ export function evaluateIssue(
 ): FilterResult {
   if (cancelledThisCycle.has(issue.number)) {
     return { eligible: false, reason: 'cancelled' };
+  }
+
+  // Every stage: the take-over and merge branches spawn without passing
+  // classifyAndSpawnWorkflow's opt-out gate.
+  if (readAdwLabelNames(issue.labels.map((l) => l.name)).optOut) {
+    return { eligible: false, reason: 'label:opt_out' };
   }
 
   // Resolve stage first so we can dispatch to the right dedup set. An issue

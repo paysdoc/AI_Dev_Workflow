@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module collects BDD scenario results and screenshot artifacts, formats them into a structured proof comment, and posts that comment to the pull request. It provides both the orchestration phase (`proofPublishPhase`) and the underlying machinery: a scenario runner (`scenarioProof`), a pure artifact harvester (`proofArtifactHarvester`), and a pure formatter plus impure publisher (`prProofPublisher`).
+This module collects BDD scenario results and screenshot artifacts, formats them into a structured proof comment, and posts that comment to the pull request. It provides both the orchestration phase (`proofPublishPhase`) and the underlying machinery: a scenario runner (`scenarioProof`), a pure artifact harvester (`proofArtifactHarvester`), a non-throwing R2 uploader (`proofUploader`), and a pure formatter plus impure publisher (`prProofPublisher`). The uploader is shared by the review phase (issue review comment) and the PR proof publisher.
 
 ## Responsibilities
 
@@ -11,7 +11,8 @@ This module collects BDD scenario results and screenshot artifacts, formats them
 - `shouldRunScenarioProof`: returns false when `.adw/scenarios.md` is empty, allowing callers to fall back to code-diff proof.
 - `harvestProofArtifacts`: recursively walks the `ADW_PROOF_DIR` directory and returns a sorted list of image files as `ProofArtifact` records. Pure — no uploads, no logging.
 - `formatPrProofComment`: composes a Markdown PR comment from tag results and uploaded screenshot URLs. Pure — no I/O, no ADW footer.
-- `publishPrProof`: harvests artifacts, uploads them to R2 (when Cloudflare credentials are configured), calls `formatPrProofComment`, appends `ADW_SIGNATURE`, and posts the comment to the PR. All errors are caught and logged. `PublishDeps.commenter: CommenterFn` (`(prNumber, body) => void`) is required since #820 — bound by the caller to `repoContext.codeHost.commentOnPullRequest`, no legacy default; `PublishDeps.repoInfo` stays (it namespaces the R2 upload key, independent of the commenter).
+- `uploadProofArtifacts` (`proofUploader.ts`): harvests the proof directory and uploads each image sequentially to `proof/{adwId}/{relPath}`, returning the `UploadedArtifact[]` that succeeded. Uploader resolves as `deps.uploader ?? installedUploader ?? uploadToR2`. Also exports `isR2Configured` and the test-only `setProofUploaderForTesting(uploader | null)`.
+- `publishPrProof`: uploads via `uploadProofArtifacts` (when Cloudflare credentials are configured), calls `formatPrProofComment`, appends `ADW_SIGNATURE`, and posts the comment to the PR. All errors are caught and logged. `PublishDeps.commenter: CommenterFn` (`(prNumber, body) => void`) is required since #820 — bound by the caller to `repoContext.codeHost.commentOnPullRequest`, no legacy default; `PublishDeps.repoInfo` stays (it namespaces the R2 upload key, independent of the commenter).
 
 ## Contracts & Invariants
 
@@ -20,6 +21,7 @@ This module collects BDD scenario results and screenshot artifacts, formats them
 - JUnit report takes precedence over subprocess exit code when `report.total > 0`. A clean JUnit with a non-zero exit code results in PASS with a warning string attached.
 - A JUnit report with `total === 0` for an optional tag is treated as SKIP; for a required tag it is treated as FAIL.
 - `harvestProofArtifacts` returns `[]` when the directory does not exist; callers need not guard the directory's existence.
+- `uploadProofArtifacts` never throws: harvest or per-artifact errors are logged and skipped. Only the default `uploadToR2` is gated on `isR2Configured()`; an injected or installed uploader counts as configured.
 - `publishPrProof` skips uploading when R2 credentials are absent and renders a note in the comment instead.
 - The artifacts directory (`ADW_PROOF_DIR`) is wiped and recreated at the start of each `runScenarioProof` call to avoid stale screenshots from a prior run bleeding into the proof.
 - Stale per-tag JUnit reports are deleted before each tag run so a missing report is distinguishable from an empty one.
@@ -30,6 +32,8 @@ R2 upload requires `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_A
 
 ## Gotchas
 
+- Uploads run sequentially, not in parallel: `uploadToR2` ensures the bucket per call and parallel first uploads would race bucket creation.
+- The review phase uploads the same images before the PR exists; `publishPrProof` re-uploads later under identical keys, an idempotent overwrite.
 - The JUnit reconciliation warning exists because Cucumber (and some other BDD runners) exit non-zero for pending/undefined steps even when all defined scenarios pass, and also emit errors from shutdown hooks (e.g. D1 write failures) that are unrelated to test results.
 - `leadingSegment(relPath)` groups uploaded screenshots by the first path segment of their relative path (e.g. the scenario folder name). When an image lives at the root of the artifacts directory, it is grouped under the literal string `'Screenshots'`.
 - `harvestProofArtifacts` uses an iterative DFS stack rather than recursion to avoid stack overflow on deep artifact trees.
