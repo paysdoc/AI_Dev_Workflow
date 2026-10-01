@@ -12,7 +12,7 @@ Three defects. The `## Divergence` sections of ADR-0026 (items 1, 2 and 3) and A
 - `checkDivergence` compares a number with itself and cannot fire.
 - `formatDivergenceWarning` never prints "Cost Divergence Detected".
 - D1's `reported_cost_usd` holds the locally computed cost.
-- *Expected:* `computedCostUsd` is the local computation, which is the source of truth. `reportedCostUsd` is the CLI's figure from its result message. The two can differ, and a gap above 5% is flagged.
+- *Expected:* `computedCostUsd` is the local computation, which is the source of truth. `reportedCostUsd` is the CLI's figure from its result message. The two can differ, and a gap above 5% is flagged. The cost API keeps totalling the computed cost, never the CLI's figure.
 
 **2. Estimated and actual tokens are always undefined (ADR-0026, item 2).** `createPhaseCostRecords` hard-codes `estimatedTokens: undefined` and `actualTokens: undefined` (`types.ts:147-148`). Yet `handleAgentProcess` already has both values: `extractor.getEstimatedUsage()`, and `extractor.getCurrentUsage()` once the result message has arrived. It returns them as `AgentResult.estimatedUsage`/`actualUsage`, and only the build phase reads them, for a console log. So `formatEstimateVsActual(records)` always returns `''`, and the cost PRD's estimate-against-actual report is never produced.
 - *Expected:* a Phase Cost Record carries per-model estimated and actual token counts whenever its runs produced them.
@@ -24,6 +24,7 @@ Three defects. The `## Divergence` sections of ADR-0026 (items 1, 2 and 3) and A
 
 ## Problem Statement
 - `createPhaseCostRecords` builds records from the per-model usage entry, `LegacyModelUsage`, that every phase passes to it. That entry has nowhere to hold the CLI's cost figure or the estimated and actual token counts, and the extractor does not keep the CLI's per-model figure at all. So no record can hold the CLI's figure or the token counts.
+- The cost API's read endpoints total `SUM(COALESCE(reported_cost_usd, computed_cost_usd))` (`workers/cost-api/src/queries.ts:73` and `:102`). That changes nothing while both columns hold the same value. Once `reported_cost_usd` holds the CLI's figure, the cost breakdown and the per-issue costs would report the CLI's figure, and the computed cost would stop being the source of truth.
 - The deploy workflow's change detection compares the push with the wrong base. A release merge therefore never shows a changed Worker, and a release that changes no Worker file cannot deploy the configuration that never reached Cloudflare.
 
 ## Solution Statement
@@ -44,14 +45,19 @@ Three defects. The `## Divergence` sections of ADR-0026 (items 1, 2 and 3) and A
 Left unchanged:
 - `AgentResult.totalCostUsd`.
 - The D1 payload. `transformToIngestPayload` already maps `reported_cost_usd: r.reportedCostUsd`, and `JSON.stringify` drops an `undefined` value.
-- The cost-api Worker. Its column `reported_cost_usd` is nullable and bound with `?? null`.
+- The cost-api Worker's ingest and schema. Its column `reported_cost_usd` is nullable and bound with `?? null`.
+
+**Cost API totals (ADR-0026, item 1).** The Worker's read endpoints must keep the computed cost as the source of truth once `reported_cost_usd` holds the CLI's figure.
+- Both queries in `workers/cost-api/src/queries.ts` sum `computed_cost_usd` instead of `COALESCE(reported_cost_usd, computed_cost_usd)`: the cost breakdown (line 73) and the per-phase costs behind the per-issue costs (line 102).
+- The COALESCE dates from #375, when both columns always held the same value. Every record ADW has posted set both from the same `costUSD` (`createPhaseCostRecords` has copied it into both since it was written), so the change leaves the totals of the stored records as they are.
+- `reported_cost_usd` is still stored, so the CLI's figure stays available beside the computed cost.
 
 **Worker deploy (ADR-0022, item 1).**
 1. Set `base: ${{ github.ref }}` on the paths-filter step. When `base` names the pushed branch, `dorny/paths-filter` diffs `github.event.before..<pushed commit>`, which is exactly what the release changed. Its own `git fetch` makes the shallow checkout enough. Checked on the history of `main`:
    - Release `740e5822` (2026-09-25): the merge-base diff the action made lists 0 files, while `before..after` lists 10 files under `workers/`.
    - Release `1e6bb19e` (2026-07-30): `before..after` lists both `wrangler.toml` files.
 2. Add `.github/workflows/deploy-workers.yml` to each Worker's filter, so that a change to how the Workers are deployed redeploys them.
-   - This is what lets the fixed workflow deploy the cost-api configuration of 2026-07-30. `main` and `dev` have no difference under `workers/` today, so the release that carries this fix changes no Worker file. Without this entry it would deploy nothing.
+   - This is what makes the release that carries this fix deploy both Workers, and with them the never-deployed configuration of 2026-07-30. `main` and `dev` have no difference under `workers/` today. That release changes `workers/cost-api/src/queries.ts` ("Cost API totals" above) but no file of screenshot-router. Without this entry screenshot-router would not be deployed, and deploying the cost-api configuration would hinge on an unrelated query change.
    - `git diff 1e6bb19e origin/main -- workers/cost-api/wrangler.toml` is empty: the configuration is unchanged since 2026-07-30.
 3. Remove the trigger-level `on.push.paths`.
    - GitHub matches that filter against at most the first 300 changed files of a push. Releases here are often larger: 600 files on 2026-09-10, 487 on 2026-09-25, 314 on 2026-09-24. A Worker change beyond the first 300 files would skip the whole workflow without any message.
@@ -71,6 +77,10 @@ Cost record:
 3. After the fix it prints `{"computed":0.0105,"reported":0.021,"estimatedTokens":{"input":1000,"output":400},"actualTokens":{"input":1000,"output":500},"divergent":true}`.
 4. Upstream, feed a `result` line with `modelUsage` to `new AnthropicTokenUsageExtractor().onChunk(...)`. No method returns the per-model `costUSD`; only `total_cost_usd` is kept, through `getReportedCostUsd()`.
 
+Cost API totals:
+1. `grep -n 'COALESCE(reported_cost_usd, computed_cost_usd)' workers/cost-api/src/queries.ts` prints lines 73 and 102.
+2. `workers/cost-api/test/queries.test.ts` asserts that a record with `computed_cost_usd` 0.5 and `reported_cost_usd` 2.0 totals 2.0, in the breakdown (line 155) and in the per-issue costs (line 283). Once records carry the CLI's figure, the cost API reports that figure instead of the computed cost.
+
 Deploy workflow:
 1. `gh run view 30548828711 --log | grep -E 'detected between|Detected [0-9]+ changed'` prints "Changes will be detected between dev and main" and "Detected 0 changed files".
 2. `gh run view 30548828711 --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"'` shows "Deploy cost-api: skipped" and "Deploy screenshot-router: skipped". Run `36109665658` (2026-09-25) shows the same.
@@ -89,6 +99,7 @@ Deploy workflow:
 - When local computation was wired into `toOldModelUsageMap`, `costUSD` became the local figure. `createPhaseCostRecords` still copied that one field into both cost fields; the comment at `types.ts:91` still says "equals reportedCostUsd until local computation is implemented".
 - Nothing carries a CLI figure towards the record. The extractor keeps only `total_cost_usd`, which is a session total rather than a per-model figure, and its `toTokenUsageMap` drops each model's `costUSD`.
 - `estimatedTokens` and `actualTokens` were left as `undefined` placeholders ("until streaming estimation is implemented"). Streaming estimation was implemented later. Its results reach `AgentResult.estimatedUsage` and `actualUsage`, but never the per-model map the record is built from.
+- The cost API's read endpoints (#375) chose `COALESCE(reported_cost_usd, computed_cost_usd)`. With both columns equal, preferring the reported column had no visible effect; once records hold the CLI's figure, it would replace the computed cost in every total.
 
 **Deploy.**
 - `dorny/paths-filter` replaces an unset `base` with the repository's default branch. When that differs from the pushed branch, it diffs `merge-base(base, head)...head`. Only when `base` names the pushed branch does it compare with `github.event.before`.
@@ -123,6 +134,9 @@ Use these files to fix the bug:
 - `adws/phases/*.ts` (25 `createPhaseCostRecords` call sites) and `adws/phases/buildPhase.ts:148-179` — unchanged. They show that every path either passes `modelUsage` through or merges it with `mergeModelUsageMaps`.
 - `adws/phases/prReviewCompletion.ts`, `adws/phases/workflowCompletion.ts` — unchanged. They call `formatCostCommentSection`, where the divergence warning and the estimate-against-actual table are shown.
 - `workers/cost-api/src/ingest.ts`, `workers/cost-api/src/schema.sql` — unchanged. A missing `reported_cost_usd` is stored as NULL, and there are no columns for estimated or actual tokens.
+- `workers/cost-api/src/queries.ts` — `handleGetCostBreakdown` (line 73) and `handleGetCostIssues` (line 102) total `COALESCE(reported_cost_usd, computed_cost_usd)`; both change to `computed_cost_usd`.
+- `workers/cost-api/test/queries.test.ts` — the Worker's query tests, run with `@cloudflare/vitest-pool-workers` from `workers/cost-api`. The two tests that assert the COALESCE (lines 155 and 283) are inverted.
+- `specs/issue-375-adw-48ki7w-add-get-endpoints-fo-sdlc_planner-cost-api-get-endpoints.md` — design decision 4 of #375, "`COALESCE(reported_cost_usd, computed_cost_usd)` everywhere", taken while both columns held the same value.
 - `workers/cost-api/wrangler.toml`, `workers/screenshot-router/wrangler.toml` — unchanged. They hold the never-deployed `[observability.logs]` configuration of 2026-07-30.
 - `.github/workflows/deploy-workers.yml` — the change detection to fix.
 - `adws/cost/__tests__/extractor.test.ts`, `adws/cost/__tests__/computation.test.ts` — existing cost tests to extend or keep green.
@@ -133,7 +147,7 @@ Use these files to fix the bug:
   - `app_docs/feature-9gjajh-cost-tracking.md` (owns `adws/cost/**`).
   - `app_docs/feature-9gjajh-claude-agents-core.md` (owns `adws/agents/agentProcessHandler.ts`).
   - `app_docs/feature-9gjajh-root-config.md` (owns `.github/**`).
-  - `app_docs/feature-9gjajh-cost-api-worker.md` (owns `workers/cost-api/**`).
+  - `app_docs/feature-9gjajh-cost-api-worker.md` (owns `workers/cost-api/**`; line 22 describes the COALESCE fallback).
   - `app_docs/feature-9gjajh-specs-and-prd.md` (owns `specs/**`).
   - `adws/README.md` (when working in `adws/`).
 
@@ -259,7 +273,18 @@ IMPORTANT: Execute every step in order, top to bottom.
 - If importing `../d1Client` pulls in side effects in the test run, mock `'../../core'` with `{ log: vi.fn() }`, as other cost tests do.
 - Do not change `d1Client.ts`. The token maps are not sent to D1: the Worker has no columns for them, and the PRD keeps them on the record.
 
-### 10. Fix the deploy workflow's change detection
+### 10. Make the cost API total the computed cost
+- Write the tests first in `workers/cost-api/test/queries.test.ts`:
+  - Replace `it('uses reported_cost_usd when present (COALESCE)')` (line 155) with `it('totals computed_cost_usd and ignores reported_cost_usd')`. The record seeded with computed 0.5 and reported 2.0 gives a breakdown `totalCost` of 0.5.
+  - Replace `it('uses COALESCE: prefers reported_cost_usd over computed_cost_usd')` (line 283) the same way for `/costs/issues`: `totalCost` and `phases[0].cost` are 0.5.
+  - Rename `it('falls back to computed_cost_usd when reported is null')` to `it('totals computed_cost_usd when reported_cost_usd is null')`; its body stays. Without the COALESCE there is no fallback.
+  - Run `cd workers/cost-api && bun install && bun run test`. The two replaced tests fail.
+- In `workers/cost-api/src/queries.ts`, replace `SUM(COALESCE(reported_cost_usd, computed_cost_usd))` with `SUM(computed_cost_usd)` in `handleGetCostBreakdown` (line 73) and in `handleGetCostIssues` (line 102).
+- Change nothing else in the Worker: not the response shapes, `ingest.ts`, the schema or `wrangler.toml`.
+- Run the Worker tests again; all pass.
+- The `@adw-936` scenario "The cost API totals a project's costs from the computed cost, never from the CLI's figure" checks the same rule through both read endpoints.
+
+### 11. Fix the deploy workflow's change detection
 - Edit `.github/workflows/deploy-workers.yml` to this shape. Keep the job names, the `outputs` mapping and both deploy jobs unchanged.
   ```yaml
   name: Deploy Workers
@@ -292,7 +317,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Do not change `actions/checkout@v4` (depth 1 is enough, because paths-filter fetches the `before` commit itself), `oven-sh/setup-bun@v2` or `cloudflare/wrangler-action@v3`.
 - Keep the two comments short. They state reasons the YAML cannot show (ADR-0054); do not add others.
 
-### 11. Add a contract test for the workflow
+### 12. Add a contract test for the workflow
 - Create `adws/__tests__/deployWorkersWorkflow.test.ts` in the style of `adws/__tests__/prTemplateMarker.test.ts`:
   - Read `.github/workflows/deploy-workers.yml` with `fs`, resolved from `__dirname`, and make text assertions. No YAML dependency.
   - List the Worker directories with `fs.readdirSync(<repo>/workers, { withFileTypes: true }).filter(d => d.isDirectory())`.
@@ -303,9 +328,9 @@ IMPORTANT: Execute every step in order, top to bottom.
     - The `changes` job exposes `<name>: ${{ steps.filter.outputs.<name> }}`.
     - The filter block matches `<name>:` followed by `- 'workers/<name>/**'` and `- '.github/workflows/deploy-workers.yml'`. Use a regex with `\s+` between the lines.
     - There is a job containing `if: needs.changes.outputs.<name> == 'true'` and `workingDirectory: workers/<name>`.
-- Run it against the current workflow before step 10, if steps are reordered for TDD: it fails on `base`, on `paths:` and on the filter entries. After step 10 it passes.
+- Run it against the current workflow before step 11, if steps are reordered for TDD: it fails on `base`, on `paths:` and on the filter entries. After step 11 it passes.
 
-### 12. Remove the resolved Divergence entries from the ADRs
+### 13. Remove the resolved Divergence entries from the ADRs
 - `specs/adr/0026-cost-computed-locally-persisted-in-d1.md`:
   - Delete lines 66–71: the `## Divergence` heading, its blank line and items 1–3. The last bullet of `### Confirmation` is then followed by one blank line and `## More Information`.
   - Change nothing else: front matter, Confirmation and More Information stay as they are (write-an-adr rules).
@@ -316,7 +341,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   - Change nothing else.
 - Do not edit `specs/adr/README.md`. The statuses stay `accepted`, and the index does not list divergences.
 
-### 13. Run the validation commands
+### 14. Run the validation commands
 - Run every command under "Validation Commands" and fix anything that fails before you finish.
 
 ## Validation Commands
@@ -328,14 +353,16 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — type check of `adws/`, including the new tests.
 - `bun run build` — build.
 - `bun run lint:git-guard` — the new files under `adws/` must not shell out to git or gh.
-- `bunx vitest run adws/cost adws/agents/__tests__/agentProcessHandler.test.ts adws/__tests__/deployWorkersWorkflow.test.ts` — the focused tests. Before steps 2–11 the new cases fail; after them, all pass.
+- `bunx vitest run adws/cost adws/agents/__tests__/agentProcessHandler.test.ts adws/__tests__/deployWorkersWorkflow.test.ts` — the focused tests. Before steps 2–9, 11 and 12 the new cases fail; after them, all pass.
 - `bun run test:unit` — the full unit suite. All files pass: the baseline is 155 files and 2635 tests, plus the new ones.
+- `cd workers/cost-api && bun install && bun run test` — the cost API's tests, including the two that now assert the computed cost (step 10). The root `test:unit` does not run them.
 - Cost reproduction, before and after. After the fix it prints `{"computed":0.0105,"reported":0.021,"estimatedTokens":{"input":1000,"output":400},"actualTokens":{"input":1000,"output":500},"divergent":true}`:
   `bunx tsx -e "import { createPhaseCostRecords } from './adws/cost/types.ts'; import { checkDivergence } from './adws/cost/computation.ts'; const [r] = createPhaseCostRecords({ workflowId: 'w', issueNumber: 1, phase: 'plan', status: 'success', retryCount: 0, contextResetCount: 0, durationMs: 0, modelUsage: { 'claude-sonnet-4-5-20250929': { inputTokens: 1000, outputTokens: 500, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 0.0105, reportedCostUSD: 0.021, estimatedTokens: { input: 1000, output: 400 }, actualTokens: { input: 1000, output: 500 } } as never } }); console.log(JSON.stringify({ computed: r.computedCostUsd, reported: r.reportedCostUsd, estimatedTokens: r.estimatedTokens ?? null, actualTokens: r.actualTokens ?? null, divergent: checkDivergence(r.computedCostUsd, r.reportedCostUsd).isDivergent }));"`
 - Deploy reproduction: the comparison the action made, against the one `base: ${{ github.ref }}` makes. It should print 0, then 10.
   `git fetch origin main && R=740e5822c2d0e16929c472fb18c051fcff1a9eb8 && git diff --name-only "$(git merge-base "$R^2" "$R")" "$R" -- workers/ | wc -l && git diff --name-only "$R^1" "$R" -- workers/ | wc -l`
 - `! grep -n 'reportedCostUsd: usage.costUSD' adws/cost/types.ts` — the record no longer copies the computed cost.
 - `! grep -n -E 'estimatedTokens: undefined|actualTokens: undefined' adws/cost/types.ts` — the placeholders are gone.
+- `! grep -n 'COALESCE(reported_cost_usd' workers/cost-api/src/queries.ts` — the cost API no longer prefers the CLI's figure.
 - `grep -n 'base: \${{ github.ref }}' .github/workflows/deploy-workers.yml` — the base is pinned to the pushed branch.
 - `! grep -n '^## Divergence' specs/adr/0026-cost-computed-locally-persisted-in-d1.md` — the section is removed.
 - `! grep -n 'The deploy workflow does not deploy' specs/adr/0022-review-proof-in-r2-behind-router-worker.md` — item 1 is removed.
@@ -356,7 +383,7 @@ Execute every command to validate the bug is fixed with zero regressions.
   - `gh run list --workflow deploy-workers.yml --limit 1` lists the new run.
   - `gh run view <id> --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"'` shows both deploy jobs as `success`, not `skipped`, because the workflow file is in both filters.
   - `gh run view <id> --log | grep 'detected between'` shows "<sha> and main", not "dev and main".
-  - `npx wrangler deployments list` in `workers/cost-api` shows a deployment after the release. The cost API's `[observability.logs]` configuration of 2026-07-30 is then live.
+  - `npx wrangler deployments list` in `workers/cost-api` shows a deployment after the release. The cost API's `[observability.logs]` configuration of 2026-07-30 is then live, and so are the computed-cost totals of step 10.
 - **Deploy-job risk, separate from change detection.**
   - The deploy jobs have not run since 2026-04-02. Run `23900325519` was the last time the screenshot-router job ran, and it failed. Its logs have expired (HTTP 410), so the cause is unknown; `setup-bun` was added to the workflow later that day.
   - The `CLOUDFLARE_API_TOKEN` secret may also have changed since then.
