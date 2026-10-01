@@ -142,7 +142,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
       };
 
-      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx }, true);
 
       costUsd += buildResult.totalCostUsd || 0;
       if (buildResult.modelUsage) {
