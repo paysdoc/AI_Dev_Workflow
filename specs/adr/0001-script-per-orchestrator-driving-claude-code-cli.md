@@ -5,8 +5,8 @@ recorded: 2026-09-29
 provenance:
   - kind: contemporaneous
     source: 'commit 5c4067c6 ("init: chore: add AI dev workflow system"), including adws/README.md as committed'
-  - kind: contemporaneous
-    source: README.md, "About this project" and "Acknowledgments" (retrospective text, added 2026-04-26 and 2026-05-12)
+  - kind: retrospective
+    source: README.md, "About this project" and "Acknowledgments" (added 2026-04-26 and 2026-05-12)
 supersedes: []
 superseded-by: []
 ---

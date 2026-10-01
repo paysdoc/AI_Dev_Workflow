@@ -15,6 +15,8 @@ provenance:
     source: specs/issue-560-adw-23ipne-distinct-operator-fa-sdlc_planner-distinct-abort-messages.md
   - kind: contemporaneous
     source: specs/issue-561-adw-6uquvb-point-build-continua-sdlc_planner-build-continuation-committed-state.md
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -68,9 +70,12 @@ Checked on 2026-09-29 by reading the code.
 * `adws/phases/__tests__/progressGate.test.ts` was run with Vitest and passed. `adws/agents/__tests__/agentProcessHandler.test.ts` and `claudeAgent.test.ts` exist but were not run.
 * No CI workflow runs the unit tests; they run through `bun run test:unit`.
 
+## Divergence
+
+1. **Phases other than build and unit test are killed on compaction and not restarted.** `agentProcessHandler.ts` kills every agent on compaction, but only `buildPhase.ts` and the unit-test path (`adws/agents/testRetry.ts`, `adws/phases/unitTestPhase.ts`) restart it. A search for `compactionDetected` finds no other consumer. The review handling that #299 added lived in `adws/agents/reviewRetry.ts`, which was removed on 2026-04-08 (commit a805a4b6, see [ADR-0031](0031-active-test-phase-passive-review-judge.md)). The stage `review_compaction_recovery` and its comment formatter remain, and nothing posts it. Ruling (owner, 2026-09-29): only build and tests restart on compaction. The other phases should run on with the compacted context; killing them and accepting partial output is a bug.
+
 ## More Information
 
-* Unresolved: `agentProcessHandler.ts` kills every agent on compaction, but only `buildPhase.ts` and the unit-test path (`adws/agents/testRetry.ts`, `adws/phases/unitTestPhase.ts`) restart it. A search for `compactionDetected` finds no other consumer. The review handling that #299 added lived in `adws/agents/reviewRetry.ts`, which was removed on 2026-04-08 (commit a805a4b6, see [ADR-0031](0031-active-test-phase-passive-review-judge.md)). The stage `review_compaction_recovery` and its comment formatter remain, and nothing posts it. Whether leaving the other phases without a restart is deliberate is not recorded.
 * The plans for #559, #560 and #561 name a parent PRD, `specs/prd/build-context-reset-progress-gate.md`. It is not in the repository, so its rationale (the plans mention "novelty over size-growth") could not be read.
 * #521 also changed the step-definition prompt to check syntax with `bunx tsc --noEmit` and never import step files.
 * How a timed-out phase is picked up again is recorded in [ADR-0036](0036-stage-taxonomy-and-exhaustive-classifier.md) and [ADR-0047](0047-resume-in-place.md).

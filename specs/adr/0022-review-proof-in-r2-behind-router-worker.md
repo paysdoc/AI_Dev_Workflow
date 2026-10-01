@@ -13,6 +13,8 @@ provenance:
     source: specs/issue-332-adw-avb4f5-github-actions-worke-sdlc_planner-deploy-workers-github-actions.md
   - kind: contemporaneous
     source: specs/issue-580-adw-izgf7n-screenshot-harvest-t-sdlc_planner-screenshot-harvest-proof-comment.md
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -61,9 +63,12 @@ Checked on 2026-09-29:
 * `workers/screenshot-router/wrangler.toml` routes `screenshots.paysdoc.nl/*` and sets the cron `0 3 * * *`. The hostname resolves.
 * Unit tests exist for `adws/proof/`. None exist for `adws/r2/` or for the Worker.
 
+## Divergence
+
+1. **The deploy workflow does not deploy.** The deploy workflow has not deployed since 2026-04-02. Its path filter compares `main` with the default branch `dev` ("Changes will be detected between dev and main"), finds 0 changed files after a merge from `dev`, and skips both deploy jobs. The runs of 2026-04-08, 2026-07-30 and 2026-09-25 all ended that way (`gh run view`, 2026-09-29). See [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md) for the branch model. Ruling (owner, 2026-09-29): a bug. The Workers were not deployed by hand. The last functional change to the cost API (2026-04-02) was deployed; the observability configuration of 2026-07-30 was not.
+2. **Screenshots never reach the issue's review comments.** `screenshotUrls` in the review comment formatters (`adws/forge/workflowCommentsIssue.ts`) is never set by any caller, so the review-comment path of #278 is dead code. Ruling (owner, 2026-09-29): screenshots were meant to appear in the review comments on the issue as well. A bug.
+
 ## More Information
 
-* Unresolved: the deploy workflow has not deployed since 2026-04-02. Its path filter compares `main` with the default branch `dev` ("Changes will be detected between dev and main"), finds 0 changed files after a merge from `dev`, and skips both deploy jobs. The runs of 2026-04-08, 2026-07-30 and 2026-09-25 all ended that way (`gh run view`, 2026-09-29). Whether the Workers were deployed by hand in that period was not determined. See [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md) for the branch model.
-* Unresolved: `screenshotUrls` in the review comment formatters (`adws/forge/workflowCommentsIssue.ts`) is never set by any caller, so the review-comment path of #278 is dead code.
 * The `cost-api` Worker shares the layout and the deploy workflow; see [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md). DNS for the hostnames is covered by [ADR-0030](0030-cloudflare-dns-managed-by-hand.md). The review became a passive judge under [ADR-0031](0031-active-test-phase-passive-review-judge.md); a comment in `adws/adwSdlc.tsx` as of commit 7c65081b says it "no longer produces images". Whether that is why #278's call site disappeared was not checked.
 * The spec for #274 names a parent PRD, `specs/prd/prd-review-revamp.md`. That file is not in the repository or its history.

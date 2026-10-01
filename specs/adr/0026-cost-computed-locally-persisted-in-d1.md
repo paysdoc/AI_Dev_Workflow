@@ -9,6 +9,8 @@ provenance:
     source: specs/prd/d1-cost-database.md
   - kind: contemporaneous
     source: specs for #241 to #245 and #330 to #335 (specs/issue-241-* ... specs/issue-335-*)
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: ["0004"]
 superseded-by: []
 ---
@@ -61,10 +63,13 @@ Checked on 2026-09-29:
 * `workers/cost-api/wrangler.toml` binds `adw-costs` and routes `costs.paysdoc.nl/*`.
 * Unit tests: `adws/cost/__tests__/computation.test.ts` and `extractor.test.ts`, run by `bun run test:unit`; Worker tests in `workers/cost-api/test/`. No CI workflow runs either. `adws/cost/d1Client.ts` has no test.
 
+## Divergence
+
+1. **The divergence check compares a number with itself.** The divergence check cannot fire. `createPhaseCostRecords` (`adws/cost/types.ts:140-141`) sets `computedCostUsd` and `reportedCostUsd` to the same locally computed value, so `checkDivergence` compares a number with itself and D1's `reported_cost_usd` does not hold the CLI's figure. A comment at `types.ts:91` reads "until local computation is implemented". Ruling (owner, 2026-09-29): the decision of March stands. The locally computed cost is the source of truth and the CLI's figure is the 5% check; a record without the CLI's figure is a bug. The owner first recalled the reverse and withdrew it on reading the PRD.
+2. **The estimate-against-actual report is never produced.** `estimatedTokens` and `actualTokens` are always `undefined` in records, so the estimate-against-actual report of the revamp PRD is never produced. Ruling (owner, 2026-09-29): the report is required. A bug.
+3. **The Worker deploy workflow does not deploy.** The deploy workflow has not deployed a Worker since 2026-04-02; see [ADR-0022](0022-review-proof-in-r2-behind-router-worker.md). Ruling (owner, 2026-09-29): a bug; see the Divergence section of ADR-0022.
+
 ## More Information
 
-* Unresolved: the divergence check cannot fire. `createPhaseCostRecords` (`adws/cost/types.ts:140-141`) sets `computedCostUsd` and `reportedCostUsd` to the same locally computed value, so `checkDivergence` compares a number with itself and D1's `reported_cost_usd` does not hold the CLI's figure. A comment at `types.ts:91` reads "until local computation is implemented".
-* Unresolved: `estimatedTokens` and `actualTokens` are always `undefined` in records, so the estimate-against-actual report of the revamp PRD is never produced.
-* Unresolved: the deploy workflow has not deployed a Worker since 2026-04-02; see [ADR-0022](0022-review-proof-in-r2-behind-router-worker.md).
 * The revamp PRD introduced Vitest for this module; see [ADR-0018](0018-unit-tests-restored-alongside-bdd.md).
 * `README.md` describes divergence detection as working and the CSV files as having lived in the target repository. Neither matches the code or the specs.

@@ -40,6 +40,7 @@ One ADR records one decision. ADRs live in `specs/adr/` and use [TEMPLATE.md](TE
 `provenance` kinds:
 
 - `contemporaneous`: written down when the decision was made (PRD, spec, issue, commit). `source` is the path or reference.
+- `retrospective`: a written source dated after the decision (a README section, a later doc). `source` is the path or reference and the date it was written.
 - `transcript`: the user's own words in a saved conversation. `source` names it.
 - `recalled`: the user's memory, stated later. `source` is who and when.
 

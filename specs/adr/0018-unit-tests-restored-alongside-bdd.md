@@ -64,5 +64,6 @@ Checked against the code on 2026-09-29:
 
 * Supersedes, in part, [ADR-0014](0014-bdd-as-validation-contract-unit-tests-removed.md): only the removal of unit tests. BDD as the validation contract stands.
 * Unit tests inside the build agent's red-green-refactor loop are recorded in [ADR-0024](0024-tdd-in-build-phase-single-pass-alignment.md).
-* The switch that enables the unit-test phase moved from `.adw/project.md` to `.github/adw.yml`, default enabled, in [ADR-0043](0043-multi-language-test-seam.md). The `## Unit Tests` flag in `.adw/project.md` is still read by the `/feature` and `implement-tdd` prompts; see the unresolved item in ADR-0043.
+* The switch that enables the unit-test phase moved from `.adw/project.md` to `.github/adw.yml`, default enabled, in [ADR-0043](0043-multi-language-test-seam.md). The `## Unit Tests` flag in `.adw/project.md` is still read by the `/feature` and `implement-tdd` prompts; the owner ruled on 2026-10-01 that this second switch is a bug (Divergence, item 3, in ADR-0043).
+* The division of roles leans on step definitions staying independent of the implementation. The review check for that is missing; see the Divergence section of ADR-0024.
 * The cost module itself is recorded in [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md).

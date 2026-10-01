@@ -4,7 +4,7 @@ One record per design decision, including decisions that were later replaced. Re
 
 New records are written with the `write-an-adr` skill (`.claude/skills/write-an-adr/`), which holds the template and the rules for numbering, provenance and supersession.
 
-Records 0001 to 0055 were written on 2026-09-29, after the fact. Each one states where its reasoning comes from: a document written at the time, the owner's words in a saved session, or the owner's memory on the day of writing. A record with a `## Divergence` section describes a decision the code does not currently follow.
+Records 0001 to 0055 were written on 2026-09-29, after the fact. Each one states where its reasoning comes from: a document written at the time, a document written later, the owner's words in a saved session, or the owner's memory on the day of asking. The owner ruled on the open findings of those records between 2026-09-29 and 2026-10-01; two decisions made during that review are records 0056 and 0057. A record with a `## Divergence` section describes a decision the code does not currently follow.
 
 Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are recorded in those repositories.
 
@@ -65,3 +65,5 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0053](0053-docs-index-health-gate-and-sweep.md) | 2026-08-28 | Docs index health is checked by a CI gate and a daily sweep | accepted |
 | [0054](0054-comment-discipline.md) | 2026-09-24 | Comments say only what the code cannot | accepted |
 | [0055](0055-rate-limit-structured-signals-two-tier-wait.md) | 2026-09-25 | Rate limits are read from structured signals and waited out without limit, in the process or in the queue | accepted |
+| [0056](0056-planner-commits-only-the-plan.md) | 2026-10-01 | The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it | accepted |
+| [0057](0057-subscription-by-default-api-key-by-choice.md) | 2026-10-01 | The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key | accepted |

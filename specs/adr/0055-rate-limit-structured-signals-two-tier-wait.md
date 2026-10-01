@@ -9,6 +9,8 @@ provenance:
     source: specs/issue-907-*.md to specs/issue-912-*.md
   - kind: transcript
     source: Claude Code session 36757ede, 2026-09-22 and 2026-09-25
+  - kind: recalled
+    source: "Martin Koster, 2026-10-01"
 supersedes: ["0025"]
 superseded-by: []
 ---
@@ -69,9 +71,12 @@ Checked on 2026-09-29.
 * CI gate: `.github/workflows/envelope-conformance.yml` runs on every pull request and on pushes to `dev` and `main`, pins CLI 2.1.282 and runs `bun run jsonl:check`. Its last ten runs, up to 2026-09-28, succeeded (`gh run list`).
 * The repository has no required status checks, so a failing gate is visible on a pull request and does not block the merge.
 
+## Divergence
+
+1. **The live leg of the conformance gate never runs.** The live leg of the gate (`bun run jsonl:probe:check` against the pinned CLI) runs only when the secret `ANTHROPIC_API_KEY` is set. `gh secret list` on 2026-09-29 shows no such secret, so the leg is skipped with a warning and the run is green. The plan for #909 listed creating the secret as a decision for the human. The same plan notes that a probe with an API key never sees the rate-limit event, which is why that part of the schema is curated by hand from a captured fixture. Ruling (owner, 2026-10-01): the live probe is the decision. The secret is added, and a missing secret must fail the run and not warn. Known limit: a probe with an API key never sees the rate-limit event. See [ADR-0057](0057-subscription-by-default-api-key-by-choice.md) for the key's effect on billing.
+
 ## More Information
 
-* Unresolved: the live leg of the gate (`bun run jsonl:probe:check` against the pinned CLI) runs only when the secret `ANTHROPIC_API_KEY` is set. `gh secret list` on 2026-09-29 shows no such secret, so the leg is skipped with a warning and the run is green. The plan for #909 listed creating the secret as a decision for the human. Whether running without the live leg is intended is not recorded. The same plan notes that a probe with an API key never sees the rate-limit event, which is why that part of the schema is curated by hand from a captured fixture.
 * The PRD says only confirmed non-rate-limit results count a strike. In the code a `failed` and an `unknown` probe result both count. The plan for #910 records this as a decision: a broken CLI binary classifies as `unknown` and must not wait forever. What changed is that no strike can fall before an entry's reset time.
 * Partly supersedes [ADR-0025](0025-rate-limit-pause-and-resume-queue.md); that ADR lists what still holds.
 * Left out of scope by the PRD: the false green on #840 ([ADR-0048](0048-one-adwid-per-issue-and-review-failed-gate.md)), the `gh` 401 failures on the cron host, any change to `## Cancel`, and coordination across hosts ([ADR-0035](0035-single-host-per-repo.md)).

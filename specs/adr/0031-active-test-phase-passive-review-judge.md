@@ -19,6 +19,10 @@ provenance:
     source: specs/issue-401-adw-cudwfe-review-phase-rewrite-sdlc_planner-passive-judge-review-phase.md
   - kind: contemporaneous
     source: specs/issue-403-adw-01s6z7-delete-e2e-machinery-sdlc_planner-delete-legacy-e2e-machinery.md
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
+  - kind: recalled
+    source: "Martin Koster, 2026-09-30"
 supersedes: ["0024"]
 superseded-by: []
 ---
@@ -79,10 +83,13 @@ Checked against the code on 2026-09-29:
 * `executeStepDefPhase` is called in the five orchestrators named by #397.
 * Unit tests exist for the three deep modules. `bunx vitest run` passed `devServerLifecycle.test.ts` (31 tests) and `scenarioTestPhase.test.ts` (16 tests). `devServerJanitor.test.ts` could not be loaded because `@paysdoc/devplatform` is not installed in this checkout; it was not run. No CI workflow runs the unit suite.
 
+## Divergence
+
+1. **The reviewer's proof instructions contradict the passive judge.** ADW's own `.adw/review_proof.md` tells the reviewer to run `@review-proof` and `@adw-{issueNumber}` scenarios itself. `review.md` gives Strategy A priority when a proof path is passed, so this text is reached only without one. No `.feature` file carries the `@review-proof` tag. Ruling (owner, 2026-09-30): "This is an architectural mistake. Scenario A and Scenario B contradict one another and neither works properly. This needs redesigning." The passive-judge decision stands.
+
 ## More Information
 
 * Supersedes, in part, ADR-0024: only the removal of the step-definition phase.
 * The PRD is the output of one grill session on 2026-04-08. Its rollout rule, small PRs merged while the cron runs from a separate clone, is recorded in [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md). The phase runner is recorded in [ADR-0020](0020-shared-phase-runner-and-core-decomposition.md).
 * The PRD's phase order ends "review → document → KPI → PR". The KPI phase was removed later ([ADR-0045](0045-kpi-module-removed.md)).
-* Unresolved: `## Run E2E Tests` was to leave the schema. No code under `adws/` parses it, but ADW's own `.adw/commands.md` still carries the heading and `.claude/commands/scenario_writer.md` still reads it (see [ADR-0043](0043-multi-language-test-seam.md)).
-* Unresolved: ADW's own `.adw/review_proof.md` tells the reviewer to run `@review-proof` and `@adw-{issueNumber}` scenarios itself. `review.md` gives Strategy A priority when a proof path is passed, so this text is reached only without one. No `.feature` file carries the `@review-proof` tag.
+* Settled (owner, 2026-09-29): the `## Run E2E Tests` heading is kept on purpose, as the scenario writer's tool descriptor. No code under `adws/` parses it; ADW's own `.adw/commands.md` carries it and `.claude/commands/scenario_writer.md` reads it (see [ADR-0043](0043-multi-language-test-seam.md)).

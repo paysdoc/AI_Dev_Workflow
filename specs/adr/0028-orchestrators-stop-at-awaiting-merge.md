@@ -11,6 +11,8 @@ provenance:
     source: specs/issue-382-adw-lvakyr-remove-webhook-auto-sdlc_planner-simplify-webhook-handlers.md
   - kind: contemporaneous
     source: "adws/known_issues.md, entry duplicate-auto-merge (first seen 2026-04-02)"
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: ["0017"]
 superseded-by: []
 ---
@@ -66,4 +68,4 @@ Later changes that kept the decision and refined it:
 * #488 (2026-04-25) replaced the cron's in-memory `processedMerges` set with a check of the on-disk spawn lock (`adws/triggers/mergeDispatchGate.ts`), so an `adwMerge` that exits without merging is dispatched again.
 * #527 (2026-05-26) added the `merge_blocked` stage for merges that cannot complete; recovery is by `## Retry` ([ADR-0032](0032-explicit-cancel-and-retry-directives.md)).
 * Whether `awaiting_merge` may be written after a failed review is recorded in [ADR-0048](0048-one-adwid-per-issue-and-review-failed-gate.md).
-* Unresolved: #380 says nothing that needs the worktree runs after PR creation. Today `adwSdlc.tsx` runs `executeProofPublishPhase` and `executePromotionRotAdvisory` between the PR phase and the `awaiting_merge` write, and `adws/phases/promotionRotAdvisory.ts` runs its agent with `cwd: worktreePath`. `adwPlanBuildTestReview.tsx` also runs `executeProofPublishPhase` there. No source records whether the #380 rule was relaxed on purpose.
+* Settled (owner, 2026-09-29): the rule of #380 is restated. In the owner's words: "The two phases: proof publishing and rot advisory do not affect the PR and can therefore run independently. The rule was mainly to prevent RELEVANT changes from happening while the PR was being reviewed". So `adwSdlc.tsx` running `executeProofPublishPhase` and `executePromotionRotAdvisory` between the PR phase and the `awaiting_merge` write, and `adwPlanBuildTestReview.tsx` running `executeProofPublishPhase` there, is not a divergence.

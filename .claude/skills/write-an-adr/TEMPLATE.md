@@ -3,7 +3,7 @@ status: {proposed | accepted | deferred | rejected | deprecated | superseded}
 date: {YYYY-MM-DD the decision was made}
 recorded: {YYYY-MM-DD this ADR was written}
 provenance:
-  - kind: {contemporaneous | transcript | recalled}
+  - kind: {contemporaneous | retrospective | transcript | recalled}
     source: {path, reference, or "who, YYYY-MM-DD"}
 supersedes: []
 superseded-by: []

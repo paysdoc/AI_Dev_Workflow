@@ -7,6 +7,8 @@ provenance:
     source: specs/issue-64-adw-permanent-webhook-ur-zqsq62-sdlc_planner-webhook-signature-and-portfolio.md
   - kind: contemporaneous
     source: specs/issue-0-adw-tsx-sdlc_planner-cloudflare-tunnel-script.md
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -59,8 +61,8 @@ Checked on 2026-09-29:
 
 ## More Information
 
-* Unresolved: the spec for #64 names `api.paysdoc.nl` as the endpoint. The tunnel script, `adws/README.md` and the live webhook use `adw.paysdoc.nl`. No source records the change.
-* Unresolved: in `startServer`, the `EADDRINUSE` handler listens on a random port without testing for the secret. If the port is taken between the availability check and `listen`, the server moves even in tunnel mode.
-* Unresolved: `cloudflareTunnel.tsx` creates a DNS route with `cloudflared tunnel route dns`. See [ADR-0030](0030-cloudflare-dns-managed-by-hand.md) on manually managed DNS.
+* Settled (owner, 2026-09-29): `adw.paysdoc.nl` is the endpoint. The spec for #64 names `api.paysdoc.nl`. The owner recalls, without certainty, that it was considered first and dropped for the more descriptive name.
+* Accepted risk (owner, 2026-09-29): in `startServer`, the `EADDRINUSE` handler listens on a random port without testing for the secret. If the port is taken between the availability check and `listen`, the server moves even in tunnel mode.
+* Unresolved: `cloudflareTunnel.tsx` creates a DNS route with `cloudflared tunnel route dns`. See [ADR-0030](0030-cloudflare-dns-managed-by-hand.md) on manually managed DNS. The owner was asked on 2026-09-29 whether the script or the manual-DNS rule is the decision and gave no ruling.
 * What the server does with an accepted event is in [ADR-0012](0012-webhook-gatekeeper-cron-sweeper.md).
 * The portfolio site in the same issue lives in another repository and is not part of this decision.

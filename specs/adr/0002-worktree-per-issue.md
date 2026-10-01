@@ -7,8 +7,8 @@ provenance:
     source: commit 5c4067c6 (adws/github/worktreeOperations.ts, adws/phases/workflowLifecycle.ts)
   - kind: contemporaneous
     source: specs/issue-163-adw-t5a58t-refactor-initialize-sdlc_planner-worktree-init-fetch-reset.md
-  - kind: contemporaneous
-    source: README.md, "Key design decisions" (retrospective text, added 2026-05-12)
+  - kind: retrospective
+    source: README.md, "Key design decisions" (added 2026-05-12)
 supersedes: []
 superseded-by: []
 ---

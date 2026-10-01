@@ -66,15 +66,12 @@ Not confirmed: the runner clone. It is an arrangement on the host, not code. No 
 
 No CI gate enforces the rule against naming a branch.
 
+## Divergence
+
+1. **Branch names are written into the repository.** Found by grep: `adws/triggers/docsIndexSweep.ts` returns `'main'` when the default-branch lookup throws; `PROTECTED_BRANCHES` in `adws/vcs/branchOperations.ts` is `['main', 'master', 'develop']`, and `dev` is not in it; `.claude/commands/document.md` and `.claude/commands/resolve_failed_test.md` diff against `origin/main`. Ruling (owner, 2026-09-29): all of these are bugs. `.github/dependabot.yml`, which sets `target-branch: "dev"`, is the one accepted exception.
+
 ## More Information
 
-Unresolved: branch names written into the repository, found by grep. No source says whether any of them is deliberate.
-
-* `adws/triggers/docsIndexSweep.ts` returns `'main'` when the default-branch lookup throws.
-* `PROTECTED_BRANCHES` in `adws/vcs/branchOperations.ts` is `['main', 'master', 'develop']`; `dev` is not in it.
-* `.claude/commands/document.md` and `.claude/commands/resolve_failed_test.md` diff against `origin/main`.
-* `.github/dependabot.yml` sets `target-branch: "dev"`.
-
-Unresolved: `specs/prd/test-review-refactor.md` (2026-04-08) says each pull request "merges to `main` independently". The history and the recalled rationale say work collects on `dev` first.
+Settled (owner, 2026-09-29): `specs/prd/test-review-refactor.md` (2026-04-08) says each pull request "merges to `main` independently". The wording was loose; pull requests always merged to `dev`.
 
 `specs/prd/gitcontext-library-extraction.md` says ADW's branches are "unprotected". The ruleset above shows otherwise.

@@ -11,6 +11,8 @@ provenance:
     source: specs/prd/adw-init-hash-and-label-classification.md (line 180)
   - kind: recalled
     source: "Martin Koster, 2026-09-29"
+  - kind: recalled
+    source: "Martin Koster, 2026-09-30"
 supersedes: []
 superseded-by: []
 ---
@@ -57,8 +59,11 @@ Checked on 2026-09-29:
 * A search for `depaudit` in `.claude/commands/`, `adws/*.tsx`, `adws/core/`, `adws/triggers/` and `.github/` returns nothing. The ADW repository has no depaudit gate of its own.
 * `depaudit` is not installed on this host (`which depaudit`).
 
+## Divergence
+
+1. **The triage skill selects the orchestrator through the issue body.** The triage skill puts `/adw_sdlc` in the body of a major-upgrade issue so that ADW runs the full SDLC. Since [ADR-0041](0041-label-based-classification.md) the issue body no longer selects an orchestrator; the string `adw_sdlc` occurs nowhere in the non-test sources under `adws/`. The issue would still be picked up, but by label or classifier. Ruling (owner, 2026-09-30): a bug. The skill must apply an `adw:*` label instead.
+
 ## More Information
 
-* Unresolved: the triage skill puts `/adw_sdlc` in the body of a major-upgrade issue so that ADW runs the full SDLC. Since [ADR-0041](0041-label-based-classification.md) the issue body no longer selects an orchestrator; the string `adw_sdlc` occurs nowhere in the non-test sources under `adws/`. The issue would still be picked up, but by label or classifier.
 * Stale documentation: `README.md` (lines 39, 181, 234, 248, 762) and `adws/README.md` (line 809) say that `adw_init` runs `depaudit setup` and propagates the secrets. It does not.
 * Recorded elsewhere, not here: scanners, acceptance rules, gate semantics, pull request comment and Slack notification. See `specs/prd/depaudit.md` and the depaudit repository.

@@ -15,6 +15,8 @@ provenance:
     source: "Claude Code session f6749bbe, 2026-08-14 and 2026-08-28"
   - kind: transcript
     source: "Claude Code session 24f270ed, 2026-09-10"
+  - kind: recalled
+    source: "Martin Koster, 2026-10-01"
 supersedes: []
 superseded-by: []
 ---
@@ -75,9 +77,11 @@ Checked on 2026-09-29:
 
 Not checked: a type check against the installed package; it is absent from this checkout's `node_modules`. The published 1.2.0 tarball was inspected instead.
 
-## More Information
+## Divergence
 
-Unresolved: ADW production code imports GitHub-named symbols from the library. `adws/core/githubAppAuth.ts` imports `isGitHubAppConfigured`, `getInstallationToken` and `GitHubAppConfig`; `adws/core/forgeWiring.ts` imports `GitHubForgeDeps`. The 1.2.0 `./providers` entry point re-exports the GitHub, GitLab and Jira adapter modules, although the runbook's library issue says such helpers "stay adapter-internal". #840's rule lists other names, so its grep does not catch these. `launchGitContext.ts` also fixes the credential forge to `github`.
+1. **ADW imports GitHub-named symbols from the library.** ADW production code imports GitHub-named symbols from the library. `adws/core/githubAppAuth.ts` imports `isGitHubAppConfigured`, `getInstallationToken` and `GitHubAppConfig`; `adws/core/forgeWiring.ts` imports `GitHubForgeDeps`. The 1.2.0 `./providers` entry point re-exports the GitHub, GitLab and Jira adapter modules, although the runbook's library issue says such helpers "stay adapter-internal". #840's rule lists other names, so its grep does not catch these. `launchGitContext.ts` also fixes the credential forge to `github`. Ruling (owner, 2026-10-01): the runbook rule stands in full. No GitHub-named import in ADW outside a single wiring file, and the library stops exporting the helpers. All three findings are bugs; the library half belongs to the devplatform repository.
+
+## More Information
 
 Recorded in the devplatform repository, not here: the three entry points, compiled ESM output, release automation and its commit parser, OIDC publishing, the ported guard, history seeding.
 

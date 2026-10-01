@@ -9,6 +9,8 @@ provenance:
     source: "specs/issue-853-*.md; issue #853"
   - kind: transcript
     source: "Claude Code session 44ada946, 2026-09-24"
+  - kind: recalled
+    source: "Martin Koster, 2026-10-01"
 supersedes: []
 superseded-by: []
 ---
@@ -63,12 +65,15 @@ Checked on 2026-09-29:
 * `adws/checkCommentOnly.ts` exists, and `package.json` defines `lint:comment-only`. No workflow under `.github/workflows/` runs it, as decided.
 * Issue #853 and the sweep issues (numbered between #854 and #884) are closed, all on 2026-09-24.
 * A rough count over the 422 tracked TypeScript files under `adws/` (`grep -E '^\s*(//|/\*|\*)'`) found 4,428 comment lines in 60,939 lines and no banner lines. Feature files hold 28 lines starting with `#` in 4,007 lines. The method and the file set differ from the PRD's, so the figures are indicative only.
-* `.claude/commands/scenario_writer.md` does not contain the feature-file rule; see the first unresolved item below.
+* `.claude/commands/scenario_writer.md` does not contain the feature-file rule; see Divergence, item 1.
 
 The guard was not run while writing this ADR.
 
+## Divergence
+
+1. **The scenario-writer rule is not in force.** The scenario-writer rule is not in force. Commit bebda8dd (2026-09-24 10:38) added the rule, beginning "Feature files carry no commentary.", to `.claude/commands/scenario_writer.md`. Commit c3606f9e, a `plan-orchestrator` commit made 19 minutes later that also added the plan for sweep batch 16/16, removed it. `git show` finds the line on none of `origin/dev`, `origin/main` and `HEAD`. Ruling (owner, 2026-10-01): the rule is the decision. Its removal was an accident and a bug; see [ADR-0056](0056-planner-commits-only-the-plan.md).
+2. **The guideline does not reach target repositories.** Propagation to target repos. The PRD excludes them: the guideline shipped to target repos "is unchanged by this PRD; propagation is a separate decision". In the session the owner said "I want the new comment to propagate to the new repos too". What shipped matches the PRD: the Comments entry exists only in ADW's own `.adw/coding_guidelines.md`; `.claude/commands/adw_init.md` and `templates/` do not mention it. Ruling (owner, 2026-10-01): the Comments entry goes to every target repository. `adw_init` writes it and existing repositories get it at their next upgrade. The PRD's exclusion no longer holds; the missing propagation is owed work.
+
 ## More Information
 
-* Unresolved: the scenario-writer rule is not in force. Commit bebda8dd (2026-09-24 10:38) added the rule, beginning "Feature files carry no commentary.", to `.claude/commands/scenario_writer.md`. Commit c3606f9e, a `plan-orchestrator` commit made 19 minutes later that also added the plan for sweep batch 16/16, removed it. `git show` finds the line on none of `origin/dev`, `origin/main` and `HEAD`. No source says the removal was intended.
-* Unresolved: propagation to target repos. The PRD excludes them: the guideline shipped to target repos "is unchanged by this PRD; propagation is a separate decision". In the session the owner said "I want the new comment to propagate to the new repos too". What shipped matches the PRD: the Comments entry exists only in ADW's own `.adw/coding_guidelines.md`; `.claude/commands/adw_init.md` and `templates/` do not mention it. Which of the two statements is the decision is not settled by the sources.
 * Markdown files and the `resolve_conflict` prompt are out of scope in the PRD.

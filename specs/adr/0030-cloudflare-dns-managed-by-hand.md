@@ -63,6 +63,6 @@ No CI gate or test enforces this decision. It holds by the scope of the token an
 
 ## More Information
 
-* Unresolved: `adws/triggers/cloudflareTunnel.tsx` runs `cloudflared tunnel route dns`, which creates a DNS record for the webhook hostname with the operator's own `cloudflared` credentials. The script predates this decision ([ADR-0008](0008-webhook-endpoint-via-cloudflare-tunnel.md)). Whether the decision covers it is not recorded.
+* Unresolved: `adws/triggers/cloudflareTunnel.tsx` runs `cloudflared tunnel route dns`, which creates a DNS record for the webhook hostname with the operator's own `cloudflared` credentials. The script predates this decision ([ADR-0008](0008-webhook-endpoint-via-cloudflare-tunnel.md)). Whether the decision covers it is not recorded. The owner was asked on 2026-09-29 and gave no ruling.
 * `specs/prd/d1-cost-database.md` describes the records as proxied CNAMEs to `workers.dev` and gives the CI token `Zone > DNS > Read`. The note, which is later, gives the AAAA pattern above.
 * The note is the only source. No transcript of the session survives.

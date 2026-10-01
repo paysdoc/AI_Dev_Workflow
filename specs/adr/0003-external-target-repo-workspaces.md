@@ -9,6 +9,8 @@ provenance:
     source: specs/issue-812-adw-53s866-cron-trigger-crash-l-sdlc_planner-fix-cron-janitor-crash-loop.md (issue #812)
   - kind: transcript
     source: Claude Code session 7924b627, 2026-09-04
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -54,7 +56,7 @@ Checked against the code on 2026-09-29:
 
 ## More Information
 
-* Unresolved: the spec for issue #1 says ADW state "(`logs/`, `agents/`, `specs/`) remain in the ADW repository". Logs and agent state do. Plan files do not: `adws/agents/planAgent.ts` looks for them in `specs/` inside the worktree, and target repositories such as `paysdoc/depaudit` contain `specs/issue-*-sdlc_planner-*.md`. No source was found that records when or why plans moved into the target repository.
+* Settled (owner, 2026-09-29): plans belong in the target repository, where they travel with the pull request. The spec for issue #1 says ADW state "(`logs/`, `agents/`, `specs/`) remain in the ADW repository". That still holds for logs and agent state and is outdated for plans: `adws/agents/planAgent.ts` looks for them in `specs/` inside the worktree. No source records when plans moved.
 * What the `.adw` directory contains: [ADR-0005](0005-adw-directory-config-per-target-repo.md).
 * The clone URL is converted from HTTPS to SSH before cloning, and the workspace is marked trusted for Claude Code ([ADR-0050](0050-target-repo-guardrails.md)).
 * The spec notes that cost reporting was out of scope; see [ADR-0004](0004-cost-records-as-csv-in-git.md) and [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md).

@@ -9,6 +9,8 @@ provenance:
     source: specs/issue-763-adw-i46l4f-adw-init-write-start-sdlc_planner-starter-guardrail-settings.md
   - kind: contemporaneous
     source: specs/issue-846-adw-9176vg-auto-trust-target-re-sdlc_planner-auto-trust-workspace.md
+  - kind: recalled
+    source: "Martin Koster, 2026-10-01"
 supersedes: []
 superseded-by: []
 ---
@@ -67,8 +69,10 @@ Checked on 2026-09-29:
 
 Not run: `scripts/guardrails-probe.ts`, which makes paid model calls. No CI gate runs it.
 
-## More Information
+## Divergence
 
-Unresolved: #762 calls the `guardrails` key "temporary rollout scaffolding; the end state is mandatory guardrails for all target repos". The key is still in the gate and defaults to `false` (`adws/core/adwYmlConfig.ts`), so a target repository without it gets no injection. No source records a decision to end the canary or to keep it.
+1. **Guardrails are still opt-in.** #762 calls the `guardrails` key "temporary rollout scaffolding; the end state is mandatory guardrails for all target repos". The key is still in the gate and defaults to `false` (`adws/core/adwYmlConfig.ts`), so a target repository without it gets no injection. On 2026-10-01 `paysdoc/devplatform` had `guardrails: true`; `paysdoc/depaudit` and ADW itself had no such key. Ruling (owner, 2026-10-01): the end state stands: guardrails are mandatory for every target repository. Flipping the default and removing the key is overdue.
+
+## More Information
 
 Related: `.adw/` and `.github/adw.yml` configuration, ADR-0005 ([0005-adw-directory-config-per-target-repo.md](0005-adw-directory-config-per-target-repo.md)); propagation of `/adw_init` changes to target repositories, ADR-0042 ([0042-hash-versioned-self-upgrade.md](0042-hash-versioned-self-upgrade.md)); the spawn's other fixed setting, ADR-0052 ([0052-stateless-pipeline-agents.md](0052-stateless-pipeline-agents.md)).

@@ -8,7 +8,9 @@ provenance:
   - kind: contemporaneous
     source: specs/issue-459-adw-x3p7tf-orchestrator-resilie-sdlc_planner-document-single-host-constraint.md
   - kind: contemporaneous
-    source: README.md, "Key design decisions" (commit 045b1f56, 2026-05-12) and "Single-host constraint" (commit f5eb9339, 2026-04-20)
+    source: README.md, "Single-host constraint" (commit f5eb9339, 2026-04-20)
+  - kind: retrospective
+    source: README.md, "Key design decisions" (commit 045b1f56, 2026-05-12)
 supersedes: []
 superseded-by: []
 ---

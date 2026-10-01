@@ -9,6 +9,8 @@ provenance:
     source: specs/issue-80-adw-add-resoning-effort-4wna6z-sdlc_planner-add-reasoning-effort-to-slash-commands.md (issue #80, merged as PR #81 on 2026-03-06)
   - kind: contemporaneous
     source: specs/issue-156-*, issue-157-*, issue-158-* (2026-03-13) and issue-231-* (2026-03-18)
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -58,10 +60,13 @@ Checked against the code on 2026-09-29:
 * `adws/agents/commandAgent.ts` (`runCommandAgent`) reads both values for every agent built on it. `adws/agents/claudeAgent.ts` passes them to the CLI as `--model` and `--effort`.
 * No unit test covers the tables. The test file the specs name, `slashCommandModelMap.test.ts`, was deleted on 2026-03-13 (commit 3231e576, [ADR-0014](0014-bdd-as-validation-contract-unit-tests-removed.md)) and has not been restored.
 
+## Divergence
+
+1. **Three call sites bypass the routing tables.** Three call sites pass a literal model instead of reading the tables. `adws/adwUpgrade.tsx` runs `/adw_init` with `'sonnet'` and no effort, while the table gives `sonnet` and `medium`. `adws/triggers/autoMergeHandler.ts` runs `/resolve_conflict` with `'sonnet'`; that command is not in the `SlashCommand` union and has no table entry. The output-validation retry in `adws/agents/commandAgent.ts` uses `'haiku'`. Ruling (owner, 2026-09-29): every spawn reads the tables. All three are bugs.
+2. **One Haiku entry carries an effort.** A script comparing the tables (run 2026-09-29) found one entry that breaks the rule stated in the file's own comment, that Haiku takes no effort: in the fast tables `/promote_regression_vocabulary` is routed to `haiku` with effort `medium`. All four tables have 30 entries. Ruling (owner, 2026-09-29): a bug. The effort for that entry must be undefined.
+
 ## More Information
 
-* Unresolved: three call sites pass a literal model instead of reading the tables. `adws/adwUpgrade.tsx` runs `/adw_init` with `'sonnet'` and no effort, while the table gives `sonnet` and `medium`. `adws/triggers/autoMergeHandler.ts` runs `/resolve_conflict` with `'sonnet'`; that command is not in the `SlashCommand` union and has no table entry. The output-validation retry in `adws/agents/commandAgent.ts` uses `'haiku'`. No source says whether these are deliberate.
-* Unresolved: a script comparing the tables (run 2026-09-29) found one entry that breaks the rule stated in the file's own comment, that Haiku takes no effort: in the fast tables `/promote_regression_vocabulary` is routed to `haiku` with effort `medium`. All four tables have 30 entries.
 * Value changes without an issue or spec: commit 01d4f64f (2026-08-14, "route planning/review commands to fable") and commit e894fe74 (2026-09-25, "avoid fable for now"). The reasons are not recorded.
 * The specs name the CLI flag `--reasoning-effort`; the code passes `--effort`.
 * The tables moved from `adws/core/config.ts` to `modelRouting.ts` on 2026-03-22: [ADR-0020](0020-shared-phase-runner-and-core-decomposition.md).

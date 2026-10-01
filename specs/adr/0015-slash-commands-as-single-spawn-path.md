@@ -11,6 +11,8 @@ provenance:
     source: commit 049ae201 ("add skills, remove primed agent, add install step to commands", 2026-03-19)
   - kind: contemporaneous
     source: specs/issue-253-adw-71pdjz-cache-install-contex-sdlc_planner-cache-install-context.md (issue #253)
+  - kind: recalled
+    source: "Martin Koster, 2026-09-29"
 supersedes: []
 superseded-by: []
 ---
@@ -57,9 +59,12 @@ Checked against the code on 2026-09-29:
 
 Apart from that type, no CI gate or test enforces this decision.
 
+## Divergence
+
+1. **The output-validation retry is not a slash command.** The output-validation retry in `adws/agents/commandAgent.ts` (`buildRetryPrompt`, added 2026-03-30 in commit 18f572ca) assembles a corrective prompt in code and passes it through `runClaudeAgentWithCommand` in place of a slash command. It uses the single function but not a command file. Ruling (owner, 2026-09-29): no exceptions. The retry must be a slash command.
+
 ## More Information
 
-* Unresolved: the output-validation retry in `adws/agents/commandAgent.ts` (`buildRetryPrompt`, added 2026-03-30 in commit 18f572ca) assembles a corrective prompt in code and passes it through `runClaudeAgentWithCommand` in place of a slash command. It uses the single function but not a command file. No source says whether this exception is deliberate.
 * `/resolve_conflict` is invoked as a command but is missing from the `SlashCommand` type; see [ADR-0010](0010-model-and-effort-routing-per-command.md).
 * `runCommandAgent` was introduced on 2026-03-22: [ADR-0020](0020-shared-phase-runner-and-core-decomposition.md).
 * The execution model this sits in: [ADR-0001](0001-script-per-orchestrator-driving-claude-code-cli.md).
