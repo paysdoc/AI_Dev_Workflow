@@ -70,8 +70,9 @@ function makePhases(diffVerdict: 'regression_possible' | 'safe', reviews: Review
   };
 }
 
-// An issue without the hitl label, so a pre-approval that should not happen would be visible.
-function makeConfig() {
+// The issue has no labels unless a test says otherwise, so a pre-approval that should not happen
+// would be visible.
+function makeConfig(labels: string[] = []) {
   const commentOnIssue = vi.fn();
   const approvePullRequest = vi.fn(() => ({ success: true }));
   const config = {
@@ -80,15 +81,19 @@ function makeConfig() {
     orchestratorStatePath: '/mock/agents/adw-test/chore',
     ctx: { issueNumber: 42, adwId: 'adw-test', branchName: BRANCH },
     repoContext: {
-      issueTracker: { commentOnIssue, fetchLabels: vi.fn(() => [] as string[]) },
+      issueTracker: { commentOnIssue, fetchLabels: vi.fn(() => labels) },
       codeHost: { approvePullRequest },
     },
   } as unknown as WorkflowConfig;
   return { config, commentOnIssue, approvePullRequest };
 }
 
-async function runChore(diffVerdict: 'regression_possible' | 'safe', reviews: ReviewVerdict[]) {
-  const { config, commentOnIssue, approvePullRequest } = makeConfig();
+async function runChore(
+  diffVerdict: 'regression_possible' | 'safe',
+  reviews: ReviewVerdict[],
+  labels: string[] = [],
+) {
+  const { config, commentOnIssue, approvePullRequest } = makeConfig(labels);
   const phases = makePhases(diffVerdict, reviews);
   await executeChore(config, phases as unknown as ChorePhases);
   return { config, commentOnIssue, approvePullRequest, phases };
@@ -156,6 +161,14 @@ describe('executeChore — the diff judge escalated the chore and the review pas
     expect(phases.executeDocumentPhase).toHaveBeenCalledTimes(1);
     expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
     expect(approvePullRequest).toHaveBeenCalledWith(PR_NUMBER);
+    expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+
+  it('opens the pull request and leaves it unapproved when the issue has the hitl label', async () => {
+    const { phases, approvePullRequest } = await runChore('regression_possible', [PASSED_REVIEW], ['hitl']);
+
+    expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
+    expect(approvePullRequest).not.toHaveBeenCalled();
     expect(writtenStages()).toEqual(['awaiting_merge']);
   });
 

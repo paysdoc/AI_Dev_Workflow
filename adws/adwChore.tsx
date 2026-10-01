@@ -88,13 +88,90 @@ function postEscalationComment(config: WorkflowConfig): void {
   }
 }
 
+interface EscalatedReviewResult {
+  readonly reviewPassed: boolean | undefined;
+  readonly reviewRetries: number;
+}
+
+async function runEscalatedReviewLoop(
+  config: WorkflowConfig,
+  tracker: CostTracker,
+  phases: ChorePhases,
+  scenarioProofPath: string,
+): Promise<EscalatedReviewResult> {
+  let reviewPassed: boolean | undefined;
+  let reviewRetries = 0;
+  let proofPath = scenarioProofPath;
+  let reviewBlockers: ReviewIssue[] = [];
+  for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+    const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
+    const reviewResult = await runPhase(config, tracker, reviewFn);
+    reviewPassed = reviewResult.reviewPassed;
+    reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+    if (reviewPassed) break;
+    reviewRetries++;
+    if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+      const patchWrapper = (cfg: WorkflowConfig) =>
+        phases.executeReviewPatchCycle(cfg, reviewBlockers);
+      await runPhase(config, tracker, patchWrapper);
+      const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
+      proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+    }
+  }
+  return { reviewPassed, reviewRetries };
+}
+
+function stopAfterFailedReview(
+  config: WorkflowConfig,
+  tracker: CostTracker,
+  testResult: { unitTestsPassed: boolean; totalRetries: number },
+  scenarioRetries: number,
+  reviewRetries: number,
+): void {
+  executeSdlcReviewFailedHandoff({
+    adwId: config.adwId,
+    issueNumber: config.issueNumber,
+    repoContext: config.repoContext,
+    ctx: config.ctx,
+  });
+  AgentStateManager.writeState(config.orchestratorStatePath, {
+    metadata: {
+      totalCostUsd: tracker.totalCostUsd,
+      unitTestsPassed: testResult.unitTestsPassed,
+      totalTestRetries: testResult.totalRetries,
+      scenarioRetries,
+      diffVerdict: 'regression_possible',
+      reviewPassed: false,
+      totalReviewRetries: reviewRetries,
+    },
+  });
+  persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+}
+
+// Race accepted — a human can add hitl between this approval and the next cron tick;
+// the merge gate is permissive in that case (rule 3).
+function preApprovePr(config: WorkflowConfig): void {
+  const { repoContext, issueNumber, ctx } = config;
+  if (!repoContext || !ctx.prUrl) return;
+  const prNumber = extractPrNumber(ctx.prUrl);
+  if (!prNumber) return;
+  const { issueTracker, codeHost } = repoContext;
+  if (issueTracker.fetchLabels(issueNumber).includes('hitl')) {
+    log(`Chore: skipping pre-approval — issue #${issueNumber} has hitl label`, 'info');
+    return;
+  }
+  log(`Chore: pre-approving PR #${prNumber} (no hitl on issue #${issueNumber})`, 'info');
+  const result = codeHost.approvePullRequest(prNumber);
+  if (!result.success) {
+    log(`Chore: pre-approval failed (non-fatal — hitl-removed humans can still approve manually): ${result.error}`, 'warn');
+  }
+}
+
 async function runChorePhases(
   config: WorkflowConfig,
   tracker: CostTracker,
   phases: ChorePhases,
 ): Promise<void> {
-  const { issueNumber } = config;
-
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhase(config, tracker, phases.executePlanPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);
@@ -112,47 +189,14 @@ async function runChorePhases(
   if (diffResult.verdict !== 'safe') {
     postEscalationComment(config);
 
-    let proofPath = scenarioProofPath;
-    let reviewBlockers: ReviewIssue[] = [];
-    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-      const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
-      const reviewResult = await runPhase(config, tracker, reviewFn);
-      reviewPassed = reviewResult.reviewPassed;
-      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-      if (reviewPassed) break;
-      reviewRetries++;
-      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-        const patchWrapper = (cfg: WorkflowConfig) =>
-          phases.executeReviewPatchCycle(cfg, reviewBlockers);
-        await runPhase(config, tracker, patchWrapper);
-        const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-      }
-    }
+    ({ reviewPassed, reviewRetries } = await runEscalatedReviewLoop(config, tracker, phases, scenarioProofPath));
 
     // A loop that recorded no verdict counts as failed. The gate lives in this branch because a
     // chore the diff judge rules safe runs no review, so it has no verdict to gate on.
     const outcome = decidePostReviewOutcome(reviewPassed ?? false);
 
     if (outcome.skipDocAndPR) {
-      executeSdlcReviewFailedHandoff({
-        adwId: config.adwId,
-        issueNumber,
-        repoContext: config.repoContext,
-        ctx: config.ctx,
-      });
-      AgentStateManager.writeState(config.orchestratorStatePath, {
-        metadata: {
-          totalCostUsd: tracker.totalCostUsd,
-          unitTestsPassed: testResult.unitTestsPassed,
-          totalTestRetries: testResult.totalRetries,
-          scenarioRetries,
-          diffVerdict: 'regression_possible',
-          reviewPassed: false,
-          totalReviewRetries: reviewRetries,
-        },
-      });
-      persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+      stopAfterFailedReview(config, tracker, testResult, scenarioRetries, reviewRetries);
       return;
     }
 
@@ -162,21 +206,7 @@ async function runChorePhases(
 
   await runPhase(config, tracker, phases.executePRPhase);
 
-  // Race accepted — a human can add hitl between this approval and the next cron tick;
-  // the merge gate is permissive in that case (rule 3).
-  if (config.repoContext && config.ctx.prUrl) {
-    const { issueTracker, codeHost } = config.repoContext;
-    const prNumber = extractPrNumber(config.ctx.prUrl);
-    if (prNumber && !issueTracker.fetchLabels(issueNumber).includes('hitl')) {
-      log(`Chore: pre-approving PR #${prNumber} (no hitl on issue #${issueNumber})`, 'info');
-      const result = codeHost.approvePullRequest(prNumber);
-      if (!result.success) {
-        log(`Chore: pre-approval failed (non-fatal — hitl-removed humans can still approve manually): ${result.error}`, 'warn');
-      }
-    } else if (prNumber) {
-      log(`Chore: skipping pre-approval — issue #${issueNumber} has hitl label`, 'info');
-    }
-  }
+  preApprovePr(config);
 
   AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
   AgentStateManager.writeState(config.orchestratorStatePath, {
