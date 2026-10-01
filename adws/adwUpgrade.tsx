@@ -33,6 +33,8 @@ import {
   type IssueCommentRecord,
   ADW_BLOCKED_LABEL,
   hasWontFixLabelName,
+  getModelForCommand,
+  getEffortForCommand,
 } from './core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import { runClaudeAgentWithCommand } from './agents';
@@ -407,8 +409,8 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     [String(params.issueNumber), params.adwId, params.issueJson, params.frameworkRepoRoot],
     'adw-upgrade',
     params.logPath,
-    'sonnet',
-    undefined,
+    getModelForCommand('/adw_init'),
+    getEffortForCommand('/adw_init'),
     undefined,
     undefined,
     params.worktreePath,

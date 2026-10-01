@@ -27,7 +27,7 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 ## Configuration
 
 - `CLAUDE_CODE_PATH` environment variable (or `claude` on PATH) determines which CLI binary the probe spawns, resolved through `resolveClaudeCodePath()`.
-- The probe spawns in a fresh temp directory (`getSafeSubprocessEnv()`'s allowed vars only) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
+- The probe spawns in a fresh temp directory (the shared Claude launch environment: the allowlisted vars plus the auto-memory switch) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
 - `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; `ANTHROPIC_API_KEY` is the CI secret that gates whether the live leg runs at all.
 - Schema and fixtures paths default to sibling directories of the module files; every entry point accepts overrides for use from tests (a throwaway schema copy, a throwaway fixtures directory).
 

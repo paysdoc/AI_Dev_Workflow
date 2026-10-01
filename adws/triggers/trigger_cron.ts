@@ -7,7 +7,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
 import type { BoundProviders } from '@paysdoc/devplatform';
@@ -266,7 +266,7 @@ async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
     const resolvedPath = resolveClaudeCodePath();
     const statusOutput = execSync(`${resolvedPath} auth status --json`, {
       timeout: 15_000,
-      env: { ...process.env },
+      env: buildClaudeLaunchEnv(),
     }).toString();
     const status = JSON.parse(statusOutput);
     loggedIn = status.loggedIn === true;

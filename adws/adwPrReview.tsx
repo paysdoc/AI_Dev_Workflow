@@ -4,7 +4,7 @@
  *        bunx tsx adws/adwPrReview.tsx <pr-number>              (manual fallback, routed through resolver)
  *
  * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
+ * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)

@@ -6,7 +6,7 @@ The health check module is a standalone diagnostic tool that validates the ADW s
 
 ## Responsibilities
 
-- Check required environment variables (`ANTHROPIC_API_KEY`) and optional ones (`CLAUDE_CODE_PATH`, `GITHUB_PAT`) via `checkEnvironmentVariables`.
+- Check the environment variables via `checkEnvironmentVariables`: all of them are optional (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_PATH`, `GITHUB_PAT`), so the check always passes; it reports whether billing runs on the Claude subscription or the Anthropic API, and warns when `ANTHROPIC_API_KEY` is set.
 - Validate git repository configuration (`.git` presence, remote listing, user identity) via `checkGitRepository(ctx)` — routes through `ctx.getCurrentBranch`, `ctx.remotes`, `ctx.hasUncommittedChanges`, and `ctx.gitConfigUser`.
 - Verify the Claude Code CLI binary is resolvable and returns a version via `checkClaudeCodeCLI`.
 - Check GitHub CLI (`gh`) installation and authentication status via `checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)` (#844) — routes authentication through the port's `getAuthenticatedUser()`, inside a try/catch so a non-GitHub code host that refuses the operation by name (e.g. GitLab) still yields `authenticated: false` rather than an uncaught throw.

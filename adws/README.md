@@ -33,7 +33,9 @@ Workflows can be:
 
 ```bash
 export GITHUB_REPO_URL="https://github.com/owner/repository"
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Optional: leave ANTHROPIC_API_KEY unset to run every agent on your Claude subscription (log in once with `claude auth login`).
+# Setting it moves billing for every agent ADW starts from the subscription to the Anthropic API.
+# export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export CLAUDE_CODE_PATH="/path/to/claude"  # Optional, defaults to "claude"
 export GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Optional, only if using different account than 'gh auth login'
 ```
@@ -548,7 +550,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
 
 ### Environment Issues
 ```bash
-# Check required variables
+# Check the environment (ANTHROPIC_API_KEY is optional; setting it moves billing from the Claude subscription to the API)
 env | grep -E "(GITHUB|ANTHROPIC|CLAUDE)"
 
 # Verify GitHub auth

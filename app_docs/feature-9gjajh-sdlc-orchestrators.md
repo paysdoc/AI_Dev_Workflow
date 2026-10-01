@@ -31,7 +31,7 @@ The SDLC Orchestrators module provides two top-level workflow drivers — `adwSd
 
 Environment variables consumed at startup:
 
-- `ANTHROPIC_API_KEY` — required; passed to all agent invocations
+- `ANTHROPIC_API_KEY` — optional; forwarded to all agent invocations when set (setting it moves billing from the Claude subscription to the Anthropic API)
 - `CLAUDE_CODE_PATH` — path to Claude CLI (default: `/usr/local/bin/claude`); pre-flight check verifies it is executable before any phases run
 - `GITHUB_PAT` — required when a GitHub App is configured (used for PR approval)
 - `MAX_TEST_RETRY_ATTEMPTS` — maximum retries for the scenario-test/fix loop (default: 5; adwSdlc only)

@@ -76,6 +76,24 @@ vi.mock('../webhookGatekeeper', () => ({
   classifyAndSpawnWorkflow: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock('../../core/authGate', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/authGate')>();
+  return { ...actual, readAuthGate: vi.fn(() => null), clearAuthGate: vi.fn() };
+});
+
+vi.mock('../scanAuthQueue', () => ({
+  scanAuthQueue: vi.fn(() => Promise.resolve(0)),
+}));
+
+vi.mock('../../core/slackNotifier', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/slackNotifier')>();
+  return {
+    ...actual,
+    sendSlackDetectionNotification: vi.fn(() => Promise.resolve()),
+    sendSlackRecoveryNotification: vi.fn(() => Promise.resolve()),
+  };
+});
+
 vi.mock('../../core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../core')>();
   return {
@@ -85,8 +103,12 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, checkAndTrigger } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
+import { readAuthGate, clearAuthGate, type AuthGateRecord } from '../../core/authGate';
+import { clearClaudeCodePathCache } from '../../core/environment';
+import { createRecordingClaudeCli, overrideEnv, type RecordingClaudeCli } from '../../core/__tests__/fixtures/recordingClaudeCli';
+import type { LaunchBoundary } from '../../core';
 import { AgentStateManager } from '../../core/agentState';
 import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
 import { probeRateLimit } from '../rateLimitProbe';
@@ -333,5 +355,40 @@ describe('runGuardedTick (#812)', () => {
     const tick = vi.fn(() => Promise.reject('boom'));
     await expect(runGuardedTick(tick)).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledWith(expect.stringContaining('boom'), 'error');
+  });
+});
+
+describe('auth-gate tick', () => {
+  const GATE: AuthGateRecord = {
+    firstDetectedAt: '2026-10-01T10:00:00.000Z',
+    lastDetectedAt: '2026-10-01T10:05:00.000Z',
+    lastSlackNotifiedAt: null,
+    host: 'test-host',
+    lastDetectedBy: { adwId: 'adw-1', issueNumber: 1, agentName: 'build-agent' },
+  };
+  let cli: RecordingClaudeCli | undefined;
+  let restoreEnv: (() => void) | undefined;
+
+  afterEach(() => {
+    restoreEnv?.();
+    clearClaudeCodePathCache();
+    cli?.cleanup();
+    cli = undefined;
+  });
+
+  it('checks the Claude auth status under the shared launch environment', async () => {
+    cli = createRecordingClaudeCli({ stdout: '{"loggedIn":true}' });
+    restoreEnv = overrideEnv({
+      CLAUDE_CODE_PATH: cli.cliPath,
+      ADW_RECORDING_SENTINEL: 'leak',
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
+    });
+    clearClaudeCodePathCache();
+    vi.mocked(readAuthGate).mockReturnValueOnce(GATE);
+
+    await checkAndTrigger({} as LaunchBoundary);
+
+    expect(vi.mocked(clearAuthGate)).toHaveBeenCalledTimes(1);
+    expect(cli.readInvocations()).toEqual([{ memory: '1', hooksLogDir: '', sentinel: '' }]);
   });
 });

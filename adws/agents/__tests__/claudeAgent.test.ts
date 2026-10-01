@@ -13,7 +13,8 @@ vi.mock('../agentProcessHandler', () => ({
 vi.mock('../../core', () => ({
   log: vi.fn(),
   AgentStateManager: { appendLog: vi.fn(), writeState: vi.fn() },
-  getSafeSubprocessEnv: vi.fn().mockReturnValue({}),
+  // A fresh object per call: the spawn adds keys to the environment it is given.
+  buildClaudeLaunchEnv: vi.fn(() => ({ LAUNCH_ENV: 'shared' })),
   resolveClaudeCodePath: vi.fn().mockReturnValue('/usr/bin/claude'),
   clearClaudeCodePathCache: vi.fn(),
   // Default: no injection — matches today's behaviour so pre-existing tests are unaffected.
@@ -41,7 +42,7 @@ vi.mock('../../core/agentTimeouts', () => ({
 
 import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
-import { getSafeSubprocessEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
+import { buildClaudeLaunchEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
 import { runClaudeAgentWithCommand } from '../claudeAgent';
 
@@ -49,7 +50,12 @@ const mockSpawn = vi.mocked(spawn);
 const mockExecSync = vi.mocked(execSync);
 const mockHandleAgentProcess = vi.mocked(handleAgentProcess);
 const mockKillProcessGroup = vi.mocked(killProcessGroup);
-const mockGetSafeSubprocessEnv = vi.mocked(getSafeSubprocessEnv);
+const mockBuildClaudeLaunchEnv = vi.mocked(buildClaudeLaunchEnv);
+
+function spawnEnvOf(call: readonly unknown[]): NodeJS.ProcessEnv {
+  const options = call[2] as { env: NodeJS.ProcessEnv };
+  return options.env;
+}
 const mockResolveGuardrailsDecision = vi.mocked(resolveGuardrailsDecisionForSpawn);
 
 const BASE_RESULT = {
@@ -82,7 +88,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       new Promise<typeof BASE_RESULT>(res => { resolveHandler = res; })
     );
 
-    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl');
+    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl', 'sonnet');
 
     // Fire the watchdog (100ms mock timeout). Async variant: the gate check
     // (resolveGuardrailsDecision) awaits a microtask before spawn()/the
@@ -124,7 +130,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       new Promise<typeof BASE_RESULT>(res => { resolveHandler = res; })
     );
 
-    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl');
+    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl', 'sonnet');
 
     await vi.advanceTimersByTimeAsync(101);
     expect(mockKillProcessGroup).toHaveBeenCalledWith(1234, 5_000);
@@ -136,7 +142,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
   it('does NOT throw AgentTimeoutError when handleAgentProcess resolves before the watchdog', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    const result = await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+    const result = await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl', 'sonnet');
 
     // Watchdog timer should have been cleared — advance time past it to confirm no error
     vi.advanceTimersByTime(200);
@@ -148,7 +154,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
   it('spawns the child process with detached: true so the process group can be killed', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+    await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl', 'sonnet');
 
     expect(mockSpawn).toHaveBeenCalledWith(
       expect.any(String),
@@ -171,7 +177,7 @@ describe('runClaudeAgentWithCommand — rate-limit facts (#907)', () => {
 
     let thrownError: unknown;
     try {
-      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl', 'sonnet');
     } catch (err) {
       thrownError = err;
     }
@@ -193,7 +199,7 @@ describe('runClaudeAgentWithCommand — rate-limit facts (#907)', () => {
 
     let thrownError: unknown;
     try {
-      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl');
+      await runClaudeAgentWithCommand('/feature', 'args', 'plan-agent', '/tmp/out.jsonl', 'sonnet');
     } catch (err) {
       thrownError = err;
     }
@@ -217,7 +223,7 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     );
 
     await expect(
-      runClaudeAgentWithCommand('/feature', 'args', 'my-agent', '/tmp/out.jsonl')
+      runClaudeAgentWithCommand('/feature', 'args', 'my-agent', '/tmp/out.jsonl', 'sonnet')
     ).rejects.toThrow(AuthRequiredError);
   });
 
@@ -233,7 +239,7 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
 
     let thrownError: unknown;
     try {
-      await runClaudeAgentWithCommand('/feature', 'args', 'orchestrator', '/tmp/out.jsonl');
+      await runClaudeAgentWithCommand('/feature', 'args', 'orchestrator', '/tmp/out.jsonl', 'sonnet');
     } catch (err) {
       thrownError = err;
     }
@@ -259,7 +265,7 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     });
 
     await expect(
-      runClaudeAgentWithCommand('/feature', 'args', 'build-agent', '/tmp/out.jsonl')
+      runClaudeAgentWithCommand('/feature', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet')
     ).rejects.toThrow(AuthRequiredError);
   });
 
@@ -274,7 +280,7 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     });
 
     await expect(
-      runClaudeAgentWithCommand('/feature', 'args', 'test-agent', '/tmp/out.jsonl')
+      runClaudeAgentWithCommand('/feature', 'args', 'test-agent', '/tmp/out.jsonl', 'sonnet')
     ).rejects.toThrow(AuthRequiredError);
   });
 
@@ -285,7 +291,7 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     });
 
     const result = await runClaudeAgentWithCommand(
-      '/feature', 'args', 'plan-agent', '/tmp/out.jsonl'
+      '/feature', 'args', 'plan-agent', '/tmp/out.jsonl', 'sonnet'
     );
 
     expect(result.success).toBe(true);
@@ -294,45 +300,43 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
   });
 });
 
-describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
-  it('merges subprocessEnv over getSafeSubprocessEnv() when provided', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({ BASE_VAR: 'base', GH_TOKEN: 'old-token' });
+describe('runClaudeAgentWithCommand — launch environment', () => {
+  it('builds the environment from the caller\'s subprocessEnv overlay', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+    const overlay = { GH_TOKEN: 'token-acme', GIT_AUTHOR_NAME: 'bot' };
 
     await runClaudeAgentWithCommand(
       '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
       'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
-      { GH_TOKEN: 'token-acme', GIT_AUTHOR_NAME: 'bot' },
+      overlay,
     );
 
-    expect(mockSpawn).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Array),
-      expect.objectContaining({
-        env: expect.objectContaining({
-          BASE_VAR: 'base',
-          GH_TOKEN: 'token-acme',
-          GIT_AUTHOR_NAME: 'bot',
-        }),
-      }),
-    );
+    expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledTimes(1);
+    expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledWith(overlay);
   });
 
-  it('uses getSafeSubprocessEnv() unchanged when subprocessEnv is omitted', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({ GH_TOKEN: 'ambient-token' });
+  it('builds the environment without an overlay when subprocessEnv is omitted', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    await runClaudeAgentWithCommand('/commit', 'args', 'commit-agent', '/tmp/out.jsonl');
+    await runClaudeAgentWithCommand('/commit', 'args', 'commit-agent', '/tmp/out.jsonl', 'sonnet');
+
+    expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledWith(undefined);
+  });
+
+  it('spawns the agent with the environment the builder returned', async () => {
+    mockBuildClaudeLaunchEnv.mockReturnValueOnce({ LAUNCH_ENV: 'sentinel' });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl', 'sonnet');
 
     expect(mockSpawn).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Array),
-      expect.objectContaining({ env: { GH_TOKEN: 'ambient-token', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' } }),
+      expect.objectContaining({ env: expect.objectContaining({ LAUNCH_ENV: 'sentinel' }) }),
     );
   });
 
-  it('never assigns to process.env — the overlay is a new object', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+  it('never assigns to process.env — the environment is a new object', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
     const before = process.env.GH_TOKEN;
@@ -345,48 +349,41 @@ describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
 
     expect(process.env.GH_TOKEN).toBe(before);
   });
-});
 
-describe('runClaudeAgentWithCommand — stateless agents: auto-memory is never loaded', () => {
-  it('sets CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 on every spawn (self-host run, no overlay)', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
-    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
-
-    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl');
-
-    expect(mockSpawn).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Array),
-      expect.objectContaining({ env: expect.objectContaining({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' }) }),
-    );
-  });
-
-  it('a subprocessEnv overlay cannot re-enable auto-memory', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
-    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
-
-    await runClaudeAgentWithCommand(
-      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
-      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
-      { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0', GH_TOKEN: 'token-acme' },
-    );
-
-    const spawnOptions = mockSpawn.mock.calls[0][2] as { env: NodeJS.ProcessEnv };
-    expect(spawnOptions.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
-    expect(spawnOptions.env.GH_TOKEN).toBe('token-acme');
-  });
-
-  it('carries the switch through the ENOENT retry spawn as well', async () => {
-    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+  it('hands the same environment to the first spawn and to the ENOENT retry spawn', async () => {
     mockHandleAgentProcess
       .mockResolvedValueOnce({ ...BASE_RESULT, success: false, output: 'spawn ENOENT' })
       .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl');
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl', 'sonnet');
 
-    expect(mockSpawn.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const launchEnv = mockBuildClaudeLaunchEnv.mock.results[0].value;
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
     for (const call of mockSpawn.mock.calls) {
-      expect((call[2] as { env: NodeJS.ProcessEnv }).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+      expect(spawnEnvOf(call)).toBe(launchEnv);
+    }
+  });
+
+  it('runs the auth-status check and the auth retry spawn under the environment of the first spawn', async () => {
+    vi.useFakeTimers();
+    mockHandleAgentProcess
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: false, authExpired: true })
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+    mockExecSync.mockReturnValueOnce(Buffer.from(JSON.stringify({ loggedIn: true, email: 'user@test.com' })));
+
+    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl', 'sonnet');
+    await vi.advanceTimersByTimeAsync(2500);
+    await agentPromise;
+    vi.useRealTimers();
+
+    const launchEnv = mockBuildClaudeLaunchEnv.mock.results[0].value;
+    expect(mockExecSync).toHaveBeenCalledWith(
+      expect.stringContaining('auth status --json'),
+      expect.objectContaining({ env: launchEnv }),
+    );
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+    for (const call of mockSpawn.mock.calls) {
+      expect(spawnEnvOf(call)).toBe(launchEnv);
     }
   });
 });
@@ -411,7 +408,7 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
     mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl');
+    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet');
 
     expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
       { selfHost: true, worktreePath: process.cwd(), adwId: '' },
@@ -460,7 +457,7 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
     mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
-    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl');
+    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet');
 
     const [, , spawnOptions] = mockSpawn.mock.calls[0]!;
     expect((spawnOptions as { env: NodeJS.ProcessEnv }).env['CLAUDE_HOOKS_LOG_DIR']).toBeUndefined();

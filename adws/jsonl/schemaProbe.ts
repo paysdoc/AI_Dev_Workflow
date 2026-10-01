@@ -12,7 +12,8 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { resolveClaudeCodePath, getSafeSubprocessEnv } from '../core/environment';
+import { resolveClaudeCodePath, buildClaudeLaunchEnv } from '../core/environment';
+import { PROBE_MODEL } from '../core/modelRouting';
 import { extractObservedSchema, mergeObservedSchema, findLiveDrift, PROBE_OWNED_TYPES } from './schemaMerge';
 import type { EnvelopeSchema, LiveDriftReport, SchemaField } from './types';
 
@@ -24,7 +25,7 @@ const SCHEMA_PATH = path.join(__dirname, 'schema.json');
 // mandatory for stream-json in print mode on the current CLI.
 const PROBE_ARGS: readonly string[] = [
   '--print', '--verbose', '--output-format', 'stream-json',
-  '--max-turns', '1', '--model', 'haiku', 'say hello',
+  '--max-turns', '1', '--model', PROBE_MODEL, 'say hello',
 ];
 
 function runProbe(claudePath: string): Promise<string> {
@@ -38,7 +39,7 @@ function runProbe(claudePath: string): Promise<string> {
 
     const proc = spawn(claudePath, [...PROBE_ARGS], {
       cwd: tempCwd,
-      env: getSafeSubprocessEnv(),
+      env: buildClaudeLaunchEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

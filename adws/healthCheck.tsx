@@ -46,7 +46,7 @@ function printUsageAndExit(): never {
   console.error('  issueNumber  - GitHub issue number to validate');
   console.error('');
   console.error('Checks performed:');
-  console.error('  - Environment variables (ANTHROPIC_API_KEY, etc.)');
+  console.error('  - Environment variables (all optional; ANTHROPIC_API_KEY moves billing to the API)');
   console.error('  - Git repository configuration');
   console.error('  - Claude Code CLI functionality');
   console.error('  - GitHub CLI (gh) functionality');
@@ -154,15 +154,12 @@ async function main(): Promise<void> {
   console.log('='.repeat(60) + '\n');
 
   const envCheck = result.checks.environmentVariables;
-  console.log(`${envCheck.success ? '✅' : '❌'} Environment Variables`);
-  if (envCheck.success) {
-    const details = envCheck.details as { required: string[]; optional: string[] };
-    console.log(`   Required: ${details.required.join(', ')}`);
-    if (details.optional.length > 0) {
-      console.log(`   Optional: ${details.optional.join(', ')}`);
-    }
-  } else {
-    console.log(`   Error: ${envCheck.error}`);
+  const envDetails = envCheck.details as { optional: string[]; claudeBilling: 'api' | 'subscription' };
+  console.log('✅ Environment Variables');
+  console.log(`   Optional set: ${envDetails.optional.join(', ') || 'none'}`);
+  console.log(`   Claude billing: ${envDetails.claudeBilling === 'api' ? 'Anthropic API (ANTHROPIC_API_KEY is set)' : 'Claude subscription'}`);
+  if (envCheck.warning) {
+    console.log(`   ⚠️  Warning: ${envCheck.warning}`);
   }
 
   if (result.checks.gitRepository) {
