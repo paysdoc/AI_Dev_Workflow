@@ -354,7 +354,7 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-966
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-965 @adw-966
   Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process or as subprocesses, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
     Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
@@ -366,12 +366,22 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
       | row-05-adwBuild-buildPhase-edge-missing-lock.feature         |
       | row-10-adwMerge-autoMergePhase-happy.feature                 |
       | row-11-adwMerge-autoMergePhase-edge-pr-not-merged.feature    |
+      | row-12-adwMerge-prPhase-happy.feature                        |
+      | row-13-adwChore-workflowInit-planPhase-happy.feature         |
+      | row-14-adwChore-buildPhase-happy.feature                     |
       | row-16-adwPatch-planPhase-happy.feature                      |
+      | row-17-adwPatch-buildPhase-happy.feature                     |
+      | row-18-adwInit-installPhase-happy.feature                    |
       | row-19-adwInit-workflowInit-edge-already-initialised.feature |
+      | row-24-adwPrReview-prReviewPlanPhase-happy.feature           |
+      | row-25-adwPrReview-prReviewBuildPhase-happy.feature          |
+      | row-26-adwPrReview-commitPushPhase-happy.feature             |
+      | row-27-adwDocument-documentPhase-happy.feature               |
       | row-29-adwSdlc-cronProbe-edge-empty-queue.feature            |
       | row-30-adwSdlc-cronProbe-happy-dispatch.feature              |
       | row-31-adwPlan-orchestratorLock-acquired-happy.feature       |
       | row-32-adwBuild-orchestratorLock-re-entry-edge.feature       |
+      | row-35-adwMerge-depauditSetup-happy.feature                  |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

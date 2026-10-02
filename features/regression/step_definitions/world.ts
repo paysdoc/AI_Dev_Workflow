@@ -2,6 +2,7 @@ import { setWorldConstructor, World, IWorldOptions } from '@cucumber/cucumber';
 import type { MockContext, RecordedRequest, FixtureRepoContext } from '../../../test/mocks/types.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import type { SubprocessHarness } from '../support/subprocessHarness.ts';
+import type { DepauditSetupResult } from '../../../adws/phases/depauditSetup.ts';
 
 export interface GitInvocation {
   subcommand: string;
@@ -35,6 +36,20 @@ export interface LifecycleOutcome {
   lockHolderPid: number | null;
   error?: unknown;
   exitCode?: number;
+}
+
+/** A command the dependency-audit setup asked to run, and where. W-S3 runs none of them. */
+export interface RecordedExec {
+  readonly command: string;
+  readonly cwd: string;
+}
+
+/** What W-S3 records: the commands the setup asked to run, and what it returned or threw. */
+export interface DepauditOutcome {
+  adwId: string;
+  execCalls: readonly RecordedExec[];
+  result?: DepauditSetupResult;
+  error?: unknown;
 }
 
 export type CleanupEntry = () => void | Promise<void>;
@@ -81,6 +96,8 @@ export class RegressionWorld extends World {
 
   /** The launch record T-SP4 matched, which T-SP5 reads. */
   matchedLaunch: readonly string[] | null = null;
+
+  depauditOutcome?: DepauditOutcome;
 
   /** Run last in, first out by the @regression After hook, each entry guarded, before the mock infrastructure is torn down. */
   cleanup: CleanupEntry[] = [];

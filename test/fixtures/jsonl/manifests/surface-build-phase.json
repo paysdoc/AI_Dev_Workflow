@@ -13,7 +13,7 @@
       "edits": [
         {
           "path": ".adw-stub-payload.json",
-          "contents": "[{\"type\":\"text\",\"text\":\"The plan for issue 1004 was implemented.\\n\"}]\n"
+          "contents": "[{\"type\":\"text\",\"text\":\"The plan was implemented.\\n\"}]\n"
         },
         {
           "path": "src/surfaceBuild.ts",
