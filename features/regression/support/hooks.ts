@@ -29,7 +29,8 @@ Before({ tags: '@regression' }, async function (this: RegressionWorld) {
 });
 
 // Declared right after the hook above, which sets up the mock server, so the order is guaranteed by this file.
-Before({ tags: '@regression and @subprocess' }, function (this: RegressionWorld) {
+// A `@webhook` scenario needs the same workspace and adwId claims, but keys on neither `@smoke` nor `@surface`: those tags would also run the orchestrators of the rows that stay pending.
+Before({ tags: '@regression and (@subprocess or @webhook)' }, function (this: RegressionWorld) {
   this.subprocess = createSubprocessHarness(this);
 });
 

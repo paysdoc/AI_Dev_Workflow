@@ -59,16 +59,26 @@ function deliverStubMarker(world: RegressionWorld): void {
   copyFileSync(manifestPath, join(requireHarness(world).targetReposDir, STUB_MANIFEST_MARKER));
 }
 
+/** Tells the `gh` shadow where a merged pull request lands, so a merge reaches the workspace the way GitHub's reaches the remote. */
+const landingEnv = (workspace: string): Readonly<Record<string, string>> => ({ ADW_GH_LAND_PATH: workspace });
+
 /** W1. Fails first, naming the orchestrators it can run, when the name is not one of them. */
 export async function runOrchestrator(world: RegressionWorld, name: string, adwId: string, issue: number): Promise<void> {
-  harnessOrchestrator(name);
+  const { actsOnWorkspace } = harnessOrchestrator(name);
   claimAdwId(world, adwId);
   claimIssue(world, issue);
-  ensureTargetWorkspace(world);
+  const workspace = ensureTargetWorkspace(world);
   deliverStubMarker(world);
+  if (actsOnWorkspace) world.worktreePaths.set(adwId, workspace);
   await runThroughHarness(
     world,
-    { command: findRealBunx(), args: ['tsx', ...orchestratorArgv(name, adwId, issue)], timeoutMs: ORCHESTRATOR_TIMEOUT_MS, label: `The "${name}" orchestrator` },
+    {
+      command: findRealBunx(),
+      args: ['tsx', ...orchestratorArgv(name, adwId, issue)],
+      timeoutMs: ORCHESTRATOR_TIMEOUT_MS,
+      label: `The "${name}" orchestrator`,
+      env: actsOnWorkspace ? landingEnv(workspace) : undefined,
+    },
     { recordsExitCode: true },
   );
 }

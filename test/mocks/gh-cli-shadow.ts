@@ -8,12 +8,14 @@
  * would deadlock. The shadow reads no token, no host and no network.
  *
  * Environment variables:
- *   ADW_GH_STATE — path of the forge state JSON (see ghShadowState.ts)
- *   ADW_GH_LOG   — path of the NDJSON log of writes, GraphQL calls and refused calls
+ *   ADW_GH_STATE     — path of the forge state JSON (see ghShadowState.ts)
+ *   ADW_GH_LOG       — path of the NDJSON log of writes, GraphQL calls and refused calls
+ *   ADW_GH_LAND_PATH — optional: the repository a merged pull request is landed in (see ghShadowLanding.ts)
  */
 
 import { appendFileSync, readFileSync, renameSync, writeFileSync } from 'fs';
 import { runGhCommand } from './ghShadowCommands.ts';
+import { gitIn, landMergedPullRequest } from './ghShadowLanding.ts';
 import type { ForgeState } from './ghShadowState.ts';
 
 function main(): void {
@@ -26,7 +28,9 @@ function main(): void {
   }
 
   const state = JSON.parse(readFileSync(statePath, 'utf-8')) as ForgeState;
-  const outcome = runGhCommand(process.argv.slice(2), () => readFileSync(0, 'utf-8'), state);
+  const ran = runGhCommand(process.argv.slice(2), () => readFileSync(0, 'utf-8'), state);
+  const landPath = process.env['ADW_GH_LAND_PATH'];
+  const outcome = landPath ? landMergedPullRequest(ran, gitIn(landPath)) : ran;
 
   if (outcome.state) {
     // Renamed into place, so a reader never sees a half-written state.

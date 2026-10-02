@@ -354,10 +354,10 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-965 @adw-966
-  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process or as subprocesses, which pass
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-965 @adw-966 @adw-967
+  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows and smoke files that run in-process, as subprocesses or through the webhook dispatcher, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
-    Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
+    Then every smoke and surface scenario is reported pending, except these surface rows and smoke files, which pass:
       | row                                                          |
       | row-01-adwPlan-workflowInit-happy.feature                    |
       | row-02-adwPlan-planPhase-happy.feature                       |
@@ -382,6 +382,9 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
       | row-31-adwPlan-orchestratorLock-acquired-happy.feature       |
       | row-32-adwBuild-orchestratorLock-re-entry-edge.feature       |
       | row-35-adwMerge-depauditSetup-happy.feature                  |
+      | cancel_directive.feature                                     |
+      | cron_trigger_spawn.feature                                   |
+      | promotion_threshold_auto_ramp.feature                        |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

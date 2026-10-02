@@ -1,6 +1,7 @@
 /**
  * The forge a surface row's phase talks to, in-process. It implements only the port methods the
- * driven rows call: `commentOnIssue` and `moveToStatus` of the issue tracker, and `getDefaultBranch`,
+ * driven rows call: `commentOnIssue`, `moveToStatus` and, for the cancel directive's handler,
+ * `fetchComments`, `getIssueTitle` and `deleteComment` of the issue tracker, and `getDefaultBranch`,
  * `createPullRequest`, `commentOnPullRequest` and `setSecret` of the code host. Any other method
  * throws, so a phase that starts needing one fails loudly instead of being answered with an
  * invented value.
@@ -13,21 +14,59 @@
  * `getDefaultBranch` answers `main` because G11 commits the fixture on `main`.
  */
 
-import { Platform, type CodeHost, type IssueTracker, type RepoContext, type RepoIdentifier } from '@paysdoc/devplatform';
+import { Platform, type CodeHost, type IssueComment, type IssueTracker, type RepoContext, type RepoIdentifier } from '@paysdoc/devplatform';
 import { dispatchMockRequest, type MockResponse } from '../../../test/mocks/github-api-server.ts';
 
 export const SURFACE_REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
+
+const UNKNOWN_TITLE = '(unknown)';
 
 function notSupported(method: string): never {
   throw new Error(`mockForgeProviders: ${method} not supported`);
 }
 
-function dispatchOrThrow(method: string, httpMethod: string, path: string, payload: Record<string, unknown>): MockResponse {
-  const response = dispatchMockRequest(httpMethod, path, JSON.stringify(payload));
+function dispatchOrThrow(method: string, httpMethod: string, path: string, payload?: Record<string, unknown>): MockResponse {
+  const response = dispatchMockRequest(httpMethod, path, payload === undefined ? '' : JSON.stringify(payload));
   if (response.status >= 400) {
     throw new Error(`mockForgeProviders: ${method} was answered ${response.status}: ${response.body}`);
   }
   return response;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseJson(body: string): unknown {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+}
+
+/** GitHub's REST comment, as the port's `IssueComment`. */
+function toIssueComment(raw: unknown): IssueComment {
+  const record = isRecord(raw) ? raw : {};
+  const user = isRecord(record['user']) ? record['user'] : {};
+  return {
+    id: String(record['id'] ?? ''),
+    body: String(record['body'] ?? ''),
+    author: String(user['login'] ?? ''),
+    createdAt: String(record['created_at'] ?? ''),
+  };
+}
+
+function commentsIn(responseBody: string): IssueComment[] {
+  const parsed = parseJson(responseBody);
+  return Array.isArray(parsed) ? parsed.map(toIssueComment) : [];
+}
+
+/** Fails open, as the port documents: an issue the mock does not hold, or a body with no title, is `(unknown)`. */
+function titleIn(response: MockResponse): string {
+  if (response.status >= 400) return UNKNOWN_TITLE;
+  const parsed = parseJson(response.body);
+  return isRecord(parsed) && typeof parsed['title'] === 'string' ? parsed['title'] : UNKNOWN_TITLE;
 }
 
 function createdPullRequestNumber(responseBody: string): number {
@@ -37,15 +76,18 @@ function createdPullRequestNumber(responseBody: string): number {
 }
 
 function issueTrackerFor(repoId: RepoIdentifier): IssueTracker {
+  const repoPath = `/repos/${repoId.owner}/${repoId.repo}`;
   return {
     fetchIssue: () => notSupported('fetchIssue'),
     commentOnIssue: (issueNumber, body) => {
-      dispatchOrThrow('commentOnIssue', 'POST', `/repos/${repoId.owner}/${repoId.repo}/issues/${issueNumber}/comments`, { body });
+      dispatchOrThrow('commentOnIssue', 'POST', `${repoPath}/issues/${issueNumber}/comments`, { body });
     },
-    deleteComment: () => notSupported('deleteComment'),
+    deleteComment: (commentId) => {
+      dispatchOrThrow('deleteComment', 'DELETE', `${repoPath}/issues/comments/${commentId}`);
+    },
     closeIssue: () => notSupported('closeIssue'),
     getIssueState: () => notSupported('getIssueState'),
-    fetchComments: () => notSupported('fetchComments'),
+    fetchComments: (issueNumber) => commentsIn(dispatchOrThrow('fetchComments', 'GET', `${repoPath}/issues/${issueNumber}/comments`).body),
     // The mock server has no board route, and no row asserts on a board move.
     moveToStatus: async () => true,
     fetchLabels: () => notSupported('fetchLabels'),
@@ -57,7 +99,7 @@ function issueTrackerFor(repoId: RepoIdentifier): IssueTracker {
     searchOpenIssues: () => notSupported('searchOpenIssues'),
     findOpenUpgradeIssue: () => notSupported('findOpenUpgradeIssue'),
     listIssues: () => notSupported('listIssues'),
-    getIssueTitle: () => notSupported('getIssueTitle'),
+    getIssueTitle: (issueNumber) => titleIn(dispatchMockRequest('GET', `${repoPath}/issues/${issueNumber}`, '')),
   };
 }
 

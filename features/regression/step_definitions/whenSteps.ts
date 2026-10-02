@@ -17,7 +17,7 @@ function buildSubprocessEnv(world: RegressionWorld): NodeJS.ProcessEnv {
   };
 }
 
-// Pending without the subprocess harness, so a scenario outside `@regression and @subprocess` never passes by doing nothing.
+// Pending without the subprocess harness, so a scenario outside `@regression and (@subprocess or @webhook)` never passes by doing nothing.
 When(
   'the {string} orchestrator is invoked with adwId {string} and issue {int}',
   { timeout: 150_000 },

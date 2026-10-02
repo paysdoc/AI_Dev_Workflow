@@ -20,6 +20,11 @@ export interface HarnessOrchestrator {
   /** Always passed as `--issue-type`: without it `initializeWorkflow` runs the classifier agent with the ADW checkout as its cwd. */
   readonly issueType?: IssueClassSlashCommand;
   readonly orchestratorId?: OrchestratorIdType;
+  /**
+   * Has no workflow and no worktree of its own: it acts on the target workspace itself, which W1 registers under the
+   * adwId it is run with, and the pull requests it merges land on that workspace's default branch.
+   */
+  readonly actsOnWorkspace?: boolean;
 }
 
 /** An orchestrator that initialises a workflow, which every one but the promotion sweep does. */
@@ -38,7 +43,7 @@ export const HARNESS_ORCHESTRATORS: Readonly<Record<string, HarnessOrchestrator>
   merge: { script: 'adws/adwMerge.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Merge },
   document: { script: 'adws/adwDocument.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Document },
   'pr-review': { script: 'adws/adwPrReview.tsx', issueType: '/pr_review', orchestratorId: OrchestratorId.PrReview },
-  'promotion-sweep': { script: 'adws/triggers/promotionSweep.ts' },
+  'promotion-sweep': { script: 'adws/triggers/promotionSweep.ts', actsOnWorkspace: true },
 };
 
 const ORCHESTRATOR_SCRIPT = /adws\/(adw[A-Z]\w*\.tsx|triggers\/promotionSweep\.ts)$/;

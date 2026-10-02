@@ -85,7 +85,7 @@ export class RegressionWorld extends World {
 
   lifecycleOutcome?: LifecycleOutcome;
 
-  /** Set in the `@regression and @subprocess` Before hook; without it W1, W9 and W10 stay pending. */
+  /** Set in the `@regression and (@subprocess or @webhook)` Before hook; without it W1, W9 and W10 stay pending. */
   subprocess: SubprocessHarness | null = null;
 
   /** Standard output and standard error of the last process the subprocess harness ran. */
