@@ -359,7 +359,8 @@
   - Conditions:
     - When working on scenario promotion scoring, threshold ramping, vocabulary/scenario parsing, or promotion stats loading in `adws/promotion/`
     - When working on promotion tag-state tracking (`adws/core/promotionTagState.ts`)
-    - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
+    - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, the plan → land → settle flow, marker delivery through the `chore/promotion-sweep` pull request, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
+    - When troubleshooting a promotion threshold stuck at 3 (merged-promotion-PR numerator, `features/per-issue` pathspec denominator) or a promotion issue filed without its `@promotion-suggested` marker on the default branch
     - When working on the rot/reuse advisory PR comment (`adws/phases/promotionRotAdvisory.ts`, `rotAdvisoryFormat.ts`, `adws/agents/rotAnalysisAgent.ts`, `.claude/commands/promote_regression_vocabulary.md`)
   - Decisions:
     - 0049
