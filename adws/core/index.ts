@@ -79,7 +79,7 @@ export {
 } from '../cost';
 
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
-export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd, parseUnitTestsEnabled } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
 
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';

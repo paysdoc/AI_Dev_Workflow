@@ -213,31 +213,6 @@ export function parseMarkdownSections(content: string): Record<string, string> {
 }
 
 /**
- * Returns `true` when `.adw/project.md` has unit tests enabled.
- *
- * Handles two formats:
- * - `## Unit Tests: enabled` (colon-inline heading → key = "unit tests: enabled")
- * - `## Unit Tests` with body `enabled`
- *
- * Returns `false` for `disabled`, absent section, or any other value.
- */
-export function parseUnitTestsEnabled(projectMd: string): boolean {
-  const sections = parseMarkdownSections(projectMd);
-
-  for (const [key, value] of Object.entries(sections)) {
-    if (key.startsWith('unit tests')) {
-      if (key.includes(':')) {
-        const inlineValue = key.split(':').slice(1).join(':').trim();
-        return inlineValue === 'enabled';
-      }
-      return value.trim().toLowerCase() === 'enabled';
-    }
-  }
-
-  return false;
-}
-
-/**
  * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
  * Defaults to `'cli'` when the section is absent or has any other value.
  */

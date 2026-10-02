@@ -8,7 +8,9 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 - Define the `prime` command: instructs the agent to read `git ls-files`, `README.md`, `adws/README.md`, and the `conditional_docs.md` guide to orient itself to the codebase before any task.
 - Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/patch`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
-- Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup).
+- Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands including the `## Test Directory` and `## Test Framework` descriptor fields, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup). It also creates `.github/adw.yml` only when absent (heredoc byte-identical to `ADW_YML_TEMPLATE`) and writes the Comments entry into the target's coding guidelines.
+- Keep `/generate_step_definitions` and `/scenario_writer` descriptor-driven: both read `## BDD Framework` and `## Step Def Directory` from `.adw/scenarios.md`, name no framework or type-check command, and never install or configure a runner (Gherkin mandate). `/scenario_writer` carries the rule that feature files hold no commentary.
+- Follow the single unit-test switch: `/feature` and the `implement-tdd` skill read `unitTests` in `.github/adw.yml` (absent file or key means enabled). Nothing reads or writes a `## Unit Tests` section in `.adw/project.md`.
 - Define per-phase agent commands (`/implement`, `/implement-tdd`, `/test`, `/review` (includes a Step 4 step-definition independence check that reports each violating file as a `blocker` with `remediationStrategy: "patch"`), `/patch`, `/document`, `/scenario_writer`, `/generate_step_definitions`).
 - Define utility commands (`/commit`, `/pull_request`, `/classify_issue`, `/generate_branch_name`, `/find_issue_dependencies`, `/extract_dependencies`).
 - Define validation commands (`/validate_plan_scenarios`, `/resolve_plan_scenarios`, `/align_plan_scenarios`, `/validate_scenario_fidelity`, `/diff_evaluator`, `/resolve_failed_test`, `/resolve_failed_scenario`).
@@ -27,7 +29,12 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 Commands are stored as markdown files in `.claude/commands/`. Claude Code automatically makes them available as `/command-name` slash commands. No explicit registration is required. The `hashInputs:` frontmatter field on `adw_init.md` lists the files that feed the upgrade hash gate — changes to listed files increment the hash and trigger a framework upgrade in target repos.
 
+- `adws/__tests__/adwInitPrompt.test.ts` fails if `adw_init.md`'s `.github/adw.yml` heredoc drifts from `ADW_YML_TEMPLATE`, or its Comments entry drifts from ADW's own `.adw/coding_guidelines.md`.
+
 ## Gotchas
+
+- `adw_init.md` is a hash input: editing it starts an upgrade on every target repo. The generation prompts and `feature.md` are `target: false` and are not.
+- Prompt files are overwritten in worktrees by the runner's older copies if the runner is behind `dev`; check a PR diff for stray `.claude/` changes.
 
 - The `adw_init` command accepts `frameworkRepoRoot` as `$3`; when empty (default), the vocabulary template copy step is skipped.
 - Plan commands (`/feature`, `/bug`, etc.) require the agent to research the codebase before writing the plan — they are not fill-in-the-blank templates.

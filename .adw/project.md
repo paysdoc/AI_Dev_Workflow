@@ -31,8 +31,6 @@ bun add <package>
 ## Script Execution
 bunx tsx <script_name>
 
-## Unit Tests: enabled
-
 ## Application Type
 cli
 
