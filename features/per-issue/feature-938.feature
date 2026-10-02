@@ -142,8 +142,9 @@ Feature: Every agent ADW starts for a target repository gets ADW's guardrail set
       repository" calls the real `runClaudeAgentWithCommand` for a routed command (for example
       `/commit`, with the model and effort `getModelForCommand` and `getEffortForCommand` give
       it). It passes the worktree as `cwd`, a throwaway output file, and the launch context the
-      phases pass for a target repository (`selfHost: !repoContext`): `{ selfHost: false, adwId }`.
-      "… for a run on ADW's own repository" passes `selfHost: true`. "ADW starts {int} agents …"
+      phases pass for a target repository, whose `selfHost` comes from the launch boundary's
+      `GitContext`: `{ selfHost: false, adwId }`. "… for a run on ADW's own repository" passes
+      `selfHost: true`. "ADW starts {int} agents …"
       does it N times in sequence under the same adwId. Each scenario uses an adwId of its own.
     • THE GUARDRAIL SETTINGS. "was started with the guardrail settings ADW builds for target
       repositories": the recorded argv carries `--settings` followed by a JSON document

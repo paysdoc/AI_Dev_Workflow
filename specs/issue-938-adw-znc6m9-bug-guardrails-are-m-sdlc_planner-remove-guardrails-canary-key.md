@@ -57,7 +57,7 @@ Removing the key alone would therefore do two wrong things:
 - **Documents.**
   - Update the README, `app_docs/feature-9gjajh-claude-agents-core.md` and the guardrails entry in `.adw/conditional_docs.md`.
   - Remove the `## Divergence` section of ADR-0050 and change nothing else in it. After acceptance, an ADR may change only in `status`, `superseded-by`, `## Divergence` and the supersession note (`.claude/skills/write-an-adr/SKILL.md`). The precedent is commit 66e18a66, which did the same for ADR-0043 and ADR-0054.
-- **First, restore the working tree.** The worktree holds stale copies of `.claude/` files and an unrelated `README.md` line; see Step 1.
+- **First, undo the stale copies.** The commit that added this plan also committed stale copies of 13 `.claude/` files and an unrelated `README.md` line; see Step 1.
 
 ## Steps to Reproduce
 Run every command from the worktree root.
@@ -86,7 +86,7 @@ Run every command from the worktree root.
    ```bash
    grep -rnE --include='*.ts' --include='*.tsx' 'selfHost: ![A-Za-z.]*repoContext' adws features
    ```
-   The grep is limited to TypeScript because the prose of `feature-938.feature` quotes the old expression.
+   The grep is limited to TypeScript, so only code counts.
 
 ## Root Cause Analysis
 1. **The canary was never removed.** #762 added `guardrails` as "temporary rollout scaffolding; the end state is mandatory guardrails for all target repos", and it stayed as the third gate:
@@ -206,18 +206,21 @@ Use these files to fix the bug:
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
-### 1. Restore the stale working-tree copies before touching anything
-- `git status --short` shows tracked modifications this issue did not make: 13 files under `.claude/` (`commands/adw_init.md`, `bug.md`, `chore.md`, `clean_local_repo.md`, `document.md`, `feature.md`, `generate_step_definitions.md`, `resolve_conflict.md`, `resolve_failed_test.md`, `review.md`, `scenario_writer.md`, `skills/depaudit-triage/SKILL.md`, `skills/implement-tdd/SKILL.md`) and `README.md`.
+### 1. Undo the stale copies committed with this plan before touching anything
+- Commit fb33d8c6, which added this plan and `features/per-issue/feature-938.feature`, also committed changes this issue did not make: 13 files under `.claude/` (`commands/adw_init.md`, `bug.md`, `chore.md`, `clean_local_repo.md`, `document.md`, `feature.md`, `generate_step_definitions.md`, `resolve_conflict.md`, `resolve_failed_test.md`, `review.md`, `scenario_writer.md`, `skills/depaudit-triage/SKILL.md`, `skills/implement-tdd/SKILL.md`) and `README.md`. They are in `HEAD` now, so `git status` no longer shows them.
 - Where they come from:
   - The `.claude/` files are byte-identical to the runner checkout's own copies: `/Users/martin/projects/paysdoc/AI_Dev_Workflow` on `main` at 3f1ed745.
-  - That checkout's `copyClaudeAssetsToWorktree` predates the rule that leaves the framework repository's tracked prompts alone, so it wrote them over the branch's prompts when it created the worktree.
+  - That checkout's `copyClaudeAssetsToWorktree` predates the rule that leaves the framework repository's tracked prompts alone, so it wrote them over the branch's prompts when it created the worktree. The plan phase's `git add -A` then committed them.
   - `README.md` carries one unrelated extra line, a `planCommitGuard.ts` tree entry.
 - Why they must go before any edit:
-  - They undo #931's prompt restoration. `/commit` runs `git add -A`, so leaving them would revert #931 in this pull request.
-  - They make `adws/__tests__/adwInitPrompt.test.ts` (2 tests) and `adws/__tests__/depauditTriageSkill.test.ts` (3 tests) fail before any change. Both files pass against a clean export of `HEAD`.
-  - The working-tree `adw_init.md` has no step 9 heredoc at all, so the edit in Step 3 cannot be made against it.
-- Confirm the list with `git diff --stat`, then restore: `git checkout HEAD -- .claude/commands .claude/skills README.md`.
-- Afterwards no tracked file may show as modified. The untracked `features/per-issue/feature-938.feature` belongs to the scenario phase; leave it alone.
+  - They undo #931's prompt restoration. Left in place, this pull request reverts #931.
+  - They make `adws/__tests__/adwInitPrompt.test.ts` (2 tests) and `adws/__tests__/depauditTriageSkill.test.ts` (3 tests) fail at `HEAD`. Both files pass at 7b86e522, the branch point: fb33d8c6's parent, the merge of #957 and `origin/dev`. The local `dev` branch is stale; do not restore from it.
+  - `HEAD`'s `adw_init.md` has no step 9 heredoc at all, so the edit in Step 3 cannot be made against it. `feature-938.feature` also relies on `adwInitPrompt.test.ts` keeping that heredoc byte-identical to `ADW_YML_TEMPLATE`.
+- `git checkout HEAD -- …` restores nothing now. Restore from the branch point:
+  - Confirm the list: `git diff --stat 7b86e522 HEAD -- .claude README.md` names exactly these 14 files.
+  - Restore: `git checkout 7b86e522 -- .claude/commands .claude/skills README.md`.
+  - Check: `git diff --stat 7b86e522 -- .claude README.md` prints nothing. `git status --short` now lists the 14 files as staged changes. They belong in this pull request, because they undo the stray part of fb33d8c6.
+- `features/per-issue/feature-938.feature` is committed and belongs to the scenario phase; leave it alone.
 - Re-run `git status --short` before every commit in this issue and make sure only files this plan names are staged.
 
 ### 2. Remove the key from the reader (`adws/core/adwYmlConfig.ts`)
@@ -364,10 +367,11 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Run every command in `Validation Commands`.
 - A failure in a file this plan does not name is a regression to fix, not to skip.
 - Before the commit, `git status --short` must list only:
+  - the 14 files Step 1 restored;
   - the files named in Steps 2 to 11;
   - the new test file;
-  - this plan;
-  - the untracked `features/per-issue/feature-938.feature` and its step definitions if a phase produced them.
+  - this plan and `features/per-issue/feature-938.feature`, if an earlier phase left changes to them;
+  - the step definitions for `feature-938.feature`, if a phase produced them.
 
 ## Validation Commands
 Execute every command to validate the bug is fixed with zero regressions.
@@ -379,7 +383,7 @@ Execute every command to validate the bug is fixed with zero regressions.
     - After: exactly `{"hitl":false,"unitTests":false}`, with no `adw.yml:` warning line.
   - `bunx tsx -e "import { ADW_YML_TEMPLATE } from './adws/core/adwYmlConfig'; process.stdout.write(ADW_YML_TEMPLATE)" | diff - .github/adw.yml`
     - After: no output, exit 0.
-- `! grep -rnE --include='*.ts' --include='*.tsx' 'selfHost: ![A-Za-z.]*repoContext' adws features`: no TypeScript site derives self-host from `repoContext`. Keep the single quotes; the `.feature` prose is excluded on purpose.
+- `! grep -rnE --include='*.ts' --include='*.tsx' 'selfHost: ![A-Za-z.]*repoContext' adws features`: no TypeScript site derives self-host from `repoContext`. Keep the single quotes.
 - `! grep -rniE "^\s*#?\s*guardrails\s*:" adws/core/adwYmlConfig.ts .claude/commands/adw_init.md .github/adw.yml`: neither template copy offers the key.
 - `! grep -n "^## Divergence" specs/adr/0050-target-repo-guardrails.md`: the Divergence section is gone.
 - `bun run lint`
@@ -390,7 +394,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-938"`: this issue's scenarios, once their step definitions exist.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-820 or @adw-928 or @adw-929 or @adw-930 or @adw-933 or @adw-937"`: the scenarios whose step definitions or fixtures this plan touches, now under the global quiet gate.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"`
-- `git status --short && git diff --stat HEAD`
+- `git status --short && git diff --stat 7b86e522`, against the branch point from Step 1:
   - The only file changed under `.claude/` is `.claude/commands/adw_init.md`, and only its heredoc.
   - `README.md` changes only on lines 22 and 612.
 
@@ -402,7 +406,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - **Why the self-host fix is in scope.** Without it, removing the key injects the framework's hooks into ADW's own runs (self-host from the runner checkout, ADR-0019) on top of ADW's own `.claude/settings.json`. Every hook would fire twice, which ADR-0050's decision forbids.
   - `adwPatch.tsx` gets the helper too, because the ruling makes guardrails mandatory for every target repository and a `--target-repo` patch run was the remaining unguarded path.
   - `adwDocument.tsx` builds only a self-host boundary, so it keeps `selfHost: true`.
-- **`feature-938.feature`'s step-definition notes** say the phases pass `selfHost: !repoContext` for a target repository. That parenthetical describes the expression before this fix. The values the steps pass are unchanged: `{ selfHost: false, adwId }` for a target run and `selfHost: true` for ADW's own repository. They match what `workflowLaunchContext` yields, so the scenarios need no change.
+- **`feature-938.feature`'s step-definition notes** used to say the phases pass `selfHost: !repoContext` for a target repository. The alignment phase reworded that parenthetical to the launch boundary's `GitContext`, which is what `workflowLaunchContext` reads. The values the steps pass are unchanged: `{ selfHost: false, adwId }` for a target run and `selfHost: true` for ADW's own repository, so no step changes. No scenario drives a phase, so the `workflowLaunchContext` unit tests in Step 9 are what cover the derivation itself.
 - **ADR immutability.** Only the `## Divergence` section of ADR-0050 is removed. Two pieces of text are left as they are:
   - Its Decision Outcome still lists the key as one of the gates, as the recorded rollout state.
   - ADR-0005's `## More Information` names `guardrails` among the flags `adwYmlConfig.ts` reads.
@@ -412,4 +416,4 @@ Execute every command to validate the bug is fixed with zero regressions.
   - `writeAdwYmlTemplateIfAbsent` and step 9 never overwrite an existing `.github/adw.yml`. `paysdoc/devplatform`'s `guardrails: true` line therefore stays and is ignored, and the owner may delete it by hand.
   - The runner runs `main`, so the behaviour change reaches target runs only after `dev` is promoted (ADR-0019). The first target spawn in a process then runs the memoized probe; the cron already warms it at startup. A failing probe still fails open with one Slack alert.
 - **The global BDD quiet gate** (Step 7) is needed because removing the key exposes the probe to every in-process scenario that starts a target-repo agent: the fixtures of #929, #930 and #933 today. It is overridable by any step. The pause-queue regression scenarios relaunch a fixture script whose argv is intercepted before `tsx` runs it, and no BDD step starts a real orchestrator subprocess, so the in-process hook is enough.
-- **The untracked `features/per-issue/feature-938.feature`** was written by the scenario phase in this worktree. Do not edit it. Its step definitions must follow the file's own notes: scope hooks to `@adw-938`, spread `productionGuardrailsGateDeps` and replace only the probe and the alert sender, never start the real Claude CLI.
+- **`features/per-issue/feature-938.feature`** was written by the scenario phase and committed in fb33d8c6. Do not edit it. Its step definitions must follow the file's own notes: scope hooks to `@adw-938`, spread `productionGuardrailsGateDeps` and replace only the probe and the alert sender, never start the real Claude CLI.
