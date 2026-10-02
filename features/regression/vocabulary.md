@@ -49,13 +49,13 @@ Scenarios in this repo can assert against the following observable surfaces:
 | G2 | `the git-mock has a clean worktree at branch {string}` | Resets the git-mock recorded invocations; sets expected branch name in World | mock-query | recorded git invocations |
 | G3 | `the claude-cli-stub is loaded with manifest {string}` | Sets `MOCK_MANIFEST_PATH` env var in the harness env to the named manifest path | subprocess | stub behaviour |
 | G4 | `an issue {int} exists in the mock issue tracker` | Applies an issue fixture to mock-server state for issue number N | mock-query | mock server state |
-| G5 | `no spawn lock exists for issue {int}` | Ensures the orchestrator lock file for issue N is absent from the worktree temp dir | subprocess | orchestrator lock artefact |
+| G5 | `no spawn lock exists for issue {int}` | Removes the spawn-gate lock file the spawn gate writes for `acme/widgets#N` (`getSpawnLockFilePath`, under `agents/spawn_locks/`), whoever holds it; a lock that is already absent is fine | phase-import | spawn-lock artefact |
 | G6 | `a state file exists for adwId {string} at stage {string}` | Writes a minimal state JSON for adwId under the test worktree at the given workflow stage | subprocess / phase-import | state file artefact |
 | G7 | `the cron sweep is configured with empty queue` | Sets mock-server issue list to empty so the cron probe finds no eligible issues | mock-query | mock server state |
 | G8 | `the mock GitHub API records all PR-list calls` | Enables the mock server to record GET /repos/.../pulls requests (default on; explicit step for clarity) | mock-query | recorded requests |
 | G9 | `the claude-cli-stub is loaded with fixture {string}` | Sets `MOCK_FIXTURE_PATH` env var in the harness env to the named payload path | subprocess | stub behaviour |
 | G10 | `the mock GitHub API is configured to return PR {int} as merged` | Patches the mock-server PR state so PR N has `merged: true` and `state: closed` | mock-query | mock server state |
-| G11 | `the worktree for adwId {string} is initialised at branch {string}` | Creates a fresh temp git repo, sets it as the target worktree in World, checks out branch | subprocess | worktree artefact |
+| G11 | `the worktree for adwId {string} is initialised at branch {string}` | Materialises `test/fixtures/cli-tool/` as a git repository in a temp directory under `os.tmpdir()` whose name carries the adwId: a `.gitignore` for the stub's marker, payload and invocation files, `git init -b main`, one commit under the harness identity, a bare clone of it as `origin`, fetched so `refs/remotes/origin/main` exists, and the branch checked out. Every git call uses `REAL_GIT_PATH` when set, since under the hooks the git-mock turns `clone` and `fetch` into no-ops. Registers the worktree in World, and its removal on World's cleanup list, which the `@regression` After hook runs | phase-import | worktree artefact |
 | G12 | `the mock GitHub API is configured to accept label applications` | Seeds mock-server state so POST /repos/.../issues/:n/labels returns 200 and records the call | mock-query | mock server state |
 | G13 | `a per-issue feature file at {string} is seeded into the worktree for adwId {string} from fixture {string}` | Copies the named fixture (`test/fixtures/scenarios/promotion/<file>`) into the test worktree at the supplied path | subprocess | worktree artefact |
 | G14 | `the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` | Inserts `@promotion-suggested-<today>` into the tag block above the (single) seeded scenario header | subprocess | worktree artefact |
@@ -105,7 +105,7 @@ Scenarios in this repo can assert against the following observable surfaces:
 | T3 | `the mock GitHub API recorded a comment containing the text {string}` | Queries recorded requests; parses comment bodies; asserts one contains the expected string | mock-query | recorded requests |
 | T4 | `the git-mock recorded a commit on branch {string}` | Queries git-mock invocations in World; asserts a `git commit` call on the named branch was recorded | mock-query | git invocations |
 | T5 | `the orchestrator subprocess exited {int}` | Reads `World.lastExitCode`; asserts it equals N. The field is `-1` until a subprocess When step (W1, W10) records an exit code, so the step fails when no subprocess ran. Never reads source files, whichever hooks ran. | subprocess | exit code |
-| T6 | `the spawn-gate lock for issue {int} is released` | Asserts the orchestrator lock artefact for issue N is absent after the subprocess completes | subprocess | orchestrator lock artefact |
+| T6 | `the spawn-gate lock for issue {int} is released` | Asserts no lock file exists at `getSpawnLockFilePath({owner:'acme',repo:'widgets'}, N)`. Fails naming that path while any process holds the lock | phase-import | spawn-lock artefact |
 | T7 | `the mock harness recorded zero PR-merge calls` | Queries recorded requests; asserts no PATCH /repos/.../pulls/:n with `merged: true` was captured | mock-query | recorded requests |
 | T8 | `the mock GitHub API recorded a PR creation for issue {int}` | Queries recorded requests; asserts a POST /repos/.../pulls was captured referencing issue N | mock-query | recorded requests |
 | T9 | `the state file for adwId {string} records no error` | Reads state JSON; asserts no `error` field or `errorMessage` is set | subprocess / phase-import | state file artefact |
@@ -311,6 +311,38 @@ No step reads a source file, satisfying the Rot-Detection Rubric.
 
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
 is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the generic W16/T34 above.
+
+## Given/When/Then — Surface phases and lifecycles
+
+These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
+or an orchestrator's lifecycle, of the production code runs against `mockForgeProviders` (an
+`acme/widgets` forge that records every comment it posts as an HTTP call would, and refuses every
+port method the rows do not call), the fixture worktree G11 made, and the Claude CLI stub. The stub
+is delivered as `<worktree>/.adw-stub-manifest.json`, copied from the manifest G3 named, because the
+agent runner passes no `MOCK_*` variable to it; a manifest answers per slash command, and one that
+would write `.adw/state.json`, anything under `agents/` or anything beyond the worktree is refused.
+The phase runs under the name the production orchestrator passes to `runPhase`, so the stage
+artefacts are the production ones: `adwPlan` names no phase, and its plan phase writes no `plan_*`
+stage. Every assertion targets a runtime artefact: the phase run's outcome, the top-level state
+file (`agents/<adwId>/state.json`), the requests the mock GitHub API recorded, or the spawn-lock
+artefact (`agents/spawn_locks/`). No step reads a source file, satisfying the Rot-Detection Rubric.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-S1 | `the worktree for adwId {string} has the plan for issue {int} committed on its branch` | Writes `specs/issue-<N>-adw-<adwId>-sdlc_planner-surface-plan.md` into the worktree G11 registered and commits it, so a build phase has the plan it reads | phase-import | worktree artefact |
+| W-S1 | `the {string} phase of the {string} orchestrator runs for adwId {string}` | Builds the `WorkflowConfig` (the seeded issue, the worktree, the mock forge, the initial top-level state `starting`; `agents/<adwId>/` cleared first, since a state left behind skips a completed phase), delivers the stub, and runs `runPhase` over the phase function under the production phase name, with `process.exit` trapped and cost records kept rather than posted. Records whether it resolved, the error it threw, or the exit code it ended the process with | phase-import | phase run outcome |
+| W-S2 | `the {string} orchestrator's lifecycle runs for adwId {string}` | Builds the same config and runs `runWithOrchestratorLifecycle` with a workflow that records that it ran and who the spawn-gate lock names while it does | phase-import | lifecycle outcome |
+| T-S1 | `the {string} phase run succeeded` | Asserts the recorded outcome is for that phase and the phase run resolved | phase-import | phase run outcome |
+| T-S2 | `the {string} phase run failed` | Asserts the recorded outcome is for that phase, the run did not resolve and threw an error. An exit of the process, the pause or timeout path, is not a failure | phase-import | phase run outcome |
+| T-S3 | `the spawn-gate lock for issue {int} was held by the orchestrator while its lifecycle ran` | Asserts the lifecycle was for that issue, ran its workflow and returned true, and that the lock named this process while the workflow ran | phase-import | lifecycle outcome + spawn-lock artefact |
+| T-S4 | `the orchestrator's lifecycle for adwId {string} did not run the workflow` | Asserts the lifecycle for that adwId returned false without running its workflow, and neither threw nor ended the process | phase-import | lifecycle outcome |
+| T-S5 | `the spawn-gate lock for issue {int} is still held by the other live process` | Reads the real lock for `acme/widgets#N`; asserts it names a process other than this one, and that process is live | phase-import | spawn-lock artefact |
+| T-S6 | `the mock harness recorded zero comment posts on issue {int} containing the text {string}` | Asserts no recorded POST to `/issues/N/comments` carries a body containing the text | mock-query | recorded requests |
+
+These rows also reuse already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G3, G4, G5, G11, G-PQ14 (`another live process holds the spawn lock
+for issue {int} in the repository {string}`, whose process and lock the `@regression` After hook
+releases), T1, T2, T3 and T6.
 
 ---
 

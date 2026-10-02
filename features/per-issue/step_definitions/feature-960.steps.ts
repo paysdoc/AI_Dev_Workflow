@@ -1,11 +1,11 @@
 /**
  * Step definitions for feature-960.feature. Every scenario writes a throwaway feature to a temp
- * directory outside the checkout, runs it through Cucumber in a child process (feature-960-run.ts)
+ * directory outside the checkout, runs it through Cucumber in a child process (cucumberChildRun.ts)
  * and judges the regression step library by the step results and error messages the child reports.
  * No step function is called directly and no source file or step-definition file is read.
  */
 
-import { After, Before, Given, Then, When } from '@cucumber/cucumber';
+import { After, Before, DataTable, Given, Then, When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
@@ -22,7 +22,7 @@ import {
   type ScenarioOutcome,
   type ThrowawayFeature,
   type Verdict,
-} from './feature-960-run.ts';
+} from '../../support/cucumberChildRun.ts';
 
 // Never @adw-960: the flagged scenarios of features 908, 912 and 927 carry that tag and must not run these hooks.
 const HOOK_TAG = '@adw-f2mx98-bug-regression-then';
@@ -159,13 +159,34 @@ Then('the failure message reports the recorded workflowStage {string}', function
   assertFailureMessage(`report the recorded workflowStage "${workflowStage}"`, (message) => message.includes(workflowStage));
 });
 
-Then('every smoke and surface scenario is reported pending', function () {
-  const scenarios = ranScenarios();
-  [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
+function assertAllReportedPending(scenarios: readonly ScenarioOutcome[], which: string): void {
   const notPending = scenarios.filter((scenario) => !verdictHolds(scenario, 'is reported pending'));
   assert.deepStrictEqual(
     notPending.slice(0, NOT_PENDING_SHOWN).map(describeScenario),
     [],
-    `Expected all ${scenarios.length} smoke and surface scenarios to be reported pending, but ${notPending.length} are not (the first ${NOT_PENDING_SHOWN} are shown)`,
+    `Expected ${which} to be reported pending, but ${notPending.length} are not (the first ${NOT_PENDING_SHOWN} are shown)`,
   );
+}
+
+function assertRowPasses(scenarios: readonly ScenarioOutcome[], row: string): void {
+  const rowScenarios = scenarios.filter((scenario) => scenario.uri.endsWith(`${SURFACE_DIRECTORY}${row}`));
+  assert.strictEqual(rowScenarios.length, 1, `Expected exactly one scenario from ${row}, but the child ran ${rowScenarios.length}`);
+  assert.ok(verdictHolds(rowScenarios[0], 'passes'), `Expected ${row} to pass, but the child Cucumber run reported:\n${describeScenario(rowScenarios[0])}`);
+}
+
+Then('every smoke and surface scenario is reported pending', function () {
+  const scenarios = ranScenarios();
+  [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
+  assertAllReportedPending(scenarios, `all ${scenarios.length} smoke and surface scenarios`);
+});
+
+Then('every smoke and surface scenario is reported pending, except these surface rows, which pass:', function (table: DataTable) {
+  const scenarios = ranScenarios();
+  [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
+
+  const rows = table.hashes().map(({ row }) => row);
+  rows.forEach((row) => assertRowPasses(scenarios, row));
+
+  const parked = scenarios.filter((scenario) => !rows.some((row) => scenario.uri.endsWith(`${SURFACE_DIRECTORY}${row}`)));
+  assertAllReportedPending(parked, `every one of the ${parked.length} smoke and surface scenarios other than those ${rows.length} rows`);
 });

@@ -20,9 +20,10 @@ import {
   type TestCase,
   type TestCaseStarted,
   type TestStepResult,
+  type Timestamp,
 } from '@cucumber/messages';
 
-import { REPO_ROOT } from '../../../adws/core/environment.ts';
+import { REPO_ROOT } from '../../adws/core/environment.ts';
 
 const { PASSED, FAILED, PENDING, SKIPPED, UNDEFINED, AMBIGUOUS, UNKNOWN } = TestStepResultStatus;
 
@@ -50,6 +51,8 @@ export interface ScenarioOutcome {
   /** The scenario's own steps, in order. Its hooks are kept apart: an After hook passes after a pending step. */
   readonly steps: readonly StepOutcome[];
   readonly hooks: readonly StepOutcome[];
+  /** From the test case's start to its finish, hooks included. */
+  readonly durationMs: number;
 }
 
 export interface ThrowawayFeature {
@@ -58,10 +61,16 @@ export interface ThrowawayFeature {
 }
 
 export interface CucumberRunOptions {
-  /** Receives the run's message stream and serves as the child's temp directory. */
+  /** Receives the run's message stream, and holds the child's temp directory. Give every run a fresh one. */
   readonly directory: string;
   readonly tags: string;
   readonly featurePath?: string;
+}
+
+export interface CucumberRun {
+  readonly scenarios: readonly ScenarioOutcome[];
+  /** The child's own TMPDIR: whatever it made under the system's temporary directory and did not remove is still here. */
+  readonly tempDirectory: string;
 }
 
 /** The tag is unique to the run and is never an `@adw-` tag, since some per-issue hooks keyed on those set `mockContext` too. */
@@ -101,6 +110,7 @@ function tail(output: string, lines = 30): string {
 
 interface ChildRun {
   readonly messagesPath: string;
+  readonly tempDirectory: string;
   /** The child's stdout and stderr, shown when its message stream is missing or incomplete. */
   readonly output: string;
 }
@@ -123,7 +133,7 @@ function spawnCucumber({ directory, tags, featurePath }: CucumberRunOptions): Ch
   );
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
   assert.ok(!result.error, `Could not run the child Cucumber process: ${result.error?.message}\n${tail(output)}`);
-  return { messagesPath, output };
+  return { messagesPath, tempDirectory, output };
 }
 
 function readEnvelopes({ messagesPath, output }: ChildRun): Envelope[] {
@@ -137,10 +147,15 @@ function readEnvelopes({ messagesPath, output }: ChildRun): Envelope[] {
   return envelopes;
 }
 
-export function runCucumber(options: CucumberRunOptions): readonly ScenarioOutcome[] {
-  const scenarios = scenariosFrom(readEnvelopes(spawnCucumber(options)));
+export function runCucumberWithTemp(options: CucumberRunOptions): CucumberRun {
+  const child = spawnCucumber(options);
+  const scenarios = scenariosFrom(readEnvelopes(child));
   assert.deepStrictEqual(scenarios.flatMap(brokenParts), [], 'The child Cucumber run is broken, which says nothing about the step under test');
-  return scenarios;
+  return { scenarios, tempDirectory: child.tempDirectory };
+}
+
+export function runCucumber(options: CucumberRunOptions): readonly ScenarioOutcome[] {
+  return runCucumberWithTemp(options).scenarios;
 }
 
 interface MessageIndex {
@@ -148,6 +163,8 @@ interface MessageIndex {
   readonly testCases: ReadonlyMap<string, TestCase>;
   readonly hooks: ReadonlyMap<string, Hook>;
   readonly results: ReadonlyMap<string, TestStepResult>;
+  /** By the id of the `testCaseStarted` they close. */
+  readonly finishedAt: ReadonlyMap<string, Timestamp>;
 }
 
 function resultKey(testCaseStartedId: string, testStepId: string): string {
@@ -161,7 +178,12 @@ function indexOf(envelopes: readonly Envelope[]): MessageIndex {
     testCases: new Map(envelopes.flatMap(({ testCase }) => (testCase ? [[testCase.id, testCase] as const] : []))),
     hooks: new Map(envelopes.flatMap(({ hook }) => (hook ? [[hook.id, hook] as const] : []))),
     results: new Map(finishedSteps.map((step) => [resultKey(step.testCaseStartedId, step.testStepId), step.testStepResult] as const)),
+    finishedAt: new Map(envelopes.flatMap(({ testCaseFinished }) => (testCaseFinished ? [[testCaseFinished.testCaseStartedId, testCaseFinished.timestamp] as const] : []))),
   };
+}
+
+function millisecondsOf({ seconds, nanos }: Timestamp): number {
+  return seconds * 1000 + nanos / 1e6;
 }
 
 function scenariosFrom(envelopes: readonly Envelope[]): ScenarioOutcome[] {
@@ -173,6 +195,9 @@ function scenarioOutcome(started: TestCaseStarted, index: MessageIndex): Scenari
   const testCase = index.testCases.get(started.testCaseId);
   const pickle = testCase && index.pickles.get(testCase.pickleId);
   assert.ok(testCase && pickle, `The message stream holds no test case or pickle for test case ${started.testCaseId}`);
+
+  const finishedAt = index.finishedAt.get(started.id);
+  assert.ok(finishedAt, `The message stream holds no testCaseFinished for the scenario "${pickle.name}"`);
 
   const pickleStepTexts = new Map(pickle.steps.map((step) => [step.id, step.text] as const));
   const resultOf = (testStepId: string) => index.results.get(resultKey(started.id, testStepId));
@@ -186,6 +211,7 @@ function scenarioOutcome(started: TestCaseStarted, index: MessageIndex): Scenari
     hooks: testCase.testSteps.flatMap((testStep) =>
       testStep.hookId ? [outcomeOf(resultOf(testStep.id), describeHook(index.hooks.get(testStep.hookId)))] : [],
     ),
+    durationMs: millisecondsOf(finishedAt) - millisecondsOf(started.timestamp),
   };
 }
 

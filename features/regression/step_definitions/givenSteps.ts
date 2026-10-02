@@ -1,13 +1,15 @@
 // All steps are side-effect-free with respect to source files in adws/.
 
 import { Given } from '@cucumber/cucumber';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 import { tmpdir } from 'os';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
+import { releaseIssueSpawnLock } from '../../../adws/triggers/spawnGate.ts';
+import { initialiseFixtureWorktree } from '../support/fixtureWorktree.ts';
+import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
@@ -66,10 +68,7 @@ Given(
 Given(
   'no spawn lock exists for issue {int}',
   function (this: RegressionWorld, issueNumber: number) {
-    const lockPath = resolve(ROOT, `.adw/locks/issue-${issueNumber}.lock`);
-    if (existsSync(lockPath)) {
-      rmSync(lockPath);
-    }
+    releaseIssueSpawnLock(SURFACE_REPO, issueNumber);
   },
 );
 
@@ -246,19 +245,14 @@ Given(
 Given(
   'the worktree for adwId {string} is initialised at branch {string}',
   function (this: RegressionWorld, adwId: string, branch: string) {
-    const worktreeBase = mkdtempSync(join(tmpdir(), `adw-wt-${adwId}-`));
-    this.worktreePaths.set(adwId, worktreeBase);
+    const { base, worktreePath } = initialiseFixtureWorktree(adwId, branch);
+    this.cleanup.push(() => rmSync(base, { recursive: true, force: true }));
+    this.worktreePaths.set(adwId, worktreePath);
     this.targetBranch = branch;
-
-    const gitBin = process.env['REAL_GIT_PATH'] ?? 'git';
-    execSync(`"${gitBin}" init`, { cwd: worktreeBase, stdio: 'pipe' });
-    execSync(`"${gitBin}" config user.email "test@adw.local"`, { cwd: worktreeBase, stdio: 'pipe' });
-    execSync(`"${gitBin}" config user.name "ADW Regression"`, { cwd: worktreeBase, stdio: 'pipe' });
-    execSync(`"${gitBin}" checkout -b "${branch}"`, { cwd: worktreeBase, stdio: 'pipe' });
 
     this.harnessEnv = {
       ...this.harnessEnv,
-      MOCK_WORKTREE_PATH: worktreeBase,
+      MOCK_WORKTREE_PATH: worktreePath,
     };
   },
 );

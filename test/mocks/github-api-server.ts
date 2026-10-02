@@ -16,7 +16,7 @@ interface RouteParams {
   [key: string]: string | undefined;
 }
 
-interface MockResponse {
+export interface MockResponse {
   status: number;
   body: string;
 }
@@ -25,7 +25,7 @@ type RouteHandler = (
   params: RouteParams,
   body: string,
   method: string,
-) => MockResponse | Promise<MockResponse>;
+) => MockResponse;
 
 interface RouteDefinition {
   method: string;
@@ -194,6 +194,28 @@ const ROUTES: RouteDefinition[] = [
 
 let activeServer: http.Server | null = null;
 
+/**
+ * Records the request and runs its route, all before it returns: the HTTP listener and in-process
+ * callers share this path, so a request made either way is recorded and answered identically.
+ */
+export function dispatchMockRequest(
+  method: string,
+  url: string,
+  body: string,
+  headers: Record<string, string> = {},
+): MockResponse {
+  const pathname = url.split('?')[0] ?? '/';
+
+  // Only record application requests, not control endpoint calls
+  if (!pathname.startsWith('/_mock/')) {
+    recordedRequests.push({ method, url, headers, body, timestamp: new Date().toISOString() });
+  }
+
+  const match = matchRoute(method, pathname);
+  if (!match) return jsonResponse({ message: `Not implemented: ${pathname}` }, 404);
+  return match.handler(match.params, body, method);
+}
+
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -215,27 +237,7 @@ export function startMockServer(port = 0): Promise<{ port: number; url: string }
 
   activeServer = http.createServer(async (req, res) => {
     const body = await readBody(req);
-    const pathname = (req.url ?? '/').split('?')[0] ?? '/';
-
-    // Only record application requests, not control endpoint calls
-    if (!pathname.startsWith('/_mock/')) {
-      recordedRequests.push({
-        method: req.method ?? 'GET',
-        url: req.url ?? '/',
-        headers: req.headers as Record<string, string>,
-        body,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const match = matchRoute(req.method ?? 'GET', pathname);
-    if (!match) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: `Not implemented: ${pathname}` }));
-      return;
-    }
-
-    const result = await Promise.resolve(match.handler(match.params, body, req.method ?? 'GET'));
+    const result = dispatchMockRequest(req.method ?? 'GET', req.url ?? '/', body, req.headers as Record<string, string>);
     res.writeHead(result.status, { 'Content-Type': 'application/json' });
     res.end(result.body);
   });
@@ -261,6 +263,11 @@ export function stopMockServer(): void {
 /** Returns all recorded requests (snapshot). */
 export function getRecordedRequests(): RecordedRequest[] {
   return [...recordedRequests];
+}
+
+/** A deep copy, so the caller may keep or change it without touching the server's state. */
+export function getMockServerState(): MockServerState {
+  return structuredClone(serverState);
 }
 
 export function applyState(updates: Partial<MockServerState>): void {

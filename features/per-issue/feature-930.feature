@@ -23,7 +23,7 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
   Background:
     Given the ADW codebase is checked out
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
+  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario: The plan commit carries the plan file and leaves every other change in the worktree uncommitted
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -67,7 +67,7 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | .claude/commands/install.md |
       | .claude/skills/tdd/SKILL.md |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
+  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario Outline: A planner that <change> <path> fails the plan phase, and no commit added during the phase carries the path
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -102,7 +102,7 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
     When the plan phase runs
     Then the plan phase fails with an error that names ".claude/commands/scenario_writer.md"
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
+  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario Outline: In the <phase>, the commit agent still commits every change in the worktree, including those under .claude/ and .adw/
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:

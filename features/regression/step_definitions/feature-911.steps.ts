@@ -41,6 +41,7 @@ import {
 } from './realCronProcess.ts';
 
 import { readPauseQueue, type PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
+import type { RegressionWorld } from './world.ts';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../../../adws/triggers/spawnGate.ts';
 import type { ScanningCronIdentity } from '../../../adws/triggers/pauseQueueDecider.ts';
 import type { SpawnOrchestrator } from '../../../adws/triggers/pauseQueueResume.ts';
@@ -202,7 +203,7 @@ Given('the orchestrator of the paused workflow for issue {int} exits as soon as 
   fs.writeFileSync(seeded.scriptPath, source, 'utf-8');
 });
 
-Given('another live process holds the spawn lock for issue {int} in the repository {string}', function (issueNumber: number, repoFullName: string) {
+Given('another live process holds the spawn lock for issue {int} in the repository {string}', function (this: RegressionWorld, issueNumber: number, repoFullName: string) {
   const [owner, repo] = repoFullName.split('/');
   const repoInfo: RepoIdentifier = { owner, repo, platform: Platform.GitHub };
   const proc = realSpawn('sleep', ['60'], { stdio: 'ignore' });
@@ -210,6 +211,8 @@ Given('another live process holds the spawn lock for issue {int} in the reposito
   const acquired = acquireIssueSpawnLock(repoInfo, issueNumber, proc.pid);
   assert.ok(acquired, `Expected to acquire the spawn lock for ${repoFullName}#${issueNumber}`);
   heldLocks.set(`${repoFullName}#${issueNumber}`, { proc, repoInfo, issueNumber });
+  // Only feature-911's and feature-959's hooks release it otherwise, so under a @regression row the holder and its lock would outlive the scenario.
+  this.cleanup.push(releaseHeldSpawnLocks);
 });
 
 When('the process holding the spawn lock for issue {int} in the repository {string} exits', async function (issueNumber: number, repoFullName: string) {

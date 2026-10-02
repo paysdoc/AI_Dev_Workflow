@@ -166,6 +166,8 @@
     - test/Dockerfile
     - test/docker-run.sh
     - features/regression/**
+    - features/support/cucumberChildRun.ts
+    - test/fixtures/jsonl/manifests/**
     - adws/__tests__/regressionWorkflow.test.ts
   - Conditions:
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
@@ -176,6 +178,9 @@
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
     - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
+    - When working on the in-process surface-phase harness (`features/regression/support/phaseRun.ts`, `phaseConfig.ts`, `fixtureWorktree.ts`, `mockForgeProviders.ts`, `surfaceSteps.ts`): W-S1/W-S2, G11's fixture worktree, `World.cleanup`, or surface rows 02–05, 31 and 32
+    - When working on the Claude CLI stub's per-command manifest routing (`byCommand`), its `{ "kind": "error" }` response, value flags (`stubArgs.ts`), or the manifest refusal guard that forbids writing `.adw/state.json` or `agents/**`
+    - When working on the mock server's synchronous `dispatchMockRequest` / `getMockServerState()`, or G5/T6 reading the real spawn-gate lock
     - When working on the Docker-based hermetic regression-suite runner, which runs the suite in a writable `cp -R` copy of the read-only `/workspace` mount (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
     - When working on the daily regression workflow (`.github/workflows/regression.yml`): its `host` and `docker` jobs, their 30-minute timeouts, the `runtime` input, Cucumber's exit status failing the job, or its contract test (`adws/__tests__/regressionWorkflow.test.ts`)
     - When troubleshooting `EROFS` read-only file system errors in the Docker leg, or a run leaving `tsconfig.tsbuildinfo` in the checkout (T22 passes `--incremental false`)

@@ -1,0 +1,17 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface plan-phase-error stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "response": {
+        "kind": "error"
+      }
+    }
+  }
+}

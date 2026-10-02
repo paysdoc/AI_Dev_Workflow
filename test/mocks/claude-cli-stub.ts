@@ -23,6 +23,13 @@
  *   MOCK_RATE_LIMIT_TYPE       — echoed into rate_limit_info.rateLimitType. Defaults to
  *                                "five_hour".
  *
+ * Manifest per-command entries and responses (see manifestInterpreter.ts):
+ *   `byCommand` keys an entry on the slash command that opens the prompt, so the plan agent's
+ *   /feature, the build agent's /implement and the commit agent's /commit each get their own
+ *   edits, payload and response. A `response` of { "kind": "error" } streams one is_error result
+ *   and exits 1. A manifest that would write `.adw/state.json`, anything under `agents/` or
+ *   anything beyond the worktree is refused: the stub exits 1 naming the path and writes nothing.
+ *
  * Manifest worktree actions (all opt-in; see manifestInterpreter.ts):
  *   A manifest may also delete and stage paths, commit everything itself (`commitAll`), or set
  *   `onCommitCommand` so that an invocation of the /commit slash command stages and commits every
@@ -42,7 +49,8 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { applyManifest, type ManifestResponse } from './manifestInterpreter.ts';
-import { resolveResponseMode, shouldRateLimit, buildRateLimitedLines, type RateLimitedResponseMode, type RateLimitedTemplates } from './stubResponse.ts';
+import { resolveResponseMode, shouldRateLimit, buildRateLimitedLines, buildErrorResultLine, type RateLimitedResponseMode, type RateLimitedTemplates } from './stubResponse.ts';
+import { extractPrompt } from './stubArgs.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, '../fixtures/jsonl');
@@ -51,26 +59,6 @@ const PAYLOAD_DIR = join(FIXTURE_DIR, 'payloads');
 const INVOCATION_COUNTER_PATH = resolve(process.cwd(), '.adw-stub-invocations');
 
 const STREAM_DELAY_MS = parseInt(process.env['MOCK_STREAM_DELAY_MS'] ?? '10', 10);
-
-const VALUE_FLAGS = new Set(['--output-format', '--model', '--effort']);
-
-/** Skips known flags and their values; returns the first non-flag argument. */
-function extractPrompt(argv: string[]): string {
-  const args = argv.slice(2);
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i] ?? '';
-    if (!arg.startsWith('-')) {
-      return arg;
-    }
-    if (VALUE_FLAGS.has(arg)) {
-      i += 2;
-    } else {
-      i += 1;
-    }
-  }
-  return '';
-}
 
 function selectPayloadPath(): string {
   const mockFixturePath = process.env['MOCK_FIXTURE_PATH'];
@@ -176,6 +164,15 @@ async function handleRateLimitedMode(mode: RateLimitedResponseMode): Promise<voi
   process.exit(1);
 }
 
+const ERROR_RESULT_MESSAGE = 'The Claude CLI stub was asked to answer with an error.';
+
+/** Streams one is_error result and exits 1, as the real CLI does when a run fails. */
+async function streamErrorResponseAndExit(): Promise<never> {
+  const template = JSON.parse(readFileSync(join(ENVELOPE_DIR, 'result-message.jsonl'), 'utf-8')) as Record<string, unknown>;
+  await streamLine(buildErrorResultLine(template, ERROR_RESULT_MESSAGE));
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   try {
     const prompt = extractPrompt(process.argv);
@@ -198,6 +195,9 @@ async function main(): Promise<void> {
     const mode = resolveResponseMode(manifestResponse, process.env);
     if (mode.kind === 'rate-limited') {
       await handleRateLimitedMode(mode);
+    }
+    if (mode.kind === 'error') {
+      await streamErrorResponseAndExit();
     }
 
     const payload: Array<{ type: string; text?: string }> = commitSubject !== undefined

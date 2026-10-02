@@ -804,6 +804,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── startupFailureLog.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
 │   │   ├── startupFailureLog.test.ts
@@ -846,6 +847,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
+│   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
@@ -880,6 +882,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
+│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
@@ -1090,14 +1093,21 @@ test/                   # Integration test infrastructure
 │   │   ├── fixtures/
 │   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
+│   │   ├── manifestByCommand.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
+│   │   ├── manifestRefusalGuard.test.ts
+│   │   ├── mockServerDispatch.test.ts
+│   │   ├── stubErrorAndFlags.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
-│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
+│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing (incl. per-command lookup)
+│   ├── manifestRefusalGuard.ts # Guard that refuses manifests which would mask a stub failure
+│   ├── manifestSchema.ts       # Manifest shape and validation
+│   ├── stubArgs.ts             # Claude CLI stub argument parsing
 │   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
@@ -1119,13 +1129,13 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks for @regression suite; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv
+│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
 │   ├── webhook/        # Regression scenarios covering the webhook launching a cron for every accepted event that names a repository
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Top-level step definitions (repo-identity persistence scenario)
-└── support/            # Top-level Cucumber support (tsx registration)
+└── support/            # Top-level Cucumber support (tsx registration; cucumberChildRun.ts, the shared runner for nested cucumber-js child runs)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── adr/                # Architecture Decision Records, one per design decision (index: specs/adr/README.md)
