@@ -25,7 +25,8 @@ import {
 } from '../../support/cucumberChildRun.ts';
 
 // Never @adw-960: the flagged scenarios of features 908, 912 and 927 carry that tag and must not run these hooks.
-const HOOK_TAG = '@adw-f2mx98-bug-regression-then';
+// Feature-966 reuses this file's throwaway-feature phrases, whose scratch directory only this After hook removes.
+const HOOK_TAG = '@adw-f2mx98-bug-regression-then or @adw-p5u9xh-bug-build-the-hermet';
 
 // `agents/` also holds the state of real workflows, so only adwIds made up for this feature may be seeded or cleared.
 const THROWAWAY_ADW_ID = /^throwaway960-[a-z0-9-]+$/;

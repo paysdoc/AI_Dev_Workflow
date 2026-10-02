@@ -78,10 +78,14 @@ export function agentArguments(command: string, guardrailsInjected: boolean): st
   return args;
 }
 
-export function runStubAsAgent(worktree: StubWorktree, args: string[]): StubRun {
-  const result = spawnSync(CLAUDE_CLI_STUB, args, { cwd: worktree.path, env: buildClaudeLaunchEnv(), encoding: 'utf-8' });
+export function runStubIn(cwd: string, args: string[]): StubRun {
+  const result = spawnSync(CLAUDE_CLI_STUB, args, { cwd, env: buildClaudeLaunchEnv(), encoding: 'utf-8' });
   assert.ok(!result.error, `Could not run the Claude CLI stub: ${result.error?.message}`);
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+}
+
+export function runStubAsAgent(worktree: StubWorktree, args: string[]): StubRun {
+  return runStubIn(worktree.path, args);
 }
 
 /** The stub's last stdout line, which must be a `result` message. */

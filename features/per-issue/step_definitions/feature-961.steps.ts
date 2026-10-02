@@ -34,7 +34,15 @@ interface ResolvedStep {
 
 const state: { run: ChildRun | null; before: StateSnapshot | null } = { run: null, before: null };
 
-const STEP_TIMEOUT_MS = 5 * 60_000;
+/** Laid over the child's environment by a scenario that needs the child to see something of its own; null leaves it as the parent's. */
+let childEnvironment: NodeJS.ProcessEnv | null = null;
+
+export function setChildEnvironment(overlay: NodeJS.ProcessEnv | null): void {
+  childEnvironment = overlay;
+}
+
+// The child may hold the subprocess surface rows, each bounded at two minutes.
+const STEP_TIMEOUT_MS = 10 * 60_000;
 /** `spawnSync` blocks the event loop, so Cucumber's own step timer cannot fire while it runs; this one has to come first. */
 const SPAWN_TIMEOUT_MS = STEP_TIMEOUT_MS - 15_000;
 
@@ -56,7 +64,7 @@ function parseEnvelopeLine(line: string): Envelope[] {
  * instead of narrowing the run, so a path-selected child would also run this feature, and recurse.
  */
 function runCucumber(args: readonly string[]): ChildRun {
-  const env: NodeJS.ProcessEnv = { ...process.env, NODE_OPTIONS: '--import tsx' };
+  const env: NodeJS.ProcessEnv = { ...process.env, ...childEnvironment, NODE_OPTIONS: '--import tsx' };
   delete env.ADW_JUNIT_REPORT_PATH;
   const result = spawnSync('bunx', ['cucumber-js', ...args, '--format', 'message'], {
     cwd: process.cwd(),
