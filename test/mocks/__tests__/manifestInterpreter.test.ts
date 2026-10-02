@@ -1,28 +1,10 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import { describe, it, expect } from 'vitest';
+import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { tmpdir } from 'os';
 import { applyManifest } from '../manifestInterpreter.ts';
+import { makeTempWorktree, useTempDirCleanup, writeManifest } from './fixtures/manifestHarness.ts';
 
-const worktrees: string[] = [];
-
-function makeTempWorktree(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'manifest-test-'));
-  worktrees.push(dir);
-  return dir;
-}
-
-afterEach(() => {
-  for (const dir of worktrees.splice(0)) {
-    try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
-  }
-});
-
-function writeManifest(dir: string, name: string, content: string): string {
-  const path = join(dir, name);
-  writeFileSync(path, content, 'utf-8');
-  return path;
-}
+useTempDirCleanup();
 
 describe('applyManifest — well-formed manifest', () => {
   it('applies two edits, returns resolved paths and jsonlPath', () => {

@@ -180,12 +180,16 @@
     - adws/phases/__tests__/planPhase.test.ts
     - adws/phases/buildPhase.ts
     - adws/phases/planPhase.ts
+    - adws/phases/planCommitGuard.ts
+    - adws/phases/__tests__/planCommitGuard*.test.ts
+    - adws/phases/__tests__/planPhaseCommit.test.ts
     - adws/phases/planValidationPhase.ts
     - adws/phases/installPhase.ts
     - adws/phases/alignmentPhase.ts
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
+    - When working on the plan commit (plan-file-only commit, `PlanCommitGuardError`, `capturePlanPhaseBaseline`, `assertPlanPhaseLeftOffLimitsAlone`, `commitPlanFileOnly`) or troubleshooting a plan phase that fails because `.claude/` or `.adw/` changed
   - Decisions:
     - 0023
     - 0024
@@ -205,7 +209,7 @@
     - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
     - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
     - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
-    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant
+    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
