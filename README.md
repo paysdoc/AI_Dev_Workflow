@@ -551,6 +551,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── projectConfigCommands.test.ts
+│   │   ├── projectConfigLoad.test.ts
 │   │   ├── providerConfig.test.ts
 │   │   ├── prReviewInvocation.test.ts
 │   │   ├── promotionReconcileLink.test.ts
@@ -806,6 +808,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── workflowTypes.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── fixtures/
+│   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
+│   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
+│   │   │   ├── promotionSweepDefaultsHarness.ts  # Shared fakes and constants for the promotion-sweep defaults tests
+│   │   │   └── promotionSweepHarness.ts  # Shared dependency harness and feature fixtures for the promotion-sweep tests
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── concurrencyGuard.test.ts
@@ -823,8 +830,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
+│   │   ├── perIssueSweepPersistBase.test.ts
 │   │   ├── promotionSweep.test.ts
 │   │   ├── promotionSweepDefaults.test.ts
+│   │   ├── promotionSweepDefaultsPersist.test.ts
+│   │   ├── promotionSweepDefaultsStats.test.ts
+│   │   ├── promotionSweepLifecycle.test.ts
+│   │   ├── promotionSweepWorktree.test.ts
 │   │   ├── rateLimitProbe.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts

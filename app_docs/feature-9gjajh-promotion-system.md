@@ -90,7 +90,7 @@ The promotion system carries a per-issue BDD scenario in `features/per-issue/fea
 - `decline` writes the terminal `@promotion-declined` marker and never mutates the tracking issue (a blocked or closed-unmerged tracker is left exactly as-is).
 - `withdraw` strips the tag back to `none`, resuming TTL (`isPromotionExempt` returns `false` for `none`/`declined`), so a stranded, no-longer-qualifying candidate ages out via the sibling `perIssueScenarioSweep` instead of being re-promoted.
 - A merged promotion (file already `git mv`-ed out of `features/per-issue/`) is structurally `done` — it is simply absent from `listPerIssueFeatures()` and never reprocessed. The decider's `reconcile === 'merged'` branch is a forward-compat/defensive hook, unit-tested but unreachable from the shell.
-- `promotionIssueBody` and the `runPromotionSweep` shell are integration/BDD-covered (`@adw-740`, `@adw-741`, `@adw-934`); the shell is also unit-tested with injected deps in `adws/triggers/__tests__/promotionSweep.test.ts`, never against real git/gh; `promotionSweepDecider` and `promotionReconcileLink` are pure and exhaustively unit-tested instead.
+- `promotionIssueBody` and the `runPromotionSweep` shell are integration/BDD-covered (`@adw-740`, `@adw-741`, `@adw-934`); the shell is also unit-tested with injected deps in `adws/triggers/__tests__/promotionSweep.test.ts`, `promotionSweepLifecycle.test.ts` and `promotionSweepWorktree.test.ts`, never against real git/gh; `promotionSweepDecider` and `promotionReconcileLink` are pure and exhaustively unit-tested instead.
 
 **Rot/reuse advisory**
 
