@@ -1,11 +1,12 @@
 /**
  * Guardrails startup probe.
  *
- * Spawns a real `claude -p` (haiku) against a scratch directory with the exact
- * guardrails `--settings` payload injected on target-repo runs, and asserts the
- * deny matrix (`.env` DENIED, `.env.sample` SUCCEEDED, `rm -r -f` DENIED, a
- * normal read SUCCEEDED) plus that the injected hooks actually fire (a
- * hook-log file appears). Exit 0 = pass, non-zero = fail (reason on stderr).
+ * Spawns a real `claude -p` on the routing module's `PROBE_MODEL` against a
+ * scratch directory with the exact guardrails `--settings` payload injected on
+ * target-repo runs, and asserts the deny matrix (`.env` DENIED, `.env.sample`
+ * SUCCEEDED, `rm -r -f` DENIED, a normal read SUCCEEDED) plus that the injected
+ * hooks actually fire (a hook-log file appears). Exit 0 = pass, non-zero = fail
+ * (reason on stderr).
  *
  * This is the live ENFORCEMENT check the BDD harness cannot reach — the real
  * Claude CLI is non-hermetic, paid, and network-bound (see
@@ -21,7 +22,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildGuardrailsSettings, serializeGuardrailsSettings } from '../adws/core/guardrailsPayload';
-import { resolveClaudeCodePath, REPO_ROOT } from '../adws/core/environment';
+import { resolveClaudeCodePath, buildClaudeLaunchEnv, REPO_ROOT } from '../adws/core/environment';
+import { PROBE_MODEL } from '../adws/core/modelRouting';
 
 interface ProbeFailure {
   readonly reason: string;
@@ -39,12 +41,12 @@ function runClaudePrint(scratchDir: string, prompt: string, settingsJson: string
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--verbose',
-    '--model', 'haiku',
+    '--model', PROBE_MODEL,
     '--settings', settingsJson,
     prompt,
   ], {
     cwd: scratchDir,
-    env: { ...process.env, CLAUDE_HOOKS_LOG_DIR: hookLogDir },
+    env: buildClaudeLaunchEnv({ CLAUDE_HOOKS_LOG_DIR: hookLogDir }),
     encoding: 'utf-8',
     timeout: 60_000,
   });

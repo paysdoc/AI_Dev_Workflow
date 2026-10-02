@@ -1,11 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { CodeHost, Issue, IssueTracker } from '@paysdoc/devplatform';
 import {
   checkGitRepository,
   checkGitHubCLI,
   checkIssueNumber,
+  checkClaudeCodeCLI,
+  checkEnvironmentVariables,
 } from '../healthCheckChecks';
+import { clearClaudeCodePathCache } from '../core/environment';
+import { createRecordingClaudeCli, overrideEnv, type RecordingClaudeCli } from '../core/__tests__/fixtures/recordingClaudeCli';
 
 const SAMPLE_ISSUE: Issue = {
   id: '42', number: 42, title: 'Test issue', body: '', state: 'OPEN',
@@ -178,5 +182,85 @@ describe('checkIssueNumber', () => {
     const result = await checkIssueNumber(999, tracker);
     expect(result.success).toBe(false);
     expect(result.error).toContain('not found or not accessible');
+  });
+});
+
+describe('checkClaudeCodeCLI', () => {
+  let cli: RecordingClaudeCli | undefined;
+  let restoreEnv: (() => void) | undefined;
+
+  afterEach(() => {
+    restoreEnv?.();
+    clearClaudeCodePathCache();
+    cli?.cleanup();
+    cli = undefined;
+  });
+
+  it('runs the version probe once, with auto-memory disabled and without unlisted variables', () => {
+    cli = createRecordingClaudeCli({ stdout: '2.1.282 (Claude Code)\n' });
+    restoreEnv = overrideEnv({
+      CLAUDE_CODE_PATH: cli.cliPath,
+      ADW_RECORDING_SENTINEL: 'leak',
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
+    });
+    clearClaudeCodePathCache();
+
+    const result = checkClaudeCodeCLI();
+
+    expect(result.success).toBe(true);
+    expect(result.details.version).toBe('2.1.282 (Claude Code)');
+    expect(cli.readInvocations()).toEqual([{ memory: '1', hooksLogDir: '', sentinel: '' }]);
+  });
+});
+
+describe('checkEnvironmentVariables', () => {
+  let restoreEnv: (() => void) | undefined;
+
+  afterEach(() => {
+    restoreEnv?.();
+  });
+
+  it('passes with ANTHROPIC_API_KEY unset and reports subscription billing', () => {
+    restoreEnv = overrideEnv({ ANTHROPIC_API_KEY: undefined });
+
+    const result = checkEnvironmentVariables();
+
+    expect(result.success).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(result.warning).toBeUndefined();
+    expect(result.details.claudeBilling).toBe('subscription');
+    expect(result.details.optional).not.toContain('ANTHROPIC_API_KEY');
+  });
+
+  it('counts an empty ANTHROPIC_API_KEY as unset', () => {
+    restoreEnv = overrideEnv({ ANTHROPIC_API_KEY: '' });
+
+    const result = checkEnvironmentVariables();
+
+    expect(result.success).toBe(true);
+    expect(result.warning).toBeUndefined();
+    expect(result.details.claudeBilling).toBe('subscription');
+  });
+
+  it('passes with ANTHROPIC_API_KEY set, reports API billing and warns that billing moves', () => {
+    restoreEnv = overrideEnv({ ANTHROPIC_API_KEY: 'sk-ant-test' });
+
+    const result = checkEnvironmentVariables();
+
+    expect(result.success).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(result.details.optional).toContain('ANTHROPIC_API_KEY');
+    expect(result.details.claudeBilling).toBe('api');
+    expect(result.warning).toMatch(/subscription.*Anthropic API/s);
+  });
+
+  it('lists the other optional variables that are set, and never reports a required or missing list', () => {
+    restoreEnv = overrideEnv({ ANTHROPIC_API_KEY: undefined, GITHUB_PAT: 'ghp_test', CLAUDE_CODE_PATH: '/opt/claude' });
+
+    const result = checkEnvironmentVariables();
+
+    expect(result.details.optional).toEqual(['CLAUDE_CODE_PATH', 'GITHUB_PAT']);
+    expect(result.details).not.toHaveProperty('required');
+    expect(result.details).not.toHaveProperty('missing');
   });
 });

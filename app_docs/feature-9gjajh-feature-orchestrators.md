@@ -32,7 +32,7 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 
 | Variable | Default | Used by |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | required | all |
+| `ANTHROPIC_API_KEY` | optional; forwarded to agents when set, and moves billing from the Claude subscription to the Anthropic API | all |
 | `CLAUDE_CODE_PATH` | `/usr/local/bin/claude` | all (agent invocation) |
 | `GITHUB_PAT` | optional | all |
 | `MAX_TEST_RETRY_ATTEMPTS` | `5` | adwTest |

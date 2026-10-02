@@ -3,7 +3,7 @@
  * Usage: bunx tsx adws/adwTest.tsx <issueNumber> [adw-id] [--cwd <path>]
  *
  * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
+ * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts (default: 5)
  */
