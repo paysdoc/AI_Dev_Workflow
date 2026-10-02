@@ -37,7 +37,6 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
-- **Planner off-limits guard** — `planCommitGuard.ts` baselines `.claude/` and `.adw/` before the plan agent runs and flags any change or commit it makes there, since a plan may call for editing prompts or project configuration but the planner must not do so itself.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
 - **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
@@ -658,7 +657,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── selfHostLaunch.ts  # Treats a launch for the framework's own repository as self-host even when a `--target-repo` is passed, so the guardrails gate keeps the framework's own `.claude/settings.json`
 │   ├── sshCloneUrl.ts  # Host-neutral HTTPS→SSH clone URL rewrite (convertToSshUrl) replacing the GitHub-only version; passes through anything not a two-segment HTTPS URL (#844)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
@@ -791,7 +789,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── installPhase.ts # Install phase implementation
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
-│   ├── planCommitGuard.ts  # Plan-phase guard: baselines `.claude/` and `.adw/` before the planner runs and flags any off-limits change or commit it makes
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
