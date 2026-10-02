@@ -41,6 +41,7 @@ Target-repo configuration is file-driven: create `.adw/commands.md`, `.adw/proje
 - `isProcessAlive` in `stateHelpers.ts` is deprecated; callers should use `isProcessLive` from `processLiveness.ts` instead, which also validates `pidStartedAt` to avoid PID-reuse false-positives.
 - `findOrchestratorStatePath` shadows a failed `init-orchestrator` with the real `sdlc-orchestrator` only when `orchestratorScript` is recorded in top-level state. If that field is missing, the first directory match wins, which may be the wrong orchestrator (see memory note on issue #508).
 - `parseMarkdownSections` matches only `##`-level headings. `#` (H1) or `###`+ headings in `.adw/` files are silently ignored.
+- `parseScenariosMd` strips HTML comments from every section value, whether above the value, inline, below it or across several lines, so the `<!-- Consumed by … -->` notes in `.adw/scenarios.md` never reach a directory or path value. A comment-only section counts as absent. `parseMarkdownSections` itself keeps comments.
 - `adwYmlConfig.ts` lives outside `.adw/` intentionally so that `/adw_init` regeneration cannot overwrite operator policy.
 - `config.ts` is a pure re-export facade; import from `environment.ts` or `modelRouting.ts` directly when tree-shaking matters or side-effects of `dotenv.config()` must be avoided.
 

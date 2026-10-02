@@ -99,7 +99,9 @@ export function prepareSweepBase(boundary: LaunchBoundary, spec: SweepPersistSpe
  * Persists one commit through the dedicated sweep branch: `commit(base)`
  * stages and commits (returning whether anything was actually staged), then
  * this pushes, opens a PR into the default branch, and immediately merges
- * it. Never throws — a push/PR/merge failure is logged at error and the
+ * it. Resolves `true` only when that PR merged — every other outcome (a PR
+ * already open, nothing staged, a failed push/PR/merge) resolves `false`.
+ * Never throws — a push/PR/merge failure is logged at error and the
  * sweep recovers on the next cycle, since nothing lands on the shared base
  * until the PR merges. `label` prefixes every log line so a shared sweep
  * (e.g. the docs-index sweep) reads distinctly from the per-issue sweep's.
@@ -108,15 +110,15 @@ export async function persistCommitViaPr(
   commit: (base: SweepBase) => boolean,
   base: SweepBase,
   label = 'perIssueSweepPersist',
-): Promise<void> {
+): Promise<boolean> {
   const openPrNumber = base.findOpenSweepPr(base.sweepBranch);
   if (openPrNumber !== null) {
     base.log(`${label}: existing open sweep PR #${openPrNumber} — skipping to avoid duplicate`, 'info');
-    return;
+    return false;
   }
 
   const committed = commit(base);
-  if (!committed) return;
+  if (!committed) return false;
 
   try {
     base.ctx.pushBranch(base.sweepBranch, base.worktreePath);
@@ -124,24 +126,26 @@ export async function persistCommitViaPr(
     const prNumber = base.openPr(base.sweepBranch, base.defaultBranch);
     if (!prNumber) {
       base.log(`${label}: could not resolve PR number for sweep branch — retried next sweep`, 'error');
-      return;
+      return false;
     }
 
     const merge = base.mergePr(prNumber);
     if (!merge.success) {
       base.log(`${label}: sweep PR #${prNumber} merge failed (left open, retried next sweep): ${merge.error}`, 'error');
-      return;
+      return false;
     }
 
     base.log(`${label}: sweep PR #${prNumber} merged; changes landed on origin`, 'success');
+    return true;
   } catch (err) {
     base.log(`${label}: persistCommitViaPr failed: ${err} — retried next sweep (nothing committed to the base)`, 'error');
+    return false;
   }
 }
 
 export async function persistRemovalViaPr(paths: readonly string[], base: SweepBase): Promise<void> {
   if (paths.length === 0) return;
-  return persistCommitViaPr((b) => b.ctx.removeAndCommitPaths(paths, SWEEP_COMMIT_MESSAGE, b.worktreePath), base);
+  await persistCommitViaPr((b) => b.ctx.removeAndCommitPaths(paths, SWEEP_COMMIT_MESSAGE, b.worktreePath), base);
 }
 
 /** Best-effort teardown of the sweep's remote branch and local worktree. Never throws. */

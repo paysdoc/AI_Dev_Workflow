@@ -247,32 +247,35 @@ describe('prepareSweepBase', () => {
 });
 
 describe('persistCommitViaPr', () => {
-  it('skips when an open sweep PR already exists — commit is never invoked', async () => {
+  it('skips when an open sweep PR already exists — commit is never invoked, nothing landed', async () => {
     const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 7) });
     const commit = vi.fn(() => true);
 
-    await persistCommitViaPr(commit, base);
+    const landed = await persistCommitViaPr(commit, base);
 
+    expect(landed).toBe(false);
     expect(commit).not.toHaveBeenCalled();
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#7'), 'info');
   });
 
-  it('no-op when commit(base) returns false — no push, no PR', async () => {
+  it('no-op when commit(base) returns false — no push, no PR, nothing landed', async () => {
     const base = makeFakeBase();
     const commit = vi.fn(() => false);
 
-    await persistCommitViaPr(commit, base);
+    const landed = await persistCommitViaPr(commit, base);
 
+    expect(landed).toBe(false);
     expect(base.ctx.pushBranch).not.toHaveBeenCalled();
     expect(base.openPr).not.toHaveBeenCalled();
   });
 
-  it('happy path: invokes commit(base), pushes, opens a PR, and merges it', async () => {
+  it('happy path: invokes commit(base), pushes, opens a PR, merges it, and reports it landed', async () => {
     const base = makeFakeBase();
     const commit = vi.fn(() => true);
 
-    await persistCommitViaPr(commit, base);
+    const landed = await persistCommitViaPr(commit, base);
 
+    expect(landed).toBe(true);
     expect(commit).toHaveBeenCalledWith(base);
     expect(base.ctx.pushBranch).toHaveBeenCalledWith(base.sweepBranch, base.worktreePath);
     expect(base.mergePr).toHaveBeenCalledWith(42);
@@ -287,12 +290,33 @@ describe('persistCommitViaPr', () => {
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('docsIndexSweep:'), 'info');
   });
 
-  it('a merge failure is logged at error, leaving the PR open', async () => {
+  it('a merge failure is logged at error, leaving the PR open and reporting nothing landed', async () => {
     const base = makeFakeBase({ mergePr: vi.fn(() => ({ success: false, error: 'required check pending' })) });
 
-    await persistCommitViaPr(() => true, base);
+    const landed = await persistCommitViaPr(() => true, base);
 
+    expect(landed).toBe(false);
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('required check pending'), 'error');
+  });
+
+  it('a falsy PR number reports nothing landed and never attempts a merge', async () => {
+    const base = makeFakeBase({ openPr: vi.fn(() => 0) });
+
+    const landed = await persistCommitViaPr(() => true, base);
+
+    expect(landed).toBe(false);
+    expect(base.mergePr).not.toHaveBeenCalled();
+  });
+
+  it('a push failure reports nothing landed and never throws', async () => {
+    const base = makeFakeBase({
+      ctx: { pushBranch: vi.fn(() => { throw new Error('stale info'); }) } as unknown as SweepBase['ctx'],
+    });
+
+    await expect(persistCommitViaPr(() => true, base)).resolves.toBe(false);
+
+    expect(base.openPr).not.toHaveBeenCalled();
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('stale info'), 'error');
   });
 });
 

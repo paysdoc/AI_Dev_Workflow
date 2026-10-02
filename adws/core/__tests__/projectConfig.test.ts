@@ -94,6 +94,71 @@ describe('parseScenariosMd — per-issue / regression / vocabulary fields', () =
     const result = parseScenariosMd(content);
     expect(result.perIssueScenarioDirectory).toBe('features/per-issue/');
   });
+
+  describe('HTML comments', () => {
+    const SECTIONS = [
+      { heading: 'Per-Issue Scenario Directory', value: 'features/per-issue/', read: (c: ReturnType<typeof parseScenariosMd>) => c.perIssueScenarioDirectory },
+      { heading: 'Regression Scenario Directory', value: 'features/regression/', read: (c: ReturnType<typeof parseScenariosMd>) => c.regressionScenarioDirectory },
+      { heading: 'Vocabulary Registry', value: 'features/regression/vocabulary.md', read: (c: ReturnType<typeof parseScenariosMd>) => c.vocabularyRegistry },
+    ];
+
+    const PLACEMENTS: Array<{ placement: string; body: (value: string) => string }> = [
+      { placement: 'on the line above the value', body: (v) => `<!-- Consumed by scenario_writer. -->\n${v}` },
+      { placement: 'after the value on its line', body: (v) => `${v} <!-- Consumed by scenario_writer. -->` },
+      { placement: 'on the line below the value', body: (v) => `${v}\n<!-- Consumed by scenario_writer. -->` },
+      { placement: 'across several lines above the value', body: (v) => `<!-- Consumed by scenario_writer.\n     When set, the sweep step is skipped.\n-->\n${v}` },
+    ];
+
+    for (const { placement, body } of PLACEMENTS) {
+      it(`strips a comment ${placement} from every section value`, () => {
+        const content = SECTIONS.map(({ heading, value }) => `## ${heading}\n${body(value)}\n`).join('\n');
+        const result = parseScenariosMd(content);
+        for (const { value, read } of SECTIONS) {
+          expect(read(result)).toBe(value);
+        }
+      });
+    }
+
+    it('leaves a section that holds only a comment absent', () => {
+      const content = SECTIONS.map(({ heading }) => `## ${heading}\n<!-- nothing set here -->\n`).join('\n');
+      const result = parseScenariosMd(content);
+      for (const { read } of SECTIONS) {
+        expect(read(result)).toBeUndefined();
+      }
+    });
+
+    it('keeps the default for a scalar section that holds only a comment', () => {
+      const result = parseScenariosMd('## Scenario Directory\n<!-- unset -->\n\n## BDD Framework\ncucumber-js\n');
+      expect(result.scenarioDirectory).toBe(getDefaultScenariosConfig().scenarioDirectory);
+      expect(result.bddFramework).toBe('cucumber-js');
+    });
+
+    it('reads a run command followed by a trailing multi-line comment block as just the command', () => {
+      const content = [
+        '## Run Regression Scenarios',
+        'NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"',
+        '',
+        '<!-- The three optional sections below activate the regression-suite contract for repos that',
+        '     opt in. Target repos that omit them keep current free-form behaviour. -->',
+        '',
+        '## Per-Issue Scenario Directory',
+        'features/per-issue/',
+      ].join('\n');
+      const result = parseScenariosMd(content);
+      expect(result.runRegression).toBe('NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"');
+      expect(result.perIssueScenarioDirectory).toBe('features/per-issue/');
+    });
+
+    it("reads this repository's own .adw/scenarios.md without any comment left in a value", () => {
+      const result = loadProjectConfig(resolve(__dirname, '..', '..', '..')).scenarios;
+      expect([result.perIssueScenarioDirectory, result.regressionScenarioDirectory, result.vocabularyRegistry]).toEqual([
+        'features/per-issue/',
+        'features/regression/',
+        'features/regression/vocabulary.md',
+      ]);
+      expect(Object.values(result).filter((v) => typeof v === 'string' && v.includes('<!--'))).toEqual([]);
+    });
+  });
 });
 
 describe('parseCommandsMd — testDirectory field', () => {

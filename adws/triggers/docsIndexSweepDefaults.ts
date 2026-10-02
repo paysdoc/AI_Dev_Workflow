@@ -84,11 +84,11 @@ export function makeDocsIndexSweepDefaults(
       }
     },
 
-    persistIndex: (content: string, repairs: readonly DocsIndexRepair[]) => {
+    persistIndex: async (content: string, repairs: readonly DocsIndexRepair[]): Promise<void> => {
       const base = getBase();
-      if (!base) return Promise.resolve();
+      if (!base) return;
       fs.writeFileSync(path.join(base.worktreePath, INDEX_PATH), content);
-      return persistCommitViaPr(
+      await persistCommitViaPr(
         (b) => b.ctx.addAndCommitPaths([INDEX_PATH], commitMessageWith(repairs), b.worktreePath),
         base,
         'docsIndexSweep',
