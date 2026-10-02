@@ -462,8 +462,15 @@
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
     - adws/agents/__tests__/agentProcessHandler.test.ts
+    - adws/agents/__tests__/commandAgent.test.ts
+    - adws/checkModelLiterals.ts
+    - adws/__tests__/checkModelLiterals.test.ts
+    - adws/core/__tests__/fixtures/recordingClaudeCli.ts
+    - adws/core/__tests__/guardrailsProbe.integration.test.ts
+    - .claude/commands/correct_output.md
   - Conditions:
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
+    - When working on the output-validation retry (`/correct_output`, `runRetryLoop`), the shared stateless Claude launch environment (`buildClaudeLaunchEnv`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`) used by agents, probes, auth-status and version checks, or the model-literal guard (`checkModelLiterals.ts`, `bun run lint:model-literals`, `PROBE_MODEL`)
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
 
 - app_docs/feature-9gjajh-classifier-and-routing.md

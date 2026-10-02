@@ -6,6 +6,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 
 ## Responsibilities
 
+- Starts every `claude` process ADW launches under one shared launch environment, `buildClaudeLaunchEnv(overlay?)` (`adws/core/environment.ts`): the allowlisted environment (`getSafeSubprocessEnv()`), then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`. Users: the agent spawn and its retries, both `claude auth status --json` checks (`claudeAgent.ts`, `trigger_cron.ts`), the rate-limit, schema and guardrails probes, and the health check's `claude --version`
 - Spawns Claude Code CLI processes via `spawn()` with `--print --verbose --dangerously-skip-permissions --output-format stream-json` flags
 - Injects `ADW_WORKTREE_PATH` and `ADW_MAIN_REPO_PATH` environment variables when the working directory is inside a worktree **and** the caller threads a `launchContext.gitContext` (the launch boundary's `GitContext`, narrowed to `mainRepoPath` — `claudeAgent` no longer constructs one, #822). An un-threaded worktree spawn sets neither variable, which silently disables `.claude/hooks/pre-tool-use.ts` path rewriting, so every worktree-cwd spawn site must carry `gitContext`.
 - Attaches a per-phase watchdog timer (via `getAgentTimeoutForPhase`) and kills the process group on expiry, throwing `AgentTimeoutError`
@@ -16,18 +17,22 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Retries once on expired OAuth token after verifying `claude auth status --json`; throws `AuthRequiredError` if auth is invalid or still failing after retry
 - Throws `RateLimitError` (no retry) when rate limiting or API outage is detected, signaling the orchestrator to pause; carries `rateLimitType`/`resetsAt` (from `adws/types/agentTypes.ts`'s `RateLimitFacts`) through from the `AgentResult` when a rejected `rate_limit_event` supplied them, `undefined` otherwise — never defaulted
 - Saves every prompt to `<statePath>/prompts/<command>.txt` for replay and audit
-- Provides `runCommandAgent<T>()` as a typed wrapper: selects model and effort via `getModelForCommand`/`getEffortForCommand`, optionally extracts structured output via a caller-supplied `extractOutput` function, and runs a schema-validated retry loop (up to 10 retries, early-exit after 3 consecutive identical errors) by running the `/correct_output` command, routed through the tables like every other command
+- Provides `runCommandAgent<T>()` as a typed wrapper: selects model and effort via `getModelForCommand`/`getEffortForCommand`, optionally extracts structured output via a caller-supplied `extractOutput` function, and runs a schema-validated retry loop (up to 10 retries, early-exit after 3 consecutive identical errors) by running the `/correct_output` command (`.claude/commands/correct_output.md`), routed through the tables like every other command. The loop writes the invalid output to `<agent output name>-invalid-output-<n>.txt` in the logs directory and passes `[command, args, invalidOutputFile, validationError, schemaJson]` positionally; no prompt is assembled in code
 - Provides `runGenerateBranchNameAgent` (invokes `/generate_branch_name` skill, returns `branchName`) and `runCommitAgent` (invokes `/commit` skill, validates and normalises the commit message prefix)
 - Writes all stdout and stderr to a per-agent JSONL output file (append mode); logs final cost and model breakdown on close
 - On target-repo runs only, injects a guardrails `--settings` payload at the same spawn call site: `resolveGuardrailsDecision` (`adws/core/guardrailsGate.ts`) runs a guard-clause chain — kill switch → self-host → `.github/adw.yml` canary → startup probe verdict — and when it says inject, `runClaudeAgentWithCommand` (`claudeAgent.ts`) unshifts `--settings <json>` onto `cliArgs` and sets `spawnEnv.CLAUDE_HOOKS_LOG_DIR` to an absolute per-run directory
 - `buildGuardrailsSettings` (`adws/core/guardrailsPayload.ts`) builds that payload: parses the canonical deny-list template (`templates/claude-settings-starter.json` — the same template `/adw_init` copies verbatim into target repos), adds all five framework hooks (`PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SubagentStop`) as `bun <absolute-framework-path>/.claude/hooks/<hook>.ts <flags> || true` commands, and declares no `permissions.allow`
+- `adws/checkModelLiterals.ts` (`bun run lint:model-literals`) is the guard that keeps spawn sites on the routing tables: it reports `file:line` for a `'--model'` literal in an argv array, a literal fifth (`model`) argument to `runClaudeAgentWithCommand`, and a `model` parameter with a literal default, over `adws/` and `scripts/` (skipping `__tests__`, `node_modules`, `dist` and `modelRouting.ts`). `adws/__tests__/checkModelLiterals.test.ts` runs it over the repository
 - `commandAgent.ts` and the direct `runClaudeAgentWithCommand` callers (`planAgent.ts`, `testAgent.ts`, `gitAgent.ts`, `patchAgent.ts`, `refactorAgent.ts`) thread launch-boundary facts (`{ selfHost, adwId }`) through to the spawn so the gate has what it needs to decide
-- `adws/core/guardrailsProbe.ts` + `scripts/guardrails-probe.ts` verify the injected payload actually enforces: spawn a real `claude -p` on `PROBE_MODEL` against a scratch dir with the exact payload, assert a deny/allow matrix plus hook firing, and fail open on any problem; `trigger_cron.ts`'s `main()` warms the verdict once at startup (before the first `checkAndTrigger()`) and `trigger_webhook.ts`'s `/health` check surfaces it as a `guardrailsProbe` entry
+- `adws/core/guardrailsProbe.ts` + `scripts/guardrails-probe.ts` verify the injected payload actually enforces: spawn a real `claude -p` on `PROBE_MODEL` against a scratch dir with the exact payload, under `buildClaudeLaunchEnv({ CLAUDE_HOOKS_LOG_DIR })`, assert a deny/allow matrix plus hook firing, and fail open on any problem; `trigger_cron.ts`'s `main()` warms the verdict once at startup (before the first `checkAndTrigger()`) and `trigger_webhook.ts`'s `/health` check surfaces it as a `guardrailsProbe` entry
 - Counts permission-denied tool calls per run (`adws/core/claudeStreamParser.ts`'s `deniedToolCallCount`, carried onto `AgentResult`) and surfaces a non-zero count as a denial notice in issue/PR stage comments (`adws/phases/phaseCommentHelpers.ts`'s `formatDenialNotice`) and the workflow-completion comment (`adws/phases/workflowCompletion.ts`)
 - Widens the shared `.claude/hooks/pre-tool-use.ts` `.env` carve-out to also spare `.env.example` (both the file-path check and the Bash-command regex), so the injected deny list's `.env.example` allowance is not defeated by the co-injected hook
 
 ## Contracts & Invariants
 
+- Every `claude` process ADW starts has `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`; the builder applies it after the overlay, so no caller can re-enable memory. Auto-memory is the operator's `~/.claude/projects/<key>/memory/`, and a worktree resolves to the same key as the checkout
+- `ANTHROPIC_API_KEY` stays on the allowlist and is forwarded when set; it is optional, and setting it moves billing from the Claude subscription to the API
+- No call site outside `adws/core/modelRouting.ts` names a model literally; one-turn probes use `PROBE_MODEL`, everything else reads `getModelForCommand`/`getEffortForCommand`. No Haiku entry in any routing table carries an effort
 - Every spawned process is detached (`detached: true`) so `killProcessGroup(-pid)` can reach grandchildren (e.g., orphaned heredoc pipelines)
 - The `AgentResult.success` field is `false` whenever the process exits non-zero OR the final JSONL result carries `isError: true`; token-limit and compaction terminations resolve as `success: true` with their respective flags set
 - `costSource` is always present on resolved results; value is `'extractor_finalized'` when the CLI emits a cost summary line, otherwise `'extractor_estimated'`
@@ -52,6 +57,7 @@ No configuration files govern the base spawn layer. Behaviour is governed by cal
 - `effort` is optional; overridden per-command by `getEffortForCommand`
 - Watchdog timeout is looked up per phase name via `getAgentTimeoutForPhase`
 - Token threshold for early termination is `MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD` (constants from `../core`)
+- `ANTHROPIC_API_KEY` — optional; forwarded to agents when set
 - Retry counts are module-level constants: `MAX_RETRIES = 10`, `MAX_CONSECUTIVE_IDENTICAL_ERRORS = 3`
 
 Guardrails injection is additionally governed by:
@@ -67,6 +73,10 @@ Guardrails injection is additionally governed by:
 - Context compaction resolves as `success: true` with `compactionDetected: true`; callers must check this flag and re-invoke rather than treating the result as a completed run
 - ENOENT retry clears the path cache and re-resolves the Claude CLI binary before each attempt; a permanently missing binary will exhaust all 3 attempts and return the last failed result (no exception)
 - The auth retry's `claude auth status` check runs under the agent's launch environment, which keeps `HOME` and `USER` so the CLI can access its own credentials
+- The probes keep their inline prompts (`ping`, `say hello`, the deny-matrix prompts); they do no pipeline work and sit outside the slash-command rule
+- `scripts/guardrails-probe.ts` runs `main()` unconditionally on import; do not add an entry-point guard, because a symlinked `argv[1]` would make it exit 0 without probing and `runGuardrailsProbe()` reads exit 0 as a pass
+- Tests observe the launch environment through a recording fake `claude` (`adws/core/__tests__/fixtures/recordingClaudeCli.ts`), not by mocking `child_process`; it lives under `adws/` because an adws test cannot import from `scripts/` or `test/` (`rootDir`)
+- `runClaudeAgentWithCommand` keeps `command: string` and has no default `model`
 - `runCommitAgent` throws on non-success exit (unlike most agents which return the result); callers must not inspect `result.success` after the call
 - Branch slug extraction takes only the last non-empty line of agent output; any trailing explanation text from the model is silently discarded
 - `issueClass` is accepted but ignored in `formatBranchNameArgs` (the LLM no longer assembles the prefix); the parameter remains for call-site compatibility
