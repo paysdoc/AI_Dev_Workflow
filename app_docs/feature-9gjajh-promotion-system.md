@@ -129,3 +129,7 @@ The promotion system carries a per-issue BDD scenario in `features/per-issue/fea
 - Rot-advisory detection keys off the **issue** label, not a PR-label fetch: there is no helper that reads labels for an arbitrary PR by number, and promotion PRs are not guaranteed to inherit the label themselves. The driving issue (labelled by `buildPromotionIssue`) always carries `regression-promotion`, and it is already in memory on `config.issue`.
 - The rot-advisory function lives in two files: pure orchestration (`runPromotionRotAdvisory`, injectable deps, no direct GitHub/agent I/O) in `adws/phases/promotionRotAdvisory.ts`, and the `WorkflowConfig`-level adapter (`executePromotionRotAdvisory`) in the same file, re-exported from `adws/phases/reviewPhase.ts` to keep that file under its line-count guideline while still living at the issue's named touched file.
 - A resumed run posting a second, duplicate advisory comment is accepted behavior (advisory, non-blocking) — no worse than the existing `executeProofPublishPhase` duplicate-comment tolerance on resume.
+
+## Decisions
+
+- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline

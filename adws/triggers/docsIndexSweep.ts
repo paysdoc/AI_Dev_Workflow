@@ -9,7 +9,10 @@
  *    repaired index through an immediately-merged pull request
  *    (`persistCommitViaPr`), never a direct commit;
  *  - **violations** (overlap, orphan doc, duplicate, non-canonical, count
- *    out of band) — reconciles into exactly one open `hitl` + `adw:none`
+ *    out of band, and the decisions findings: a doc whose `## Decisions`
+ *    section differs from its entry's `Decisions:` block, a block number
+ *    with no record, a section link that is no file) — reconciles into
+ *    exactly one open `hitl` + `adw:none`
  *    issue via a `Reconciles: docs-index-health` back-link marker plus a
  *    violation-set fingerprint, refreshed only when the fingerprint changes,
  *    closed when the index goes clean. Violations are NEVER auto-repaired.
@@ -42,6 +45,7 @@ import { makeDocsIndexSweepDefaults, DOCS_INDEX_SWEEP_SPEC, INDEX_PATH } from '.
 export interface DocsIndexSweepDeps {
   boundary: LaunchBoundary;
   readIndex?: () => string | null;
+  readDoc?: (docPath: string) => string | null;
   listFiles?: () => string[];
   persistIndex?: (content: string, repairs: readonly DocsIndexRepair[]) => Promise<void>;
   listReportCandidates?: () => DocsIndexReportIssueRef[];
@@ -64,11 +68,26 @@ export interface DocsIndexSweepReport {
 
 const EMPTY_REPORT: DocsIndexSweepReport = { repairs: [], violations: [], persisted: false, reportIssue: null, reportAction: 'none' };
 
-function safeDefaultBranch(boundary: LaunchBoundary): string {
+/** A throwing reader must not break the sweep's never-throws contract: the doc is treated as unreadable. */
+function safeReadDoc(
+  readDoc: (docPath: string) => string | null,
+  logger: (msg: string, level?: LogLevel) => void,
+): (docPath: string) => string | null {
+  return (docPath) => {
+    try {
+      return readDoc(docPath);
+    } catch (err) {
+      logger(`docsIndexSweep: readDoc failed for ${docPath} (non-fatal): ${err}`, 'warn');
+      return null;
+    }
+  };
+}
+
+function safeDefaultBranch(boundary: LaunchBoundary): string | null {
   try {
     return boundary.providers.codeHost.getDefaultBranch();
   } catch {
-    return 'main';
+    return null;
   }
 }
 
@@ -154,6 +173,7 @@ export async function runDocsIndexSweep(deps: DocsIndexSweepDeps): Promise<DocsI
 
   const defaults = makeDocsIndexSweepDefaults(deps.boundary, getBase);
   const readIndex = deps.readIndex ?? defaults.readIndex;
+  const readDoc = deps.readDoc ?? defaults.readDoc;
   const listFiles = deps.listFiles ?? defaults.listFiles;
   const persistIndex = deps.persistIndex ?? defaults.persistIndex;
   const listReportCandidates = deps.listReportCandidates ?? defaults.listReportCandidates;
@@ -183,7 +203,7 @@ export async function runDocsIndexSweep(deps: DocsIndexSweepDeps): Promise<DocsI
       files = [];
     }
 
-    const { repairs, repaired, violations } = assessDocsIndexHealth({ content, files }, countBand ?? null);
+    const { repairs, repaired, violations } = assessDocsIndexHealth({ content, files, readDoc: safeReadDoc(readDoc, logger) }, countBand ?? null);
 
     let persisted = false;
     if (repairs.length > 0) {

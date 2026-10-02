@@ -16,6 +16,7 @@ import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
 import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
 import { hasUnaddressedComments } from '../forge/prCommentDetector';
+import { provisionAdwLabels } from '../forge/adwLabelProvisioning';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -549,6 +550,10 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   }
 
   log('CRON trigger (backlog sweeper) started');
+  // The webhook starts one cron per repository on its first event (ensureCronProcess), so this
+  // is where a repository gets its adw:* labels — outside the webhook's request path, since
+  // each label is a synchronous gh call.
+  if (cronBoundary) provisionAdwLabels(cronBoundary);
   // Warm the guardrails probe verdict before processing any issue, so a failed
   // probe's fail-open Slack alert (see guardrailsGate.ts) fires at startup rather
   // than being deferred until the first target-repo spawn happens to trigger it.

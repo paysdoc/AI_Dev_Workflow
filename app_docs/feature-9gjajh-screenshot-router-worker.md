@@ -30,3 +30,8 @@ Three Worker secrets are required (set via `wrangler secret put`): `CLOUDFLARE_A
 - The GC scheduled handler only deletes buckets it can see via `ListBucketsCommand`; buckets for which the R2 credentials lack list permission are silently skipped.
 - Path parsing requires exactly `/{repo}/{key}` — paths with no key component (e.g., `/{repo}/`) return `400`, not a bucket listing.
 - The Worker streams R2 body responses using either a `ReadableStream` directly or by calling `transformToWebStream()` on the body object, depending on the S3 SDK version response shape.
+
+## Decisions
+
+- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand

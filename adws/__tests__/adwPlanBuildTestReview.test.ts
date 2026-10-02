@@ -1,0 +1,163 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../core')>();
+  return {
+    ...actual,
+    MAX_REVIEW_RETRY_ATTEMPTS: 3,
+    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn() },
+    log: vi.fn(),
+  };
+});
+
+// The real runPhase writes top-level state for named phases, bypassing the mocked core barrel.
+vi.mock('../core/phaseRunner', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../core/phaseRunner')>();
+  return {
+    ...actual,
+    runPhase: vi.fn(async (config, _tracker, fn) => fn(config)),
+    runPhasesParallel: vi.fn(async (config, _tracker, fns: Array<(c: unknown) => Promise<unknown>>) =>
+      Promise.all(fns.map(fn => fn(config)))),
+  };
+});
+
+vi.mock('../cost', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../cost')>();
+  return { ...actual, persistTokenCounts: vi.fn() };
+});
+
+import { executePlanBuildTestReview, type PlanBuildTestReviewPhases } from '../adwPlanBuildTestReview';
+import { AgentStateManager } from '../core';
+import { persistTokenCounts } from '../cost';
+import type { WorkflowConfig } from '../phases';
+
+const BRANCH = 'feature-issue-42-csv-export';
+const SCENARIO_RETRIES = 2;
+const ZERO_COST = { costUsd: 0, modelUsage: {}, phaseCostRecords: [] };
+
+const BLOCKER = {
+  reviewIssueNumber: 1,
+  issueDescription: 'broken',
+  issueResolution: 'fix it',
+  issueSeverity: 'blocker',
+};
+const FAILED_REVIEW = { reviewPassed: false, reviewIssues: [BLOCKER] };
+const PASSED_REVIEW = { reviewPassed: true, reviewIssues: [] };
+type ReviewVerdict = typeof FAILED_REVIEW | typeof PASSED_REVIEW;
+
+/** Answers with each scripted verdict in turn, then repeats the last one. */
+function scriptedReview(verdicts: ReviewVerdict[]) {
+  let attempt = 0;
+  return vi.fn(async () => ({ ...ZERO_COST, ...verdicts[Math.min(attempt++, verdicts.length - 1)] }));
+}
+
+function makePhases(verdicts: ReviewVerdict[]) {
+  return {
+    executeInstallPhase: vi.fn(async () => ZERO_COST),
+    executePlanPhase: vi.fn(async () => ZERO_COST),
+    executeScenarioPhase: vi.fn(async () => ZERO_COST),
+    executeAlignmentPhase: vi.fn(async () => ZERO_COST),
+    executeBuildPhase: vi.fn(async () => ZERO_COST),
+    executeStepDefPhase: vi.fn(async () => ZERO_COST),
+    executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
+    runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: SCENARIO_RETRIES })),
+    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined })),
+    executeReviewPhase: scriptedReview(verdicts),
+    executeReviewPatchCycle: vi.fn(async () => ZERO_COST),
+    executePRPhase: vi.fn(async () => ZERO_COST),
+    executeProofPublishPhase: vi.fn(async () => ZERO_COST),
+  };
+}
+
+function makeConfig() {
+  const commentOnIssue = vi.fn();
+  const config = {
+    issueNumber: 42,
+    adwId: 'adw-test',
+    orchestratorStatePath: '/mock/agents/adw-test/plan-build-test-review',
+    ctx: { issueNumber: 42, adwId: 'adw-test', branchName: BRANCH },
+    repoContext: { issueTracker: { commentOnIssue } },
+  } as unknown as WorkflowConfig;
+  return { config, commentOnIssue };
+}
+
+async function runWithReviews(...verdicts: ReviewVerdict[]) {
+  const { config, commentOnIssue } = makeConfig();
+  const phases = makePhases(verdicts);
+  await executePlanBuildTestReview(config, phases as unknown as PlanBuildTestReviewPhases);
+  return { config, commentOnIssue, phases };
+}
+
+function writtenStages(): Array<string | undefined> {
+  return vi.mocked(AgentStateManager.writeTopLevelState).mock.calls.map(([, state]) => state.workflowStage);
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('executePlanBuildTestReview — the review still has blockers after its last attempt', () => {
+  it('attempts the review as often as the retry budget allows, patching between attempts', async () => {
+    const { phases } = await runWithReviews(FAILED_REVIEW);
+
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(3);
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops at review_failed and never writes awaiting_merge', async () => {
+    await runWithReviews(FAILED_REVIEW);
+
+    expect(writtenStages()).toEqual(['review_failed']);
+  });
+
+  it('opens no pull request and publishes no proof', async () => {
+    const { phases } = await runWithReviews(FAILED_REVIEW);
+
+    expect(phases.executePRPhase).not.toHaveBeenCalled();
+    expect(phases.executeProofPublishPhase).not.toHaveBeenCalled();
+  });
+
+  it('records the failed verdict in the orchestrator metadata and persists the cost', async () => {
+    const { config } = await runWithReviews(FAILED_REVIEW);
+
+    expect(AgentStateManager.writeState).toHaveBeenCalledWith(config.orchestratorStatePath, {
+      metadata: expect.objectContaining({
+        reviewPassed: false,
+        totalReviewRetries: 3,
+        scenarioRetries: SCENARIO_RETRIES,
+      }),
+    });
+    expect(persistTokenCounts).toHaveBeenCalledWith(config.orchestratorStatePath, 0, expect.any(Object));
+  });
+
+  it('tells the issue which branch holds the work and to post ## Retry', async () => {
+    const { commentOnIssue } = await runWithReviews(FAILED_REVIEW);
+
+    const retryComment = commentOnIssue.mock.calls
+      .map(([, body]) => String(body))
+      .find(body => body.includes('## Retry'));
+    expect(retryComment, 'no comment tells a human to post ## Retry').toBeDefined();
+    expect(retryComment).toContain(BRANCH);
+  });
+});
+
+describe('executePlanBuildTestReview — the review passes', () => {
+  it('opens the pull request, publishes the proof and ends at awaiting_merge', async () => {
+    const { phases } = await runWithReviews(PASSED_REVIEW);
+
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(1);
+    expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
+    expect(phases.executeProofPublishPhase).toHaveBeenCalledTimes(1);
+    expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+
+  it('carries on to the pull request when a patch turns the first failed attempt into a pass', async () => {
+    const { phases } = await runWithReviews(FAILED_REVIEW, PASSED_REVIEW);
+
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(2);
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(1);
+    expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
+    expect(phases.executeProofPublishPhase).toHaveBeenCalledTimes(1);
+    expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+});

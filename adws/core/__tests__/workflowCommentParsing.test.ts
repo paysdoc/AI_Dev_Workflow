@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isRetryComment, isCancelComment, RETRY_COMMENT_PATTERN } from '../workflowCommentParsing';
+import { isRetryComment, isCancelComment, RETRY_COMMENT_PATTERN, parseWorkflowStageFromComment } from '../workflowCommentParsing';
 
 describe('isRetryComment', () => {
   it('matches exact "## Retry" heading', () => {
@@ -45,5 +45,17 @@ describe('isCancelComment / isRetryComment parity', () => {
 describe('RETRY_COMMENT_PATTERN', () => {
   it('does not match "## Retry with extra text"', () => {
     expect(RETRY_COMMENT_PATTERN.test('## Retry with extra text')).toBe(false);
+  });
+});
+
+describe('parseWorkflowStageFromComment — compaction recovery headings', () => {
+  const commentHeaded = (heading: string): string => `## ${heading}\n\n**ADW ID:** \`test-adw\``;
+
+  it('reads the build compaction recovery heading as its stage', () => {
+    expect(parseWorkflowStageFromComment(commentHeaded(':warning: Context Compaction Recovery'))).toBe('compaction_recovery');
+  });
+
+  it('reads the unit-test compaction recovery heading as its stage', () => {
+    expect(parseWorkflowStageFromComment(commentHeaded(':warning: Test Compaction Recovery'))).toBe('test_compaction_recovery');
   });
 });

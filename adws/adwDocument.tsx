@@ -74,6 +74,7 @@ async function main(): Promise<void> {
       undefined,
       undefined,
       { selfHost: true, adwId, gitContext: boundary.gitContext },
+      boundary.providers.codeHost.getDefaultBranch(),
     );
 
     const totalCostUsd = result.totalCostUsd || 0;

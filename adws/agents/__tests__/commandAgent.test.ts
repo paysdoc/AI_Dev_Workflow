@@ -13,8 +13,10 @@ vi.mock('../../core/logger', () => ({
 }));
 
 import { runClaudeAgentWithCommand } from '../claudeAgent';
-import { runCommandAgent, OutputValidationError, type ExtractionResult } from '../commandAgent';
+import { runCommandAgent, OutputValidationError, type CommandAgentConfig, type ExtractionResult } from '../commandAgent';
 import { getModelForCommand, getEffortForCommand } from '../../core/modelRouting';
+
+const KILL_ON_COMPACTION_ARG = 13;
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -116,5 +118,48 @@ describe('runCommandAgent output-validation retry', () => {
 describe('the /correct_output command file', () => {
   it('exists under .claude/commands', () => {
     expect(fs.existsSync(path.join(REPO_ROOT, '.claude', 'commands', 'correct_output.md'))).toBe(true);
+  });
+});
+
+const mockRunClaudeAgent = mockedAgent;
+
+const compactionConfig: CommandAgentConfig<string> = {
+  command: '/test',
+  agentName: 'Probe',
+  outputFileName: 'probe.jsonl',
+  extractOutput: output => (output.startsWith('ok')
+    ? { success: true, data: output }
+    : { success: false, error: 'output is not ok' }),
+};
+
+describe('runCommandAgent — context compaction', () => {
+  it('passes the kill request to its agent, and leaves the output-correction retry running on', async () => {
+    mockRunClaudeAgent
+      .mockResolvedValueOnce({ success: true, output: 'not valid' })
+      .mockResolvedValueOnce({ success: true, output: 'ok' });
+
+    await runCommandAgent(compactionConfig, { args: 'args', logsDir, killOnCompaction: true });
+
+    expect(mockRunClaudeAgent).toHaveBeenCalledTimes(2);
+    expect(mockRunClaudeAgent.mock.calls[0][KILL_ON_COMPACTION_ARG]).toBe(true);
+    expect(mockRunClaudeAgent.mock.calls[1][KILL_ON_COMPACTION_ARG]).toBeUndefined();
+  });
+
+  it('does not ask for the kill unless its caller restarts the agent', async () => {
+    mockRunClaudeAgent.mockResolvedValueOnce({ success: true, output: 'ok' });
+
+    await runCommandAgent(compactionConfig, { args: 'args', logsDir });
+
+    expect(mockRunClaudeAgent.mock.calls[0][KILL_ON_COMPACTION_ARG]).toBeFalsy();
+  });
+
+  it('hands back a run stopped on compaction without validating its cut-off output', async () => {
+    mockRunClaudeAgent.mockResolvedValueOnce({ success: true, compactionDetected: true, output: 'cut off midway' });
+
+    const result = await runCommandAgent(compactionConfig, { args: 'args', logsDir, killOnCompaction: true });
+
+    expect(mockRunClaudeAgent).toHaveBeenCalledTimes(1);
+    expect(result.compactionDetected).toBe(true);
+    expect(result.parsed).toBeUndefined();
   });
 });

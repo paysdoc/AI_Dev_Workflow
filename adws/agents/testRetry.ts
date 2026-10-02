@@ -30,7 +30,10 @@ export interface TestRetryOptions {
   unitReportPath: string;
   runTestsCommand: string;
   onTestFailed?: (attempt: number, maxAttempts: number) => void;
-  /** Called when a test resolution agent's context is compacted; continuation number is 1-based */
+  /**
+   * Called when a test or test resolution agent's context is compacted; continuation number is 1-based.
+   * Passing it is what stops those agents on compaction so they can be restarted; without it they run on.
+   */
   onCompactionDetected?: (continuationNumber: number) => void;
   cwd?: string;
   applicationUrl?: string;
@@ -57,6 +60,8 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
   fs.mkdirSync(path.dirname(unitReportPath), { recursive: true });
   fs.rmSync(unitReportPath, { force: true });
 
+  const killOnCompaction = onCompactionDetected !== undefined;
+
   // Object reference avoids TypeScript's let-variable narrowing loss through closures.
   const reportRef: { value: TestReport | null } = { value: null };
 
@@ -66,7 +71,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     label: 'unit tests',
     run: async () => {
       fs.rmSync(unitReportPath, { force: true });
-      const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody, launchContext);
+      const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody, launchContext, killOnCompaction);
       reportRef.value = readJUnitReport(unitReportPath);
       return r;
     },
@@ -89,7 +94,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
       for (const failedTest of failures) {
         log(`Resolving: ${failedTest.test_name}`, 'info');
         AgentStateManager.appendLog(statePath, `Resolving failed test: ${failedTest.test_name}`);
-        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, issueBody, launchContext);
+        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, issueBody, launchContext, killOnCompaction);
         costUsd += resolveResult.totalCostUsd || 0;
         if (resolveResult.modelUsage) modelUsage = mergeModelUsageMaps(modelUsage, resolveResult.modelUsage);
         persistTokenCounts(statePath, costUsd, modelUsage);

@@ -90,6 +90,9 @@ export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, run
 export type { CountBand, DocsIndexRepair, DocsIndexViolation, DocsIndexHealthInputs, DocsIndexAssessment } from './docsIndexHealth';
 export { DEFAULT_COUNT_BAND, isFeatureDocPath, findRepairs, applyRepairs, findViolations, assessDocsIndexHealth, formatRepair, formatViolation } from './docsIndexHealth';
 
+export type { DecisionLink, DecisionViolation } from './docsDecisions';
+export { findAdrNumbers, parseDecisionLinks, findDecisionViolations } from './docsDecisions';
+
 export type { BuildDocsIndexReportIssueInput, DocsIndexReportIssueSpec, DocsIndexReportMarker, DocsIndexReportIssueRef } from './docsIndexReportBody';
 export { DOCS_INDEX_REPORT_MARKER, docsIndexViolationFingerprint, buildDocsIndexReportIssue, parseDocsIndexReportMarker, findOpenDocsIndexReport } from './docsIndexReportBody';
 

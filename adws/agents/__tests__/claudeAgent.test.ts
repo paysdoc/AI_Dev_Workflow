@@ -44,7 +44,7 @@ import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
 import { buildClaudeLaunchEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
-import { runClaudeAgentWithCommand } from '../claudeAgent';
+import { runClaudeAgentWithCommand, type AgentLaunchContext } from '../claudeAgent';
 
 const mockSpawn = vi.mocked(spawn);
 const mockExecSync = vi.mocked(execSync);
@@ -315,12 +315,12 @@ describe('runClaudeAgentWithCommand — launch environment', () => {
     expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledWith(overlay);
   });
 
-  it('builds the environment without an overlay when subprocessEnv is omitted', async () => {
+  it('builds the environment from an empty overlay when subprocessEnv is omitted', async () => {
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
     await runClaudeAgentWithCommand('/commit', 'args', 'commit-agent', '/tmp/out.jsonl', 'sonnet');
 
-    expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledWith(undefined);
+    expect(mockBuildClaudeLaunchEnv).toHaveBeenCalledWith({});
   });
 
   it('spawns the agent with the environment the builder returned', async () => {
@@ -348,6 +348,54 @@ describe('runClaudeAgentWithCommand — launch environment', () => {
     );
 
     expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  describe('the launch identity', () => {
+    const BOT_IDENTITY = {
+      GIT_AUTHOR_NAME: 'paysdoc-adw[bot]',
+      GIT_AUTHOR_EMAIL: '3112553+paysdoc-adw[bot]@users.noreply.github.com',
+      GIT_COMMITTER_NAME: 'paysdoc-adw[bot]',
+      GIT_COMMITTER_EMAIL: '3112553+paysdoc-adw[bot]@users.noreply.github.com',
+    };
+
+    function launchContextWithIdentity(): AgentLaunchContext {
+      return {
+        selfHost: true,
+        adwId: 'adw-identity-1',
+        gitContext: {
+          mainRepoPath: vi.fn(),
+          commandEnv: () => ({ GH_TOKEN: 'installation-token', UNRELATED: 'from-command-env', ...BOT_IDENTITY }),
+        },
+      };
+    }
+
+    async function launchOverlayOf(subprocessEnv?: NodeJS.ProcessEnv, launchContext?: AgentLaunchContext): Promise<NodeJS.ProcessEnv | undefined> {
+      mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+      await runClaudeAgentWithCommand(
+        '/commit', 'args', 'commit-agent', '/tmp/out.jsonl',
+        'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
+        subprocessEnv, launchContext,
+      );
+      return mockBuildClaudeLaunchEnv.mock.calls[0][0];
+    }
+
+    it('reaches the launch environment from the launch context, and its credential does not', async () => {
+      const overlay = await launchOverlayOf(undefined, launchContextWithIdentity());
+
+      expect(overlay).toEqual(BOT_IDENTITY);
+    });
+
+    it('yields to an explicit subprocessEnv', async () => {
+      const overlay = await launchOverlayOf({ GIT_AUTHOR_NAME: 'explicit-author', GH_TOKEN: 'token-acme' }, launchContextWithIdentity());
+
+      expect(overlay).toEqual({ ...BOT_IDENTITY, GIT_AUTHOR_NAME: 'explicit-author', GH_TOKEN: 'token-acme' });
+    });
+
+    it('adds no identity when the launch context carries no gitContext', async () => {
+      const overlay = await launchOverlayOf(undefined, { selfHost: true, adwId: 'adw-identity-1' });
+
+      expect(overlay).toEqual({});
+    });
   });
 
   it('hands the same environment to the first spawn and to the ENOENT retry spawn', async () => {
@@ -484,5 +532,59 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
     for (const call of mockSpawn.mock.calls) {
       expect(call[1]).toEqual(expect.arrayContaining(['--settings', settingsJson]));
     }
+  });
+});
+
+describe('runClaudeAgentWithCommand — compaction kill opt-in', () => {
+  const killOnCompactionArgs = (): boolean[] => mockHandleAgentProcess.mock.calls.map(call => call[6] as boolean);
+
+  const runRestartingAgent = () => runClaudeAgentWithCommand(
+    '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+    'sonnet', undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    true,
+  );
+
+  it('leaves an agent running through a compaction unless its caller restarts it', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl', 'sonnet');
+
+    expect(killOnCompactionArgs()).toEqual([false]);
+  });
+
+  it('asks for the kill on the first spawn when the caller restarts the agent', async () => {
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runRestartingAgent();
+
+    expect(killOnCompactionArgs()).toEqual([true]);
+  });
+
+  it('keeps the request on the ENOENT retry spawn', async () => {
+    mockHandleAgentProcess
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: false, output: 'spawn ENOENT' })
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runRestartingAgent();
+
+    expect(killOnCompactionArgs()).toEqual([true, true]);
+  });
+
+  it('keeps the request on the auth retry spawn', async () => {
+    vi.useFakeTimers();
+    try {
+      mockHandleAgentProcess
+        .mockResolvedValueOnce({ ...BASE_RESULT, success: false, authExpired: true })
+        .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+      mockExecSync.mockReturnValueOnce(Buffer.from(JSON.stringify({ loggedIn: true, email: 'user@test.com', subscriptionType: 'pro' })));
+
+      const agentPromise = runRestartingAgent();
+      await vi.advanceTimersByTimeAsync(2001);
+      await agentPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(killOnCompactionArgs()).toEqual([true, true]);
   });
 });

@@ -5,10 +5,35 @@
 
 import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
 
-/**
- * Protected branches that must never be deleted.
- */
-export const PROTECTED_BRANCHES = ['main', 'master', 'develop'];
+/** The one protected branch is the repository's default branch, which the caller resolves from the code host at run time. */
+export function isProtectedBranch(branch: string, defaultBranch: string): boolean {
+  return branch === defaultBranch;
+}
+
+export interface RemoteBranchDeletionPorts {
+  readonly getDefaultBranch: () => string;
+  readonly deleteRemoteBranch: (branch: string, cwd?: string) => boolean;
+}
+
+function resolveDefaultBranch(getDefaultBranch: () => string): string | null {
+  try {
+    return getDefaultBranch();
+  } catch {
+    // An unknown default branch could be the very branch being deleted.
+    return null;
+  }
+}
+
+/** Resolves the default branch for each call and never deletes it; deletes nothing when it cannot be resolved. */
+export function deleteRemoteBranchUnlessProtected(
+  ports: RemoteBranchDeletionPorts,
+  branch: string,
+  cwd?: string,
+): boolean {
+  const defaultBranch = resolveDefaultBranch(ports.getDefaultBranch);
+  if (defaultBranch === null || isProtectedBranch(branch, defaultBranch)) return false;
+  return ports.deleteRemoteBranch(branch, cwd);
+}
 
 /**
  * A valid slug is: non-empty, lowercase, [a-z0-9-] only, no leading/trailing

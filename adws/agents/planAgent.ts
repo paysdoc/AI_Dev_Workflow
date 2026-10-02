@@ -203,5 +203,5 @@ export async function runPlanAgent(
   const args = [String(issue.number), adwId || 'adw-unknown', issueJson];
   const outputFile = path.join(logsDir, 'plan-agent.jsonl');
 
-  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd, contextPreamble, undefined, undefined, launchContext);
+  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd, contextPreamble, 'plan', undefined, launchContext);
 }

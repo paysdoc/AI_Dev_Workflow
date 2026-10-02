@@ -32,3 +32,7 @@ Three environment variables are required: `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KE
 - Buckets are created with `LocationConstraint: 'EU'` — this is hardcoded and cannot be overridden via configuration.
 - The public base URL `https://screenshots.paysdoc.nl` is hardcoded in `uploadService.ts`; changing the domain requires a code change.
 - The URL path is `{publicBaseUrl}/{repo}/{key}` — the `owner` segment is not included in the public URL, only in the bucket name.
+
+## Decisions
+
+- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker

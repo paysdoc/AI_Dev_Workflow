@@ -1,5 +1,6 @@
 /**
- * No I/O, no forge, no repo identity — the same module serves both the CI gate
+ * No I/O of its own (doc text arrives through the caller's `readDoc`), no
+ * forge, no repo identity — the same module serves both the CI gate
  * (`checkLivingDocsIndex.ts`) and the cron sweep (`docsIndexSweep.ts`) so
  * they can never drift apart.
  *
@@ -16,6 +17,7 @@ import {
   type ConditionalDocEntry,
   type ConditionalDocsRegistry,
 } from './conditionalDocsRegistry';
+import { findDecisionViolations, type DecisionViolation } from './docsDecisions';
 
 export interface CountBand {
   readonly min: number;
@@ -37,12 +39,17 @@ export type DocsIndexViolation =
   | { readonly kind: 'duplicate-entry'; readonly docPath: string }
   | { readonly kind: 'orphan-doc'; readonly docPath: string }
   | { readonly kind: 'overlap'; readonly docPathA: string; readonly docPathB: string; readonly files: readonly string[] }
-  | { readonly kind: 'count-out-of-band'; readonly count: number; readonly band: CountBand };
+  | { readonly kind: 'count-out-of-band'; readonly count: number; readonly band: CountBand }
+  | DecisionViolation;
 
-/** `files` are repo-root-relative posix paths — tracked files for the sweep, a filesystem walk for the gate. */
+/**
+ * `files` are repo-root-relative posix paths — tracked files for the sweep, a filesystem walk for the gate.
+ * `readDoc` is required so the gate and the sweep cannot forget to supply it; `null` means unreadable.
+ */
 export interface DocsIndexHealthInputs {
   readonly content: string;
   readonly files: readonly string[];
+  readonly readDoc: (docPath: string) => string | null;
 }
 
 export interface DocsIndexAssessment {
@@ -221,11 +228,18 @@ export function assessDocsIndexHealth(
   const registry = parseConditionalDocs(inputs.content);
   const repairs = findRepairs(registry, inputs.files);
   const repaired = applyRepairs(registry, repairs);
-  const violations = findViolations(inputs.content, repaired, inputs.files, band);
+  const violations = [
+    ...findViolations(inputs.content, repaired, inputs.files, band),
+    ...findDecisionViolations(repaired, inputs.files, inputs.readDoc),
+  ];
   return { registry, repairs, repaired, violations };
 }
 
 const OVERLAP_FILE_PREVIEW = 5;
+
+function formatRecordNumbers(numbers: readonly string[]): string {
+  return numbers.length === 0 ? 'none' : [...numbers].sort().join(', ');
+}
 
 export function formatRepair(repair: DocsIndexRepair): string {
   if (repair.kind === 'drop-dangling-entry') return `drop dangling entry: ${repair.docPath} (doc file not found)`;
@@ -247,5 +261,11 @@ export function formatViolation(violation: DocsIndexViolation): string {
     }
     case 'count-out-of-band':
       return `entry count ${violation.count} outside band [${violation.band.min}, ${violation.band.max}]`;
+    case 'decisions-mismatch':
+      return `decisions mismatch: ${violation.docPath} — only in its Decisions: block: ${formatRecordNumbers(violation.onlyInBlock)}; only in its ## Decisions section: ${formatRecordNumbers(violation.onlyInSection)}`;
+    case 'unknown-decision':
+      return `unknown decision record: ${violation.docPath} lists ${violation.adr}, which has no file in specs/adr/`;
+    case 'dead-decision-link':
+      return `dead decision link: ${violation.docPath} links ${violation.target}, which is not a file`;
   }
 }

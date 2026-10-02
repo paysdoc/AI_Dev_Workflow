@@ -36,6 +36,17 @@ export type UploaderFn = (options: UploadOptions) => Promise<UploadResult>;
 /** Injected commenter function — bound to the code host that owns the PR (`repoContext.codeHost.commentOnPullRequest`). */
 export type CommenterFn = (prNumber: number, body: string) => void;
 
+export interface UploadProofDeps {
+  /** Absolute path to the directory harvested for images (ScenarioProofResult.artifactsDir). */
+  readonly artifactsDir: string;
+  /** Repository the images are uploaded for — namespaces the R2 bucket and public URL. */
+  readonly repoInfo: RepoIdentifier;
+  /** ADW workflow ID (used as key namespace in R2). */
+  readonly adwId: string;
+  /** Replaces R2 for this call; defaults to the installed test uploader, then the real `uploadToR2`. */
+  readonly uploader?: UploaderFn;
+}
+
 export interface PublishDeps {
   /** Absolute path to the artifacts directory (from ScenarioProofResult.artifactsDir). */
   readonly artifactsDir: string | undefined;

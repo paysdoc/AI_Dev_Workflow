@@ -38,3 +38,9 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 - The CLI reports an API error — including a rate limit — as `subtype: "success"` with `is_error: true`; the error surfaces in `api_error_status`/`terminal_reason`/`result`, not in a distinct error subtype. A genuinely different result shape, `error_during_execution`, carries `errors` and no `result` field at all.
 - The current CLI rejects `--output-format stream-json` in `--print` mode without `--verbose`; the probe's args always include both.
 - Running the conformance check requires `schema.json` to exist; it throws if the file is missing rather than falling back to a default schema. The same is true of the fixture updater.
+
+## Decisions
+
+- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

@@ -8,11 +8,11 @@ This module provides the foundational layer for spawning and managing Claude Cod
 
 - Starts every `claude` process ADW launches under one shared launch environment, `buildClaudeLaunchEnv(overlay?)` (`adws/core/environment.ts`): the allowlisted environment (`getSafeSubprocessEnv()`), then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`. Users: the agent spawn and its retries, both `claude auth status --json` checks (`claudeAgent.ts`, `trigger_cron.ts`), the rate-limit, schema and guardrails probes, and the health check's `claude --version`
 - Spawns Claude Code CLI processes via `spawn()` with `--print --verbose --dangerously-skip-permissions --output-format stream-json` flags
-- Injects `ADW_WORKTREE_PATH` and `ADW_MAIN_REPO_PATH` environment variables when the working directory is inside a worktree **and** the caller threads a `launchContext.gitContext` (the launch boundary's `GitContext`, narrowed to `mainRepoPath` — `claudeAgent` no longer constructs one, #822). An un-threaded worktree spawn sets neither variable, which silently disables `.claude/hooks/pre-tool-use.ts` path rewriting, so every worktree-cwd spawn site must carry `gitContext`.
+- Injects `ADW_WORKTREE_PATH` and `ADW_MAIN_REPO_PATH` environment variables when the working directory is inside a worktree **and** the caller threads a `launchContext.gitContext` (the launch boundary's `GitContext`, narrowed to `mainRepoPath` and `commandEnv` — `claudeAgent` no longer constructs one). An un-threaded worktree spawn sets neither variable, which silently disables `.claude/hooks/pre-tool-use.ts` path rewriting, so every worktree-cwd spawn site must carry `gitContext`.
 - Attaches a per-phase watchdog timer (via `getAgentTimeoutForPhase`) and kills the process group on expiry, throwing `AgentTimeoutError`
 - Streams stdout through `parseJsonlOutput` to extract turn counts, tool call counts, and the final result message
 - Extracts real-time token usage via `AnthropicTokenUsageExtractor` and injects it into progress callbacks
-- Detects and early-terminates on auth errors, rate limits/API outages, context compaction, and output token threshold breaches — each resolves to a distinct `AgentResult` shape
+- Detects and early-terminates on auth errors, rate limits/API outages, and output token threshold breaches, and on context compaction only when the caller passes `killOnCompaction` — each resolves to a distinct `AgentResult` shape
 - Retries up to 3 times on transient `ENOENT` failures, clearing the `resolveClaudeCodePath` cache between attempts with exponential backoff
 - Retries once on expired OAuth token after verifying `claude auth status --json`; throws `AuthRequiredError` if auth is invalid or still failing after retry
 - Throws `RateLimitError` (no retry) when rate limiting or API outage is detected, signaling the orchestrator to pause; carries `rateLimitType`/`resetsAt` (from `adws/types/agentTypes.ts`'s `RateLimitFacts`) through from the `AgentResult` when a rejected `rate_limit_event` supplied them, `undefined` otherwise — never defaulted
@@ -20,6 +20,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Provides `runCommandAgent<T>()` as a typed wrapper: selects model and effort via `getModelForCommand`/`getEffortForCommand`, optionally extracts structured output via a caller-supplied `extractOutput` function, and runs a schema-validated retry loop (up to 10 retries, early-exit after 3 consecutive identical errors) by running the `/correct_output` command (`.claude/commands/correct_output.md`), routed through the tables like every other command. The loop writes the invalid output to `<agent output name>-invalid-output-<n>.txt` in the logs directory and passes `[command, args, invalidOutputFile, validationError, schemaJson]` positionally; no prompt is assembled in code
 - Provides `runGenerateBranchNameAgent` (invokes `/generate_branch_name` skill, returns `branchName`) and `runCommitAgent` (invokes `/commit` skill, validates and normalises the commit message prefix)
 - Writes all stdout and stderr to a per-agent JSONL output file (append mode); logs final cost and model breakdown on close
+- Overlays the launch identity on every agent: `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL` are copied from `launchContext.gitContext.commandEnv()` onto the spawn environment, after the `getSafeSubprocessEnv()` allowlist and before the caller's explicit `subprocessEnv`. Agents run `git commit` themselves, so without these variables git falls back to the host's identity. Only the four identity keys are overlaid, never the credential, which stays opt-in per caller.
 - On target-repo runs only, injects a guardrails `--settings` payload at the same spawn call site: `resolveGuardrailsDecision` (`adws/core/guardrailsGate.ts`) runs a guard-clause chain — kill switch → self-host → `.github/adw.yml` canary → startup probe verdict — and when it says inject, `runClaudeAgentWithCommand` (`claudeAgent.ts`) unshifts `--settings <json>` onto `cliArgs` and sets `spawnEnv.CLAUDE_HOOKS_LOG_DIR` to an absolute per-run directory
 - `buildGuardrailsSettings` (`adws/core/guardrailsPayload.ts`) builds that payload: parses the canonical deny-list template (`templates/claude-settings-starter.json` — the same template `/adw_init` copies verbatim into target repos), adds all five framework hooks (`PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SubagentStop`) as `bun <absolute-framework-path>/.claude/hooks/<hook>.ts <flags> || true` commands, and declares no `permissions.allow`
 - `adws/checkModelLiterals.ts` (`bun run lint:model-literals`) is the guard that keeps spawn sites on the routing tables: it reports `file:line` for a `'--model'` literal in an argv array, a literal fifth (`model`) argument to `runClaudeAgentWithCommand`, and a `model` parameter with a literal default, over `adws/` and `scripts/` (skipping `__tests__`, `node_modules`, `dist` and `modelRouting.ts`). `adws/__tests__/checkModelLiterals.test.ts` runs it over the repository
@@ -36,7 +37,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 - Every spawned process is detached (`detached: true`) so `killProcessGroup(-pid)` can reach grandchildren (e.g., orphaned heredoc pipelines)
 - The `AgentResult.success` field is `false` whenever the process exits non-zero OR the final JSONL result carries `isError: true`; token-limit and compaction terminations resolve as `success: true` with their respective flags set
 - `costSource` is always present on resolved results; value is `'extractor_finalized'` when the CLI emits a cost summary line, otherwise `'extractor_estimated'`
-- `runCommandAgent` never throws on extraction failure — it retries through the `/correct_output` command; `OutputValidationError` is only thrown after all retries are exhausted
+- `runCommandAgent` never throws on extraction failure — it retries through the `/correct_output` command; `OutputValidationError` is only thrown after all retries are exhausted. A run stopped on compaction skips extraction and the retry loop (its output is cut off and its caller restarts it), so its `parsed` is `undefined`; the `/correct_output` retry never receives `killOnCompaction`
 - `extractOutput` functions must return `ExtractionResult<T>` (never throw) so the retry loop can distinguish parse failures from code errors
 - Commit message validation in `runCommitAgent` always guarantees the returned `commitMessage` starts with the correct `<agentName>: <keyword>:` prefix, stripping malformed prefixes if needed
 - `AuthRequiredError` and `RateLimitError` are always thrown (never returned in `AgentResult`) so callers cannot silently ignore them
@@ -56,6 +57,7 @@ No configuration files govern the base spawn layer. Behaviour is governed by cal
 - `model` is required and comes from `getModelForCommand`
 - `effort` is optional; overridden per-command by `getEffortForCommand`
 - Watchdog timeout is looked up per phase name via `getAgentTimeoutForPhase`
+- `killOnCompaction` (default `false`) is threaded `handleAgentProcess` ← `runClaudeAgentWithCommand` ← `CommandAgentOptions`/`runBuildAgent`/`runTestAgent`/`runResolveTestAgent`. Only `buildPhase.ts` and `runUnitTestsWithRetry` (when `onCompactionDetected` is supplied) set it; the review phase's `runBuildAgent` calls leave it off
 - Token threshold for early termination is `MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD` (constants from `../core`)
 - `ANTHROPIC_API_KEY` — optional; forwarded to agents when set
 - Retry counts are module-level constants: `MAX_RETRIES = 10`, `MAX_CONSECUTIVE_IDENTICAL_ERRORS = 3`
@@ -68,9 +70,10 @@ Guardrails injection is additionally governed by:
 
 ## Gotchas
 
+- The identity overlay needs a `launchContext.gitContext` with `commandEnv`; a spawn without a launch context gets no identity and its commits carry the host's git config. An explicit `subprocessEnv` overrides the overlay.
 - The watchdog kill does not set a special exit code — `agentProcessHandler` resolves normally after the process group is killed; the `watchdogFired` boolean in `runClaudeAgentWithCommand` is the sole gate that surfaces `AgentTimeoutError` to the caller
 - Rate limit detection fires on `rateLimitDetected` (renamed from `rateLimitRejected` — a documented `rate_limit`/429 `api_retry` or terminal `result.api_error_status: 429` sets it too, not only a rejected `rate_limit_event`), `serverErrorDetected`, OR `overloadedErrorDetected` — all three signal the same "pause" path. The rate-limited `AgentResult` carries `rateLimitType`/`resetsAt` only when a rejected event supplied them.
-- Context compaction resolves as `success: true` with `compactionDetected: true`; callers must check this flag and re-invoke rather than treating the result as a completed run
+- Context compaction terminates the agent only when the caller passes `killOnCompaction`, which only the build phase and the unit-test path do, because they restart the agent. The result is then `success: true` with `compactionDetected: true`; the caller must check this flag and re-invoke rather than treating the result as a completed run. Every other agent runs on with the compacted context and resolves normally, without `compactionDetected`
 - ENOENT retry clears the path cache and re-resolves the Claude CLI binary before each attempt; a permanently missing binary will exhaust all 3 attempts and return the last failed result (no exception)
 - The auth retry's `claude auth status` check runs under the agent's launch environment, which keeps `HOME` and `USER` so the CLI can access its own credentials
 - The probes keep their inline prompts (`ping`, `say hello`, the deny-matrix prompts); they do no pipeline work and sit outside the slash-command rule
@@ -85,3 +88,15 @@ Guardrails injection is additionally governed by:
 - `**/logs/` was added to `.gitignore` because Claude Code hook logs can land in any directory an agent `cd`'s into (not just the repo root) when `CLAUDE_HOOKS_LOG_DIR` is unset or misconfigured — a defense-in-depth guard against the same worktree-leak class the absolute-path invariant above prevents by construction
 - `formatDenialNotice()` returns `null` (not an empty string) when `count` is 0, specifically so a clean run's stage comment gets no denial line appended — callers must treat the return as optional, not always-render
 - The gate's `readAdwYml` dependency reads from `input.worktreePath`, not `REPO_ROOT` — the canary is per-target-repo, and a self-host run never reaches that check anyway (short-circuited earlier)
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0010](../specs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
+- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory

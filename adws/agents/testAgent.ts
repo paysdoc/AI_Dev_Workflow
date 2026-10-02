@@ -85,6 +85,7 @@ export async function runTestAgent(
   cwd?: string,
   issueBody?: string,
   launchContext?: AgentLaunchContext,
+  killOnCompaction = false,
 ): Promise<TestAgentResult> {
   const result = await runCommandAgent(testAgentConfig, {
     args: '',
@@ -93,7 +94,12 @@ export async function runTestAgent(
     statePath,
     cwd,
     launchContext,
+    killOnCompaction,
   });
+
+  if (result.compactionDetected) {
+    return { ...result, testResults: [], allPassed: false, failedTests: [], applicationTestcaseCount: 0 };
+  }
 
   const testResults = result.parsed;
   const failedTests = testResults.filter(t => !t.passed);
@@ -117,6 +123,7 @@ export async function runResolveTestAgent(
   cwd?: string,
   issueBody?: string,
   launchContext?: AgentLaunchContext,
+  killOnCompaction = false,
 ): Promise<AgentResult> {
   const outputFile = path.join(logsDir, `resolve-test-${failedTest.test_name}.jsonl`);
 
@@ -136,6 +143,7 @@ export async function runResolveTestAgent(
     undefined,
     undefined,
     launchContext,
+    killOnCompaction,
   );
 }
 

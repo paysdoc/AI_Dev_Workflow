@@ -17,7 +17,7 @@ export interface SdlcReviewFailedConfig {
 }
 
 /**
- * Called by adwSdlc.tsx when decidePostReviewOutcome returns skipDocAndPR:true.
+ * Called by every orchestrator with a review loop when decidePostReviewOutcome returns skipDocAndPR: true.
  * The orchestrator persists its own cost/metadata separately.
  */
 export function executeSdlcReviewFailedHandoff(config: SdlcReviewFailedConfig): void {
