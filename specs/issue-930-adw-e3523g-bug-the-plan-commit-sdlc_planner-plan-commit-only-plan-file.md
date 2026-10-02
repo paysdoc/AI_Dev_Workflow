@@ -66,10 +66,11 @@ Do not run these during planning. They are for the implementer, before and after
    copyClaudeAssetsToWorktree(process.env.WT!, ctx);"
    git -C "$tmp/wt" status --porcelain -- .claude/commands/scenario_writer.md
    ```
-3. **The history.** These two pairs print the same blob, which shows each plan commit wrote back the prompt from before the change:
+3. **The history.** All four lines print `923cbe33`, which shows each plan commit wrote back the prompt from before the change. `git rev-parse --short` takes one revision at a time, so the commands loop:
    ```bash
-   git rev-parse --short d45d708e^:.claude/commands/scenario_writer.md ca72a4a7:.claude/commands/scenario_writer.md
-   git rev-parse --short bebda8dd^:.claude/commands/scenario_writer.md c3606f9e:.claude/commands/scenario_writer.md
+   for r in d45d708e^ ca72a4a7 bebda8dd^ c3606f9e; do
+     echo "$r $(git rev-parse --short "$r:.claude/commands/scenario_writer.md")"
+   done
    ```
 
 ## Root Cause Analysis
@@ -130,7 +131,7 @@ Use these files to fix the bug:
 - `adws/phases/__tests__/reviewPhase.test.ts` — the `vi.mock`/`vi.hoisted` pattern for driving a phase function with mocked agents and core.
 - `features/per-issue/feature-930.feature` — the scenarios this fix must satisfy (tags `@adw-930`, `@adw-e3523g-bug-the-plan-commit`).
 - `test/mocks/claude-cli-stub.ts`, `test/mocks/manifestInterpreter.ts`, `test/mocks/gitContextFixture.ts` — the stand-in Claude CLI and fixtures for the step definitions.
-- `features/regression/step_definitions/codebaseBackstopSteps.ts` — existing steps for "the ADW TypeScript type-check passes" and the git/gh guard.
+- `features/regression/step_definitions/whenSteps.ts` and `thenSteps.ts` — the existing steps "the git/gh guard is run across the repository" (W16), "the git/gh guard reports no violations" (T34) and "the ADW TypeScript type-check passes" (T22). "the ADW codebase is checked out" (G18) is in `features/step_definitions/ensureCronOnEveryEventSteps.ts`. There is no `codebaseBackstopSteps.ts`, although `.adw/conditional_docs.md` names one.
 - `specs/adr/0056-planner-commits-only-the-plan.md` — remove its `## Divergence` section.
 - `specs/adr/0002-worktree-per-issue.md`, `specs/adr/0019-dev-and-main-branches-with-runner-clone.md` — context for the copy-then-reset order and the runner clone on `main`. Do not edit them.
 - `app_docs/feature-9gjajh-build-and-plan-phases.md` — conditional doc for plan, build and alignment phases (owns `planPhase.ts`).
@@ -248,7 +249,9 @@ Write `features/per-issue/step_definitions/feature-930.steps.ts`, reusing the ex
   - for the plan command, writes the plan file plus the scenario's changes, and commits everything when the scenario asks for it;
   - for `/commit`, does what `/commit` does today: `git add -A`, then `git commit`, then prints the commit message.
 - Prefer extending `test/mocks/claude-cli-stub.ts`/`manifestInterpreter.ts` with an opt-in step over changing their default behaviour. The step for "the plan phase fails with an error that names <path>" checks the rejected error's message.
-- For the worktree-setup scenarios, use the framework-checkout fixture and the explicit `frameworkRepoRoot` argument from task 6, so the steps do not depend on the real checkout's `origin`.
+- For the worktree-setup scenarios, use a framework-checkout fixture and the explicit `frameworkRepoRoot` argument from task 6, so the steps do not depend on the real checkout's `origin`.
+  - For the framework's own repository, use the fixture from task 6. Its `origin` identity equals the worktree's `GitContext` owner/repo, and it holds older copies of `.claude/commands/scenario_writer.md` and `.claude/skills/tdd/SKILL.md`.
+  - For the target repository that tracks nothing under `.claude/`, the framework checkout must hold `.claude/commands/feature.md` with `target: false` and `.claude/commands/install.md` with `target: true`, as the real checkout does. Its identity must differ from the target's. The scenario then checks today's gitignore policy: `feature.md` is ignored, and `install.md` is untracked but not ignored.
 
 ### 8. Remove the Divergence section of ADR-0056
 - In `specs/adr/0056-planner-commits-only-the-plan.md`, delete the whole `## Divergence` section: the heading and its single numbered item, up to but not including `## More Information`.
@@ -271,7 +274,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `bun run lint:comment-only` — the comment-discipline gate.
 - `bunx vitest run adws/phases/__tests__/planCommitGuard.test.ts adws/phases/__tests__/worktreeSetup.test.ts adws/phases/__tests__/planPhase.test.ts adws/phases/__tests__/workflowInit.test.ts` — the targeted unit tests, including the acceptance-criterion guard test.
 - `bun run test:unit` — the full unit suite, to confirm no regressions.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-930"` — the issue's scenarios: plan commit carries only the plan file, the guard fails the phase, the other agents commit as before, and the copy step preserves the framework's tracked assets.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-930"` — the issue's scenarios: plan commit carries only the plan file, the guard fails the phase, the other agents commit as before, the copy step preserves the framework's tracked assets and still copies the framework's assets into a target repository that tracks none of them, and the type-check and git/gh guard pass.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite.
 - `! grep -q '^## Divergence' specs/adr/0056-planner-commits-only-the-plan.md` — confirms the Divergence section is gone.
 - Run Steps to Reproduce 2 again after the fix. Its final `git status --porcelain` prints nothing.
