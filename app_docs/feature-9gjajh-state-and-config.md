@@ -41,5 +41,16 @@ Target-repo configuration is file-driven: create `.adw/commands.md`, `.adw/proje
 - `isProcessAlive` in `stateHelpers.ts` is deprecated; callers should use `isProcessLive` from `processLiveness.ts` instead, which also validates `pidStartedAt` to avoid PID-reuse false-positives.
 - `findOrchestratorStatePath` shadows a failed `init-orchestrator` with the real `sdlc-orchestrator` only when `orchestratorScript` is recorded in top-level state. If that field is missing, the first directory match wins, which may be the wrong orchestrator (see memory note on issue #508).
 - `parseMarkdownSections` matches only `##`-level headings. `#` (H1) or `###`+ headings in `.adw/` files are silently ignored.
+- `parseScenariosMd` strips HTML comments from every section value, whether above the value, inline, below it or across several lines, so the `<!-- Consumed by … -->` notes in `.adw/scenarios.md` never reach a directory or path value. A comment-only section counts as absent. `parseMarkdownSections` itself keeps comments.
 - `adwYmlConfig.ts` lives outside `.adw/` intentionally so that `/adw_init` regeneration cannot overwrite operator policy.
 - `config.ts` is a pure re-export facade; import from `environment.ts` or `modelRouting.ts` directly when tree-shaking matters or side-effects of `dotenv.config()` must be avoided.
+
+## Decisions
+
+- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

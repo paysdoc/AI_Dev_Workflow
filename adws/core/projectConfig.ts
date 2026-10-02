@@ -286,6 +286,10 @@ export function parseProvidersMd(content: string): ProvidersConfig {
   return result;
 }
 
+function stripHtmlComments(value: string): string {
+  return value.replace(/<!--[\s\S]*?-->/g, '').trim();
+}
+
 export function parseScenariosMd(content: string): ScenariosConfig {
   const defaults = getDefaultScenariosConfig();
   if (!content.trim()) return defaults;
@@ -294,9 +298,8 @@ export function parseScenariosMd(content: string): ScenariosConfig {
   const result = { ...defaults };
 
   for (const [heading, key] of Object.entries(SCENARIOS_HEADING_TO_KEY)) {
-    if (heading in sections && sections[heading]) {
-      result[key] = sections[heading];
-    }
+    const value = stripHtmlComments(sections[heading] ?? '');
+    if (value) result[key] = value;
   }
 
   return result;

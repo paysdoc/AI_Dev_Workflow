@@ -26,12 +26,13 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 - `adwUpgrade` never force-pushes the claim branch; a non-fast-forward rejection means another orchestrator owns the claim, so this instance parks silently as the loser.
 - All orchestrators handle `AuthRequiredError` by pausing state and exiting rather than crashing.
 - Cost and model-usage totals are accumulated via `CostTracker` and persisted in the completion metadata for every orchestrator that uses `initializeWorkflow`.
+- `adwChore` runs a review loop only when the diff judge does not return `safe`. An escalated chore whose review still has blockers after `MAX_REVIEW_RETRY_ATTEMPTS` applies `adwSdlc`'s gate: it writes `review_failed` and stops, with no document phase, no PR, no pre-approval and no `awaiting_merge`. The orchestrator's entry point is `executeChore(config, phases?)`, with `ChorePhases` injectable and the real phases by default. `main()` runs only when the file is executed directly.
 
 ## Configuration
 
 | Variable | Default | Used by |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | required | all |
+| `ANTHROPIC_API_KEY` | optional; forwarded to agents when set, and moves billing from the Claude subscription to the Anthropic API | all |
 | `CLAUDE_CODE_PATH` | `/usr/local/bin/claude` | all (agent invocation) |
 | `GITHUB_PAT` | optional | all |
 | `MAX_TEST_RETRY_ATTEMPTS` | `5` | adwTest |
@@ -46,3 +47,13 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 - `adwUpgrade` reuses an existing worktree for the claim branch but immediately hard-resets it to `origin/<claim-branch>` to avoid a stale-commit non-fast-forward push failure (#627).
 - The `adwUpgrade` failure comment intentionally avoids the `## <emoji>` heading pattern and the `<!-- adw-bot -->` marker so that `isAdwComment()` does not count a failed upgrade as an in-progress workflow (User Story 22).
 - All five orchestrators exit 0 on spawn-lock contention; callers must not interpret exit 0 as proof of success.
+
+## Decisions
+
+- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

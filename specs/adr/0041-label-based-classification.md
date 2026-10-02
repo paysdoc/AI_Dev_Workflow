@@ -74,11 +74,6 @@ Checked against the code on 2026-09-29:
 * `classifyIssueForTrigger` in `adws/core/issueClassifier.ts` returns the label's classification before any agent call.
 * `bunx vitest run` on `adws/core/__tests__/adwLabels.test.ts` (26 tests) passed. `issueClassifier.test.ts`, `issueOpenedRouter.test.ts` and `cronLabelEligibility.test.ts` could not be loaded in this checkout because `@paysdoc/devplatform` is not installed; they were not run.
 
-## Divergence
-
-1. **`adw:none` is not honoured on every path.** The PRD says `adw:none` opts an issue out "entirely". The opt-out is checked on `issues.opened` and in the cron's fresh-issue path only. The `issue_comment` path calls `classifyAndSpawnWorkflow` with no opt-out check; #618 notes that these paths "currently do process `adw:none` issues" and put the question out of scope. Checked on 2026-10-01: the opt-out is read only in `adws/triggers/issueOpenedRouter.ts` and `adws/triggers/cronLabelEligibility.ts`; the dependency-closure path (`adws/triggers/issueClosedUnblockRouter.ts`) does not check it either. Ruling (owner, 2026-10-01): `adw:none` always wins, on every path. A bug.
-2. **Labels are not provisioned up front.** The PRD wants all labels created on the first webhook from a target repo. `ensureAdwLabelsExist` exists in `adws/forge/adwLabelProvisioning.ts` but `grep` finds no caller outside tests. #542 deferred bulk provisioning as "a separate concern". On 2026-10-01 the ADW repository had five `adw:*` labels and no `adw:none` (`gh label list`), so a person cannot pick the opt-out label from the menu. Ruling (owner, 2026-10-01): provisioning up front is the decision. The missing call is a bug.
-
 ## More Information
 
 * `ADW_LABEL_DEFINITIONS` now holds eight labels; `adw:unverified` and `adw:blocked` were added after the PRD, which lists six.

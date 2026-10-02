@@ -67,3 +67,10 @@ The build and plan phases translate issue analysis into a committed implementati
 - `planPhase.ts` is kept under the 300-line ceiling per coding guidelines; adding further continuation reasons or wrapper functions should stay within that bound.
 - The resume signal is only known at runtime, so it is injected through the composed prompt rather than by editing `implement.md` — the static command file is deliberately left untouched, both to satisfy the "no regression to fresh build" invariant and to avoid the recurring out-of-scope command-file revert hazard.
 - `buildContinuationPrompt`, `buildResumeInPlacePrompt`, and `shouldResumeBuildInPlace` are unit-tested directly in `adws/phases/__tests__/planPhase.test.ts` (no-checkpoint, with-checkpoint, and `resumed_in_place` prompt bodies; the wrapper's equivalence to a checkpointed `buildContinuationPrompt` call; and the predicate's true/false branches) — independent of a live orchestrator run.
+
+## Decisions
+
+- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0056](../specs/adr/0056-planner-commits-only-the-plan.md) — The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it

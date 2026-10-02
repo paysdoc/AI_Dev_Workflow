@@ -66,10 +66,6 @@ Not confirmed: the runner clone. It is an arrangement on the host, not code. No 
 
 No CI gate enforces the rule against naming a branch.
 
-## Divergence
-
-1. **Branch names are written into the repository.** Found by grep: `adws/triggers/docsIndexSweep.ts` returns `'main'` when the default-branch lookup throws; `PROTECTED_BRANCHES` in `adws/vcs/branchOperations.ts` is `['main', 'master', 'develop']`, and `dev` is not in it; `.claude/commands/document.md` and `.claude/commands/resolve_failed_test.md` diff against `origin/main`. Ruling (owner, 2026-09-29): all of these are bugs. `.github/dependabot.yml`, which sets `target-branch: "dev"`, is the one accepted exception.
-
 ## More Information
 
 Settled (owner, 2026-09-29): `specs/prd/test-review-refactor.md` (2026-04-08) says each pull request "merges to `main` independently". The wording was loose; pull requests always merged to `dev`.

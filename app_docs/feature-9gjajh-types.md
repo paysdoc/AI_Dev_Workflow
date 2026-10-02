@@ -40,3 +40,8 @@ No configuration. All types are static compile-time definitions.
 - `stack_incoherent` is a `WorkflowStage` member used only as a comment-stage discriminator; it is explicitly noted as "never persisted as workflowStage" in the source.
 - `branchPrefixMap` uses conventional Git prefixes (`feature`, `bugfix`, `chore`, `review`, `adwinit`), but the LLM may produce aliases from `branchPrefixAliases` (e.g., `feat` for features).
 - `AgentResult.costSource` distinguishes `'extractor_finalized'` (result message received, actual usage available) from `'extractor_estimated'` (streaming estimates only); callers that need precise cost must check this field.
+
+## Decisions
+
+- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state

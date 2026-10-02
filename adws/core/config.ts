@@ -27,6 +27,7 @@ export {
   REPO_ROOT,
   assertCwdIsRepoRoot,
   getSafeSubprocessEnv,
+  buildClaudeLaunchEnv,
 } from './environment';
 
 export {

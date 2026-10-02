@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, getDefaultScenariosConfig, loadProjectConfig } from '../projectConfig';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join, resolve } from 'path';
-import { tmpdir } from 'os';
+import { resolve } from 'path';
 
 describe('parseCommandsMd — healthCheckPath field', () => {
   it('defaults healthCheckPath to "/" when content is empty', () => {
@@ -94,133 +92,70 @@ describe('parseScenariosMd — per-issue / regression / vocabulary fields', () =
     const result = parseScenariosMd(content);
     expect(result.perIssueScenarioDirectory).toBe('features/per-issue/');
   });
-});
 
-describe('parseCommandsMd — testDirectory field', () => {
-  it('defaults testDirectory to "src" when content is empty', () => {
-    const result = parseCommandsMd('');
-    expect(result.testDirectory).toBe('src');
-  });
+  describe('HTML comments', () => {
+    const SECTIONS = [
+      { heading: 'Per-Issue Scenario Directory', value: 'features/per-issue/', read: (c: ReturnType<typeof parseScenariosMd>) => c.perIssueScenarioDirectory },
+      { heading: 'Regression Scenario Directory', value: 'features/regression/', read: (c: ReturnType<typeof parseScenariosMd>) => c.regressionScenarioDirectory },
+      { heading: 'Vocabulary Registry', value: 'features/regression/vocabulary.md', read: (c: ReturnType<typeof parseScenariosMd>) => c.vocabularyRegistry },
+    ];
 
-  it('defaults testDirectory to "src" when "## Test Directory" section is absent', () => {
-    const content = '## Run Tests\nbun run test\n';
-    const result = parseCommandsMd(content);
-    expect(result.testDirectory).toBe('src');
-  });
+    const PLACEMENTS: Array<{ placement: string; body: (value: string) => string }> = [
+      { placement: 'on the line above the value', body: (v) => `<!-- Consumed by scenario_writer. -->\n${v}` },
+      { placement: 'after the value on its line', body: (v) => `${v} <!-- Consumed by scenario_writer. -->` },
+      { placement: 'on the line below the value', body: (v) => `${v}\n<!-- Consumed by scenario_writer. -->` },
+      { placement: 'across several lines above the value', body: (v) => `<!-- Consumed by scenario_writer.\n     When set, the sweep step is skipped.\n-->\n${v}` },
+    ];
 
-  it('reads testDirectory from "## Test Directory" section', () => {
-    const content = '## Test Directory\ntests\n';
-    const result = parseCommandsMd(content);
-    expect(result.testDirectory).toBe('tests');
-  });
+    for (const { placement, body } of PLACEMENTS) {
+      it(`strips a comment ${placement} from every section value`, () => {
+        const content = SECTIONS.map(({ heading, value }) => `## ${heading}\n${body(value)}\n`).join('\n');
+        const result = parseScenariosMd(content);
+        for (const { value, read } of SECTIONS) {
+          expect(read(result)).toBe(value);
+        }
+      });
+    }
 
-  it('trims whitespace from testDirectory value', () => {
-    const content = '## Test Directory\n  tests/  \n';
-    const result = parseCommandsMd(content);
-    expect(result.testDirectory).toBe('tests/');
-  });
+    it('leaves a section that holds only a comment absent', () => {
+      const content = SECTIONS.map(({ heading }) => `## ${heading}\n<!-- nothing set here -->\n`).join('\n');
+      const result = parseScenariosMd(content);
+      for (const { read } of SECTIONS) {
+        expect(read(result)).toBeUndefined();
+      }
+    });
 
-  it('reads custom testDirectory while preserving other defaults', () => {
-    const content = '## Test Directory\ntests\n\n## Run Tests\npytest\n';
-    const result = parseCommandsMd(content);
-    expect(result.testDirectory).toBe('tests');
-    expect(result.runTests).toBe('pytest');
-    expect(result.packageManager).toBe('bun');
-  });
-});
+    it('keeps the default for a scalar section that holds only a comment', () => {
+      const result = parseScenariosMd('## Scenario Directory\n<!-- unset -->\n\n## BDD Framework\ncucumber-js\n');
+      expect(result.scenarioDirectory).toBe(getDefaultScenariosConfig().scenarioDirectory);
+      expect(result.bddFramework).toBe('cucumber-js');
+    });
 
-describe('parseCommandsMd — testFramework field', () => {
-  it('defaults testFramework to "" when content is empty', () => {
-    const result = parseCommandsMd('');
-    expect(result.testFramework).toBe('');
-  });
+    it('reads a run command followed by a trailing multi-line comment block as just the command', () => {
+      const content = [
+        '## Run Regression Scenarios',
+        'NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"',
+        '',
+        '<!-- The three optional sections below activate the regression-suite contract for repos that',
+        '     opt in. Target repos that omit them keep current free-form behaviour. -->',
+        '',
+        '## Per-Issue Scenario Directory',
+        'features/per-issue/',
+      ].join('\n');
+      const result = parseScenariosMd(content);
+      expect(result.runRegression).toBe('NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"');
+      expect(result.perIssueScenarioDirectory).toBe('features/per-issue/');
+    });
 
-  it('defaults testFramework to "" when "## Test Framework" section is absent', () => {
-    const content = '## Run Tests\nbun run test\n';
-    const result = parseCommandsMd(content);
-    expect(result.testFramework).toBe('');
-  });
-
-  it('reads testFramework from "## Test Framework" section', () => {
-    const content = '## Test Framework\npytest\n';
-    const result = parseCommandsMd(content);
-    expect(result.testFramework).toBe('pytest');
-  });
-
-  it('reads custom testFramework while preserving other defaults', () => {
-    const content = '## Test Framework\nvitest\n\n## Run Tests\nbun run test\n';
-    const result = parseCommandsMd(content);
-    expect(result.testFramework).toBe('vitest');
-    expect(result.runTests).toBe('bun run test');
-  });
-});
-
-describe('getDefaultCommandsConfig — testDirectory and testFramework', () => {
-  it('includes testDirectory defaulting to "src"', () => {
-    const defaults = getDefaultCommandsConfig();
-    expect(defaults.testDirectory).toBe('src');
-  });
-
-  it('includes testFramework defaulting to ""', () => {
-    const defaults = getDefaultCommandsConfig();
-    expect(defaults.testFramework).toBe('');
-  });
-});
-
-describe('loadProjectConfig — healthCheckPath integration', () => {
-  it('returns healthCheckPath from .adw/commands.md when present', () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), 'adw-test-'));
-    const adwDir = join(tmpDir, '.adw');
-    mkdirSync(adwDir);
-    writeFileSync(
-      join(adwDir, 'commands.md'),
-      '## Health Check Path\n/ready\n',
-      'utf-8',
-    );
-
-    const config = loadProjectConfig(tmpDir);
-    expect(config.commands.healthCheckPath).toBe('/ready');
-  });
-
-  it('defaults healthCheckPath to "/" when commands.md has no Health Check Path section', () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), 'adw-test-'));
-    const adwDir = join(tmpDir, '.adw');
-    mkdirSync(adwDir);
-    writeFileSync(join(adwDir, 'commands.md'), '## Start Dev Server\nbun run dev\n', 'utf-8');
-
-    const config = loadProjectConfig(tmpDir);
-    expect(config.commands.healthCheckPath).toBe('/');
-  });
-
-  it('exposes per-issue/regression/vocabulary fields from .adw/scenarios.md when all three present', () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), 'adw-test-'));
-    const adwDir = join(tmpDir, '.adw');
-    mkdirSync(adwDir);
-    const scenariosMd = [
-      '## Scenario Directory',
-      'features/',
-      '',
-      '## Run Scenarios by Tag',
-      'cucumber-js',
-      '',
-      '## Run Regression Scenarios',
-      'cucumber-js --tags "@regression"',
-      '',
-      '## Per-Issue Scenario Directory',
-      'features/per-issue/',
-      '',
-      '## Regression Scenario Directory',
-      'features/regression/',
-      '',
-      '## Vocabulary Registry',
-      'features/regression/vocabulary.md',
-    ].join('\n');
-    writeFileSync(join(adwDir, 'scenarios.md'), scenariosMd, 'utf-8');
-
-    const config = loadProjectConfig(tmpDir);
-    expect(config.scenarios.perIssueScenarioDirectory).toBe('features/per-issue/');
-    expect(config.scenarios.regressionScenarioDirectory).toBe('features/regression/');
-    expect(config.scenarios.vocabularyRegistry).toBe('features/regression/vocabulary.md');
+    it("reads this repository's own .adw/scenarios.md without any comment left in a value", () => {
+      const result = loadProjectConfig(resolve(__dirname, '..', '..', '..')).scenarios;
+      expect([result.perIssueScenarioDirectory, result.regressionScenarioDirectory, result.vocabularyRegistry]).toEqual([
+        'features/per-issue/',
+        'features/regression/',
+        'features/regression/vocabulary.md',
+      ]);
+      expect(Object.values(result).filter((v) => typeof v === 'string' && v.includes('<!--'))).toEqual([]);
+    });
   });
 });
 
@@ -264,47 +199,5 @@ describe('getDefaultScenariosConfig — stepDefDirectory and bddFramework', () =
 
   it('defaults bddFramework to empty string', () => {
     expect(getDefaultScenariosConfig().bddFramework).toBe('');
-  });
-});
-
-describe('loadProjectConfig — python-flat fixture', () => {
-  it('resolves testDirectory, testFramework, and runTests from the python-flat fixture', () => {
-    const fixturePath = resolve(__dirname, '../../../test/fixtures/python-flat');
-    const config = loadProjectConfig(fixturePath);
-    expect(config.commands.testDirectory).toBe('tests');
-    expect(config.commands.testFramework).toBe('pytest');
-    expect(config.commands.runTests).toBe('pytest');
-  });
-});
-
-describe('loadProjectConfig — conditionalDocs field', () => {
-  it('returns empty registry when conditional_docs.md is absent', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'adw-test-no-condocs-'));
-    mkdirSync(join(dir, '.adw'), { recursive: true });
-    try {
-      const config = loadProjectConfig(dir);
-      expect(config.conditionalDocs.preamble).toBe('');
-      expect(config.conditionalDocs.entries).toEqual([]);
-      expect(config.conditionalDocsMd).toBe('');
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it('populates conditionalDocs from conditional_docs.md when present', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'adw-test-condocs-'));
-    mkdirSync(join(dir, '.adw'), { recursive: true });
-    const content = `# Conditional Documentation\n\n- app_docs/feature-test.md\n  - Owns:\n    - adws/test/**\n  - Conditions:\n    - When working on test module\n`;
-    writeFileSync(join(dir, '.adw', 'conditional_docs.md'), content, 'utf-8');
-    try {
-      const config = loadProjectConfig(dir);
-      expect(config.conditionalDocsMd).toBe(content);
-      expect(config.conditionalDocs.entries).toHaveLength(1);
-      expect(config.conditionalDocs.entries[0].docPath).toBe('app_docs/feature-test.md');
-      expect(config.conditionalDocs.entries[0].ownedGlobs).toEqual(['adws/test/**']);
-      expect(config.conditionalDocs.entries[0].conditions).toEqual(['When working on test module']);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 });

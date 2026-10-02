@@ -6,7 +6,7 @@ The health check module is a standalone diagnostic tool that validates the ADW s
 
 ## Responsibilities
 
-- Check required environment variables (`ANTHROPIC_API_KEY`) and optional ones (`CLAUDE_CODE_PATH`, `GITHUB_PAT`) via `checkEnvironmentVariables`.
+- Check the environment variables via `checkEnvironmentVariables`: all of them are optional (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_PATH`, `GITHUB_PAT`), so the check always passes; it reports whether billing runs on the Claude subscription or the Anthropic API, and warns when `ANTHROPIC_API_KEY` is set.
 - Validate git repository configuration (`.git` presence, remote listing, user identity) via `checkGitRepository(ctx)` — routes through `ctx.getCurrentBranch`, `ctx.remotes`, `ctx.hasUncommittedChanges`, and `ctx.gitConfigUser`.
 - Verify the Claude Code CLI binary is resolvable and returns a version via `checkClaudeCodeCLI`.
 - Check GitHub CLI (`gh`) installation and authentication status via `checkGitHubCLI(codeHost: Pick<CodeHost, 'getAuthenticatedUser'>)` (#844) — routes authentication through the port's `getAuthenticatedUser()`, inside a try/catch so a non-GitHub code host that refuses the operation by name (e.g. GitLab) still yields `authenticated: false` rather than an uncaught throw.
@@ -39,3 +39,7 @@ No configuration file. `CLAUDE_CODE_PATH`, `GITHUB_PAT`, `LOGS_DIR`, and `SPECS_
 - **`process.cwd()` is passed explicitly** as the `cwd` argument to every context read (`getCurrentBranch`, `remotes`, `hasUncommittedChanges`, `gitConfigUser`) — preserving "inspect the current working directory's repo" semantics even though the self-host `GitContext`'s `basePath` is the framework repo root.
 - **`checkClaudeCodeCLI` resolves the path via `resolveClaudeCodePath()`** from `adws/core/environment.ts`; if neither `CLAUDE_CODE_PATH` nor a `claude` binary on PATH is found, this check fails with the resolver's error message.
 - **The webhook `/health` endpoint** (`adws/triggers/trigger_webhook.ts`) also calls `checkGitRepository` (with `selfHostBoundary()?.gitContext`, the same memoised boundary `webhookRepoResolver.ts` uses for other self-host reads, since #822) and `checkGitHubCLI` (with `selfHostBoundary()?.providers.codeHost`, resolved in its own try/catch, since #844). The same construction/mint-failure guard applies there.
+
+## Decisions
+
+- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

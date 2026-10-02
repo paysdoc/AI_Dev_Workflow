@@ -4,6 +4,9 @@ type ModelTier = 'fable' | 'opus' | 'sonnet' | 'haiku';
 
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+/** The model of the one-turn `claude` probes (rate limit, JSONL schema, guardrails), which run no slash command. */
+export const PROBE_MODEL: ModelTier = 'haiku';
+
 export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/classify_issue': 'sonnet',
   // Planning (complex reasoning)
@@ -20,6 +23,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/test': 'haiku',
   '/resolve_failed_test': 'opus',
   '/resolve_failed_scenario': 'opus',
+  '/resolve_conflict': 'sonnet',
   '/generate_branch_name': 'sonnet',
   '/commit': 'sonnet',
   '/pull_request': 'sonnet',
@@ -41,6 +45,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/diff_evaluator': 'haiku',
   '/refactor': 'sonnet',
   '/promote_regression_vocabulary': 'sonnet',
+  '/correct_output': 'haiku',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -57,6 +62,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/test': 'haiku',
   '/resolve_failed_test': 'opus',
   '/resolve_failed_scenario': 'opus',
+  '/resolve_conflict': 'sonnet',
   '/generate_branch_name': 'haiku',
   '/commit': 'haiku',
   '/pull_request': 'haiku',
@@ -78,6 +84,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/diff_evaluator': 'haiku',
   '/refactor': 'sonnet',
   '/promote_regression_vocabulary': 'haiku',
+  '/correct_output': 'haiku',
 };
 
 /**
@@ -103,6 +110,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/test': undefined,
   '/resolve_failed_test': 'max',
   '/resolve_failed_scenario': 'max',
+  '/resolve_conflict': 'high',
   '/generate_branch_name': 'low',
   '/commit': 'medium',
   '/pull_request': 'medium',
@@ -123,6 +131,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/diff_evaluator': undefined,
   '/refactor': 'high',
   '/promote_regression_vocabulary': 'medium',
+  '/correct_output': undefined,
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -139,6 +148,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/test': undefined,
   '/resolve_failed_test': 'medium',
   '/resolve_failed_scenario': 'medium',
+  '/resolve_conflict': 'medium',
   '/generate_branch_name': undefined,
   '/commit': undefined,
   '/pull_request': undefined,
@@ -157,7 +167,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/install': 'low',
   '/diff_evaluator': undefined,
   '/refactor': 'high',
-  '/promote_regression_vocabulary': 'medium',
+  '/promote_regression_vocabulary': undefined,
+  '/correct_output': undefined,
 };
 
 export function isFastMode(issueBody?: string): boolean {

@@ -38,3 +38,20 @@ jobs:
 
       - name: Run docs-index gate
         run: bun run lint:docs-index
+
+  branch-names:
+    name: Fail on a branch name written into adws/ or .claude/commands/
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run branch-name check
+        run: bun run lint:branch-names

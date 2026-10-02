@@ -4,8 +4,9 @@
  * `specs/issue-734-adw-ikwe55-feat-promote-729-adw-sdlc_planner-promote-729-regression-scenario.md`
  * for the canonical hand-done shape this reproduces): git mv the feature +
  * step-def files into the regression suite, add a feature-level `@regression`
- * tag, register the scenario's phrases in the vocabulary registry, and prove
- * `@regression` green. No I/O — the sweep shell files the returned spec.
+ * tag, drop the `@adw-` tags (re-scoping any hook keyed on them), register the
+ * scenario's phrases in the vocabulary registry, and prove `@regression` green.
+ * No I/O — the sweep shell files the returned spec.
  *
  * Integration/BDD-covered per the parent PRD's Testing Decisions — not
  * unit-tested in isolation.
@@ -50,15 +51,17 @@ export function buildPromotionIssue(input: PromotionIssueInput): PromotionIssueS
   const body = [
     `Promotes: ${feature}`,
     '',
-    `Direct relocation (matches #734${scoreSuffix}): move this scenario from the per-issue directory`,
-    `(input-only, never executed) into the executed \`@regression\` suite.`,
+    `Direct relocation (matches #734${scoreSuffix}): move this scenario from the per-issue directory,`,
+    `where only its own workflow's test phase runs it (by its \`@adw-${input.featureNumber}\` tag), into the \`@regression\` suite.`,
     '',
     `## What to do`,
     '',
     `- \`git mv ${input.sourceFeaturePath} ${input.destinationRegressionDir}<subdir>/${feature}.feature\``,
     `  (choose a short subdirectory name reflecting the scenario's subject).`,
     ...stepDefMoveLines(input.sourceStepDefPaths, input.destinationRegressionDir),
-    `- Add a feature-level \`@regression\` tag to the moved feature file (keep its existing tags for traceability).`,
+    `- Add a feature-level \`@regression\` tag to the moved feature file.`,
+    `- Remove the \`@adw-\` tags from the moved feature file, at feature and scenario level: a regression feature never carries a per-issue tag.`,
+    `- Where a \`Before\`/\`After\` hook in the moved step definitions is scoped to one of those \`@adw-\` tags, re-scope it to a descriptive tag you add to the moved feature, so the hook still runs.`,
     `- Register the scenario's phrases in \`${input.vocabularyRegistryPath}\` under the appropriate`,
     `  Given/When/Then sections, with rubric-compliant descriptions (assert an observable artefact,`,
     `  never a source-file property).`,

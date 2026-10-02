@@ -10,6 +10,7 @@ vi.mock('../../agents', () => ({
 }));
 
 import { runClaudeAgentWithCommand } from '../../agents';
+import { getModelForCommand, getEffortForCommand } from '../../core/modelRouting';
 import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeHandler';
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import type { ExecFn } from '@paysdoc/devplatform/git';
@@ -119,8 +120,8 @@ describe('mergeWithConflictResolution', () => {
       expect.any(Array),
       'conflict-resolver',
       expect.any(String),
-      'sonnet',
-      undefined,
+      getModelForCommand('/resolve_conflict'),
+      getEffortForCommand('/resolve_conflict'),
       undefined,
       undefined,
       WORKTREE,
@@ -156,8 +157,8 @@ describe('mergeWithConflictResolution', () => {
       expect.any(Array),
       'conflict-resolver',
       expect.any(String),
-      'sonnet',
-      undefined,
+      getModelForCommand('/resolve_conflict'),
+      getEffortForCommand('/resolve_conflict'),
       undefined,
       undefined,
       WORKTREE,

@@ -39,3 +39,9 @@ This module provides two shared, file-backed primitives for cross-workflow coord
 - `pauseReason` on `PausedWorkflow` accepts only `'rate_limited' | 'unknown_error'`; other error classifications must be mapped to one of these two values before enqueuing
 - `PausedWorkflow.resetsAt` is an ISO 8601 string, but `RateLimitFacts.resetsAt` and `ProbeClassification.resetsAt` (the CLI-facing types) are Unix epoch **seconds** — never compare them directly; convert through `resetsAtIsoFromEpochSeconds` first
 - The auth gate does not enforce that only one host writes it; if multiple hosts share the same `agents/` directory (e.g. via a network mount), the `host` field may reflect whichever host wrote last
+
+## Decisions
+
+- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

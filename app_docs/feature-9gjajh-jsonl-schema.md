@@ -27,7 +27,7 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 ## Configuration
 
 - `CLAUDE_CODE_PATH` environment variable (or `claude` on PATH) determines which CLI binary the probe spawns, resolved through `resolveClaudeCodePath()`.
-- The probe spawns in a fresh temp directory (`getSafeSubprocessEnv()`'s allowed vars only) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
+- The probe spawns in a fresh temp directory (the shared Claude launch environment: the allowlisted vars plus the auto-memory switch) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
 - `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; `ANTHROPIC_API_KEY` is the CI secret that gates whether the live leg runs at all.
 - Schema and fixtures paths default to sibling directories of the module files; every entry point accepts overrides for use from tests (a throwaway schema copy, a throwaway fixtures directory).
 
@@ -38,3 +38,9 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 - The CLI reports an API error — including a rate limit — as `subtype: "success"` with `is_error: true`; the error surfaces in `api_error_status`/`terminal_reason`/`result`, not in a distinct error subtype. A genuinely different result shape, `error_during_execution`, carries `errors` and no `result` field at all.
 - The current CLI rejects `--output-format stream-json` in `--print` mode without `--verbose`; the probe's args always include both.
 - Running the conformance check requires `schema.json` to exist; it throws if the file is missing rather than falling back to a default schema. The same is true of the fixture updater.
+
+## Decisions
+
+- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

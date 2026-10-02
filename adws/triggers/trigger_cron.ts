@@ -7,7 +7,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
 import type { BoundProviders } from '@paysdoc/devplatform';
@@ -16,6 +16,7 @@ import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
 import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
 import { hasUnaddressedComments } from '../forge/prCommentDetector';
+import { provisionAdwLabels } from '../forge/adwLabelProvisioning';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -266,7 +267,7 @@ async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
     const resolvedPath = resolveClaudeCodePath();
     const statusOutput = execSync(`${resolvedPath} auth status --json`, {
       timeout: 15_000,
-      env: { ...process.env },
+      env: buildClaudeLaunchEnv(),
     }).toString();
     const status = JSON.parse(statusOutput);
     loggedIn = status.loggedIn === true;
@@ -549,6 +550,10 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   }
 
   log('CRON trigger (backlog sweeper) started');
+  // The webhook starts one cron per repository on its first event (ensureCronProcess), so this
+  // is where a repository gets its adw:* labels — outside the webhook's request path, since
+  // each label is a synchronous gh call.
+  if (cronBoundary) provisionAdwLabels(cronBoundary);
   // Warm the guardrails probe verdict before processing any issue, so a failed
   // probe's fail-open Slack alert (see guardrailsGate.ts) fires at startup rather
   // than being deferred until the first target-repo spawn happens to trigger it.

@@ -164,3 +164,14 @@ export function getSafeSubprocessEnv(): NodeJS.ProcessEnv {
   }
   return safeEnv as NodeJS.ProcessEnv;
 }
+
+/**
+ * The environment of every `claude` process ADW starts. Auto-memory (the operator's
+ * ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned process:
+ * a worktree resolves to the same project key as the framework checkout, so without the
+ * switch the operator's interactive-session memories are read as instructions. The switch
+ * is applied after the overlay so no caller can re-enable it.
+ */
+export function buildClaudeLaunchEnv(overlay: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return { ...getSafeSubprocessEnv(), ...overlay, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' };
+}

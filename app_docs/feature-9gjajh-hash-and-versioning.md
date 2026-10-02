@@ -48,3 +48,7 @@ The set of files that contribute to the framework hash is declared in the `hashI
 - `resolveIssueNumberFromPR` silently returns `null` on any fetch error; a losing orchestrator may end up with `existingIssueNumber: null` even when a linked issue exists but is temporarily unreachable.
 - Bot-author detection (`isUpgradeFailureComment`) is a simple `author.endsWith('[bot]')` check — a deployment that posts upgrade comments under a non-`[bot]` PAT would silently escape the failure cap.
 - The claim branch `adw-upgrade-<hash>` is created once by the winning push and is never released on failure — nothing re-triggers a failed upgrade on its own. `upgradeRedrive.ts`'s cron pass exists specifically to close that gap; without it, a stranded `#UPG` issue (claimed but never completed) would sit forever with no PR and no further attempts.
+
+## Decisions
+
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes

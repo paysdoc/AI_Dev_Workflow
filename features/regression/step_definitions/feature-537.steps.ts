@@ -47,14 +47,14 @@ function cleanup(tmpDir: string | null): void {
   }
 }
 
-Before({ tags: '@adw-537' }, function () {
+Before({ tags: '@framework-hash' }, function () {
   ctx.fixtureRoot = null;
   ctx.secondFixtureRoot = null;
   ctx.recordedHashes = [];
   ctx.lastError = null;
 });
 
-After({ tags: '@adw-537' }, function () {
+After({ tags: '@framework-hash' }, function () {
   cleanup(ctx.fixtureRoot);
   cleanup(ctx.secondFixtureRoot);
   ctx.fixtureRoot = null;

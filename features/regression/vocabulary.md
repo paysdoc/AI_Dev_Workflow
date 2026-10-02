@@ -152,7 +152,7 @@ Scenarios in this repo can assert against the following observable surfaces:
 
 ---
 
-## Given/When/Then — Framework Content Hash (@adw-537)
+## Given/When/Then — Framework Content Hash (@framework-hash)
 
 These phrases drive the pure `computeFrameworkHash` module (`adws/core/hashComputer.ts`) via an
 in-process import (phase-import pattern). The fixture `adw_init` spec and fixture input files each
@@ -185,7 +185,7 @@ checked out` (G18, Background no-op) and `the ADW TypeScript type-check passes` 
 
 ---
 
-## Given/When/Then — Pause Queue Reset-Time Wait (@adw-910)
+## Given/When/Then — Pause Queue Reset-Time Wait (@pause-queue-reset-time)
 
 These phrases drive three things in-process (phase-import pattern): the real pause path (`runPhase`
 rejecting with a `RateLimitError`), the pure pause-queue decider (`decidePauseQueueAction`) and the
@@ -243,7 +243,7 @@ the relocated `feature-902-queue.steps.ts`), `the mock GitHub API recorded a com
 recorded zero comment posts on issue {int}` (T14) and `the ADW TypeScript type-check passes` (T22).
 The git/gh guard pair it uses is registered above as W16/T34.
 
-## Given/When/Then — Pause-Queue Ownership and Remove-Before-Spawn Resume (@adw-911)
+## Given/When/Then — Pause-Queue Ownership and Remove-Before-Spawn Resume (@pause-queue-ownership)
 
 These phrases drive the real pause-queue modules in-process (phase-import): the pure decider
 (`decidePauseQueueAction`), the scanner (`scanPauseQueue`) and its resume path. They also drive one
