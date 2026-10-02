@@ -7,7 +7,9 @@ import type { WorkflowStage } from '../types/workflowTypes';
  *
  * | Class         | Cron decision              | Takeover decision                          |
  * |---------------|----------------------------|--------------------------------------------|
- * | active        | exclude (in progress)      | SIGKILL-if-live → reset → reconcile → take |
+ * | active        | exclude while owner live;  | `starting`: defer if live, else reuse-or-  |
+ * |               | spawn once it is dead      | reset; others: SIGKILL-if-live → reset →   |
+ * |               |                            | reconcile → take                           |
  * | awaiting_merge| eligible → merge           | spawn_fresh                                |
  * | retriable     | eligible → spawn           | reset → reconcile → take (no kill)         |
  * | terminal      | exclude (inline checks)    | skip_terminal (release lock)               |

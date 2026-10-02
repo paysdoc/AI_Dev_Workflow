@@ -107,12 +107,17 @@ Before({ tags: '@adw-911 or @pause-queue-ownership' }, function () {
   fs.rmSync(AUTH_GATE_PATH, { force: true });
 });
 
-After({ tags: '@adw-911 or @pause-queue-ownership' }, function () {
+/** Also called by the feature-959 hooks, whose rows reuse the held-lock phrase but run under their own harness. */
+export function releaseHeldSpawnLocks(): void {
   for (const held of heldLocks.values()) {
     try { held.proc.kill('SIGKILL'); } catch { /* already dead */ }
     try { releaseIssueSpawnLock(held.repoInfo, held.issueNumber); } catch { /* best effort */ }
   }
   heldLocks.clear();
+}
+
+After({ tags: '@adw-911 or @pause-queue-ownership' }, function () {
+  releaseHeldSpawnLocks();
 
   killRealCronWorld(realCronWorld);
   if (realCronWorld.targetReposDir) {

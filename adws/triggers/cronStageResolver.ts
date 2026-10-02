@@ -8,6 +8,7 @@ import { extractLatestAdwId } from '../core/workflowCommentParsing';
 
 export { extractLatestAdwId } from '../core/workflowCommentParsing';
 import { classifyStageString } from '../core/stageClassifier';
+import { isProcessLive, isRecordedOwnerLive } from '../core/processLiveness';
 import type { AgentState } from '../types/agentTypes';
 
 export interface StageResolution {
@@ -17,6 +18,8 @@ export interface StageResolution {
   adwId: string | null;
   /** Most recent phase activity timestamp (ms), or null if state has no phases. */
   lastActivityMs: number | null;
+  /** True only for an `active` stage whose recorded owner is not confirmed live. */
+  ownerDead?: boolean;
 }
 
 
@@ -62,10 +65,14 @@ export function isActiveStage(stage: string): boolean {
   return false;
 }
 
-/** @param readState - Injectable state reader (defaults to AgentStateManager.readTopLevelState) */
+/**
+ * @param readState - Injectable state reader (defaults to AgentStateManager.readTopLevelState)
+ * @param isLive - Injectable liveness check (defaults to isProcessLive)
+ */
 export function resolveIssueWorkflowStage(
   comments: { body: string }[],
   readState: (adwId: string) => AgentState | null = AgentStateManager.readTopLevelState,
+  isLive: (pid: number, pidStartedAt: string) => boolean = isProcessLive,
 ): StageResolution {
   const adwId = extractLatestAdwId(comments);
   if (adwId === null) {
@@ -79,6 +86,9 @@ export function resolveIssueWorkflowStage(
 
   const stage = state.workflowStage ?? null;
   const lastActivityMs = getLastActivityFromState(state);
+  // An active stage that records no owner predates owner recording at `starting` and counts as dead:
+  // an orchestrator past startup holds the issue's spawn lock, so evaluateCandidate still defers to it.
+  const ownerDead = stage !== null && classifyStageString(stage) === 'active' && !isRecordedOwnerLive(state, isLive);
 
-  return { stage, adwId, lastActivityMs };
+  return { stage, adwId, lastActivityMs, ownerDead };
 }

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../triggers/spawnGate', () => ({
   acquireIssueSpawnLock: vi.fn(),
   releaseIssueSpawnLock: vi.fn(),
+  readSpawnLockRecord: vi.fn(),
 }));
 
 vi.mock('../../core/heartbeat', () => ({
@@ -10,17 +11,21 @@ vi.mock('../../core/heartbeat', () => ({
   stopHeartbeat: vi.fn(),
 }));
 
-import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../../triggers/spawnGate';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock, readSpawnLockRecord } from '../../triggers/spawnGate';
 import { startHeartbeat, stopHeartbeat } from '../../core/heartbeat';
-import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from '../orchestratorLock';
+import { AgentStateManager } from '../../core/agentState';
+import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle, MERGE_POLL_LOCK_WAIT } from '../orchestratorLock';
+import { HEARTBEAT_STALE_THRESHOLD_MS } from '../../core/config';
 import type { WorkflowConfig } from '../workflowInit';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
 
 const mockAcquire = vi.mocked(acquireIssueSpawnLock);
 const mockRelease = vi.mocked(releaseIssueSpawnLock);
+const mockReadLockRecord = vi.mocked(readSpawnLockRecord);
 const mockStart = vi.mocked(startHeartbeat);
 const mockStop = vi.mocked(stopHeartbeat);
+const mockAppendLog = vi.spyOn(AgentStateManager, 'appendLog');
 
 const FAKE_HANDLE = { adwId: 'test-adw-id', timer: null as unknown as ReturnType<typeof setInterval> };
 const FAKE_REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
@@ -29,12 +34,15 @@ const fakeConfig = {
   issueNumber: 42,
   adwId: 'test-adw-id',
   targetRepo: { owner: 'acme', repo: 'widgets' },
+  orchestratorStatePath: '/tmp/agents/test-adw-id/sdlc-orchestrator',
 } as unknown as WorkflowConfig;
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockAcquire.mockReturnValue(true);
   mockStart.mockReturnValue(FAKE_HANDLE);
+  mockReadLockRecord.mockReturnValue(null);
+  mockAppendLog.mockImplementation(() => {});
 });
 
 describe('runWithOrchestratorLifecycle', () => {
@@ -50,6 +58,35 @@ describe('runWithOrchestratorLifecycle', () => {
     expect(mockStart).not.toHaveBeenCalled();
     expect(mockStop).not.toHaveBeenCalled();
     expect(mockRelease).not.toHaveBeenCalled();
+  });
+
+  it('appends the refusal, naming the issue and the holder pid, to the orchestrator execution log', async () => {
+    mockAcquire.mockReturnValue(false);
+    mockReadLockRecord.mockReturnValue({ pid: 41399, pidStartedAt: 'cron-start' });
+
+    const result = await runWithOrchestratorLifecycle(fakeConfig, async () => {});
+
+    expect(result).toBe(false);
+    expect(mockAppendLog).toHaveBeenCalledTimes(1);
+    const [statePath, message] = mockAppendLog.mock.calls[0];
+    expect(statePath).toBe('/tmp/agents/test-adw-id/sdlc-orchestrator');
+    expect(message).toContain('issue #42');
+    expect(message).toContain('pid 41399');
+  });
+
+  it('says the holder is unknown when the lock record is gone by the time it is read', async () => {
+    mockAcquire.mockReturnValue(false);
+    mockReadLockRecord.mockReturnValue(null);
+
+    await runWithOrchestratorLifecycle(fakeConfig, async () => {});
+
+    expect(mockAppendLog.mock.calls[0][1]).toContain('pid unknown');
+  });
+
+  it('writes nothing to the execution log when the lock is acquired', async () => {
+    await runWithOrchestratorLifecycle(fakeConfig, async () => {});
+
+    expect(mockAppendLog).not.toHaveBeenCalled();
   });
 
   it('invokes start/stop heartbeat and release in order when fn resolves', async () => {
@@ -91,6 +128,42 @@ describe('runWithOrchestratorLifecycle', () => {
     );
     expect(mockStart).toHaveBeenCalledWith('test-adw-id', expect.any(Number));
     expect(mockStop).toHaveBeenCalledWith(FAKE_HANDLE);
+  });
+});
+
+describe('runWithOrchestratorLifecycle with a lock wait', () => {
+  const sleep = vi.fn(async (_ms: number) => {});
+
+  it('waits out a lock that is refused twice, then runs the phases without logging a refusal', async () => {
+    mockAcquire.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValue(true);
+    const fn = vi.fn(async () => {});
+
+    const result = await runWithOrchestratorLifecycle(fakeConfig, fn, { attempts: 5, retryMs: 2_000, sleep });
+
+    expect(result).toBe(true);
+    expect(fn).toHaveBeenCalledOnce();
+    expect(mockAcquire).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(2_000);
+    expect(mockAppendLog).not.toHaveBeenCalled();
+  });
+
+  it('gives up after the last attempt, logging the refusal once and running nothing', async () => {
+    mockAcquire.mockReturnValue(false);
+    const fn = vi.fn(async () => {});
+
+    const result = await runWithOrchestratorLifecycle(fakeConfig, fn, { attempts: 3, retryMs: 2_000, sleep });
+
+    expect(result).toBe(false);
+    expect(mockAcquire).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(mockAppendLog).toHaveBeenCalledOnce();
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('waits for the merge poll for less than the heartbeat stale threshold, because no heartbeat runs until the lock is held', () => {
+    expect(MERGE_POLL_LOCK_WAIT.attempts * MERGE_POLL_LOCK_WAIT.retryMs).toBeLessThan(HEARTBEAT_STALE_THRESHOLD_MS);
   });
 });
 
