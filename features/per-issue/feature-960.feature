@@ -178,7 +178,7 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §1 THE FALSE GREEN ───────────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-966
   Scenario: Replaying the false green — outside the @regression hooks, a scenario that invokes an orchestrator, asserts a workflowStage and an exit code, and runs nothing is reported pending, not passed
     Given the ADW checkout holds no top-level state file for adwId "throwaway960-replay"
     And a throwaway feature whose only scenario runs outside the @regression hooks, with the steps:
@@ -336,7 +336,7 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §5 W1 AND W10 NEVER PASS BY DOING NOTHING ───────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-966
   Scenario Outline: As the only step of a scenario <where> the @regression hooks, <phrase> is reported pending, never passed
     Given a throwaway feature whose only scenario runs <where> the @regression hooks, with the steps:
       """
@@ -354,17 +354,24 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then @adw-963
-  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the six surface rows that run in-process, which pass
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-966
+  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process or as subprocesses, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
     Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
-      | row                                                    |
-      | row-02-adwPlan-planPhase-happy.feature                 |
-      | row-03-adwPlan-planPhase-error-stub-failure.feature    |
-      | row-04-adwBuild-buildPhase-happy.feature               |
-      | row-05-adwBuild-buildPhase-edge-missing-lock.feature   |
-      | row-31-adwPlan-orchestratorLock-acquired-happy.feature |
-      | row-32-adwBuild-orchestratorLock-re-entry-edge.feature |
+      | row                                                          |
+      | row-01-adwPlan-workflowInit-happy.feature                    |
+      | row-02-adwPlan-planPhase-happy.feature                       |
+      | row-03-adwPlan-planPhase-error-stub-failure.feature          |
+      | row-04-adwBuild-buildPhase-happy.feature                     |
+      | row-05-adwBuild-buildPhase-edge-missing-lock.feature         |
+      | row-10-adwMerge-autoMergePhase-happy.feature                 |
+      | row-11-adwMerge-autoMergePhase-edge-pr-not-merged.feature    |
+      | row-16-adwPatch-planPhase-happy.feature                      |
+      | row-19-adwInit-workflowInit-edge-already-initialised.feature |
+      | row-29-adwSdlc-cronProbe-edge-empty-queue.feature            |
+      | row-30-adwSdlc-cronProbe-happy-dispatch.feature              |
+      | row-31-adwPlan-orchestratorLock-acquired-happy.feature       |
+      | row-32-adwBuild-orchestratorLock-re-entry-edge.feature       |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

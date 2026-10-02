@@ -807,7 +807,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
-│   │   ├── startupFailureLog.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
@@ -882,7 +881,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
-│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
@@ -1122,7 +1120,7 @@ cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue scenarios — run by their own workflow's test phase only; swept 14 days after PR merges
 │   ├── step_definitions/  # Per-issue step definition files
-│   └── support/        # Per-issue Cucumber support (e.g. feature-846-ensure-driver.ts)
+│   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts, feature-936-commit-driver.ts, feature-936-cost-section-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end

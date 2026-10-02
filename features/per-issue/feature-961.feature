@@ -297,7 +297,7 @@ Feature: The webhook launches exactly one cron for the repository every accepted
       | features/regression/pause-queue/feature-910.feature |
       | features/regression/pause-queue/feature-911.feature |
 
-  @adw-961 @adw-lgska4-bug-promote-the-orph
+  @adw-961 @adw-lgska4-bug-promote-the-orph @adw-966
   Scenario: The promoted feature passes when Cucumber runs it in a process of its own, and leaves ADW's auth gate, the cron registry and the cron logs as it found them
     Given ADW's auth gate holds a record of an earlier authentication failure
     And a cron is already running for the repository "acme/elsewhere"
