@@ -475,8 +475,11 @@
     - .claude/commands/tools.md
     - .claude/skills/**
     - .claude/hooks/**
+    - adws/__tests__/adwInitPrompt.test.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
+    - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
+    - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
   - Decisions:
     - 0005
     - 0014
