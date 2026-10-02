@@ -41,8 +41,8 @@ function makeState(overrides: Partial<AgentState> = {}): AgentState {
   };
 }
 
-/** The state #935 was left in: `starting`, the previous run's heartbeat, no owner recorded. */
-function makeStateOf935(): AgentState {
+/** A stranded relaunch: `starting`, the previous run's heartbeat, no owner recorded. */
+function makeOwnerlessStartingState(): AgentState {
   return makeState({ lastSeenAt: '2026-10-01T23:45:26.529Z', resumeAttempts: 1 });
 }
 
@@ -61,8 +61,8 @@ describe('cron filter: an active stage whose orchestrator is dead', () => {
     expect(result).toEqual({ eligible: true, action: 'spawn', adwId: ADW_ID });
   });
 
-  it('passes #935\'s starting state, which records no owner, on to the takeover handler', () => {
-    const result = evaluateIssue(makeFilterIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolverFor(makeStateOf935(), true));
+  it('passes a starting state that records no owner on to the takeover handler', () => {
+    const result = evaluateIssue(makeFilterIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolverFor(makeOwnerlessStartingState(), true));
 
     expect(result).toEqual({ eligible: true, action: 'spawn', adwId: ADW_ID });
   });
@@ -147,7 +147,7 @@ function makeDeps(state: AgentState, overrides: Partial<TakeoverDeps> = {}): Tak
 describe('a dead orchestrator in starting is recovered through the cron filter and the takeover handler', () => {
   it.each([
     ['records its owner', () => makeState(CRASHED_OWNER)],
-    ['is in #935\'s state, with no owner recorded', () => makeStateOf935()],
+    ['is stranded in starting, with no owner recorded', () => makeOwnerlessStartingState()],
   ])('when its state %s', (_label, buildState) => {
     const state = buildState();
     const filter = evaluateIssue(makeFilterIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolverFor(state, false));
@@ -200,9 +200,39 @@ describe('a live orchestrator in starting is never disturbed', () => {
   });
 });
 
+describe('a live PR review on the issue\'s own adwId is never disturbed', () => {
+  const TEN_MINUTES_MS = 10 * 60_000;
+
+  it('is deferred to by the handler through the spawn lock it holds, though the state still records the finished SDLC run\'s dead pid', () => {
+    const state = makeState({
+      workflowStage: 'pr_review_build_running',
+      orchestratorScript: 'adws/adwPrReview.tsx',
+      phases: { pr_review_build: { status: 'running', startedAt: new Date(NOW - TEN_MINUTES_MS).toISOString() } },
+      pid: 4242,
+      pidStartedAt: 'finished-sdlc-run',
+    });
+    const filter = evaluateIssue(makeFilterIssue(), NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolverFor(state, false));
+    // `+ 1` keeps the self-hold reclaim out of play: the holder is the PR review, not this process.
+    const holder = { pid: process.pid + 1, pidStartedAt: 'pr-review-start' };
+    const deps = makeDeps(state, {
+      acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
+      readSpawnLockRecord: vi.fn().mockReturnValue(holder),
+    });
+
+    const decision = evaluateCandidate({ issueNumber: 935, boundary: BOUNDARY }, deps);
+
+    expect(filter).toEqual({ eligible: true, action: 'spawn', adwId: ADW_ID });
+    expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: holder.pid });
+    expect(deps.killProcess).not.toHaveBeenCalled();
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.probeWorktree).not.toHaveBeenCalled();
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+});
+
 describe('a spawn lock the cron\'s own process left behind does not hold a dead workflow hostage', () => {
   it.each([
-    ['starting, with no owner recorded', makeStateOf935],
+    ['starting, with no owner recorded', makeOwnerlessStartingState],
     ['abandoned', () => makeState({ workflowStage: 'abandoned' })],
     ['phase_timeout', () => makeState({ workflowStage: 'phase_timeout' })],
   ])('when the workflow stands at %s', (_label, buildState) => {

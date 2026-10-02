@@ -94,7 +94,7 @@ Given(
 When(
   'the orchestrator the cron relaunched for workflow {string} records "starting" exactly as #935\'s relaunched orchestrator did, and dies before its first phase',
   async function (adwId: string) {
-    await startingThenDies(requireWorkflow(adwId), 'as-935');
+    await startingThenDies(requireWorkflow(adwId), 'ownerless');
   },
 );
 

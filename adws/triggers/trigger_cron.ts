@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
-import type { BoundProviders } from '@paysdoc/devplatform';
+import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
@@ -273,6 +273,30 @@ export function evaluateCandidateForTick(
   }
 }
 
+/** Spawns the orchestrator for the existing adwId directly, skipping classification. */
+function takeOverExistingAdwId(
+  issueNumber: number,
+  decision: Extract<CandidateDecision, { kind: 'take_over_adwId' }>,
+  repoInfo: RepoIdentifier,
+  targetRepoArgs: string[],
+): void {
+  const { adwId, derivedStage } = decision;
+  log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}`, 'success');
+  try {
+    const state = AgentStateManager.readTopLevelState(adwId);
+    if (!state) {
+      // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
+      spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issueNumber), adwId, ...targetRepoArgs]);
+      return;
+    }
+    const { script, args } = resolveResumeSpawn(state);
+    log(`Issue #${issueNumber}: resume routing → ${script}`, 'info');
+    spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+  } finally {
+    releaseIssueSpawnLock(repoInfo, issueNumber);
+  }
+}
+
 /**
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
@@ -488,22 +512,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
     processedSpawns.add(issue.number);
 
     if (takeoverDecision.kind === 'take_over_adwId') {
-      // Takeover: spawn the orchestrator for the existing adwId directly, skipping classification.
-      const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
-      log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
-      try {
-        const takeoverState = AgentStateManager.readTopLevelState(takeoverAdwId);
-        if (takeoverState) {
-          const { script, args } = resolveResumeSpawn(takeoverState);
-          log(`Issue #${issue.number}: resume routing → ${script}`, 'info');
-          spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
-        } else {
-          // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
-          spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
-        }
-      } finally {
-        releaseIssueSpawnLock(repoInfo, issue.number);
-      }
+      takeOverExistingAdwId(issue.number, takeoverDecision, repoInfo, targetRepoArgs);
       continue;
     }
 

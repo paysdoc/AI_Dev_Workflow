@@ -10,7 +10,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager, resolvePrReviewInvocation } from './core';
+import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager, resolvePrReviewInvocation, log, type LaunchBoundary } from './core';
 import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -27,48 +27,18 @@ import {
   runScenarioTestFixLoop,
   executeReviewPhase,
   executeReviewPatchCycle,
+  type PRReviewWorkflowConfig,
   type ReviewIssue,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
+import { runWithOrchestratorLifecycle, MERGE_POLL_LOCK_WAIT } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 import { buildNotifierDeps } from './forge/hitlBoardNotifier';
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
-
-  if (args.length < 1) {
-    console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');
-    process.exit(1);
-  }
-
-  const boundary = buildLaunchBoundary(targetRepo);
-
-  const invocation = resolvePrReviewInvocation(args, {
-    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    findPullRequestByBranch: (b) => boundary.providers.codeHost.findPullRequestByBranch(b),
-    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.providers),
-  });
-  if (invocation.kind === 'error') {
-    console.error(invocation.message);
-    process.exit(1);
-  }
-  if (invocation.kind === 'skip') {
-    console.log(invocation.message);
-    process.exit(0);
-  }
-  const { prNumber, adwId: resolvedAdwId } = invocation;
-
-  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, boundary, targetRepo ?? undefined);
-
-  AgentStateManager.writeTopLevelState(config.base.adwId, {
-    adwId: config.base.adwId,
-    issueNumber: config.base.issueNumber,
-    orchestratorScript: 'adws/adwPrReview.tsx',
-    ...(config.base.branchName ? { branchName: config.base.branchName } : {}),
-  });
+/** Everything main() runs inside the orchestrator lifecycle. */
+async function runPrReviewPhases(config: PRReviewWorkflowConfig, boundary: LaunchBoundary): Promise<void> {
   const tracker = new CostTracker();
 
   try {
@@ -117,6 +87,47 @@ async function main(): Promise<void> {
       tracker.totalModelUsage,
       buildNotifierDeps(() => boundary.providers, boundary.repoId),
     );
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const targetRepo = parseTargetRepoArgs(args);
+
+  if (args.length < 1) {
+    console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');
+    process.exit(1);
+  }
+
+  const boundary = buildLaunchBoundary(targetRepo);
+
+  const invocation = resolvePrReviewInvocation(args, {
+    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
+    findPullRequestByBranch: (b) => boundary.providers.codeHost.findPullRequestByBranch(b),
+    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.providers),
+  });
+  if (invocation.kind === 'error') {
+    console.error(invocation.message);
+    process.exit(1);
+  }
+  if (invocation.kind === 'skip') {
+    console.log(invocation.message);
+    process.exit(0);
+  }
+  const { prNumber, adwId: resolvedAdwId } = invocation;
+
+  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, boundary, targetRepo ?? undefined);
+
+  AgentStateManager.writeTopLevelState(config.base.adwId, {
+    adwId: config.base.adwId,
+    issueNumber: config.base.issueNumber,
+    orchestratorScript: 'adws/adwPrReview.tsx',
+    ...(config.base.branchName ? { branchName: config.base.branchName } : {}),
+  });
+
+  if (!await runWithOrchestratorLifecycle(config.base, () => runPrReviewPhases(config, boundary), MERGE_POLL_LOCK_WAIT)) {
+    log(`Issue #${config.base.issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
   }
 }
 

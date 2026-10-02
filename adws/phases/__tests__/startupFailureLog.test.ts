@@ -24,7 +24,7 @@ describe('recordStartupFailure', () => {
     const log = readFileSync(logPath(), 'utf-8');
     expect(log).toContain(`${ORCHESTRATOR} startup failed:`);
     expect(log).toContain('Pre-flight check failed: Claude CLI not executable');
-    expect(log).toContain(error.stack!.split('\n')[1].trim());
+    expect(log).toContain(error.stack?.split('\n')[1]?.trim() ?? '');
   });
 
   it('records String(error) for a thrown value that is not an Error', () => {

@@ -68,7 +68,10 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
         left facing a lock the cron kept: a relaunched orchestrator still starting up; one that
         records `starting` while the cron is deciding; one that holds its lock and heartbeats in
         `starting` or in `build_running`. A spawn lock held by another live process still turns
-        the cron away, and an issue that now carries `adw:none` is still never taken over.
+        the cron away, and an issue that now carries `adw:none` is still never taken over. A PR
+        review on the issue's own adwId, ten minutes into `pr_review_build_running`, whose state
+        still recorded the finished SDLC run's dead pid, is not reset and gets no second
+        orchestrator.
 
     §3  THE CRON'S OWN SPAWN LOCK (the issue's unverified factor, confirmed by reading the code).
         A lock recorded under the cron's own pid, left behind by an earlier poll, does not stop
@@ -105,6 +108,11 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
       then finds the lock held by the cron and exits, the most likely way #935's orchestrator died;
     • the heartbeating rows fail for a sweep that treats a long `starting` as hung, or that kills
       a live orchestrator whose heartbeat is fresh;
+    • the PR-review row fails for a PR review that does not record itself as owner. It reuses the
+      issue's adwId, whose state still records the finished SDLC run's dead pid, so the cron
+      reads the live review as dead, resets the worktree it is editing and relaunches
+      `adws/adwPrReview.tsx` beside it. It also fails for a fix that records the pid only where
+      none is recorded;
     • the foreign-lock row fails for a fix that ignores the spawn lock once the state's own pid
       is dead. The holder may be a merge orchestrator, or a run the webhook is starting;
     • the `adw:none` row fails for a recovery path that relaunches past the cron's opt-out gate.
@@ -306,8 +314,9 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
       (`.adw/locks/issue-N.lock`); and G6, which writes state into a worktree's `.adw/state.json`.
   The registry has no phrase for the following, so novel phrasing is introduced for them: the
   workflow's history; an orchestrator that recorded `starting` and died, died holding its lock,
-  is still starting up, records `starting` mid-poll, or lives and heartbeats; #935's shape; the
-  cron's own lock; the two polls; the launch, liveness, reset and lock assertions; and the
+  is still starting up, records `starting` mid-poll, or lives and heartbeats; the finished SDLC
+  run that exited, and the PR review that started up on the issue's pull request; #935's shape;
+  the cron's own lock; the two polls; the launch, liveness, reset and lock assertions; and the
   non-executable Claude CLI, the cron-style launch and the execution-log assertions.
 
   Background:
@@ -386,6 +395,17 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
       | stage         | issue | adwId        |
       | starting      | 9598  | live959-9598 |
       | build_running | 9599  | live959-9599 |
+
+  @adw-959 @adw-r5ifl5-bug-an-orchestrator
+  Scenario: A PR review ten minutes into "pr_review_build_running", on a workflow whose state still records the finished SDLC run's dead pid, is left alone — not reset and not doubled
+    Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
+    And issue 9600 has an ADW workflow under adwId "prr959-9600" that runs "adws/adwSdlc.tsx", whose last run stopped at "awaiting_merge" half an hour ago
+    And the SDLC run of workflow "prr959-9600" has exited, leaving its pid in the state
+    And a PR review of workflow "prr959-9600" has started up on the issue's pull request and has stood at workflowStage "pr_review_build_running" for ten minutes
+    When the cron polls from that boundary, with its hung-orchestrator sweep due
+    Then the cron launched no orchestrator for issue 9600
+    And the worktree of workflow "prr959-9600" was not reset
+    And the state file for adwId "prr959-9600" records workflowStage "pr_review_build_running"
 
   @adw-959 @adw-r5ifl5-bug-an-orchestrator
   Scenario: A spawn lock held by another live process still turns the cron away from a workflow whose orchestrator died in "starting"

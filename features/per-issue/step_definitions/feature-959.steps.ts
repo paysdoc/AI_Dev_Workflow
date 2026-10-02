@@ -5,8 +5,9 @@
  * `mockContext` is initialised here because the shared T1 and T5 phrases fall into a legacy
  * source-inspection branch when it is null. The tick scans the checkout's real pause queue and
  * returns early under an auth gate, so both are saved, removed and restored around each row. The
- * spawn locks the rows leave under this process's pid, and the processes that stand in for
- * orchestrators, are removed in `After`: a lock left behind would spoil later rows.
+ * spawn locks the rows leave under this process's pid, the processes that stand in for
+ * orchestrators, and the PR review a row runs in this process are removed or ended in `After`: a
+ * lock left behind would spoil later rows.
  */
 
 import { Before, After } from '@cucumber/cucumber';
@@ -16,6 +17,7 @@ import type { RegressionWorld } from '../../regression/step_definitions/world.ts
 import { releaseHeldSpawnLocks } from '../../regression/step_definitions/feature-911.steps.ts';
 import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../test/mocks/test-harness.ts';
 import { AUTH_GATE_PATH } from '../../../adws/core/authGate.ts';
+import { resetLogAdwId } from '../../../adws/core/logger.ts';
 import { PAUSE_QUEUE_PATH } from '../../../adws/core/pauseQueue.ts';
 import { world796, resetWorld } from './feature-796.steps.ts';
 import { installBunxShadow, readIfExists, resetLocalState, restoreFile, s as world932 } from './feature-932-world.ts';
@@ -38,6 +40,11 @@ Before({ tags: OWN_ROWS }, async function (this: RegressionWorld) {
 
 After({ tags: OWN_ROWS }, async function (this: RegressionWorld) {
   await Promise.all(s.processes.map(killOrchestratorProcess));
+  // Ends the PR review's lifecycle: the heartbeat stops and its lock is released before the state files go.
+  // A lifecycle that rejected has failed its step already; it must not stop the cleanup below.
+  s.releasePrReview?.();
+  await s.prReview?.catch(() => false);
+  resetLogAdwId();
   releaseHeldSpawnLocks();
   removeSpawnLocks();
   removeScenarioArtefacts();

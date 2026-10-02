@@ -25,7 +25,8 @@ function branchOfWorktree(real: GitContext, worktreePath: string): string | null
 /**
  * Resets are recorded and do nothing else; the worktree probe and the remote-branch read behind
  * `deriveStageFromRemote` get benign answers. A take-over that threw half-way would leave a lock
- * under this process's pid, which is the bug itself, and spoil later rows.
+ * under this process's pid, which is the bug itself, and spoil later rows. A PR review's worktree
+ * is located, never created.
  */
 export function useBenignGitContext(): LaunchBoundary {
   const boundary = requireBoundary();
@@ -41,11 +42,13 @@ export function useBenignGitContext(): LaunchBoundary {
     ['currentBranchSymbolic', (worktreePath: string) => branchOfWorktree(real, worktreePath)],
     ['worktreeRegistration', () => 'healthy'],
     ['lsRemote', () => ''],
+    ['ensureWorktree', (branch: string) => real.worktreePathFor(branch)],
   ]);
   const gitContext = new Proxy(real, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       if (benignAnswers.has(prop)) return benignAnswers.get(prop);
-      const value = Reflect.get(target, prop, receiver);
+      // The target is the receiver, too: `owner` and `repo` are getters over private fields, which a Proxy `this` cannot read.
+      const value = Reflect.get(target, prop, target);
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });

@@ -1,7 +1,7 @@
 /**
  * Writes what a real orchestrator leaves on disk, so the cron rows observe the artefacts a real
  * run would have produced. "Mirror the fixed startup": this is a copy of what `initializeWorkflow`
- * writes once it has recorded `starting`, never more and never less. The #935 variant copies what
+ * writes once it has recorded `starting`, never more and never less. The ownerless variant copies what
  * it wrote before the fix: no pid in the top-level state.
  */
 
@@ -15,7 +15,7 @@ import type { AgentIdentifier } from '../../../adws/types/agentTypes.ts';
 import type { OrchestratorProcess } from './feature-959-processes.ts';
 import type { Workflow } from './feature-959-world.ts';
 
-export type StartupShape = 'fixed' | 'as-935';
+export type StartupShape = 'fixed' | 'ownerless';
 
 const RUNNING_SUFFIX = '_running';
 const TEN_MINUTES_MS = 10 * 60_000;
@@ -27,9 +27,9 @@ function orchestratorNameOf(script: string): AgentIdentifier {
   return name as AgentIdentifier;
 }
 
-/** The fixed startup also records its owner and a fresh heartbeat; #935's relaunch recorded neither. */
+/** The fixed startup also records its owner and a fresh heartbeat; the ownerless relaunch recorded neither. */
 function ownerFields(shape: StartupShape, owner: OrchestratorProcess): Record<string, unknown> {
-  if (shape === 'as-935') return {};
+  if (shape === 'ownerless') return {};
   return { pid: owner.pid, pidStartedAt: owner.startToken, lastSeenAt: new Date().toISOString() };
 }
 

@@ -14,7 +14,8 @@ vi.mock('../../core/heartbeat', () => ({
 import { acquireIssueSpawnLock, releaseIssueSpawnLock, readSpawnLockRecord } from '../../triggers/spawnGate';
 import { startHeartbeat, stopHeartbeat } from '../../core/heartbeat';
 import { AgentStateManager } from '../../core/agentState';
-import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from '../orchestratorLock';
+import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle, MERGE_POLL_LOCK_WAIT } from '../orchestratorLock';
+import { HEARTBEAT_STALE_THRESHOLD_MS } from '../../core/config';
 import type { WorkflowConfig } from '../workflowInit';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
@@ -127,6 +128,42 @@ describe('runWithOrchestratorLifecycle', () => {
     );
     expect(mockStart).toHaveBeenCalledWith('test-adw-id', expect.any(Number));
     expect(mockStop).toHaveBeenCalledWith(FAKE_HANDLE);
+  });
+});
+
+describe('runWithOrchestratorLifecycle with a lock wait', () => {
+  const sleep = vi.fn(async (_ms: number) => {});
+
+  it('waits out a lock that is refused twice, then runs the phases without logging a refusal', async () => {
+    mockAcquire.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValue(true);
+    const fn = vi.fn(async () => {});
+
+    const result = await runWithOrchestratorLifecycle(fakeConfig, fn, { attempts: 5, retryMs: 2_000, sleep });
+
+    expect(result).toBe(true);
+    expect(fn).toHaveBeenCalledOnce();
+    expect(mockAcquire).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(2_000);
+    expect(mockAppendLog).not.toHaveBeenCalled();
+  });
+
+  it('gives up after the last attempt, logging the refusal once and running nothing', async () => {
+    mockAcquire.mockReturnValue(false);
+    const fn = vi.fn(async () => {});
+
+    const result = await runWithOrchestratorLifecycle(fakeConfig, fn, { attempts: 3, retryMs: 2_000, sleep });
+
+    expect(result).toBe(false);
+    expect(mockAcquire).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(mockAppendLog).toHaveBeenCalledOnce();
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('waits for the merge poll for less than the heartbeat stale threshold, because no heartbeat runs until the lock is held', () => {
+    expect(MERGE_POLL_LOCK_WAIT.attempts * MERGE_POLL_LOCK_WAIT.retryMs).toBeLessThan(HEARTBEAT_STALE_THRESHOLD_MS);
   });
 });
 

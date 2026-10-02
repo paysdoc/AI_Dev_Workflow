@@ -41,6 +41,9 @@ export const s: {
   triggerFired: boolean;
   savedQueueRaw: string | null;
   savedAuthGate: string | null;
+  /** The PR review a row runs in this process, and the release that ends its lifecycle. */
+  prReview: Promise<boolean> | null;
+  releasePrReview: (() => void) | null;
 } = {
   usedAdwIds: new Set(),
   tempDirs: [],
@@ -57,6 +60,8 @@ export const s: {
   triggerFired: false,
   savedQueueRaw: null,
   savedAuthGate: null,
+  prReview: null,
+  releasePrReview: null,
 };
 
 export function resetState(): void {
@@ -75,6 +80,8 @@ export function resetState(): void {
   s.triggerFired = false;
   s.savedQueueRaw = null;
   s.savedAuthGate = null;
+  s.prReview = null;
+  s.releasePrReview = null;
 }
 
 export function requireWorkflow(adwId: string): Workflow {
