@@ -4,8 +4,8 @@ Feature: The install, chore, PR, PR-review, patch, document and depaudit surface
   Issue #965 is a slice of #935. It moves ten rows of features/regression/surfaces/ onto the
   in-process phase harness of #963; item 3 of the `## Divergence` section of ADR-0037 stays open
   until the last slice. Four rows take the title of the orchestrator that runs their phase in
-  production: rows 12 and 18 adwPatch, row 27 adwSdlc, and row 35 none, since no orchestrator
-  calls the depaudit setup.
+  production: row 12 adwPatch, row 18 adwBuild, row 27 adwPlanBuildDocument, and row 35 none,
+  since no orchestrator calls the depaudit setup.
 
   The git-mock, test/mocks/git-remote-mock.ts, stands first on PATH under the @regression hooks and
   turns push, fetch, clone, pull and ls-remote into no-ops. With MOCK_GIT_LOG set, it appends one
@@ -155,7 +155,7 @@ Feature: The install, chore, PR, PR-review, patch, document and depaudit surface
     When a PUT of the Actions secret "SOCKET_API_TOKEN" on the repository "acme/widgets" is sent to the mock GitHub API twice
     Then the mock GitHub API answered the first PUT 201 and the second 204
     And the mock GitHub API recorded 2 total API calls
-    And the mock GitHub API recorded the Actions secret "SOCKET_API_TOKEN" being set on the repository "acme/widgets"
+    And the mock GitHub API recorded the Actions secret "SOCKET_API_TOKEN" set on the repository "acme/widgets"
     And the mock GitHub API's state holds the Actions secret "SOCKET_API_TOKEN"
 
   # ── §6 BACKSTOP ─────────────────────────────────────────────────────────────────────────────

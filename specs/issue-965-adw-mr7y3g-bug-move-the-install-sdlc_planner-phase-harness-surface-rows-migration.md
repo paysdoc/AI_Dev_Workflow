@@ -23,7 +23,7 @@ Pointing the ten rows at W-S1 would not make them pass. Each fact below was chec
    - the depaudit setup calls `setSecret`. `propagateSecret` catches that throw too (`adws/phases/depauditSetup.ts:42-48`), so each secret would be skipped silently.
 5. **The mock server has no secrets route.** The route table (`test/mocks/github-api-server.ts:178-193`) and `MockServerState` (`test/mocks/types.ts:26-35`) know nothing about Actions secrets.
 6. **The harness knows two orchestrators.** `phaseConfig.ts:47-50` defines only `plan` and `build`, each with one phase. There is no chore, patch, PR-review or document orchestrator, and no install, PR, PR-review or document phase. The PR-review phases take a `PRReviewWorkflowConfig`, not a `WorkflowConfig` (`adws/phases/prReviewPhase.ts:15-21`).
-7. **A per-issue scenario pins the passing rows.** feature-960 §6 (`features/per-issue/feature-960.feature:357-367`, tagged `@adw-960 @adw-963`) asserts that every smoke and surface scenario except #963's six rows is reported pending. Once the ten rows pass, it fails unless it is amended.
+7. **A per-issue scenario pins the passing rows.** On `dev`, feature-960 §6 (`features/per-issue/feature-960.feature:357-367`, tagged `@adw-960 @adw-963`) asserts that every smoke and surface scenario except #963's six rows is reported pending. Once the ten rows pass, it fails unless it is amended. This issue's scenarios already amend it (now lines 357-377); task 12 only verifies the amendment.
 
 Expected behaviour: the ten rows drive the real phase functions in-process, under the phase name the production orchestrator passes. Row 35 is the exception: its function has no orchestrator, so it is driven through its `deps` seam. The rows run against the mock forge, the fixture worktree from G11 and the per-command Claude stub. They assert only artefacts the run produces, and each finishes in under 5 seconds. T11 reads a real record of the pushes the git mock intercepted.
 
@@ -43,8 +43,9 @@ Build what the ten rows need, and nothing more:
   - a new When runs the dependency-audit setup;
   - three new Thens.
 - **Fixtures:** six new stub manifests.
-- **The ten rows:** rewritten in place.
-- **feature-960 §6:** amended.
+- **The ten rows:** rewritten in place. Plan-scenario alignment has already written the text of task 11 into them.
+- **feature-960 §6:** amended. This issue's scenarios already carry the amendment.
+- **feature-965:** step definitions for this issue's per-issue scenarios.
 - **Vocabulary:** the registry entries.
 
 Findings that shape the design, each checked against the code:
@@ -108,6 +109,7 @@ Findings that shape the design, each checked against the code:
   - The ten rows are rewritten in place, retitled to the orchestrator that runs the phase. Row 35 is titled for the setup itself, since no orchestrator runs it.
   - Six new manifests serve the rows. `surface-build-phase.json` is reused by rows 14, 17 and 25.
   - feature-960 §6 lists the ten rows as passing.
+  - `feature-965.steps.ts` defines the per-issue phrases of `feature-965.feature`. Its §5 reuses T-S9.
   - `vocabulary.md` registers everything.
 
 ## Steps to Reproduce
@@ -167,9 +169,15 @@ Use these files to fix the bug:
 - `features/regression/step_definitions/surfaceSteps.ts`: G-S2, W-S3, T-S7, T-S8, T-S9.
 - `features/regression/step_definitions/world.ts`: `DepauditOutcome`.
 - `features/regression/step_definitions/givenSteps.ts`: G2, G3, G4 and G11. Read, not changed.
-- `features/regression/surfaces/row-12-adwMerge-prPhase-happy.feature`, `row-13-adwChore-workflowInit-planPhase-happy.feature`, `row-14-adwChore-buildPhase-happy.feature`, `row-17-adwPatch-buildPhase-happy.feature`, `row-18-adwInit-installPhase-happy.feature`, `row-24-adwPrReview-prReviewPlanPhase-happy.feature`, `row-25-adwPrReview-prReviewBuildPhase-happy.feature`, `row-26-adwPrReview-commitPushPhase-happy.feature`, `row-27-adwDocument-documentPhase-happy.feature`, `row-35-adwMerge-depauditSetup-happy.feature`: the ten rows.
+- `features/regression/surfaces/row-12-adwMerge-prPhase-happy.feature`, `row-13-adwChore-workflowInit-planPhase-happy.feature`, `row-14-adwChore-buildPhase-happy.feature`, `row-17-adwPatch-buildPhase-happy.feature`, `row-18-adwInit-installPhase-happy.feature`, `row-24-adwPrReview-prReviewPlanPhase-happy.feature`, `row-25-adwPrReview-prReviewBuildPhase-happy.feature`, `row-26-adwPrReview-commitPushPhase-happy.feature`, `row-27-adwDocument-documentPhase-happy.feature`, `row-35-adwMerge-depauditSetup-happy.feature`: the ten rows. They already hold the text of task 11.
 - `features/regression/vocabulary.md`: the registry.
-- `features/per-issue/feature-960.feature`: §6 is amended. `features/per-issue/step_definitions/feature-960.steps.ts` implements it; read, not changed.
+- `features/per-issue/feature-960.feature`: §6 already carries the amendment of task 12. `features/per-issue/step_definitions/feature-960.steps.ts` implements it; read, not changed.
+- `features/per-issue/feature-965.feature`: this issue's scenarios. Task 13 specifies its per-issue phrases. Everything else it uses is defined already or by task 9:
+  - feature-963's child-run and throwaway steps;
+  - G2, G11 and T11;
+  - `the mock GitHub API recorded {int} total API calls`;
+  - T-S9;
+  - the type-check step.
 - `features/per-issue/feature-963.feature` and `features/per-issue/step_definitions/feature-963*.ts`: must stay green. They run the whole `@surface` tier twice.
 - `features/support/cucumberChildRun.ts`: `CHILD_TIMEOUT_MS` (120 s) bounds each child run; `ScenarioOutcome.durationMs` measures each row.
 - `adws/core/phaseRunner.ts`: `runPhase`, `markPhaseCompleted` (F1), `isPhaseAlreadyCompleted`.
@@ -193,6 +201,7 @@ Use these files to fix the bug:
 - `test/fixtures/jsonl/manifests/surface-pr-review-plan-phase.json`: row 24.
 - `test/fixtures/jsonl/manifests/surface-pr-review-commit-push.json`: row 26.
 - `test/fixtures/jsonl/manifests/surface-document-phase.json`: row 27.
+- `features/per-issue/step_definitions/feature-965.steps.ts`: task 13's step definitions, plus sibling helpers if it would pass 300 lines.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -329,7 +338,7 @@ In `features/regression/support/mockForgeProviders.ts`:
   - **G-S2** `a pull request {int} for issue {int} is open on the branch {string} with a review comment to address`. It asserts `this.mockContext`, then calls `await this.mockContext.setState({ prs, comments })`, which replaces both maps:
     - `prs`: `{ [pr]: { number: pr, title: \`Issue ${issue}\`, body: \`Implements #${issue}\`, state: 'OPEN', headRefName: branch, baseRefName: 'main', url: \`https://github.com/acme/widgets/pull/${pr}\` } }`;
     - `comments`: `{ [pr]: [{ id: 1, body: 'Please rename the helper to say what it builds.', user: { login: 'reviewer' }, created_at: new Date(0).toISOString() }] }`.
-  - **W-S3** `the dependency-audit setup runs for adwId {string} on a host whose environment sets every secret it propagates`: `this.depauditOutcome = await runSurfaceDepauditSetup(this, adwId)`.
+  - **W-S3** `the dependency-audit setup runs for adwId {string} on a host whose environment sets every secret it propagates`: `this.depauditOutcome = await runSurfaceDepauditSetup(this, adwId)`. Write `host` as literal text. feature-962's `{regressionJob}` parameter type also matches it, so a Cucumber snippet offers `{regressionJob}` in its place.
   - **T-S7** `the mock GitHub API recorded a comment on pull request {int} containing the text {string}`. It asserts a recorded `POST` whose URL includes `/issues/<pr>/comments` and whose JSON `body` contains the text; reuse `commentBodyContains`. On failure, the message gives the number of comment posts recorded for that number.
   - **T-S8** `the dependency-audit setup ran the command {string} in the worktree for adwId {string}`:
     - the outcome exists and is for that adwId;
@@ -370,12 +379,18 @@ Every new manifest follows the existing surface manifests:
 - Run `! grep -l '"\.adw/state\.json"' test/fixtures/jsonl/manifests/*.json`. Nothing may list.
 
 ### 11. Rewrite the ten rows
-Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Replace each file's Feature and Scenario with exactly this. Every phrase is registered.
+Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Each file's Feature and Scenario are exactly the text below. Every phrase is registered once task 14 is done.
+
+The ten files already hold this text. Plan-scenario alignment wrote it over an earlier draft of the rows. That draft asserted more than the issue's Assert column. It also added a Given the rows do not need (the host's environment for row 35), used phrases that are not registered, and named harness entries and manifests that this plan does not build (`sdlc`, `install` under `patch`, `surface-pr-review-build-phase.json`, `surface-pr-review-commit-push-phase.json`). Check that each file matches the text below, and change nothing else.
+
+The rows whose file name names an orchestrator that does not run the phase carry a one-line description saying why they were retitled.
 
 - `row-12-adwMerge-prPhase-happy.feature` (retitled to adwPatch, F1):
   ```gherkin
   @regression @surface
   Feature: adwPatch — prPhase — happy path
+
+    adwMerge runs no PR phase. adwPatch runs it, under the phase name "pr".
 
     Scenario: patch orchestrator's PR phase runs in-process, opens the pull request for the issue and records pr_completed
       Given an issue 1012 exists in the mock issue tracker
@@ -407,7 +422,7 @@ Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Re
   @regression @surface
   Feature: adwChore — buildPhase — happy path
 
-    Scenario: chore orchestrator's build phase runs in-process over a committed plan, succeeds and posts its build stage comments
+    Scenario: chore orchestrator's build phase runs in-process under /chore over a committed plan, succeeds and posts its build stage comments
       Given an issue 1014 exists in the mock issue tracker
       And the worktree for adwId "surface-14" is initialised at branch "surface-14"
       And the worktree for adwId "surface-14" has the plan for issue 1014 committed on its branch
@@ -435,6 +450,8 @@ Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Re
   ```gherkin
   @regression @surface
   Feature: adwBuild — installPhase — happy path
+
+    No adwInit orchestrator exists. adwBuild runs the install phase under the phase name "install", as adwPatch and adwPrReview do.
 
     Scenario: build orchestrator's install phase runs in-process and records install_completed
       Given an issue 1018 exists in the mock issue tracker
@@ -489,6 +506,8 @@ Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Re
   @regression @surface
   Feature: adwPlanBuildDocument — documentPhase — happy path
 
+    adwDocument runs the document agent itself, never the document phase. adwPlanBuildDocument runs the document phase on every run, under no phase name, so the phase records no stage of its own.
+
     Scenario: plan-build-document orchestrator's document phase runs in-process, succeeds and posts its document stage comments
       Given an issue 1027 exists in the mock issue tracker
       And the worktree for adwId "surface-27" is initialised at branch "surface-27"
@@ -504,6 +523,8 @@ Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Re
   @regression @surface
   Feature: depauditSetup — happy path, run by no orchestrator
 
+    No orchestrator has called executeDepauditSetup since adwInit.tsx was deleted, so the row calls it directly, through its deps seam.
+
     Scenario: the dependency-audit setup runs depaudit setup in the worktree and sets both secrets on the repository
       Given an issue 1035 exists in the mock issue tracker
       And the worktree for adwId "surface-35" is initialised at branch "surface-35"
@@ -514,24 +535,98 @@ Keep each file name and its `@regression @surface` tags, with no `@adw-` tag. Re
   ```
   G4 stays: `buildConfigFor` requires exactly one seeded issue.
 
-### 12. Amend feature-960 §6
-- In `features/per-issue/feature-960.feature`, in the scenario at lines 357-367:
-  - add `@adw-965` to its tag line;
-  - retitle it to `The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process, which pass`;
-  - add these ten rows to its table, in row order:
-    - `row-12-adwMerge-prPhase-happy.feature`
-    - `row-13-adwChore-workflowInit-planPhase-happy.feature`
-    - `row-14-adwChore-buildPhase-happy.feature`
-    - `row-17-adwPatch-buildPhase-happy.feature`
-    - `row-18-adwInit-installPhase-happy.feature`
-    - `row-24-adwPrReview-prReviewPlanPhase-happy.feature`
-    - `row-25-adwPrReview-prReviewBuildPhase-happy.feature`
-    - `row-26-adwPrReview-commitPushPhase-happy.feature`
-    - `row-27-adwDocument-documentPhase-happy.feature`
-    - `row-35-adwMerge-depauditSetup-happy.feature`
-  - Change nothing else. The step definition reads the table, so it needs no change.
+### 12. Verify the amendment of feature-960 §6
+This issue's scenarios have already amended `features/per-issue/feature-960.feature`. Its scenario at lines 357-377:
 
-### 13. Vocabulary registry
+- carries `@adw-965` on its tag line;
+- is titled `The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process, which pass`;
+- lists these ten rows in its table, in row order among #963's six:
+  - `row-12-adwMerge-prPhase-happy.feature`
+  - `row-13-adwChore-workflowInit-planPhase-happy.feature`
+  - `row-14-adwChore-buildPhase-happy.feature`
+  - `row-17-adwPatch-buildPhase-happy.feature`
+  - `row-18-adwInit-installPhase-happy.feature`
+  - `row-24-adwPrReview-prReviewPlanPhase-happy.feature`
+  - `row-25-adwPrReview-prReviewBuildPhase-happy.feature`
+  - `row-26-adwPrReview-commitPushPhase-happy.feature`
+  - `row-27-adwDocument-documentPhase-happy.feature`
+  - `row-35-adwMerge-depauditSetup-happy.feature`
+
+Check that it does, and do not add the tag or the rows a second time. Change nothing else. The step definition reads the table, so it needs no change.
+
+### 13. Per-issue step definitions for feature-965
+`features/per-issue/feature-965.feature` holds Gherkin only, so this task specifies its step definitions.
+
+- **Where they go.** Write them in `features/per-issue/step_definitions/feature-965.steps.ts`, with sibling helpers if the file would pass 300 lines.
+- **What is reused.** Define only the phrases below. Every other phrase in the feature is defined already, or by task 9:
+  - feature-963's child-run and throwaway-scenario steps;
+  - G2, G11 and T11;
+  - `the mock GitHub API recorded {int} total API calls`;
+  - T-S9, which §5 reuses;
+  - the type-check step.
+- **State.** Keep per-scenario state per World, as `feature-963.steps.ts` does. No phrase contains `/` or parentheses.
+
+**The git-mock run directly (§2).** Read logs with `readGitMockLog`. Split an `arguments` string on single spaces and compare it with the invocation's `args`. Compare a working directory with `realpathSync(<worktree>)`: on macOS `os.tmpdir()` lies under `/var`, which links to `/private/var`.
+
+- `the git-mock's MOCK_GIT_LOG names a log file that does not exist yet`:
+  - chooses `<dir>/git.jsonl`, where `<dir>` is a fresh `mkdtemp` under `os.tmpdir()`;
+  - does not create the file;
+  - registers the directory's removal in `this.cleanup`.
+- `MOCK_GIT_LOG is unset for the git-mock`: the next runs get no `MOCK_GIT_LOG`.
+- `the git-mock is run with the arguments {string} in the worktree for adwId {string}`:
+  - runs `spawnSync('bun', ['<repo root>/test/mocks/git-remote-mock.ts', ...args], { cwd: <worktree>, env })`;
+  - `env` is `process.env`, with `MOCK_GIT_LOG` set to the chosen log or deleted, and `REAL_GIT_PATH` set to the real git, so a delegated subcommand never resolves to the mock;
+  - keeps the exit status and stdout.
+- `the git-mock exits 0`.
+- `the git-mock exits 0 and prints {string}`: the trimmed stdout equals the text.
+- `the git-mock log holds exactly one line, recording the subcommand {string}, the arguments {string} and the worktree for adwId {string} as its working directory`.
+- `the git-mock log holds these lines, in this order, each with the worktree for adwId {string} as its working directory:`, with a `subcommand | arguments` table.
+- `the git-mock wrote no line to its log`: the file is missing or empty.
+- `the origin of the worktree for adwId {string} holds no branch {string}`:
+  - G11 puts the origin at `<dirname(worktree)>/origin.git`;
+  - the real `git --git-dir <origin> show-ref --verify --quiet refs/heads/<branch>` must fail.
+
+**The mock infrastructure's log (§3).**
+
+- `the mock infrastructure is set up`:
+  - `this.mockContext = await setupMockInfrastructure()`;
+  - keeps the context's `gitLogPath`.
+- `the mock infrastructure is torn down`:
+  - `await teardownMockInfrastructure()`;
+  - the last `gitLogPath` stays known.
+- `git is run with the arguments {string} in the worktree for adwId {string}`:
+  - runs `execFileSync('git', args, { cwd: <worktree>, env: process.env })`;
+  - `git` therefore resolves through `PATH` as a phase's git does: to the git-mock under the setup or the `@regression` hooks;
+  - §4's throwaway scenarios run this step in a child Cucumber process.
+- `MOCK_GIT_LOG names the mock context's gitLogPath, which lies under the system's temporary directory`: the context's `gitLogPath` equals `process.env.MOCK_GIT_LOG`, lies under `os.tmpdir()` and lies outside `process.cwd()`.
+- The log at that path:
+  - `the log at the mock context's gitLogPath holds exactly one line, recording the subcommand {string}, the arguments {string} and the worktree for adwId {string} as its working directory`;
+  - `the log at the mock context's gitLogPath holds no line`.
+- The environment variable, which §3's outline expands to these phrases:
+  - `MOCK_GIT_LOG is unset before the mock infrastructure is set up`;
+  - `MOCK_GIT_LOG is set to {string} before the mock infrastructure is set up`;
+  - `MOCK_GIT_LOG is unset again`;
+  - `MOCK_GIT_LOG is set to {string} again`.
+- `no file is left at the gitLogPath the mock context exposed`.
+
+**The Actions-secret route (§5).**
+
+- `a PUT of the Actions secret {string} on the repository {string} is sent to the mock GitHub API twice`:
+  - sends two `fetch` PUTs over HTTP to `<this.mockContext.serverUrl>/repos/<owner>/<repo>/actions/secrets/<name>`, which is the path `gh secret set` takes;
+  - each body is `{ encrypted_value: 'surface-secret' }`;
+  - keeps both statuses.
+- `the mock GitHub API answered the first PUT 201 and the second 204`.
+- `the mock GitHub API's state holds the Actions secret {string}`: `getMockServerState().secrets[<name>]` is a record with `name`, `created_at` and `updated_at`, and no `encrypted_value`.
+
+**The hook.**
+
+- Add `After({ tags: '@adw-965 and not @regression' })`. It:
+  - runs `runCleanup(this)`, which removes G11's directories and the log directories;
+  - tears the mock infrastructure down if a step set it up;
+  - puts `MOCK_GIT_LOG` back to its value from before the scenario.
+- Without it, a failed scenario leaves its `PATH` and server to the next one, and `setupMockInfrastructure`, being idempotent, hands back that stale context.
+
+### 14. Vocabulary registry
 In `features/regression/vocabulary.md`:
 
 - **T11's semantics:** "Reads the git-mock's invocation log, `MockContext.gitLogPath`. `setupMockInfrastructure` creates it empty per setup and points `MOCK_GIT_LOG` at it. `test/mocks/git-remote-mock.ts` appends one JSONL `{ subcommand, args, cwd }` per network subcommand it intercepts (`push`, `fetch`, `clone`, `pull`, `ls-remote`). The step asserts a `push` whose args include the branch. Fails listing the recorded invocations." The assertion target becomes `git-mock invocation log`.
@@ -544,7 +639,7 @@ In `features/regression/vocabulary.md`:
   - Add rows G-S2, W-S3, T-S7, T-S8 and T-S9, with the semantics of task 9. The table keeps its five columns.
   - Add T8 and T11 to the list of reused phrases.
 
-### 14. Validation
+### 15. Validation
 - Run every command in `Validation Commands`. Fix and re-run until all pass.
 
 ## Validation Commands
@@ -571,7 +666,11 @@ Run each command from the repository root. Never run two Cucumber processes from
   ```
   If `bun -e` cannot resolve the import, save the same code to a `.ts` file under `$TMPDIR` and run it with `bunx tsx`.
 - `test -z "$(ls -d agents/surface-1[2378] agents/surface-2[4-7] agents/surface-35 2>/dev/null)"`: the rows left no state in the checkout.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-965"` exits 0. It runs the scenarios written for this issue and the amended feature-960 §6: these ten rows and #963's six pass, and every other smoke and surface scenario stays pending.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-965"` exits 0. It runs `features/per-issue/feature-965.feature` through task 13's step definitions, and the amended feature-960 §6:
+  - feature-965 §1 runs the `@surface` tier twice, and the ten rows pass in under 5 seconds on both runs;
+  - §2–§5 cover the git-mock log, the harness's log, T11 and the Actions-secret route;
+  - §6 is the type check;
+  - in feature-960 §6, these ten rows and #963's six pass, and every other smoke and surface scenario stays pending.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-963"` exits 0. It runs feature-963, including the whole `@surface` tier twice, which now holds sixteen in-process rows, and the `@adw-963` rows of features 909, 930, 959 and 960.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@pause-queue-reset-time or @pause-queue-ownership"`: the timing-sensitive pause-queue features pass and exit 0.
 - Whole suite against the baseline:
@@ -594,6 +693,6 @@ Run each command from the repository root. Never run two Cucumber processes from
 - Rows 24–26 use G-S2, the only new Given. The PR-review phases need a pull request whose number the Then steps name. No registered Given seeds an open one; G10 seeds a merged PR.
 - `postPRStageComment` and `propagateSecret` swallow a forge failure (Bug Description item 4). An unimplemented mock method would therefore not fail rows 24 and 35 at the phase; it would surface only at T-S7 and T-S9. Those steps are the guard.
 - Under the `@regression` hooks every git call from the phases goes through the git-mock wrapper, which costs one `bun` start per call. Each row stays well inside 5 seconds, as #963's rows do.
-- **Child-run time.** feature-960 §6 runs `@smoke or @surface` and feature-963 runs `@surface` twice, each bounded by `CHILD_TIMEOUT_MS` (120 s) in `features/support/cucumberChildRun.ts`. Measure the runs once sixteen rows execute for real. If one comes near the bound, report the measured duration rather than silently raising it.
+- **Child-run time.** feature-960 §6 runs `@smoke or @surface`, and feature-963 and feature-965 §1 each run `@surface` twice, each run bounded by `CHILD_TIMEOUT_MS` (120 s) in `features/support/cucumberChildRun.ts`. Measure the runs once sixteen rows execute for real. If one comes near the bound, report the measured duration rather than silently raising it.
 - ADR-0037 Divergence item 3 stays open; this is the second surface slice. The document phase refreshes `app_docs/feature-9gjajh-bdd-regression-suite.md` and `.adw/conditional_docs.md`, which still describe a mock forge with only `commentOnIssue` and `moveToStatus` and the surface rows as 02–05, 31 and 32.
 - `features/regression/surfaces/logs/` and `logs/` hold hook output that `.gitignore` covers (`**/logs/`). They are unrelated to this change.

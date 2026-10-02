@@ -1,7 +1,7 @@
 @regression @surface
-Feature: adwChore — workflowInit + planPhase — happy path
+Feature: adwChore — planPhase — happy path
 
-  Scenario: chore orchestrator's plan phase runs in-process under /chore, succeeds, classifies the issue as a chore and posts its plan stage comments
+  Scenario: chore orchestrator's plan phase runs in-process under /chore, succeeds and posts its plan stage comments
     Given an issue 1013 exists in the mock issue tracker
     And the worktree for adwId "surface-13" is initialised at branch "surface-13"
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-chore-plan-phase.json"
