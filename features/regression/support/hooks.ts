@@ -37,5 +37,6 @@ After({ tags: '@regression' }, async function (this: RegressionWorld) {
   this.harnessEnv = {};
   this.phaseOutcome = undefined;
   this.lifecycleOutcome = undefined;
+  this.depauditOutcome = undefined;
   this.cleanup = [];
 });

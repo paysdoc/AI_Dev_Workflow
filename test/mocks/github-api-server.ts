@@ -46,6 +46,7 @@ function loadDefaultState(): MockServerState {
     prs: { '1': pr },
     comments: { '1': comments },
     labels: {},
+    secrets: {},
   };
 }
 
@@ -156,6 +157,21 @@ const putPrMerge: RouteHandler = (params) => {
   return jsonResponse({ sha: 'merged', merged: true, message: 'Pull Request successfully merged' });
 };
 
+function createdAtOf(secret: unknown): string | undefined {
+  if (typeof secret !== 'object' || secret === null || !('created_at' in secret)) return undefined;
+  return typeof secret.created_at === 'string' ? secret.created_at : undefined;
+}
+
+/** Answers as GitHub does: 201 for a secret it creates, 204 for one it updates. The value is never kept. */
+const putActionsSecret: RouteHandler = (params) => {
+  const name = params['secretName'] ?? '';
+  const existing = serverState.secrets[name];
+  const now = new Date().toISOString();
+  const secret = { name, created_at: createdAtOf(existing) ?? now, updated_at: now };
+  serverState = { ...serverState, secrets: { ...serverState.secrets, [name]: secret } };
+  return existing === undefined ? jsonResponse({}, 201) : { status: 204, body: '' };
+};
+
 const postMockState: RouteHandler = (_params, body) => {
   let updates: Partial<MockServerState>;
   try {
@@ -187,6 +203,7 @@ const ROUTES: RouteDefinition[] = [
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber/reviews', handler: getPrReviews },
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber/comments', handler: getPrComments },
   { method: 'PUT',    pattern: '/repos/:owner/:repo/pulls/:prNumber/merge', handler: putPrMerge },
+  { method: 'PUT',    pattern: '/repos/:owner/:repo/actions/secrets/:secretName', handler: putActionsSecret },
   { method: 'POST',   pattern: '/_mock/state', handler: postMockState },
   { method: 'GET',    pattern: '/_mock/requests', handler: getMockRequests },
   { method: 'POST',   pattern: '/_mock/reset', handler: postMockReset },

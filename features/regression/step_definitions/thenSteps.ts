@@ -5,7 +5,8 @@ import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
-import type { RecordedRequest } from '../../../test/mocks/types.ts';
+import type { GitMockInvocation, RecordedRequest } from '../../../test/mocks/types.ts';
+import { readGitMockLog } from '../../../test/mocks/gitMockLog.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
 import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
@@ -360,15 +361,18 @@ Then(
   },
 );
 
+function describeGitInvocations(invocations: readonly GitMockInvocation[]): string {
+  if (invocations.length === 0) return 'the git-mock recorded no invocation';
+  return `the git-mock recorded: ${invocations.map(({ args }) => args.join(' ')).join('; ')}`;
+}
+
 Then(
   'the git-mock recorded a push to branch {string}',
   function (this: RegressionWorld, branch: string) {
-    // The git-remote-mock's invocation log is not readable here yet, so this step checks branch-name agreement only.
-    assert.strictEqual(
-      this.targetBranch,
-      branch,
-      `Expected push to branch "${branch}" but World.targetBranch is "${this.targetBranch}"`,
-    );
+    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
+    const invocations = readGitMockLog(this.mockContext.gitLogPath);
+    const pushed = invocations.some(({ subcommand, args }) => subcommand === 'push' && args.includes(branch));
+    assert.ok(pushed, `Expected a git push naming the branch "${branch}", but ${describeGitInvocations(invocations)}`);
   },
 );
 
