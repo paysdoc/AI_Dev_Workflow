@@ -1094,6 +1094,7 @@ test/                   # Integration test infrastructure
 │   │   ├── fixtures/
 │   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
+│   │   ├── gitRemoteMock.test.ts
 │   │   ├── manifestByCommand.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
@@ -1109,6 +1110,7 @@ test/                   # Integration test infrastructure
 │   ├── ghShadowState.ts        # Pure: the gh-shaped forge state, its normalisation from the mock server's state, and the `--json` projection
 │   ├── ghShadowWrites.ts       # Pure: the shadow's writes (comments, labels, issue and PR create, edit, close, merge and review, secrets)
 │   ├── git-remote-mock.ts      # Git remote mock
+│   ├── gitMockLog.ts           # The git mock's JSON-lines invocation log, appended by git-remote-mock.ts and read back by push-asserting steps
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing (incl. per-command lookup)
