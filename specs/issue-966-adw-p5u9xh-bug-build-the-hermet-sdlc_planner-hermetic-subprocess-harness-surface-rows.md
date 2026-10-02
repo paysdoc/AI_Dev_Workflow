@@ -492,8 +492,8 @@ Each row's feature line carries `@regression @surface @subprocess`.
 |---|---|
 | 01 | G4 1001 → W9 `adwPlan-surface-01` → T5 0, T1 `starting`, T2 1001, T3 `## :rocket: ADW Workflow Started`. Title says it records the starting stage. |
 | 10 | G4 1010 → G-SP1 `surface-10`/1010/`surface-10` → G10 1010 → W1 `merge` → T5 0, T1 `completed`, T2 1010, T3 `PR #1010 has been merged.`, T7. |
-| 11 | G4 1011 → G-SP1 → W1 `merge` → T5 0, T1 `completed`, T-SP1 1011, T2 1011, T3 `PR #1011 has been merged successfully.` |
-| 16 | G4 1016 → G3 `surface-patch-run.json` → W1 `patch` → T5 0, T1 `completed`, T8 1016. A description line says adwPatch's patch phase is only reachable through a full run. |
+| 11 | G4 1011 → G-SP1 → W1 `merge` → T5 0, T1 `completed`, T-SP1 1011, T2 1011, T3 `PR #1011 has been merged successfully.` On this path `adwMerge` only reads the `hitl` label and applies none, so the stage, the merge and the comment are everything it writes. |
+| 16 | G4 1016 → G3 `surface-patch-run.json` → W1 `patch` → T5 0, T1 `completed`, T8 1016. The scenario title says the run plans in adwPatch's own patch phase, which only a full run reaches. Like the other surface rows, the feature has no description line. |
 | 19 | G4 1019 → G-SP2 `surface-19`/`build_completed`/`acme/gadgets` → W9 `adwPlan-surface-19` → T5 1, T-SP2 `Repo identity mismatch: launch=acme/widgets persisted=acme/gadgets`, T1 `build_completed`, T14 1019. The feature title names adwPlan's init, since no adwInit orchestrator exists. |
 | 29 | G7 → W10 → T-SP3. |
 | 30 | G4 1030 → G7 → W10 → T-SP4 `sdlc`/1030 → T-SP5 `acme/widgets`. |
@@ -507,8 +507,10 @@ The scenario writer's edits in the working tree already have this shape. Keep th
 
 ### 18. Per-issue step definitions (`features/per-issue/step_definitions/feature-966*.ts`)
 - Hooks are keyed on `@adw-p5u9xh-bug-build-the-hermet`, never `@adw-966`. The flagged rows of features 909, 960, 961 and 963 carry `@adw-966` and must not run them.
-  - Before: reset the module state.
+  - Before: reset the module state, record the checkout's `git branch --list` and `git worktree list --porcelain` output, and save `agents/.auth_gate`.
   - After: remove every temp directory the scenario made, restore every `process.env` name a step set, and restore `PATH`.
+  - After also restores `agents/.auth_gate` as the Before found it. 961's Given writes a record there, and the `@webhook or @adw-961` hooks that restore it do not run for this feature.
+  - Neither the `@regression` hooks nor the 960 and 963 hooks run for this feature, yet it reuses their phrases. So the After runs `runCleanup(this)` for the removals the 963 helpers push onto `World.cleanup`. Add `or @adw-p5u9xh-bug-build-the-hermet` to 960's hook tag, since only its own After can remove its scratch directory and reset its module state.
 - Reuse, never redefine:
   - the 963 phrases: the surface runs twice, no spawn lock, no git repository left, throwaway regression scenario run, fails at the step, passes, the throwaway stub worktree, `the stub exits 0 with the result {string}`, and `the ADW TypeScript type-check passes`;
   - the 960 phrases: a throwaway feature inside/outside the hooks, run through Cucumber, reported pending, and `every smoke and surface scenario is reported pending, except these surface rows, which pass:`;
@@ -518,7 +520,7 @@ The scenario writer's edits in the working tree already have this shape. Keep th
     - `each of these surface rows passes on both runs:`: one scenario per row and run, each passed;
     - `the checkout holds no state and no logs for any of these adwIds:`: no `agents/<id>` and no `logs/<id>` under `REPO_ROOT`;
     - `no cron trigger for the repository {string} is still running`: no `agents/cron/<o>_<r>.json`, or it names a dead pid; and no live process's command line names `trigger_cron.ts --target-repo <o/r>`;
-    - `neither run gave the checkout a branch or a worktree named for any of these workflows:`: compare `git branch --list` and `git worktree list --porcelain` of the checkout, taken in the When step before and after the runs, for names containing the adwId or `issue-<N>`.
+    - `neither run added a branch or a worktree to the checkout for any of these workflows:`: compare the checkout's `git branch --list` and `git worktree list --porcelain` output as the Before hook recorded it with its output now. Fail on any added name that contains the adwId or `issue-<N>`. The When step is 963's, reused unchanged, so it cannot take the snapshot.
   - **Isolation:**
     - `the developer's HOME is a throwaway directory holding a ".claude.json" file`: a temp HOME with a known `.claude.json`, passed through the run's `env` overlay;
     - `the developer's gh, first on the PATH, records every call it receives`: a temp `gh` that appends its argv to a log, prepended to the child Cucumber's `PATH` through the overlay;
@@ -526,13 +528,17 @@ The scenario writer's edits in the working tree already have this shape. Keep th
     - `the developer's ".claude.json" file is as it was before that run`: byte-equal;
     - `the developer's HOME holds no ".adw" directory`;
     - `When Cucumber runs the scenarios tagged {string} in a child process` must pass the overlay. Extend 961's step to read an overlay from module state if one is set.
+    - That step bounds its child at 285 s (`SPAWN_TIMEOUT_MS`, 15 s under its 5-minute `STEP_TIMEOUT_MS`). The isolation scenario's child run holds the seven subprocess rows, so raise `STEP_TIMEOUT_MS` to 10 minutes, for the same reason step 17 raises `CHILD_TIMEOUT_MS`.
   - **Stand-ins**, inside a throwaway `@regression @subprocess` scenario:
     - `a throwaway @subprocess regression scenario with the steps:` → `writeThrowawayFeature(dir, true, steps, ['@subprocess'])`;
-    - `the process running the scenario has {string} set to {string}`: set `process.env` in the child Cucumber, restored by the After;
+    - `the process running the scenario has {string} set to {string}`: set `process.env` in the child Cucumber, restored through `World.cleanup`, which the child's `@regression` After runs. The throwaway scenario carries no per-issue tag, so no feature-966 hook runs in the child;
     - `a stand-in process that records its environment is run through the subprocess harness`: `runThroughHarness` with `/bin/sh -c 'env > <file>'`;
     - `the stand-in process saw {string} set to an empty string`: the recorded env has the name with value `''`, which is not the same as absent;
-    - `the stand-in process saw a COST_REPORT_CURRENCIES that names no currency`: splitting it on `,` and trimming leaves nothing;
-    - `a stand-in process that runs the command {string} and then exits 0 is run through the subprocess harness`, and its `… with a timeout of {int} seconds` variant: `/bin/sh -c '<cmd>; exit 0'` through `runThroughHarness`, default timeout 30 s;
+    - `the stand-in process saw {string} set to the Claude CLI stub`: the recorded value equals `CLAUDE_CLI_STUB` (`features/regression/support/claudeCliStub.ts`);
+    - `the stand-in process saw {string} set to a token other than {string}`: the recorded value is not empty and differs from the named token. It has the shape of a classic personal access token, `ghp_` and 36 letters or digits, as the issue's "fake but syntactically complete `GITHUB_PAT`" requires;
+    - `the stand-in process saw a COST_REPORT_CURRENCIES that gives ADW no currency to convert costs into`: apply ADW's own rule from `adws/core/config.ts`, `(value || 'EUR').split(',').map(trim).filter(Boolean)`, and expect an empty list. An empty or absent value fails, because ADW falls back to `EUR`;
+    - `a stand-in process that runs the command {string} and then exits 0 is run through the subprocess harness`: `/bin/sh -c '<cmd>; exit 0'` through `runThroughHarness`, timeout 30 s;
+    - `a stand-in process that runs the command {string} is run through the subprocess harness with a timeout of {int} seconds`: `/bin/sh -c '<cmd>'` through `runThroughHarness` with that timeout. The phrase has no "and then exits 0", as the timeout scenario writes it;
     - `the error message of that failed step contains {string}`;
     - `the error message of that failed step names each of these orchestrators:`;
     - `no process running the command {string} is left`: no `ps -eo pid=,command=` line contains it.
@@ -542,7 +548,7 @@ The scenario writer's edits in the working tree already have this shape. Keep th
     - `the stub wrote {string} into the directory {string} below that worktree, and no other file in that worktree`;
     - `a throwaway directory under the system's temporary directory, with no stub manifest in it or in any directory above it`: assert no marker exists from it up to `/`;
     - `the Claude CLI stub is run in that directory, as an agent runs it, with a prompt that opens with {string}`;
-    - `the stub exits 0` (if 963 does not define it);
+    - `the stub exits 0 with the answer it gives when no manifest programs it`: exit 0, and the result equals the text of the payload the stub picks for a `/feature` prompt when no manifest programs it. That is `test/fixtures/jsonl/payloads/plan-agent.json`'s text blocks, joined and cut at 500 characters, or `Task completed.` when they hold no text, as `claude-cli-stub.ts` builds it. 963 defines only `the stub exits 0 with the result {string}`, `the stub exits 1` and `the stub exits 1 with an error that names {string}`;
     - `the stub wrote no file into that directory`.
   - **Cucumber expressions:** `/` is alternation. A phrase with a literal `/` outside a `{string}` parameter must escape it as `\\/` or be a regular expression, as `whenSteps.ts` does for `git\\/gh`.
 - feature-960's §6 step already exists (963). Its table now lists the seven rows; the scenario writer updated it.
@@ -591,7 +597,7 @@ The scenario writer's edits in the working tree already have this shape. Keep th
 - W10 against a cron that never prints `POLL:` within 60 s fails with the output tail. After W10, T5 "exited 0" fails, because no exit code was recorded.
 - A host variable such as `GH_TOKEN`, a GitHub App variable, a Cost API, Slack or R2 variable, or `CLOUDFLARE_ACCOUNT_ID` set in the Cucumber process or the checkout's `.env` reaches the child as `''`. `COST_REPORT_CURRENCIES=EUR,GBP` reaches it as `,`.
 - `agents/.auth_gate` holding a record: the rows still pass, and the gate is restored afterwards. A checkout with a `paused_auth` workflow makes W10 refuse to start rather than rewrite it.
-- The stub run in a directory below a worktree uses the nearest marker at or above it, and writes into that directory. Run where no marker exists up to `/`, it exits 0 having written nothing.
+- The stub run in a directory below a worktree uses the nearest marker at or above it, and writes into that directory. Run where no marker exists up to `/`, it exits 0 with the answer it gives when no manifest programs it, having written nothing.
 - Two runs in a row in the same checkout pass. Neither leaves:
   - `agents/<adwId>/` or `logs/<adwId>/`;
   - an `acme/widgets` spawn lock;
