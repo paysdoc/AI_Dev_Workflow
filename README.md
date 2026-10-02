@@ -781,7 +781,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── installPhase.ts # Install phase implementation
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
-│   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/` and `.adw/` before the planner runs and rejects any change the planner makes to those off-limits paths
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
