@@ -108,7 +108,7 @@ function assertNoPausedAuthWorkflows(): void {
   const entries = existsSync(AGENTS_STATE_DIR) ? readdirSync(AGENTS_STATE_DIR, { withFileTypes: true }) : [];
   const adwIds = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
   const paused = adwIds.filter((adwId) => AgentStateManager.readTopLevelState(adwId)?.workflowStage === 'paused_auth');
-  assert.deepStrictEqual(paused, [], 'The cron probe was not run: the checkout holds workflows paused for authentication, which the cron would rewrite and resume whatever their repository');
+  assert.deepStrictEqual(paused, [], `The cron probe was not run: the checkout holds workflows paused for authentication (${paused.join(', ')}), which the cron would rewrite and resume whatever their repository`);
 }
 
 /** Once the cron has polled, waits for the launch it makes for each candidate it found, then for the launches to settle. */

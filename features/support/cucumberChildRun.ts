@@ -27,7 +27,8 @@ import { REPO_ROOT } from '../../adws/core/environment.ts';
 
 const { PASSED, FAILED, PENDING, SKIPPED, UNDEFINED, AMBIGUOUS, UNKNOWN } = TestStepResultStatus;
 
-const CHILD_TIMEOUT_MS = 120_000;
+// The surface runs include the subprocess rows, each of which runs a real process bounded at two minutes.
+const CHILD_TIMEOUT_MS = 600_000;
 const CLAUDE_CLI_STUB = resolve(REPO_ROOT, 'test/mocks/claude-cli-stub.ts');
 const BLANKED_CREDENTIALS: readonly string[] = ['GH_TOKEN', 'GITHUB_PAT'];
 const MESSAGE_LINES_SHOWN = 8;
@@ -65,6 +66,8 @@ export interface CucumberRunOptions {
   readonly directory: string;
   readonly tags: string;
   readonly featurePath?: string;
+  /** Laid over the child's environment after its credentials are blanked, for a throwaway `HOME` or a recording `gh`. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export interface CucumberRun {
@@ -73,13 +76,16 @@ export interface CucumberRun {
   readonly tempDirectory: string;
 }
 
-/** The tag is unique to the run and is never an `@adw-` tag, since some per-issue hooks keyed on those set `mockContext` too. */
-export function writeThrowawayFeature(directory: string, insideRegressionHooks: boolean, steps: string): ThrowawayFeature {
+/**
+ * The tag is unique to the run and is never an `@adw-` tag, since some per-issue hooks keyed on those set `mockContext` too.
+ * `extraTags` are added to the feature's tag line, such as `@subprocess` for a scenario that needs the subprocess harness.
+ */
+export function writeThrowawayFeature(directory: string, insideRegressionHooks: boolean, steps: string, extraTags: readonly string[] = []): ThrowawayFeature {
   const tag = `throwaway960run${randomBytes(4).toString('hex')}`;
   const stepLines = steps.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
   const path = join(directory, 'throwaway.feature');
   const lines = [
-    insideRegressionHooks ? `@${tag} @regression` : `@${tag}`,
+    [`@${tag}`, ...(insideRegressionHooks ? ['@regression'] : []), ...extraTags].join(' '),
     `Feature: Throwaway run ${tag}`,
     '',
     '  Scenario: Throwaway scenario',
@@ -91,7 +97,7 @@ export function writeThrowawayFeature(directory: string, insideRegressionHooks: 
 }
 
 /** The child must reach neither GitHub nor the Claude CLI, even if a step under test ran something it should not. */
-function childEnvironment(tempDirectory: string): NodeJS.ProcessEnv {
+function childEnvironment(tempDirectory: string, overlay: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
   // cucumber.js adds a JUnit formatter when this is set, which would overwrite the outer run's report.
   const { ADW_JUNIT_REPORT_PATH: _junitReport, ...inherited } = process.env;
   const blanked = [...BLANKED_CREDENTIALS, ...Object.keys(inherited).filter((name) => name.startsWith('GITHUB_APP_'))];
@@ -101,6 +107,7 @@ function childEnvironment(tempDirectory: string): NodeJS.ProcessEnv {
     CLAUDE_CODE_PATH: CLAUDE_CLI_STUB,
     NODE_OPTIONS: '--import tsx',
     TMPDIR: tempDirectory,
+    ...overlay,
   };
 }
 
@@ -115,7 +122,7 @@ interface ChildRun {
   readonly output: string;
 }
 
-function spawnCucumber({ directory, tags, featurePath }: CucumberRunOptions): ChildRun {
+function spawnCucumber({ directory, tags, featurePath, env }: CucumberRunOptions): ChildRun {
   const messagesPath = join(directory, 'messages.ndjson');
   const tempDirectory = join(directory, 'tmp');
   mkdirSync(tempDirectory, { recursive: true });
@@ -125,7 +132,7 @@ function spawnCucumber({ directory, tags, featurePath }: CucumberRunOptions): Ch
     ['cucumber-js', '--tags', tags, '--format', `message:${messagesPath}`, ...(featurePath ? [featurePath] : [])],
     {
       cwd: REPO_ROOT,
-      env: childEnvironment(tempDirectory),
+      env: childEnvironment(tempDirectory, env),
       encoding: 'utf-8',
       maxBuffer: 64 * 1024 * 1024,
       timeout: CHILD_TIMEOUT_MS,

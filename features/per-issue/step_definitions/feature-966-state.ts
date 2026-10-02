@@ -39,10 +39,16 @@ export interface ScenarioState {
   /** A throwaway directory under the system's temporary directory with no stub manifest above it. */
   bareDirectory: string | null;
   stubLookup: StubLookup | null;
+  /** What the child Cucumber process is given on top of the parent's environment. */
+  childEnvironment: Record<string, string>;
+  developer: { homeDirectory: string; claudeJson: string } | null;
+  developerGhLog: string | null;
+  /** The environment a stand-in process recorded, by name. */
+  standInEnvironment: ReadonlyMap<string, string> | null;
 }
 
 function freshState(): ScenarioState {
-  return { checkout: null, authGate: null, bareDirectory: null, stubLookup: null };
+  return { checkout: null, authGate: null, bareDirectory: null, stubLookup: null, childEnvironment: {}, developer: null, developerGhLog: null, standInEnvironment: null };
 }
 
 const states = new WeakMap<RegressionWorld, ScenarioState>();
