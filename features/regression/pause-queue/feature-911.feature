@@ -1,4 +1,4 @@
-@regression @adw-911 @adw-gtxas1-per-repo-ownership-o
+@regression @pause-queue-ownership
 Feature: Every pause-queue entry has exactly one owning cron — the cron whose launch identity is the entry's target repository, or the self-host cron when the entry records none — so only that cron probes for it, strikes it, evicts it or resumes it; and a resume takes the entry off the queue before it spawns the orchestrator, putting it back with one more strike if the spawn dies inside the readiness window
 
   Issue #911 is the ownership slice of `specs/prd/rate-limit-indefinite-retry.md` (section "Pause
@@ -97,8 +97,9 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       `acme/gadgets` workflow; acting on none leaves the `acme/widgets` workflow queued.
 
   Changes to existing features. #911 runs every scan through ownership and changes the resume
-  path, so the existing rows that depend on either now also carry `@adw-911`. None of their steps
-  change, and each file's description records why:
+  path, so the existing rows that depend on either now also carry `@adw-911`, or
+  `@pause-queue-ownership` in the promoted feature-910. None of their steps change, and each
+  file's description records why:
     • feature-910: the four §2 decider outlines. Consulted by the `acme/widgets` cron, the owner of
       their entry, they are AC1's "matching target repo → proceeds to the other rules" across
       #910's whole decision table. Also the end-to-end journey: its entry is the only one written
@@ -132,11 +133,13 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       `feature-910.steps.ts`): the probe stub, the saved-and-restored queue file, the fixture
       orchestrator, the `gh` shadow that replays the scanner's comments against the mock GitHub
       API, the pinned clock and the decider world. Widen the 902 hooks to
-      `(@adw-902 or @adw-907 or @adw-910 or @adw-911) and not @adw-908 and not @adw-812`, and the
-      910 hooks to `@adw-910 or @adw-911`. The flagged feature-908 and feature-812 rows keep
-      running under their own features' hooks alone; letting the 902 hooks run for them as well
-      would initialise the mock infrastructure a second time. Do not add a separate `@adw-911`
-      hook for setup those hooks already do.
+      `(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership) and not @adw-908 and not @adw-812`,
+      and the 910 hooks to
+      `@adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership`. The flagged
+      feature-908 and feature-812 rows keep running under their own features' hooks alone;
+      letting the 902 hooks run for them as well would initialise the mock infrastructure a
+      second time. Do not add a separate hook keyed on `@adw-911` or `@pause-queue-ownership` for
+      setup those hooks already do.
     • THE SCANNING CRON. Every scan and every decision here names the cron that makes it:
         – "the cron polling the target repository R" was launched with `--target-repo R`. Its
           identity is R, and it is not the self-host cron;
@@ -189,7 +192,8 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       repository R" starts a throwaway long-lived process and takes the per-issue spawn lock for
       R#N under its pid (`acquireIssueSpawnLock`). "the process holding the spawn lock … exits"
       kills it and waits until it is gone. That leaves a stale lock, which the resume path clears
-      by itself. Kill the process and remove the lock file in an `@adw-911` `After` hook.
+      by itself. Kill the process and remove the lock file in an `After` hook keyed on
+      `@adw-911 or @pause-queue-ownership`.
     • THE REAL CRON (§4). Launch `bunx tsx adws/triggers/trigger_cron.ts --target-repo R` the way
       feature-812's `spawnCron` does; factor that helper out instead of copying it:
         – a detached process group, cwd `REPO_ROOT`, a syntactically complete fake PAT, blank
@@ -205,7 +209,8 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
         – wait until the first tick has ended, at its `POLL:` line or its
           `checkAndTrigger: tick failed` line, whichever it reaches (the scan runs before both).
           Then replay the recorded comments;
-        – kill the process group and remove its registration in an `@adw-911` `After` hook.
+        – kill the process group and remove its registration in an `After` hook keyed on
+          `@adw-911 or @pause-queue-ownership`.
       Never launch a cron without `--target-repo` here. It would resolve the real checkout,
       `paysdoc/AI_Dev_Workflow`, and poll that repository's real issues.
     • SAFETY. Every repository named in this file is fictional. `acme/adw-host` stands in for the
@@ -245,7 +250,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   # ── §1 THE DECIDER'S OWNERSHIP RULE ────────────────────────────────────────────────────────────
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario Outline: The cron that owns an entry reaches the same decision #910 made without ownership — the reset gate, the probe verdict and the strike budget still decide
     Given a pause-queue entry recorded for the target repository "acme/widgets", with <reset> and <failures> probe failures
     And the rate-limit probe classification is <probe>
@@ -262,7 +266,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       | no reset time                          | 2        | "unknown"                                                                | evict             |
       | no reset time                          | 2        | "limited" with a "five_hour" limit that resets at "2026-09-22T17:50:00Z" | refresh_reset     |
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario Outline: A cron that does not own an entry gets skip_not_owner before any other rule — before the entry's reset time, on a clear probe, one strike short of eviction, and on a limited probe that reports a new reset time
     Given a pause-queue entry recorded for the target repository "acme/widgets", with <reset> and 2 probe failures
     And the rate-limit probe classification is <probe>
@@ -279,7 +282,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       | the self-host cron on a host checked out at "acme/adw-host" | no reset time                          | "clear"                                                                  | resume                     |
       | the self-host cron on a host checked out at "acme/adw-host" | no reset time                          | "failed"                                                                 | evict                      |
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario Outline: An entry that records no target repository belongs to the self-host cron, which decides it by the other rules, and to no cron launched with --target-repo
     Given a pause-queue entry recorded for no target repository, with <reset> and <failures> probe failures
     And the rate-limit probe classification is "<verdict>"
@@ -295,7 +297,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
       | the cron polling the target repository "acme/widgets"       | no reset time                          | clear   | 0        | skip_not_owner    |
       | the cron polling the target repository "acme/widgets"       | no reset time                          | failed  | 2        | skip_not_owner    |
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario Outline: The self-host cron owns an entry recorded for its own checkout's repository — the target every workflow it spawns is given — and no entry recorded for another repository
     Given a pause-queue entry recorded for the target repository "<entry target>", with no reset time and 0 probe failures
     And the rate-limit probe classification is "clear"
@@ -309,7 +310,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   # ── §2 EACH CRON ACTS ONLY ON ITS OWN ENTRIES ──────────────────────────────────────────────────
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A confirmed failure probed by one cron strikes only that cron's own workflow — the other cron's workflow, one strike short of eviction, keeps its strikes and its last-probe time and gets no comment until its owner's scan evicts it
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 874 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -333,7 +333,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     And the mock GitHub API recorded a comment on issue 874
     And the pause queue entry for issue 877 records 1 probe failure
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: On a clear probe each cron relaunches only its own paused workflow, into its own repository — the workflow another cron owns stays queued, unlaunched and uncommented until its owner scans
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 875 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -358,7 +357,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     And the pause queue no longer holds the workflow for issue 875
     And the paused workflow for issue 876 has been relaunched 1 time
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A limited probe taken by one cron moves only that cron's own entry to the reported reset time — the other cron's entry keeps its reset time and its last-probe time
     Given the mock GitHub API is configured to accept issue comments
     And the cron host's clock reads "2026-09-22T12:51:00Z"
@@ -381,7 +379,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     Then the pause queue entry for issue 871 records the reset time "2026-09-22T17:50:00Z"
     And the pause queue entry for issue 871 has not gained a probe failure
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A cron whose own entries are all still before their reset times runs no probe, even while another cron's entry is due, and leaves that entry to its owner
     Given the cron host's clock reads "2026-09-25T09:00:00Z"
     And a workflow for issue 874 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -405,7 +402,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     And the pause queue entry for issue 874 has not gained a probe failure
     And the pause queue entry for issue 874 records the reset time "2026-09-28T07:00:00Z"
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: Replaying 2026-09-22 — two crons on one host scan #840's entry back to back, and only the owning cron's scans spend its three-strike budget
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 840 is paused in the rate-limit queue for the target repository "acme/adw-host"
@@ -423,7 +419,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     Then the pause queue no longer holds the workflow for issue 840
     And the mock GitHub API recorded a comment on issue 840
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A workflow paused with no target repository is struck only by the self-host cron — a cron launched with --target-repo leaves it alone
     Given a workflow for issue 878 is paused in the rate-limit queue with no target repository
     And the paused workflow for issue 878 was last probed at "2026-09-25T08:40:00Z"
@@ -442,7 +437,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   # ── §3 THE ENTRY LEAVES THE QUEUE BEFORE THE ORCHESTRATOR IS SPAWNED ───────────────────────────
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A resume takes the workflow off the queue before it spawns the orchestrator — at the moment of the spawn the queue no longer holds the entry
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 871 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -459,7 +453,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     And the pause queue no longer holds the workflow for issue 871
     And the resumed comment is recorded on issue 871 in the target repository "acme/widgets"
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A second scan that starts while a relaunch is still inside its readiness window finds no entry to act on, so the workflow is relaunched exactly once
     Given a workflow for issue 872 is paused in the rate-limit queue for the target repository "acme/widgets"
     And the Claude CLI answers the rate-limit probe with exit code 0 and stdout:
@@ -472,7 +465,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     Then the paused workflow for issue 872 has been relaunched 1 time
     And the pause queue no longer holds the workflow for issue 872
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A relaunch whose orchestrator dies inside the readiness window puts the workflow back on the queue with one more strike and everything else it recorded, posts no resumed comment, and the owning cron's next clear scan relaunches it
     Given the mock GitHub API is configured to accept issue comments
     And the cron host's clock reads "2026-09-22T12:51:00Z"
@@ -499,7 +491,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
     And the pause queue no longer holds the workflow for issue 873
     And the resumed comment is recorded on issue 873 in the target repository "acme/widgets"
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A resume that finds the issue's spawn lock held by a live process leaves the workflow queued without a strike, and relaunches it once that process is gone
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 874 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -522,7 +513,6 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   # ── §4 THE CRON TRIGGER HANDS THE SCANNER ITS OWN IDENTITY ─────────────────────────────────────
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: A cron trigger process launched with --target-repo hands its pause-queue scanner that identity — its first probing tick relaunches its own paused workflow and leaves another repository's alone
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 871 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -540,11 +530,9 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   # ── §5 BACKSTOPS ───────────────────────────────────────────────────────────────────────────────
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: TypeScript type-check passes with the scanning cron's identity threaded from the cron trigger through the scanner into the decider
     Then the ADW TypeScript type-check passes
 
-  @adw-911 @adw-gtxas1-per-repo-ownership-o
   Scenario: The git/gh guard stays green with the cron handing its launch identity to the pause-queue scanner — no new context is constructed
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
