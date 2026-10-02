@@ -8,10 +8,14 @@
  * Environment variables:
  *   REAL_GIT_PATH — absolute path to the real git binary (required when this
  *                   script is itself named "git" on PATH, to avoid recursion).
+ *   MOCK_GIT_LOG  — path of a JSONL log. When set, one { subcommand, args, cwd }
+ *                   line is appended for each intercepted subcommand; delegated
+ *                   ones are not logged (see gitMockLog.ts).
  */
 
 import { spawnSync } from 'child_process';
 import { execSync } from 'child_process';
+import { appendGitMockInvocation } from './gitMockLog.ts';
 
 const REMOTE_COMMANDS = new Set(['push', 'fetch', 'clone', 'pull', 'ls-remote']);
 
@@ -51,11 +55,23 @@ function getSubcommand(args: string[]): string {
   return '';
 }
 
+/** Best-effort: a log the harness cannot write must never change what the phase under test sees from git. */
+function logInvocation(subcommand: string, args: string[]): void {
+  const logPath = process.env['MOCK_GIT_LOG'];
+  if (!logPath) return;
+  try {
+    appendGitMockInvocation(logPath, { subcommand, args, cwd: process.cwd() });
+  } catch {
+    // Never abort git for a logging failure.
+  }
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const subcommand = getSubcommand(args);
 
   if (REMOTE_COMMANDS.has(subcommand)) {
+    logInvocation(subcommand, args);
     const mockOutput = MOCK_OUTPUTS[subcommand] ?? '\n';
     process.stdout.write(mockOutput);
     process.exit(0);

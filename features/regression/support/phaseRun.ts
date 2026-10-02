@@ -9,14 +9,16 @@ import { copyFileSync } from 'fs';
 import { join } from 'path';
 
 import type { PhaseCostRecord } from '../../../adws/cost/index.ts';
+import { OrchestratorId } from '../../../adws/core/index.ts';
 import { CostTracker, runPhase } from '../../../adws/core/phaseRunner.ts';
 import { readSpawnLockRecord } from '../../../adws/triggers/spawnGate.ts';
+import { executeDepauditSetup } from '../../../adws/phases/depauditSetup.ts';
 import { runWithOrchestratorLifecycle } from '../../../adws/phases/orchestratorLock.ts';
 import { resolveWorkflowRepoId } from '../../../adws/phases/workflowRepoIdentity.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import type { LifecycleOutcome, PhaseOutcome, RegressionWorld } from '../step_definitions/world.ts';
+import type { DepauditOutcome, LifecycleOutcome, PhaseOutcome, RecordedExec, RegressionWorld } from '../step_definitions/world.ts';
 import { pointClaudeCodeAtStub } from './claudeCliStub.ts';
-import { buildPhaseConfig, phaseDefinition } from './phaseConfig.ts';
+import { buildConfigFor, buildPhaseConfig, phaseDefinition } from './phaseConfig.ts';
 
 export { SURFACE_REPO } from './mockForgeProviders.ts';
 export { buildPhaseConfig } from './phaseConfig.ts';
@@ -88,4 +90,28 @@ export async function runSurfaceLifecycle(world: RegressionWorld, adwId: string,
     }),
   );
   return { adwId, orchestrator, issueNumber: config.issueNumber, returned: value, ran, lockHolderPid, error, exitCode };
+}
+
+/** No orchestrator runs the setup. `init-orchestrator` is the id the deleted adwInit ran it under. */
+const DEPAUDIT_SETUP_LAUNCH = { id: OrchestratorId.Init, issueType: '/adw_init' } as const;
+
+/** The setup returns a `DepauditSetupResult`, not a `PhaseResult`, and runs no agent, so it goes through its `deps` seam rather than `runPhase`. */
+export async function runSurfaceDepauditSetup(world: RegressionWorld, adwId: string): Promise<DepauditOutcome> {
+  const config = buildConfigFor(world, adwId, DEPAUDIT_SETUP_LAUNCH);
+  const execCalls: RecordedExec[] = [];
+
+  try {
+    const result = await executeDepauditSetup(config, {
+      // Runs nothing: the real depaudit binary would reach the network.
+      execWithRetry: (command, options) => {
+        execCalls.push({ command, cwd: String(options?.cwd ?? '') });
+        return '';
+      },
+      getEnv: (name) => `surface-${name.toLowerCase()}`,
+      codeHost: config.repoContext?.codeHost,
+    });
+    return { adwId, execCalls, result };
+  } catch (error) {
+    return { adwId, execCalls, error };
+  }
 }

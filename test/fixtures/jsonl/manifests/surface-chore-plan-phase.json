@@ -1,0 +1,24 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface chore-plan-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/chore": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The chore plan for issue 1013 was written.\\n\"}]\n"
+        },
+        {
+          "path": "specs/issue-1013-adw-surface-13-sdlc_planner-surface-chore-plan.md",
+          "contents": "# Chore Plan: surface chore plan\n\n## Steps\n1. Add the surface chore-plan stub\n2. Run the plan phase in-process under /chore\n3. Commit the plan\n"
+        }
+      ]
+    }
+  }
+}

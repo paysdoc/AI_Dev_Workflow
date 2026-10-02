@@ -1,0 +1,25 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface document-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"Documentation written.\\napp_docs/feature-surface-27-surface-document.md\\n\"}]\n"
+        },
+        {
+          "path": "app_docs/feature-surface-27-surface-document.md",
+          "contents": "# Feature: surface document phase\n\nThe document phase of the plan-build-document orchestrator wrote this page.\n"
+        }
+      ]
+    }
+  }
+}

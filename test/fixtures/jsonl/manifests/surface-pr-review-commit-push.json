@@ -1,0 +1,25 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface pr-review-commit-push stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/commit": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"pr-review-orchestrator: feat: address the review comment\\n\"}]\n"
+        }
+      ],
+      "commits": [
+        {
+          "subject": "pr-review-orchestrator: feat: address the review comment"
+        }
+      ]
+    }
+  }
+}

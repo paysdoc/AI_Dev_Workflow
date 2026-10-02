@@ -354,8 +354,8 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then @adw-963
-  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the six surface rows that run in-process, which pass
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-965
+  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
     Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
       | row                                                    |
@@ -363,8 +363,18 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
       | row-03-adwPlan-planPhase-error-stub-failure.feature    |
       | row-04-adwBuild-buildPhase-happy.feature               |
       | row-05-adwBuild-buildPhase-edge-missing-lock.feature   |
+      | row-12-adwMerge-prPhase-happy.feature                  |
+      | row-13-adwChore-workflowInit-planPhase-happy.feature   |
+      | row-14-adwChore-buildPhase-happy.feature               |
+      | row-17-adwPatch-buildPhase-happy.feature               |
+      | row-18-adwInit-installPhase-happy.feature              |
+      | row-24-adwPrReview-prReviewPlanPhase-happy.feature     |
+      | row-25-adwPrReview-prReviewBuildPhase-happy.feature    |
+      | row-26-adwPrReview-commitPushPhase-happy.feature       |
+      | row-27-adwDocument-documentPhase-happy.feature         |
       | row-31-adwPlan-orchestratorLock-acquired-happy.feature |
       | row-32-adwBuild-orchestratorLock-re-entry-edge.feature |
+      | row-35-adwMerge-depauditSetup-happy.feature            |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

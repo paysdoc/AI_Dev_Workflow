@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { dispatchMockRequest, getMockServerState, getRecordedRequests, resetMockServer, startMockServer, stopMockServer } from '../github-api-server.ts';
 
 const COMMENTS_URL = '/repos/acme/widgets/issues/7/comments';
+const SECRET_URL = '/repos/acme/widgets/actions/secrets/SOCKET_API_TOKEN';
 
 beforeEach(() => resetMockServer());
 afterEach(() => stopMockServer());
@@ -82,5 +83,66 @@ describe('the HTTP listener', () => {
     expect(response.status).toBe(201);
     expect(getMockServerState().comments['7']).toMatchObject([{ body: 'over http' }]);
     expect(getRecordedRequests()).toMatchObject([{ method: 'POST', url: COMMENTS_URL }]);
+  });
+});
+
+describe('the Actions-secrets route', () => {
+  afterEach(() => vi.useRealTimers());
+
+  function secretNamed(name: string): Record<string, unknown> {
+    const stored = getMockServerState().secrets[name];
+    if (typeof stored !== 'object' || stored === null) throw new Error(`The mock server holds no secret named ${name}`);
+    return { ...stored };
+  }
+
+  it('answers 201 for a secret it creates and records the request', () => {
+    const body = JSON.stringify({ encrypted_value: 'sealed' });
+
+    const response = dispatchMockRequest('PUT', SECRET_URL, body);
+
+    expect(response.status).toBe(201);
+    expect(getRecordedRequests()).toMatchObject([{ method: 'PUT', url: SECRET_URL, body }]);
+  });
+
+  it("keeps the secret's name and timestamps in the state, and never its value", () => {
+    dispatchMockRequest('PUT', SECRET_URL, JSON.stringify({ encrypted_value: 'sealed' }));
+
+    const stored = secretNamed('SOCKET_API_TOKEN');
+
+    expect(stored).toMatchObject({ name: 'SOCKET_API_TOKEN', created_at: expect.any(String), updated_at: expect.any(String) });
+    expect(JSON.stringify(getMockServerState().secrets)).not.toContain('sealed');
+  });
+
+  it('answers 204 with no body for a secret that exists, keeps its creation time and moves its update time', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    dispatchMockRequest('PUT', SECRET_URL, '{}');
+
+    vi.setSystemTime(new Date('2026-01-02T00:00:00.000Z'));
+    const second = dispatchMockRequest('PUT', SECRET_URL, '{}');
+
+    expect(second).toEqual({ status: 204, body: '' });
+    expect(secretNamed('SOCKET_API_TOKEN')).toMatchObject({
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+    });
+  });
+
+  it('keeps each secret under its own name', () => {
+    dispatchMockRequest('PUT', SECRET_URL, '{}');
+
+    const other = dispatchMockRequest('PUT', '/repos/acme/widgets/actions/secrets/SLACK_WEBHOOK_URL', '{}');
+
+    expect(other.status).toBe(201);
+    expect(Object.keys(getMockServerState().secrets).sort()).toEqual(['SLACK_WEBHOOK_URL', 'SOCKET_API_TOKEN']);
+  });
+
+  it('holds no secret by default, and none after a reset', () => {
+    expect(getMockServerState().secrets).toEqual({});
+    dispatchMockRequest('PUT', SECRET_URL, '{}');
+
+    resetMockServer();
+
+    expect(getMockServerState().secrets).toEqual({});
   });
 });
