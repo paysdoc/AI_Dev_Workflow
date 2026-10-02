@@ -110,6 +110,21 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
   as the guard that the enqueue branch still records the limit facts. feature-910's description
   records the amendment.
 
+  FLAGGED BY #959 (an orchestrator that dies in `starting` strands its issue). Three §3 rows also
+  carry `@adw-959`. #959 changes the takeover handler, the spawn lock and possibly the
+  hung-orchestrator detector, and these rows guard what must not move:
+    • the detector outline: a live orchestrator whose heartbeat is fresh is never reported;
+    • the candidate row. This harness runs the orchestrator and the candidate in one process, so
+      the spawn lock is recorded under the candidate's own pid while the orchestrator lives. #959
+      stops a lock recorded under the cron's own pid from counting as a live holder only when the
+      issue's orchestrator is dead, so every candidate here must still defer;
+    • the death row: an orchestrator that died in a running stage is still taken over under its
+      adwId.
+  The rows themselves do not change. If #959 records the orchestrator's liveness somewhere this
+  harness does not yet write, mirror it in "an orchestrator for issue N … is running under adwId
+  X" rather than change a row. The rest of #959's behaviour is specified in
+  `features/per-issue/feature-959.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the decision the pure wait policy returns for given facts and a given clock;
     • the attempts the phase runner makes and the waits it asks of its injected clock, both
@@ -377,7 +392,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §3 STILL A LIVE, RUNNING ORCHESTRATOR ──────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario Outline: While it waits, a workflow whose phase runs under its name stays in that phase's running stage and keeps its heartbeat, so the hung-orchestrator detector never mistakes it for a wedged process
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 871 in the target repository "acme/widgets" is running under adwId "wait912-871"
@@ -415,7 +430,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the state file for adwId "wait912-872" records workflowStage "starting"
     And the pause queue does not hold adwId "wait912-872"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario: The waiting orchestrator keeps the issue's spawn lock, so every candidate that arrives at the issue during a wait defers to it instead of starting a competing run
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 874 in the target repository "acme/widgets" is running under adwId "wait912-874"
@@ -430,7 +445,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the "build" phase ran 3 times
     And the state file for adwId "wait912-874" records workflowStage "build_completed"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario: An orchestrator that dies while it waits leaves its workflow in the running stage, so the next candidate at the issue takes it over under its adwId instead of leaving it stranded or starting it afresh
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 876 in the target repository "acme/widgets" is running under adwId "wait912-876"

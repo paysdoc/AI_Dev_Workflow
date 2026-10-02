@@ -57,7 +57,7 @@ function isExecutableFile(file: string): boolean {
 }
 
 /** The tool the cucumber process itself runs under, or else the first one on its PATH. */
-function realExecutable(name: string): string {
+export function realExecutable(name: string): string {
   if (path.basename(process.execPath) === name) return process.execPath;
   const candidates = (process.env.PATH ?? '').split(path.delimiter).filter(dir => dir !== '').map(dir => path.join(dir, name));
   const found = candidates.find(isExecutableFile);
@@ -65,7 +65,7 @@ function realExecutable(name: string): string {
   return found;
 }
 
-function makeDirectory(root: string, name: string): string {
+export function makeDirectory(root: string, name: string): string {
   const directory = path.join(root, name);
   fs.mkdirSync(directory);
   return directory;
@@ -93,11 +93,16 @@ function layOut(root: string): Layout {
   };
 }
 
+/** Every file `git ls-files --cached --others --exclude-standard` lists in the ADW checkout, as it stands in its working tree. */
+export function copyWorkingTree(repoRoot: string, checkoutDir: string): void {
+  listWorkingTree(repoRoot).forEach(file => copyEntry(repoRoot, checkoutDir, file));
+}
+
 /** Without the ADW checkout's `node_modules` the run would find no tsx, and `bunx` would download it. */
 function fillCheckout(repoRoot: string, checkoutDir: string): void {
   const modules = path.join(repoRoot, 'node_modules');
   if (!fs.existsSync(modules)) throw new Error(`The scenarios need the installed dependencies of the ADW checkout: ${modules} does not exist`);
-  listWorkingTree(repoRoot).forEach(file => copyEntry(repoRoot, checkoutDir, file));
+  copyWorkingTree(repoRoot, checkoutDir);
   fs.symlinkSync(modules, path.join(checkoutDir, 'node_modules'));
 }
 

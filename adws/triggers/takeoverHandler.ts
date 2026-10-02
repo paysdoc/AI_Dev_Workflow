@@ -2,7 +2,9 @@
  * takeoverHandler — single decision tree for every candidate arriving at an issue.
  *
  * Decision tree (evaluated in order):
- *  1. Lock held by live holder          → defer_live_holder
+ *  1. Lock held by a live holder        → defer_live_holder; if the holder is this process and the
+ *                                         issue's orchestrator is dead (abandoned, phase_timeout or
+ *                                         active, no live owner recorded) the lock is reclaimed
  *  2. No adwId / no state file          → spawn_fresh
  *  3. completed / discarded             → skip_terminal (lock released)
  *  4. paused                            → skip_terminal with terminalStage "paused"
@@ -13,21 +15,23 @@
  *                                         probe worktree → reuse-in-place if healthy,
  *                                         else reset-from-remote → reconcile → take_over_adwId;
  *                                         at cap → escalate_human_gated
- *  7. *_running / starting / resuming,
+ *  7. starting, live recorded owner     → defer_live_holder (lock released)
+ *  8. starting, dead or unrecorded owner → probe worktree → reuse-in-place if healthy,
+ *                                         else reset-from-remote → reconcile → take_over_adwId
+ *  9. *_running / resuming,
  *     live PID not holding lock         → SIGKILL → worktreeReset → remoteReconcile → take_over_adwId
- *  8. *_running / starting / resuming,
+ * 10. *_running / resuming,
  *     dead PID                          → worktreeReset → remoteReconcile → take_over_adwId
- *  9. any other stage (defensive)       → spawn_fresh
+ * 11. any other stage (defensive)       → spawn_fresh
+ *
+ * Any throw after the lock is acquired releases it before propagating.
  *
  * All I/O boundaries are injected via TakeoverDeps so every branch is unit-testable.
  */
 
-import {
-  acquireIssueSpawnLock,
-  releaseIssueSpawnLock,
-  readSpawnLockRecord,
-} from './spawnGate';
-import { isProcessLive } from '../core/processLiveness';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock, readSpawnLockRecord } from './spawnGate';
+import { isProcessLive, isRecordedOwnerLive } from '../core/processLiveness';
+import { log } from '../core/logger';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote, buildDefaultReconcileDeps, type ReconcileDeps } from '../core/remoteReconcile';
 import type { LaunchBoundary } from '../core';
@@ -112,7 +116,6 @@ export function buildDefaultTakeoverDeps(boundary: LaunchBoundary, reconcileDeps
   };
 }
 
-
 function takeOverWithDerivedStage(
   d: TakeoverDeps,
   adwId: string,
@@ -138,8 +141,8 @@ function recoverViaResetFromRemote(
   return takeOverWithDerivedStage(d, adwId);
 }
 
-// For abandoned + phase_timeout: probe the worktree and reuse if healthy, else reset.
-// The orchestrator is already dead for both stages; the liveOwner signal is the
+// For abandoned, phase_timeout and a starting run whose owner is dead: probe the worktree and reuse
+// if healthy, else reset. The orchestrator is already dead in all three; the liveOwner signal is the
 // confirmed-dead safety net so a surprise-live owner forces a reset, never a reuse.
 function recoverViaResumeInPlaceOrReset(
   d: TakeoverDeps,
@@ -160,33 +163,78 @@ function recoverViaResumeInPlaceOrReset(
   return takeOverWithDerivedStage(d, adwId);
 }
 
-export function evaluateCandidate(
+function recoverStartingStage(
+  d: TakeoverDeps,
   input: EvaluateCandidateInput,
-  deps?: TakeoverDeps,
+  adwId: string,
+  state: AgentState,
+  releaseLock: () => void,
 ): CandidateDecision {
-  const d = deps ?? buildDefaultTakeoverDeps(input.boundary);
+  // A live owner that does not hold the lock has not taken its lifecycle lock yet, which comes right
+  // after initializeWorkflow: a slow startup, not a split brain. Never kill it or reset its worktree.
+  if (isRecordedOwnerLive(state, d.isProcessLive)) {
+    releaseLock();
+    return { kind: 'defer_live_holder', holderPid: state.pid ?? 0 };
+  }
+  // Only a named phase writes a *_running stage, so a dead starting run may have run unnamed phases
+  // and left partial work: its worktree goes through the same reuse gate as phase_timeout and abandoned.
+  return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
+}
+
+function recoverActiveStage(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+  state: AgentState,
+  releaseLock: () => void,
+): CandidateDecision {
+  if (state.workflowStage === 'starting') return recoverStartingStage(d, input, adwId, state, releaseLock);
+
+  // A live PID not holding the lock (we acquired it) is killed; the active path always resets, never reuses.
+  if (state.pid !== undefined && isRecordedOwnerLive(state, d.isProcessLive)) {
+    try {
+      d.killProcess(state.pid);
+    } catch {
+      // ESRCH: process exited between liveness check and kill — proceed to takeover
+    }
+  }
+  return recoverViaResetFromRemote(d, input, adwId, state);
+}
+
+// A lock recorded under this process's pid for a workflow the handler takes over (its orchestrator is
+// gone unless an owner is recorded alive) can only be one this process failed to release: in-process
+// holds that span an await only follow spawn_fresh, which these stages never produce, and an
+// orchestrator spawned under such a hold records its own live pid at `starting`.
+function reclaimOwnLeakedLock(d: TakeoverDeps, input: EvaluateCandidateInput): boolean {
   const { issueNumber, boundary } = input;
   const repoInfo = boundary.repoId;
-
-  const acquired = d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid);
-  if (!acquired) {
-    const holder = d.readSpawnLockRecord(repoInfo, issueNumber);
-    return { kind: 'defer_live_holder', holderPid: holder?.pid ?? 0 };
-  }
-
-  // We hold the lock from here. Release it on any non-takeover exit.
-  const releaseLock = () => d.releaseIssueSpawnLock(repoInfo, issueNumber);
+  if (d.readSpawnLockRecord(repoInfo, issueNumber)?.pid !== process.pid) return false;
 
   const adwId = d.resolveAdwId(issueNumber, repoInfo);
-  if (adwId === null) {
-    // No prior ADW work — spawn fresh; lock stays held for caller's spawn.
-    return { kind: 'spawn_fresh' };
-  }
+  if (adwId === null) return false;
+  const state = d.readTopLevelState(adwId);
+  if (state === null) return false;
+
+  const stage = state.workflowStage ?? '';
+  const takenOver = stage === 'abandoned' || stage === 'phase_timeout' || classifyStageString(stage) === 'active';
+  if (!takenOver || isRecordedOwnerLive(state, d.isProcessLive)) return false;
+
+  log(`Issue #${issueNumber}: spawn lock was left behind by this process (stage "${stage}", no live orchestrator), reclaiming`, 'warn');
+  d.releaseIssueSpawnLock(repoInfo, issueNumber);
+  return d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid);
+}
+
+function decideHoldingLock(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  releaseLock: () => void,
+): CandidateDecision {
+  const adwId = d.resolveAdwId(input.issueNumber, input.boundary.repoId);
+  // No prior ADW work — spawn fresh; lock stays held for caller's spawn.
+  if (adwId === null) return { kind: 'spawn_fresh' };
 
   const state = d.readTopLevelState(adwId);
-  if (state === null) {
-    return { kind: 'spawn_fresh' };
-  }
+  if (state === null) return { kind: 'spawn_fresh' };
 
   const stage = state.workflowStage ?? '';
   const cls = classifyStageString(stage);
@@ -200,9 +248,7 @@ export function evaluateCandidate(
     };
   }
 
-  if (cls === 'retriable') {
-    return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
-  }
+  if (cls === 'retriable') return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
 
   if (stage === 'phase_timeout') {
     const attempts = state.resumeAttempts ?? 0;
@@ -219,21 +265,32 @@ export function evaluateCandidate(
     return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 
-  if (cls === 'active') {
-    const pid = state.pid;
-    const pidStartedAt = state.pidStartedAt ?? '';
-
-    if (pid !== undefined && pidStartedAt && d.isProcessLive(pid, pidStartedAt)) {
-      // Live PID not holding the lock (we acquired it) — send SIGKILL.
-      try {
-        d.killProcess(pid);
-      } catch {
-        // ESRCH: process exited between liveness check and kill — proceed to takeover
-      }
-    }
-    // Dead PID (or post-SIGKILL): proceed with reset-from-remote (active path is out of scope for reuse).
-    return recoverViaResetFromRemote(d, input, adwId, state);
-  }
+  if (cls === 'active') return recoverActiveStage(d, input, adwId, state, releaseLock);
 
   return { kind: 'spawn_fresh' };
+}
+
+export function evaluateCandidate(
+  input: EvaluateCandidateInput,
+  deps?: TakeoverDeps,
+): CandidateDecision {
+  const d = deps ?? buildDefaultTakeoverDeps(input.boundary);
+  const { issueNumber, boundary } = input;
+  const repoInfo = boundary.repoId;
+
+  const acquired = d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid) || reclaimOwnLeakedLock(d, input);
+  if (!acquired) {
+    const holder = d.readSpawnLockRecord(repoInfo, issueNumber);
+    return { kind: 'defer_live_holder', holderPid: holder?.pid ?? 0 };
+  }
+
+  // We hold the lock from here. Release it on any non-takeover exit, and on a throw: a lock left
+  // under this process's pid reads as a live holder for as long as a long-lived caller, the cron, runs.
+  const releaseLock = () => d.releaseIssueSpawnLock(repoInfo, issueNumber);
+  try {
+    return decideHoldingLock(d, input, releaseLock);
+  } catch (error) {
+    releaseLock();
+    throw error;
+  }
 }

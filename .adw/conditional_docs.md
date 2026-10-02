@@ -41,6 +41,7 @@
     - adws/phases/__tests__/workflowCompletion.test.ts
     - adws/phases/upgradeGate.ts
     - adws/phases/orchestratorLock.ts
+    - adws/phases/startupFailureLog.ts
     - adws/phases/progressGate.ts
     - adws/phases/branchNameResolution.ts
     - adws/phases/authPause.ts
@@ -54,6 +55,7 @@
     - When working on workflow initialization, completion, upgrade gating, orchestrator locking, progress gating, branch name resolution, auth pause, depaudit setup, Gherkin freeze, or phase comment helpers in `adws/phases/`
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
+    - When an orchestrator dies during startup or is refused the spawn lock and the reason must appear in its `execution.log` (`recordStartupFailure`, `startupFailureLog.ts`)
   - Decisions:
     - 0002
     - 0011
@@ -164,6 +166,7 @@
     - test/Dockerfile
     - test/docker-run.sh
     - features/regression/**
+    - adws/__tests__/regressionWorkflow.test.ts
   - Conditions:
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
     - When working on the artefact-only contract of the shared Then/When steps (T1 state-file lookup, T5 `World.lastExitCode`, W1/W10 staying pending) or the rot-detection rubric forbidding source-reading steps
@@ -171,7 +174,9 @@
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
     - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
-    - When working on the Docker-based hermetic regression-suite runner (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
+    - When working on the Docker-based hermetic regression-suite runner, which runs the suite in a writable `cp -R` copy of the read-only `/workspace` mount (`test/Dockerfile`, `test/docker-run.sh`, `bun run test:docker`)
+    - When working on the daily regression workflow (`.github/workflows/regression.yml`): its `host` and `docker` jobs, their 30-minute timeouts, the `runtime` input, Cucumber's exit status failing the job, or its contract test (`adws/__tests__/regressionWorkflow.test.ts`)
+    - When troubleshooting `EROFS` read-only file system errors in the Docker leg, or a run leaving `tsconfig.tsbuildinfo` in the checkout (T22 passes `--incremental false`)
   - Decisions:
     - 0021
     - 0037
@@ -261,6 +266,7 @@
     - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
     - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
     - When working with `runGuardedTick`, or when the cron trigger crash-loops / is respawned by the webhook after an unhandled rejection (#812)
+    - When an orchestrator stranded in `starting` (or another active stage) is not picked up by the cron, `ownerDead` in the stage resolver, or `evaluateCandidateForTick` per-candidate failure containment is relevant
   - Decisions:
     - 0012
     - 0028
@@ -338,6 +344,7 @@
     - When working on the pure pause-queue decider (`pauseQueueDecider.ts`) — the ownership gate (`skip_not_owner`, evaluated before the reset gate), the reset-time gate, `resume`/`refresh_reset`/`count_strike`/`evict`
     - When working on the pause-queue resume path (`pauseQueueResume.ts`) — `resumeWorkflow` removes the queue entry before spawning the orchestrator (remove-before-spawn) and re-appends it with a strike via `appendToPauseQueue` if the spawn fails inside its readiness window
     - When working on the exhaustive workflow-stage classifier, the bounded resume-cap policy, the `## Retry` directive handler, or `review_failed`/SDLC review-handoff recovery
+    - When a `starting` orchestrator is deferred, taken over, or reset, when a spawn lock held by the cron's own pid blocks an orchestrator, or `evaluateCandidate` leaks its lock on a throw
   - Decisions:
     - 0012
     - 0025
@@ -739,6 +746,7 @@
     - When working on process liveness, heartbeat signals, hung orchestrator detection, or agent timeout enforcement in `adws/core/`
     - When debugging a stuck or zombie orchestrator process
     - When working on `processLiveness.ts`, `heartbeat.ts`, `hungOrchestratorDetector.ts`, `agentTimeouts.ts`, `retryOrchestrator.ts`, or `processKill.ts`
+    - When `isRecordedOwnerLive`, the top-level `pid`/`pidStartedAt`/`lastSeenAt` recorded at `starting`, or the hung sweep's reach (never `starting`) is relevant
   - Decisions:
     - 0023
     - 0034
