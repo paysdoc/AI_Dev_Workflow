@@ -7,7 +7,12 @@ The build and plan phases translate issue analysis into a committed implementati
 ## Responsibilities
 
 - `installPhase.ts` — runs the install agent in the worktree, parses tool results (Read/Bash) from the JSONL output into a `<project-context>` preamble, caches it to `agents/{adwId}/install_cache.md`, and populates `config.installContext` for injection into later agents; entirely non-fatal
-- `planPhase.ts` — runs `runPlanAgent` with the issue type slash command, corrects swapped plan filenames, reads the plan file for the issue comment summary, commits the plan, and posts stage comments at each step
+- `planPhase.ts` — runs `runPlanAgent` with the issue type slash command, corrects swapped plan filenames, reads the plan file for the issue comment summary, commits only the plan file behind the plan commit guard, and posts stage comments at each step
+- `planCommitGuard.ts` — baseline, guard and plan-only commit for the plan phase:
+  - `capturePlanPhaseBaseline(gitCtx, worktreePath)` records HEAD and a sha256 of every file under `.claude/` and `.adw/` (symlinks hashed by target, not followed); `executePlanPhase` calls it before the plan agent runs
+  - `assertPlanPhaseLeftOffLimitsAlone(gitCtx, worktreePath, baseline)` throws `PlanCommitGuardError` (with `paths`) naming every path under `.claude/` or `.adw/` that was created, modified or deleted since the baseline, or that appears in commits added since the baseline HEAD (`--no-renames`, so both sides of a rename show)
+  - `commitPlanFileOnly` / `buildPlanCommitMessage` commit exactly the plan file through `GitContext.addAndCommitPaths` with the deterministic message `plan-orchestrator: <keyword>: add plan for issue #<n>`; no LLM `/commit` call is made
+  - pure helpers: `isOffLimitsToPlanner`, `changedFilePaths`, `parseNameOnlyDiff`, `findOffLimitsChanges`
 - `planPhase.ts` — `buildContinuationPrompt(originalPlanContent, previousOutput, reason, baseBranch?, checkpointCommitsPresent?)`: pure string builder for the git-authoritative continuation prompt given to a restarted build agent, whether restarted within the same orchestrator run (token limit / context compaction) or across orchestrators (resume-in-place after a phase timeout or liveness reclaim). When `checkpointCommitsPresent` is `true` (or `reason` is `'resumed_in_place'`), it instructs the agent to inspect committed state (`git log`, `git diff`) and uncommitted state (`git status`, `git diff --staged`) before writing code, demoting the previous-output tail to a secondary hint; when `false`, it preserves the legacy prompt shape used by fresh first-pass builds.
 - `planPhase.ts` — `buildResumeInPlacePrompt(originalPlanContent, baseBranch?)`: thin wrapper calling `buildContinuationPrompt` with `reason: 'resumed_in_place'`, an empty previous-output string, and `checkpointCommitsPresent: true`; used by `buildPhase.ts` on cross-orchestrator resumes where no in-process summary is available and the git state is authoritative.
 - `planPhase.ts` — `shouldResumeBuildInPlace(recoveryState)`: pure predicate (`recoveryState.canResume === true`) that determines whether `executeBuildPhase` seeds the first build-agent invocation with the resume-in-place framing rather than the raw plan. `buildResumeInPlacePrompt` and `shouldResumeBuildInPlace` are re-exported from `adws/phases/index.ts` and `adws/workflowPhases.ts` alongside `buildContinuationPrompt` and `MAX_CONTINUATION_OUTPUT_LENGTH`.
@@ -21,6 +26,9 @@ The build and plan phases translate issue analysis into a committed implementati
 - `installPhase.ts` always returns a cost result (possibly zero-cost); it never throws — errors are caught and logged
 - `planPhase.ts` skips the plan agent when `planFileExists()` returns true (idempotent on recovery)
 - `planPhase.ts` skips the commit when `shouldExecuteStage('plan_committing', recoveryState)` returns false (idempotent on recovery)
+- The plan commit carries the plan file and nothing else; every other worktree change, staged or not, stays uncommitted. The per-issue scenario file therefore lands in the next commit that stages the whole worktree (`alignment-agent`, otherwise `build-agent`).
+- The guard runs in the orchestrator process after the plan agent has exited and throws before any commit, so the phase fails loudly and the agent cannot skip it. `.adw-version`, `.adw-stub-*` and `.claude-x` are not off-limits.
+- Other phases still commit through `runCommitAgent` (`/commit`, `git add -A`); only the plan phase changed.
 - `buildContinuationPrompt()` is a pure function (string-in / string-out, no I/O, no mutation). The no-checkpoint path (`checkpointCommitsPresent: false`, non-resume reason) is byte-for-byte identical to the legacy pre-continuation prompt, so fresh (non-resume) builds (`recoveryState.canResume === false`) receive `planContent` exactly as before.
 - `buildResumeInPlacePrompt` always passes an **empty** previous-output string — correct because a cross-orchestrator resume has no in-process summary, so the git state is declared authoritative instead.
 - The `'resumed_in_place'` reason always emits the `checkpointCommitsPresent: true` body (inventory + continue instructions), regardless of whether the reused worktree actually has checkpoint commits; the instruction degrades gracefully to "start from step 1" when little or no work is present. `shouldResumeBuildInPlace`'s `canResume === true` trigger fires for both a REUSE-gated and a RESET-gated resume — harmless on a RESET-then-resume, since the agent inspects, finds no partial code, and starts at step 1.
@@ -45,6 +53,10 @@ The build and plan phases translate issue analysis into a committed implementati
 
 ## Gotchas
 
+- The guard does not undo planner changes. On a retry in the same worktree they become part of the new baseline and stay uncommitted until a later `git add -A` commit.
+- In orchestrators that run the scenario agent alongside the plan phase (`adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`), a scenario-agent rewrite of `.adw/commands.md` before the plan commit is indistinguishable from a planner change and fails the plan phase; a retry passes because the change is then in the baseline.
+- The plan commit uses the launch `GitContext` identity, not the host's `git config`.
+- `planCommitGuard.ts` must not pass strings starting with `git ` or `gh ` to calls; the git/gh guard (`lint:git-guard`) enforces this, so only `GitContext` methods are used.
 - `installPhase.ts` extracts context from the install agent's JSONL by pairing `tool_use` (Read/Bash) blocks with their `tool_result` responses; only non-error results are included
 - `buildPhase.ts` posts a `build_progress` comment at most once per minute (`PROGRESS_UPDATE_INTERVAL_MS = 60000`) to avoid flooding the issue
 - `buildPhase.ts` logs an estimate-vs-actual cost comparison when `costSource === 'extractor_finalized'` and both estimated and actual usage are present
