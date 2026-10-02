@@ -35,5 +35,5 @@ Feature: The framework upgrade gives a target repository the .github/adw.yml tha
     And ADW reads the unit-test switch in the regen commit's ".github/adw.yml" as disabled
 
   @adw-931 @adw-l1f01x-bug-restore-prompt-a
-  Scenario: The ADW TypeScript type-check passes once .adw/project.md no longer holds a unit-test switch
+  Scenario: The ADW TypeScript type-check passes once no file reads a unit-test switch from .adw/project.md
     Then the ADW TypeScript type-check passes

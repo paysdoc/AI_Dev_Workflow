@@ -108,8 +108,8 @@ Use these files to fix the bug:
 - `adws/__tests__/adwUpgrade.test.ts` — `makeDeps` (lines 21–45) needs the new dependency, and new tests cover the call and its order.
 - `adws/core/projectConfig.ts` — delete `parseUnitTestsEnabled` and its JSDoc (lines 215–238).
 - `adws/core/index.ts` — line 82 drops `parseUnitTestsEnabled` from the barrel export.
-- `.adw/project.md` — line 34 `## Unit Tests: enabled` is removed. The section is retired, and the type-check scenario in `feature-931.feature` expects it gone.
-- `features/per-issue/feature-931.feature` — the issue's scenarios: the upgrade adds `.github/adw.yml` with unit tests enabled, keeps an existing `unitTests: false` file, and the type check passes.
+- `.adw/project.md` — line 34 `## Unit Tests: enabled` is removed. The section is retired, and the acceptance criterion 3 check in Validation Commands expects it gone. The type-check scenario in `feature-931.feature` does not check this file.
+- `features/per-issue/feature-931.feature` — the issue's scenarios: the upgrade adds `.github/adw.yml` with unit tests enabled, keeps an existing `unitTests: false` file, and the type check passes once `parseUnitTestsEnabled`, the last TypeScript reader of the section, is deleted (task 7).
 - `features/per-issue/step_definitions/feature-796.steps.ts` — the pattern to copy for driving `executeUpgrade` (`buildDefaultUpgradeDeps` plus `stubRegenDeps`). It needs no change: its temp worktree simply receives a `.github/adw.yml` from the production dependency.
 - `features/step_definitions/ensureCronOnEveryEventSteps.ts` (step "the ADW codebase is checked out") and `features/regression/step_definitions/thenSteps.ts` (step "the ADW TypeScript type-check passes", line 417) — existing steps that `feature-931.feature` reuses.
 - `adws/phases/worktreeSetup.ts` — reference only. `copyStarterSettingsToWorktree` is the create-if-absent precedent, `verifyAdwRegen` lists what the stubbed regen must produce, and `copyClaudeAssetsToWorktree` is the copy behind the stray commits.
