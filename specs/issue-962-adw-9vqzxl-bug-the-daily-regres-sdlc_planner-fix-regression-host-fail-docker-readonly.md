@@ -61,13 +61,22 @@ The docs (README, the regression-suite living doc, ADR-0037 Divergence item 2) m
    - The anonymous `/workspace/node_modules` volume stays, so the copy starts with an empty `node_modules` and never sees the host's modules.
    - `/tmp/bdd` is already provisioned as writable scratch and is referenced by no code.
    - Remove the now-unused `git config --system --add safe.directory /workspace`. Nothing runs git against the mount any more: cwd, `REPO_ROOT` (`adws/core/environment.ts:16`) and the step definitions' `ROOT` all resolve to the copy.
-   - Update the mount comments in `test/docker-run.sh`. That file changes in comments only.
+   - Update the mount comments in `test/docker-run.sh`. Its only other change makes the two `"${EXTRA_ENV[@]}"` expansions safe for an empty array under `set -u` in bash before 4.4. The scenarios run the docker job's `bash test/docker-run.sh` on ADW's macOS host, whose only bash is 3.2 (step 6). The `docker run` mounts stay unchanged.
 3. **T22:** pass `'--incremental', 'false'` to tsc. This is the argv the vocabulary entry promises.
 4. **Pin the contract** with a Vitest guard, `adws/__tests__/regressionWorkflow.test.ts`. It follows the precedents `adws/__tests__/envelopeConformanceWorkflow.test.ts` and `adws/__tests__/deployWorkersWorkflow.test.ts`: text parsing, no YAML dependency, and running the host step's script with a fake `bunx`.
 5. **Docs:**
    - The README "Docker (optional)" section.
    - The Docker contract in `app_docs/feature-9gjajh-bdd-regression-suite.md`.
    - ADR-0037 Divergence item 2: describe the daily run as it now behaves, and keep the required-check part unchanged (#941 owns it).
+6. **Scenarios.** Write the step definitions for `features/per-issue/feature-962.feature`. They run `.github/workflows/regression.yml` the way a GitHub runner would, on feature-939's runner and against a stand-in `docker`. They check only what a run produces:
+   - §1 (AC1, host): run manually with the runtime `host`, the host job fails when the suite's only scenario pends, is undefined or fails, and succeeds when it passes. Either way it uploads `regression-results`, which records that scenario's step status.
+   - §2: the schedule runs both jobs. A manual run runs only the job its `runtime` input names.
+   - §3 (AC1, docker: the workflow's half): the docker job fails when the container exits 1, and succeeds when it exits 0, starting from a fresh checkout with no `node_modules`.
+   - §4: the docker job's container gets the checkout read-only at `/workspace`, an anonymous volume over `/workspace/node_modules`, and no writable mount of the checkout.
+   - §5 (AC3): the type-check scenario, run in a fresh checkout, leaves no `tsconfig.tsbuildinfo` and no other new path.
+   - §6: the type-check passes.
+
+   AC2 (no `EROFS`), the `cp -R` copy and git's acceptance of it have no scenario, because ADW's host has no Docker and the container never runs there. The manual CI runs under Validation Commands show them. `timeout-minutes: 30` has no scenario either; the Vitest contract test pins it. AC4 and the other documentation changes are checked by the review.
 
 ## Steps to Reproduce
 Run from the repo root after `bun install`.
@@ -117,8 +126,21 @@ Use these files to fix the bug:
 
 - `.github/workflows/regression.yml`: the daily workflow. It is one job with a 15-minute timeout (lines 19-22), the host step swallows the exit status (lines 34-41), and the Docker steps run conditionally (lines 76-82). This file becomes two jobs.
 - `test/Dockerfile`: the BDD runner image. Its `CMD` runs Cucumber in the read-only `/workspace` (lines 31-41), its `safe.directory /workspace` config (lines 21-25) becomes unused, and it already provisions `/tmp/bdd` as scratch (lines 27-29). The `CMD` changes to run the suite in a `cp -R` copy.
-- `test/docker-run.sh`: builds and runs the image. It holds the read-only mount and the anonymous `node_modules` volume (lines 88-104), and the mount comments to update (lines 74-79).
-- `features/regression/step_definitions/thenSteps.ts`: T22 at lines 416-427 runs tsc without `--incremental false`.
+- `test/docker-run.sh`: builds and runs the image. It holds the read-only mount and the anonymous `node_modules` volume (lines 88-104), and the mount comments to update (lines 74-79). It also holds the two `"${EXTRA_ENV[@]}"` expansions (lines 93 and 103), which bash 3.2 rejects under `set -u` when the array is empty.
+- `features/per-issue/feature-962.feature`: this issue's BDD scenarios (§1-§6; see Solution Statement item 6).
+  - They execute `.github/workflows/regression.yml` as a GitHub runner would. Each job runs in a throwaway checkout of its own, with a stand-in `docker` first on PATH. They never read the workflow, `test/Dockerfile` or `test/docker-run.sh` for an assertion.
+  - Its "Notes for the step definitions" specify the runner extensions, the per-job checkout, the `bun` shadow, the narrowed suite, the Docker stand-in and every phrase. Its finding F1 explains why the docker job needs `node_modules/` before `docker run`.
+  - The file exists, so the build agent runs in TDD mode (`/implement-tdd`, `adws/agents/buildAgent.ts:72-73`) and writes the step definitions in `features/per-issue/step_definitions/`.
+- `features/per-issue/step_definitions/feature-939-runner.ts` and the modules it imports (`feature-939-workflow.ts`, `feature-939-yaml.ts`, `feature-939-expressions.ts`, `feature-939-validation.ts`, `feature-939-stepProcess.ts`, `feature-939-sandbox.ts`, `feature-939-standIns.ts`), plus `feature-939-report.ts`: the workflow runner the scenarios build on. Today it:
+  - accepts only a `pull_request` trigger, and resolves only `github.event_name` (always `pull_request`) and `github.workspace`;
+  - runs every job in one checkout, whose `node_modules` it links before the run;
+  - knows only `actions/checkout`, `oven-sh/setup-bun` and `actions/setup-node` among `uses:` steps, and runs them as no-ops;
+  - shadows `bun` so that `bun install` does nothing and every other command runs the real `bun`;
+  - runs each `run:` step with the `bash` found on the sandbox PATH (the stand-ins, the directories of `bun` and `node`, `/usr/bin` and `/bin`). On ADW's macOS host that is `/bin/bash` 3.2.57, the only bash installed.
+- `features/per-issue/step_definitions/feature-939.steps.ts`: the precedent for wiring the runner into steps, with an `After` hook scoped to its tag and a When-step timeout above the runner's 60-second step limit. Its phrases are not reused.
+- `features/step_definitions/ensureCronOnEveryEventSteps.ts`: defines G18 `the ADW codebase is checked out`. The narrowed suite of §5 and the backstop of §6 reuse it. Do not redefine it.
+- `features/regression/support/hooks.ts`: sets the default step timeout to 60 seconds.
+- `features/regression/step_definitions/thenSteps.ts`: T22 at lines 416-427 runs tsc without `--incremental false`. §5 runs it inside a fresh checkout, and §6 reuses it. Do not redefine it.
 - `features/regression/vocabulary.md`: T22 entry (line 124), the spec T22 must meet. Read only, no change.
 - `features/regression/step_definitions/feature-902-queue.steps.ts`: queue save/remove/restore hooks (lines 207-252) that hit `EROFS` on the mount. Context only.
 - `features/regression/step_definitions/feature-911.steps.ts`: auth-gate save/remove/restore hooks (lines 100-129). Context only.
@@ -138,6 +160,7 @@ Use these files to fix the bug:
 
 ### New Files
 - `adws/__tests__/regressionWorkflow.test.ts`: Vitest contract guard for the two-job workflow, the host step's exit-status propagation, and the Docker leg's read-only mount plus `cp -R` working copy.
+- `features/per-issue/step_definitions/feature-962*.ts`: the step definitions for `feature-962.feature`, with the runner extensions and the stand-in `docker` they need. Name them like the `feature-939-*` files, and keep each under 300 lines.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -173,7 +196,30 @@ IMPORTANT: Execute every step in order, top to bottom.
     - In it, `cp -R` comes before `cd /tmp/bdd/workspace`, which comes before `bun install --frozen-lockfile`, which comes before `cucumber-js`.
 - Run `bun run test:unit` and confirm these tests fail against the current files. This is the RED phase.
 
-### 3. Split `.github/workflows/regression.yml` into `host` and `docker` jobs
+### 3. Write the step definitions for the scenarios (RED)
+- Read `features/per-issue/feature-962.feature` in full. Its "Notes for the step definitions" specify the runner extensions, the per-job checkout, the `bun` shadow, the narrowed suite, the Docker stand-in and each phrase. Follow them exactly. In particular:
+  - **Never run Docker or the real suite, and never let a run install anything.** The only `docker` a run reaches is the stand-in, first on PATH. Its `run` refuses a mount inside a read-only bind whose source has no entry at that path, as F1 describes.
+  - **Run the workflow; never read it for an assertion.**
+    - Extend feature-939's runner (see Relevant Files) instead of writing a second one.
+    - The text assertions belong to the Vitest contract test of step 2, not to the step definitions.
+    - Add no YAML library.
+  - **Keep `@adw-939` green.** The new behaviour goes behind options of the runner or into `feature-962-*` modules, so that the envelope-conformance run behaves as before. The new behaviour is:
+    - the `schedule` and `workflow_dispatch` events and the `runtime` input;
+    - a fresh checkout per job, with no `node_modules`;
+    - a `bun install` that links `node_modules`;
+    - `actions/upload-artifact`.
+  - **Pick timeouts above the limits inside.** The runner kills a workflow step after 60 seconds, which is also the default step timeout (`features/regression/support/hooks.ts`). Give the When steps a longer timeout, so that a hung step fails the run instead of timing out the scenario.
+  - Remove every temporary directory after each scenario, in an `After` hook scoped to `@adw-962`.
+- Reuse G18 and T22 (see Relevant Files). Define every other phrase of the file, and define the job phrases for `host` and `docker` only.
+- Follow the coding guidelines: nesting depth of 2 or less, named helpers, no `any`.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-962"`. Against the current files:
+  - §1-§4 fail on their job assertions, because the workflow has no `host` or `docker` job. Each message names the one job the run had, `regression`.
+  - §5 fails on `the checkout holds no file that was not there before the suite ran`, naming `tsconfig.tsbuildinfo`.
+  - §6 passes.
+
+  A scenario error does not count as RED. Fix the step definitions until each scenario fails on that assertion.
+
+### 4. Split `.github/workflows/regression.yml` into `host` and `docker` jobs
 - Keep `name`, the `schedule` (`'0 6 * * *'` with its comment) and the `workflow_dispatch.inputs.runtime` choice input: options `host`/`docker`, default `host`. Change its description to `'Job to run: host or docker'`.
 - Replace the `regression` job with two jobs. Each has `runs-on: ubuntu-latest` and `timeout-minutes: 30`.
 - **`host`:**
@@ -197,7 +243,7 @@ IMPORTANT: Execute every step in order, top to bottom.
     - `Run @regression scenarios in Docker` (`bash test/docker-run.sh --tags "@regression"`)
 - Do not add a `both` option, `continue-on-error`, `needs:` between the jobs, or a Docker artifact.
 
-### 4. Run the Docker leg in a writable copy (`test/Dockerfile`)
+### 5. Run the Docker leg in a writable copy (`test/Dockerfile`)
 - Remove the `safe.directory` block (lines 21-25: its comment and `RUN git config --system --add safe.directory /workspace`).
 - Keep `RUN mkdir -p /workspace /tmp/bdd`, `WORKDIR /workspace`, `ENV BDD_TAGS`, `ENV TEST_RUNTIME`. Update the `/tmp/bdd` line of the directory comment to say the suite runs in a copy of `/workspace` at `/tmp/bdd/workspace`.
 - Replace the `CMD` comment and line with:
@@ -210,8 +256,8 @@ IMPORTANT: Execute every step in order, top to bottom.
   ```
 - `/tmp` in the Debian-based `oven/bun` image is a real directory, not a symlink, so the copy's `process.cwd()` equals `REPO_ROOT` and `assertCwdIsRepoRoot()` in the real `trigger_cron.ts` subprocess (feature-911 §4) still passes.
 
-### 5. Update the mount comments in `test/docker-run.sh`
-- Replace lines 74-79 with comments only. The `docker run` arguments stay unchanged:
+### 6. Update the mount comments in `test/docker-run.sh`, and let it run under bash 3.2
+- Replace lines 74-79 with these comments:
   ```bash
   # Volume mounts:
   #   /workspace              — repo root, read-only; the image's CMD copies it to
@@ -222,13 +268,17 @@ IMPORTANT: Execute every step in order, top to bottom.
   # Docker cannot create the node_modules mount point inside the read-only mount,
   # so the checkout needs a node_modules/ directory first (bun install).
   ```
+- At both `docker run` sites (lines 93 and 103), replace `"${EXTRA_ENV[@]}"` with `${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"}`. Add one comment line above `EXTRA_ENV=()`: `# bash before 4.4 treats an empty array as unbound under set -u, hence the ${EXTRA_ENV[@]+...} expansions.`
+  - The reason: the scenarios run the docker job's `bash test/docker-run.sh` on ADW's macOS host, whose only bash is `/bin/bash` 3.2.57. When `MOCK_STREAM_DELAY_MS` is unset, as it is in every run, the script stops at line 98 with `EXTRA_ENV[@]: unbound variable`. It has called only `docker image inspect` by then, never `docker run`. So without this change §3's status-0 row and §4 cannot pass.
+  - With the change, an empty array adds no word, and a set `MOCK_STREAM_DELAY_MS` still adds `-e MOCK_STREAM_DELAY_MS=...`. This was checked on 2026-10-02 against a `docker` stand-in that records its calls. Linux CI's bash 5 behaves the same with or without the change.
+- Every other `docker run` argument, both mounts included, stays unchanged.
 
-### 6. Fix T22 (`features/regression/step_definitions/thenSteps.ts`)
+### 7. Fix T22 (`features/regression/step_definitions/thenSteps.ts`)
 - Change the argv on line 421 to `['tsc', '--noEmit', '--incremental', 'false']`.
 - Add one comment line next to the existing `NODE_OPTIONS` comment: `// tsconfig.json sets \`incremental\`, which would write tsconfig.tsbuildinfo into the checkout.`
 - Do not change the vocabulary entry; it already describes this behaviour.
 
-### 7. Update the README "Docker (optional)" section
+### 8. Update the README "Docker (optional)" section
 - Replace the paragraph at lines 360-363 with one that says:
   - The repo is mounted read-only at `/workspace` and is never written.
   - The container copies it with `cp -R` into `/tmp/bdd/workspace`, then installs dependencies and runs the suite there, because ADW writes its runtime state (`agents/`, `logs/`) under the working directory.
@@ -243,7 +293,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   - Each job fails when a scenario fails, is pending or is undefined.
 - Keep the closing "Docker execution is entirely optional…" sentence.
 
-### 8. Update the Docker contract in `app_docs/feature-9gjajh-bdd-regression-suite.md`
+### 9. Update the Docker contract in `app_docs/feature-9gjajh-bdd-regression-suite.md`
 - **Line 5 (Overview):** the Docker runner re-executes the suite in a container, in a writable copy of the read-only mounted checkout, as the `docker` job of the daily regression workflow.
 - **Line 26 (Responsibilities):**
   - The image's `CMD` copies `/workspace` into `/tmp/bdd/workspace` with `cp -R`, then runs `bun install --frozen-lockfile` and Cucumber there.
@@ -272,7 +322,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   - Both jobs fail on a pending or undefined scenario (Cucumber's default `strict`), so the daily run stays red while smoke and surface `When` steps return `'pending'`.
   - ADW's own test phase scores those scenarios as skipped (`classifyTestCase`).
 
-### 9. Rewrite ADR-0037 Divergence item 2 (`specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md`, line 74)
+### 10. Rewrite ADR-0037 Divergence item 2 (`specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md`, line 74)
 - Keep these unchanged:
   - The bold title.
   - The ruleset sentence.
@@ -286,7 +336,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   > It has two jobs, `host` and `docker`, each with a 30-minute timeout; the schedule runs both, and a manual dispatch runs the one its `runtime` input names. A job fails when Cucumber exits non-zero, which a failed, pending or undefined scenario causes, so both jobs are red until the pending scenarios of item 3 execute. The `docker` job mounts the checkout read-only and runs the suite in a writable copy inside the container, because ADW writes its runtime state (`agents/`, `logs/`) under the working directory. Until #962 both legs ran in one job: the host step ended with `exit 0` and could not fail it, and the Docker step ran the suite on the read-only mount, where the pause-queue scenarios failed with `EROFS`. Of the 100 runs from 2026-06-22 to 2026-09-28, 80 failed, 19 were cancelled and 1 passed.
 - Change nothing else in the ADR.
 
-### 10. Run the validation commands
+### 11. Run the validation commands
 - Run every command in `Validation Commands` in order and check each expected result.
 - Run the type-check and build commands before `rm -f tsconfig.tsbuildinfo`, because they write that file themselves.
 
@@ -320,7 +370,8 @@ Nothing new in the checkout:
 - `test ! -e tsconfig.tsbuildinfo && echo "OK: no tsconfig.tsbuildinfo after the full suite"`
 
 Per-issue scenarios:
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-962"`: all pass, if the issue's scenarios exist.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-962"`: every scenario of `features/per-issue/feature-962.feature` passes (§1-§6). Before steps 4-7, §1-§5 fail as step 3 describes and §6 passes. No scenario may run Docker or the real suite, or install anything.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-939"`: `4 scenarios (4 passed)`, as before this change. This shows that the feature-939 runner, which the new step definitions extend, still runs the envelope-conformance workflow as before.
 
 CI acceptance, after the branch is pushed. This is the authoritative check of the Docker job, because Docker is not available on the planning host.
 - `BRANCH=$(git branch --show-current)`
@@ -330,6 +381,8 @@ CI acceptance, after the branch is pushed. This is the authoritative check of th
 - `gh run view <host-run-id> --log | grep -E "[0-9]+ scenarios? \("`: shows `42 pending`. The job failed at `Run @regression scenarios`, and `Report results` and `Upload results artifact` still ran.
 - `gh run view <docker-run-id> --log | grep -E "[0-9]+ scenarios? \("`: shows `42 pending`. The job failed at `Run @regression scenarios in Docker`.
 - `! gh run view <docker-run-id> --log | grep -q "EROFS" && echo "OK: the Docker job produced no EROFS failure"`
+- `! gh run view <docker-run-id> --log | grep -q "dubious ownership" && echo "OK: git accepted the cp -R copy"`
+- Link both runs in the pull request description. They are what AC1's "Show this with the current pending scenarios" asks for. They are also the evidence for AC2 and for what no scenario can show without Docker: the `cp -R` copy and git's acceptance of it.
 
 ## Notes
 - **Coding guidelines.** Follow `.adw/coding_guidelines.md` strictly.
@@ -340,7 +393,16 @@ CI acceptance, after the branch is pushed. This is the authoritative check of th
   - Do not touch the `return 'pending';` markers in `features/regression/step_definitions/whenSteps.ts`.
   - Do not change `classifyTestCase`.
 - **The required-check part of ADR-0037 item 2 stays as is.** #941 owns making the suite a required check.
-- **No new library.** The contract test parses the workflow as text, like its two precedents. Do not import `yaml`: it is only a transitive dependency of `@cucumber/cucumber`.
+- **No new library.** The contract test parses the workflow as text, like its two precedents. Do not import `yaml`: it is only a transitive dependency of `@cucumber/cucumber`. The step definitions read the workflow with feature-939's block-YAML reader.
+- **BDD scenarios.**
+  - The separate scenario agent wrote `features/per-issue/feature-962.feature`; this plan does not write scenarios.
+  - The build agent writes its step definitions (step 3). They assert only on what a run produces:
+    - each job's conclusion, step output and uploaded artifact;
+    - the `docker` calls the stand-in recorded;
+    - the paths a suite run leaves in its checkout.
+
+    They never assert on the text of the workflow, `test/Dockerfile` or `test/docker-run.sh`. The structural checks stay in the Vitest contract test.
+  - No step returns `'pending'`, because ADW's test phase scores a pending scenario as skipped.
 - **Removing `safe.directory /workspace`.**
   - Once the suite runs in the copy, nothing runs git against the mount, and the copy is owned by the container user, so the exception has no remaining user.
   - The only effect is that `git` typed by hand in a `--shell` session, inside the read-only `/workspace`, reports dubious ownership.
@@ -349,7 +411,7 @@ CI acceptance, after the branch is pushed. This is the authoritative check of th
 - **Local Docker runs.**
   - A cached `adw-bdd-runner:latest` keeps the old `CMD` until it is rebuilt (`--build` or `bun run test:docker:build`). CI builds fresh on every run.
   - A local run copies the whole checkout, including gitignored directories such as `.worktrees/`, `agents/` and `logs/`, so it can be slow from a busy main checkout. This is out of scope; the CI checkout is clean.
-  - On macOS with the system bash 3.2, `docker-run.sh` stops on `"${EXTRA_ENV[@]}"` under `set -u` when `MOCK_STREAM_DELAY_MS` is unset. This was already the case and is out of scope; Linux CI uses bash 5.
+  - On macOS with the system bash 3.2, `docker-run.sh` stopped on `"${EXTRA_ENV[@]}"` under `set -u` when `MOCK_STREAM_DELAY_MS` was unset. Step 6 fixes this, because the scenarios run the docker job on ADW's macOS host. Linux CI uses bash 5 and is unaffected.
 - **Host runs and runtime state.** A host run still writes ADW runtime state under the cwd by design, and the pause-queue hooks restore or remove what they write. Expect at most empty directories under `agents/`, which git does not list.
   - If the before/after `git status --porcelain --ignored` diff shows an `agents/` entry, find the scenario whose `After` hook leaks it before changing anything else.
   - The resume path awaits its readiness window (`adws/triggers/pauseQueueResume.ts:203`), so no queue write is expected after a scenario ends.
