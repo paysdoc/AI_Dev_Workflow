@@ -20,6 +20,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, a module doc whose `## Decisions` section disagrees with its entry's `Decisions:` block or names a record missing from `specs/adr/`, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/decisions/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
 - **Branch-name guard** — `checkBranchNames.ts` (`bun run lint:branch-names`, wired into `.github/workflows/git-cli-guard.yml`) fails when non-test code or markdown under `adws/`, or a slash command under `.claude/commands/`, writes `main`, `master`, `dev` or `develop` down as a branch to act on. That covers a literal name, an `origin/<name>` or `refs/heads/<name>` ref, a backticked name, a "<name> branch" phrase, or the words `master`/`develop`. Code resolves the base branch from the code host at run time (ADR-0019), and `.github/dependabot.yml` is the one file allowed to name it.
 - **Target-repo agent guardrails injection** — every target-repo `claude` spawn gets a `--settings` injection. `resolveGuardrailsDecision` (`guardrailsGate.ts`) withholds it only for the `ADW_TARGET_GUARDRAILS=off` kill switch, a self-host run, or a failed memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking; there is no per-repository switch. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
+- **Plan-phase off-limits guard** — `planCommitGuard.ts` snapshots `.claude/` and `.adw/` (content hashes plus HEAD) before the planner runs, throws `PlanCommitGuardError` if the planner modified or committed anything there, and commits only the plan file.
 - **Stateless pipeline agents** — every `claude` process ADW starts runs under one shared launch environment, `buildClaudeLaunchEnv()` (`adws/core/environment.ts`): the allowlisted variables, then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, so no caller can turn memory back on. That covers the pipeline agents, the rate-limit, JSONL-schema and guardrails probes, both `claude auth status` checks and the health check's `claude --version`. No such process ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for. Providers are assembled by `@paysdoc/devplatform/providers`'s `forgeProviders()` — the library's one public entry point, refusing an unknown forge name or a mismatched `gitContext` by name before constructing anything — called from `adws/core/launchGitContext.ts`'s `buildLaunchBoundary`, ADW's only production caller. Since issue #840, `adws/providers/` and `adws/gitContext/` no longer exist in this repo at all: the port/domain model, the forge adapters, and the git core they used to hold now live in `@paysdoc/devplatform` (three entry points — `@paysdoc/devplatform` for ports/domain model, `@paysdoc/devplatform/providers` for `forgeProviders()`/adapters, `@paysdoc/devplatform/git` for `GitContext`). `adws/github/` was already gone before that, deleted in #823 along with `adws/providers/repoContext.ts`, the last in-tree file that constructed a `GitContext` outside the launch boundary. The ADW-application helpers that used to sit atop the old free-function layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) live in `adws/forge/`; ADW's own environment-to-config wiring for the forge adapters lives in `adws/core/forgeWiring.ts`.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
@@ -479,6 +480,7 @@ templates/              # ADW framework-level templates
 adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
 │   ├── adwChore.test.ts
+│   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts
 │   ├── adwPlanBuildTestReview.test.ts
@@ -486,7 +488,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── checkBranchNames.test.ts
 │   ├── checkGitGhGuard.test.ts
 │   ├── checkLivingDocsIndex.test.ts
+│   ├── checkModelLiterals.test.ts
 │   ├── depauditSetup.test.ts
+│   ├── depauditTriageSkill.test.ts
+│   ├── deployWorkersWorkflow.test.ts
+│   ├── envelopeConformanceWorkflow.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
@@ -496,12 +502,16 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── agentProcessHandler.test.ts
 │   │   ├── claudeAgent.test.ts
+│   │   ├── claudeAgentGuardrails.test.ts
+│   │   ├── commandAgent.test.ts
 │   │   ├── commitIdentity.integration.test.ts
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
-│   │   └── scenarioFidelityAgent.test.ts
+│   │   ├── scenarioFidelityAgent.test.ts
+│   │   ├── testAgent.test.ts
+│   │   └── testRetry.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -538,9 +548,14 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
+│   │   ├── conditionalDocsRegistryMutations.test.ts
+│   │   ├── conditionalDocsRegistryQueries.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── docsDecisions.test.ts
+│   │   ├── docsDecisionViolations.test.ts
 │   │   ├── docsGuards.test.ts
 │   │   ├── docsIndexHealth.test.ts
+│   │   ├── docsIndexHealthDecisions.test.ts
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
@@ -548,6 +563,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
 │   │   ├── guardrailsPayload.test.ts
+│   │   ├── guardrailsProbe.integration.test.ts
 │   │   ├── hashComputer.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
@@ -555,6 +571,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── issueRecord.test.ts
 │   │   ├── launchGitContext.test.ts
 │   │   ├── localRepoIdentity.test.ts
+│   │   ├── modelRouting.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -573,6 +590,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── resolveResumeSpawn.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
+│   │   ├── selfHostLaunch.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── sshCloneUrl.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
@@ -648,6 +666,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
+│   ├── selfHostLaunch.ts  # Memoised framework-identity check: a launch whose repo is the framework's own (even with `--target-repo` passed) counts as self-host for the guardrails gate
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── sshCloneUrl.ts  # Host-neutral HTTPS→SSH clone URL rewrite (convertToSshUrl) replacing the GitHub-only version; passes through anything not a two-segment HTTPS URL (#844)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
@@ -705,7 +724,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
-│   │   └── extractor.test.ts
+│   │   ├── d1Client.test.ts
+│   │   ├── extractor.test.ts
+│   │   └── phaseCostRecords.test.ts
 │   ├── providers/anthropic/  # Anthropic token usage extraction
 │   │   ├── extractor.ts
 │   │   ├── index.ts
@@ -725,7 +746,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── conformanceCheck.test.ts
 │   │   ├── fixtureUpdater.test.ts
 │   │   ├── schemaFields.test.ts
-│   │   └── schemaMerge.test.ts
+│   │   ├── schemaMerge.test.ts
+│   │   └── schemaProbe.test.ts
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
 │   │   ├── assistant-text.jsonl
@@ -748,16 +770,21 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
+│   │   ├── buildPhase.test.ts
 │   │   ├── decidePostReviewOutcome.test.ts
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
+│   │   ├── planCommitGuard.test.ts
+│   │   ├── planCommitGuardPhase.test.ts
 │   │   ├── planPhase.test.ts
+│   │   ├── planPhaseCommit.test.ts
 │   │   ├── prReviewCompletion.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
+│   │   ├── reviewPhaseScreenshots.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
@@ -765,7 +792,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── workflowCompletion.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
-│   │   └── worktreeSetup.test.ts
+│   │   ├── worktreeSetup.test.ts
+│   │   └── worktreeSetupTrackedAssets.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes — the hitl gate's label read, approval read, hold-label write and comment all go through config.repoContext's providers (#796), not adws/github/* free functions
@@ -781,6 +809,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── installPhase.ts # Install phase implementation
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
+│   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
@@ -824,6 +853,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── concurrencyGuard.test.ts
+│   │   ├── cronIssueFilter.eligibility.test.ts
+│   │   ├── cronIssueFilter.optOut.test.ts
 │   │   ├── cronIssueFilter.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
@@ -831,6 +862,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
+│   │   ├── docsIndexSweepDecisions.test.ts
+│   │   ├── docsIndexSweepDefaults.test.ts
 │   │   ├── docsIndexSweepReportBranch.test.ts
 │   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
@@ -855,6 +888,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── trigger_cron.test.ts
+│   │   ├── trigger_webhook.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   ├── upgradeRedrive.test.ts
 │   │   ├── webhookEventBoundary.test.ts
@@ -1034,6 +1068,7 @@ test/                   # Integration test infrastructure
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestInterpreter.test.ts
+│   │   ├── manifestInterpreterGit.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
 │   ├── git-remote-mock.ts      # Git remote mock
