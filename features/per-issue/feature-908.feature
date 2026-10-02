@@ -98,6 +98,13 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
   does not change. The rest of #911's behaviour is specified in
   `features/per-issue/feature-911.feature`.
 
+  FLAGGED BY #959 (an orchestrator that dies in `starting` strands its issue). A workflow whose
+  orchestrator died in `starting` or in any running stage is now taken over by the cron, not by
+  `## Retry`. §2's running-stage outline also carries `@adw-959`: `## Retry` stays a no-op on every
+  running stage, `starting` included, so the directive can never start a second orchestrator
+  beside a live one. The outline itself does not change. The rest of #959's behaviour is
+  specified in `features/per-issue/feature-959.feature`.
+
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the orchestrator launches, recorded where they happen (see the notes below);
     • the pause-queue state file (`agents/paused_queue.json`);
@@ -289,7 +296,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the mock harness recorded zero comment posts on issue 873
     And the Retry handling logged that issue 873 is paused_auth and left to the auth queue
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-959
   Scenario Outline: `## Retry` on a running stage does nothing, so it can never start a second orchestrator beside a live one
     Given the latest ADW workflow comment on issue 876 names adwId "retry908-876"
     And the top-level state for adwId "retry908-876" records issue 876 at workflowStage "<stage>" with orchestrator script "adws/adwChore.tsx"

@@ -57,9 +57,11 @@ Five defects combine to strand the issue:
 4. **Make `evaluateCandidate` safe and able to recover `starting`.**
    - Release the lock before rethrowing any error raised after the acquire.
    - `starting` with a live recorded owner → release the lock and return `defer_live_holder` (`holderPid` = that pid). Startup precedes the lifecycle lock, so this is a slow startup, not a split brain. Never kill it or reset its worktree.
-   - `starting` with a dead or unrecorded owner → recover like `phase_timeout`/`abandoned`: probe the worktree, reuse it in place when healthy, reset otherwise. No phase of the dead run executed, so the worktree is exactly what the previous run left. This also avoids the reset-from-remote that throws for never-pushed branches.
+   - `starting` with a dead or unrecorded owner → recover like `phase_timeout`/`abandoned`: probe the worktree, reuse it in place when healthy, reset otherwise. Only a named phase writes a `*_running` stage, and today only `stepDef` is named (`runPhase(…, 'stepDef')`). A run therefore sits in `starting` through install, plan and build, often for hours. A dead `starting` run can leave partial work in its worktree, as a `phase_timeout` or `abandoned` run does, and the reuse gate already handles that case. This also avoids the reset-from-remote that throws for never-pushed branches.
    - Every other active stage keeps its current rule: SIGKILL if live, then reset from the remote.
-   - Reclaim a lock held by this very process when the issue's active stage has no live owner. Such a lock can only be a hold this process failed to release. In-process holds that span an `await` only follow `spawn_fresh`, which no active stage produces, and an orchestrator spawned under such a hold records its own live pid at `starting`. The webhook's in-process dedup of concurrent handlers is therefore untouched.
+   - Reclaim a lock held by this very process when the issue's orchestrator is dead: the stage is `abandoned`, `phase_timeout` or classed `active`, and the recorded owner is not live.
+     - The issue asks for exactly this: a lock recorded under the cron's own pid is not a live holder for an issue whose orchestrator is dead. That covers `abandoned` and `phase_timeout` as well as a dead `starting`, and the takeover handler already treats both of those stages as having a dead orchestrator.
+     - Such a lock can only be a hold this process failed to release. In-process holds that span an `await` only follow `spawn_fresh`, which none of these stages produces, and an orchestrator spawned under such a hold records its own live pid at `starting`. The webhook's in-process dedup of concurrent handlers is therefore untouched.
 5. **Contain failures in the cron loop.**
    - A throwing takeover evaluation is logged and skipped for its candidate only. It no longer aborts the tick for every older-first candidate after it.
    - The take-over spawn releases the lock in `finally`.
@@ -136,9 +138,10 @@ Use these files to fix the bug:
 - `adws/triggers/webhookGatekeeper.ts`: the other `evaluateCandidate` caller. `spawn_fresh` holds the lock across `await classifyIssueForTrigger`, which is the in-process dedup the self-hold rule must not break. `spawnDetached` uses `stdio: 'inherit'`.
 - `adws/triggers/scanAuthQueue.ts`: third `evaluateCandidate` caller. It catches throws but never released the lock; the release-on-throw fixes that.
 - `adws/triggers/retryHandler.ts`: `decideRetryAction` keeps `active` a no-op. No change.
-- `adws/adwSdlc.tsx` (and the other `initializeWorkflow` orchestrators): `main();` without `.catch`, and the lock-refusal `process.exit(0)` path. No change needed.
+- `adws/adwSdlc.tsx` (and the other `initializeWorkflow` orchestrators): `main();` without `.catch`, and the lock-refusal `process.exit(0)` path. No change needed. The unhandled rejection is what makes an orchestrator that fails during startup exit 1.
 - `adws/triggers/__tests__/takeoverHandler.test.ts`, `adws/triggers/__tests__/cronStageResolver.test.ts`, `adws/triggers/__tests__/cronIssueFilterFixtures.ts`, `adws/triggers/__tests__/trigger_cron.test.ts`, `adws/core/__tests__/processLiveness.test.ts`, `adws/phases/__tests__/workflowInit.test.ts`, `adws/phases/__tests__/orchestratorLock.test.ts`: the unit tests to extend.
 - `features/per-issue/step_definitions/feature-912.steps.ts`: existing scenarios drive the real `evaluateCandidate`, with the test process as both lock holder and candidate. Must keep passing (checked: its live holder is its own live pid, so no reclaim; its death row stages a dead pid on state and lock).
+- `features/per-issue/feature-959.feature`: this issue's BDD scenarios (§1–§6). The flagged rows in `features/per-issue/feature-908.feature` and `features/per-issue/feature-912.feature` also carry `@adw-959` and must not change. The step-definition phase writes their step definitions (`features/per-issue/step_definitions/feature-959*.steps.ts`). It also widens the feature-911 `After` hook to `@adw-959`, as the scenario notes ask.
 - `app_docs/feature-9gjajh-takeover-and-coordination.md`, `app_docs/feature-9gjajh-cron-triggers.md`, `app_docs/feature-9gjajh-coordination-kernel.md`, `app_docs/feature-9gjajh-workflow-lifecycle-phases.md`: the conditional docs for the files above. They describe the `active` exclusion and the coordination kernel this fix changes.
 - `specs/adr/0034-coordination-kernel.md`, `specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md`, `specs/adr/0047-resume-in-place.md`, `specs/adr/0029-top-level-state-file-as-source-of-truth.md`: the decisions this fix works within. ADR-0047's "a workflow in an active stage is still reset" is narrowed for `starting` only.
 
@@ -205,6 +208,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `getLogAdwId` comes from `'../core'`.
   - Every trigger passes the adwId on the command line. `getLogAdwId()` covers a manual run that failed after `setLogAdwId(resolvedAdwId)`.
   - The upgrade-gate `process.exit(0)` park is not an error and stays as is.
+  - The rethrow also keeps the exit status. `main()` has no `.catch`, so the rejection stays unhandled and the orchestrator still exits 1, after the error is in `execution.log`. Do not add a `.catch` that swallows the error or exits 0. The BDD rows launch each orchestrator the way the cron does, with its output discarded, and expect exit code 1.
   - Keep the wrapper small: the file is already over the 300-line guideline, which is why the helper lives in its own module.
 - In `adws/phases/orchestratorLock.ts` `runWithOrchestratorLifecycle`, when `acquireIssueSpawnLock` returns `false`:
   - Read the holder with `readSpawnLockRecord`.
@@ -267,18 +271,20 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `state.workflowStage === 'starting'` and `ownerLive` → `releaseLock()` and return `{ kind: 'defer_live_holder', holderPid: state.pid ?? 0 }`.
   - `starting` and not `ownerLive` → `return recoverViaResumeInPlaceOrReset(d, input, adwId, state)`.
   - Any other active stage → today's behaviour: `killProcess(state.pid)` when `ownerLive` (keep the ESRCH swallow), then `recoverViaResetFromRemote`.
-  - Two comments: `starting` precedes the lifecycle lock, so a live owner there is a slow startup, not a split brain; and no phase of a dead `starting` run executed, so its worktree is what the previous run left.
+  - Two comments:
+    - A live `starting` owner that does not hold the lock has not yet taken its lifecycle lock, which comes right after `initializeWorkflow`. So it is a slow startup, not a split brain.
+    - A dead `starting` run may have run unnamed phases, because only a named phase writes `*_running`. So its worktree goes through the same reuse gate as `phase_timeout` and `abandoned`.
 - **Reclaim a lock this process left behind.**
   - Change the acquire to `d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid) || reclaimOwnLeakedLock(d, input)`.
   - `reclaimOwnLeakedLock` uses guard clauses only:
     - `d.readSpawnLockRecord(...)?.pid !== process.pid` → `false`.
-    - Resolve the adwId and state; no state, or a stage not classed `active` → `false`.
+    - Resolve the adwId and state. No state → `false`. A stage other than `abandoned`, `phase_timeout` or one classed `active` → `false`. The listed stages are the ones the handler takes over; every other stage ends in `skip_terminal` or `spawn_fresh`.
     - `isRecordedOwnerLive(state, d.isProcessLive)` → `false`.
     - Otherwise `log(…, 'warn')` that the issue's spawn lock was left behind by this process and is being reclaimed (naming the stage), then `d.releaseIssueSpawnLock(...)` and `return d.acquireIssueSpawnLock(repoInfo, issueNumber, process.pid)`.
   - Import `log` from `'../core/logger'`, as `retryHandler.ts` does.
-  - Comment the safety argument in two lines: in-process holds that span an `await` only follow `spawn_fresh`, which no active stage produces, and an orchestrator spawned under such a hold records its own live pid at `starting`.
+  - Comment the safety argument in two lines: in-process holds that span an `await` only follow `spawn_fresh`, which none of these stages produces, and an orchestrator spawned under such a hold records its own live pid at `starting`.
 - **Header decision tree** (`:1-23`). Renumber to:
-  1. Lock held by a live holder → `defer_live_holder`, unless the holder is this process and the issue's active stage has no live owner, in which case reclaim.
+  1. Lock held by a live holder → `defer_live_holder`, unless the holder is this process and the issue's orchestrator is dead, in which case reclaim. Dead means the stage is `abandoned`, `phase_timeout` or classed `active`, and no live owner is recorded.
   2. No adwId / no state → `spawn_fresh`.
   3. completed / discarded → `skip_terminal`.
   4. paused → `skip_terminal` (`terminalStage: 'paused'`).
@@ -303,8 +309,9 @@ IMPORTANT: Execute every step in order, top to bottom.
   - **Release on throw:** `resetWorktree` throwing for `build_running`/dead (the #935 error text), and `deriveStageFromRemote` throwing for `abandoned`, both make `evaluateCandidate` rethrow, and `releaseIssueSpawnLock` is called exactly once.
   - **Self-held reclaim.** `acquireIssueSpawnLock` mocked `.mockReturnValueOnce(false).mockReturnValueOnce(true)`; `readSpawnLockRecord` → `{ pid: process.pid, pidStartedAt: 'cron-start' }`.
     - State `starting` with no pid → released once, re-acquired, `take_over_adwId`.
-    - State `starting` with a live owner (`isProcessLive → true`) → `defer_live_holder` and no release.
-    - State `abandoned` → `defer_live_holder` and no release.
+    - State `abandoned`, and state `phase_timeout` within the resume cap, each with no pid → released once, re-acquired, `take_over_adwId`.
+    - State `starting` with a live owner (`isProcessLive → true`) → `defer_live_holder` (`holderPid` = `process.pid`) and no release.
+    - A stage the handler answers with `spawn_fresh`, for example `build_completed` → `defer_live_holder` and no release. This is the only decision an in-process hold spans an `await` for.
     - Holder pid ≠ `process.pid` → `defer_live_holder`, `resolveAdwId` not called (the existing defer tests also keep passing).
 
 ### 8. Contain per-candidate failures and release the take-over lock in the cron loop (`adws/triggers/trigger_cron.ts`)
@@ -337,7 +344,7 @@ Chain the real public functions with injected deps only, with no module mocks of
   - A dead-owner `starting` issue already in `processed.spawns` (this cron spawned it) is still eligible.
   - The same issue with `lastActivityMs` inside the grace period is `grace_period`; with `now` moved past the period it becomes eligible. No state outside the call is needed.
   - `filterEligibleIssues` annotates a live-owner `starting` issue as `#N(active)` and lists the dead-owner one as a candidate.
-- **Self-hold** (the leaked #935 lock): with the lock held by `process.pid` and the `starting`/no-pid state, `evaluateCandidate` reclaims and ends in `take_over_adwId`.
+- **Self-hold** (the leaked #935 lock): with the lock held by `process.pid` and the `starting`/no-pid state, `evaluateCandidate` reclaims and ends in `take_over_adwId`. An `abandoned` state and a `phase_timeout` state, each with no pid, do the same; the filter already passes both stages.
 - **Acceptance criterion 4** is covered by the `workflowInit.test.ts` startup-failure test (Step 4).
 
 ### 10. Run the validation commands
