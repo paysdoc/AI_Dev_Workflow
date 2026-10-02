@@ -550,7 +550,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
-│   │   │   └── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
+│   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
+│   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   └── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
@@ -777,6 +780,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── fixtures/
+│   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
+│   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -822,7 +828,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
-│   ├── planCommitGuard.ts  # Baseline/diff guard that stops the planner from changing or committing off-limits `.claude`/`.adw` files
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
@@ -1082,6 +1087,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   ├── fixtures/
+│   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
