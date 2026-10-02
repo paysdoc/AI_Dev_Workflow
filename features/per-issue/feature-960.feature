@@ -256,7 +256,7 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
       | outside | paused      |
       | inside  | paused_auth |
 
-  @adw-960 @adw-f2mx98-bug-regression-then
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963
   Scenario: T1 for an adwId whose registered worktree holds no state file either fails, and the failure names both paths it tried
     Given the ADW checkout holds no top-level state file for adwId "throwaway960-bare"
     And a throwaway feature whose only scenario runs outside the @regression hooks, with the steps:
@@ -354,10 +354,17 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then
-  Scenario: The regression suite's smoke and surface scenarios, pending on dev, are all still reported pending
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963
+  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the six surface rows that run in-process, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
-    Then every smoke and surface scenario is reported pending
+    Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
+      | row                                                    |
+      | row-02-adwPlan-planPhase-happy.feature                 |
+      | row-03-adwPlan-planPhase-error-stub-failure.feature    |
+      | row-04-adwBuild-buildPhase-happy.feature               |
+      | row-05-adwBuild-buildPhase-edge-missing-lock.feature   |
+      | row-31-adwPlan-orchestratorLock-acquired-happy.feature |
+      | row-32-adwBuild-orchestratorLock-re-entry-edge.feature |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

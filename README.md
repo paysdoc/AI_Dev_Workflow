@@ -504,6 +504,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
+│   ├── regressionWorkflow.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -788,6 +789,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
 │   │   ├── prReviewCompletion.test.ts
+│   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
@@ -796,6 +798,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── startupFailureLog.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
 │   │   ├── workflowInit.test.ts
@@ -836,6 +839,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
+│   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
@@ -868,6 +872,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
+│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
@@ -1025,6 +1030,7 @@ workers/                # Cloudflare Workers
 │   │   ├── index.ts        # Worker entry point
 │   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
+│   │   │   └── 0001_initial.sql
 │   │   ├── queries.ts      # D1 query helpers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions

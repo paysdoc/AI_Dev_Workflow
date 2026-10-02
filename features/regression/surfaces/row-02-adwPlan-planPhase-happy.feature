@@ -1,11 +1,13 @@
 @regression @surface
 Feature: adwPlan — planPhase — happy path
 
-  Scenario: plan orchestrator completes plan phase and exits successfully
-    Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
-    And an issue 1002 exists in the mock issue tracker
-    And the claude-cli-stub is loaded with fixture "plan-agent.json"
+  Scenario: plan orchestrator's plan phase runs in-process, succeeds and posts its plan stage comments
+    Given an issue 1002 exists in the mock issue tracker
     And the worktree for adwId "surface-02" is initialised at branch "surface-02"
-    When the "plan" orchestrator is invoked with adwId "surface-02" and issue 1002
-    Then the state file for adwId "surface-02" records workflowStage "awaiting_merge"
-    And the orchestrator subprocess exited 0
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-plan-phase.json"
+    When the "plan" phase of the "plan" orchestrator runs for adwId "surface-02"
+    Then the "plan" phase run succeeded
+    And the mock GitHub API recorded a comment on issue 1002
+    And the mock GitHub API recorded a comment containing the text "## :pencil: Building Implementation Plan"
+    And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Implementation Plan Created"
+    And the mock GitHub API recorded a comment containing the text "## :floppy_disk: Committing Plan"

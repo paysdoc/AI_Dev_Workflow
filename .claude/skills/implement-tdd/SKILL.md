@@ -62,8 +62,8 @@ If a scenario cannot be made to pass and the plan does not address it, add a `//
 
 ### 4. Unit Tests (Conditional)
 
-Read `.github/adw.yml`. Unit tests are disabled only when it sets `unitTests` to `false` on an uncommented line; a missing file, a missing or commented-out key, or `unitTests: true` means enabled.
-- If unit tests are **disabled**: skip unit tests entirely — only BDD scenarios drive the TDD loop.
+Check `.adw/project.md` for the `## Unit Tests` section:
+- If unit tests are **disabled** or the section is **absent**: skip unit tests entirely — only BDD scenarios drive the TDD loop.
 - If unit tests are **enabled**: integrate unit tests as a first-class part of the red-green-refactor loop for each scenario.
 
 **When unit tests are enabled — red-green-refactor per scenario:**
@@ -74,7 +74,7 @@ Read `.github/adw.yml`. Unit tests are disabled only when it sets `unitTests` to
 | GREEN    | Implement code to pass both scenario and unit test |
 | REFACTOR | Clean up while keeping both green                 |
 
-**When unit tests are disabled:**
+**When unit tests are disabled or absent:**
 
 | phase    | activity                              |
 | -------- | ------------------------------------- |

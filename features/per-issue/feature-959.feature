@@ -407,7 +407,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
     And the worktree of workflow "prr959-9600" was not reset
     And the state file for adwId "prr959-9600" records workflowStage "pr_review_build_running"
 
-  @adw-959 @adw-r5ifl5-bug-an-orchestrator
+  @adw-959 @adw-r5ifl5-bug-an-orchestrator @adw-963
   Scenario: A spawn lock held by another live process still turns the cron away from a workflow whose orchestrator died in "starting"
     Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
     And issue 9580 has an ADW workflow under adwId "held959-9580" that runs "adws/adwSdlc.tsx", whose last run stopped at "phase_timeout" half an hour ago
