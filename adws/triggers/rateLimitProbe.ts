@@ -8,6 +8,8 @@
 
 import { spawnSync } from 'child_process';
 import { log, resolveClaudeCodePath } from '../core';
+import { buildClaudeLaunchEnv } from '../core/environment';
+import { PROBE_MODEL } from '../core/modelRouting';
 import { parseJsonlOutput, createJsonlParserState, type JsonlParserState } from '../core/claudeStreamParser';
 import type { RateLimitFacts } from '../types/agentTypes';
 
@@ -31,7 +33,7 @@ const PROBE_TIMEOUT_MS = 30_000;
 // probe sees the same rate_limit_event / api_retry envelopes the orchestrator pauses on.
 export const PROBE_ARGS: readonly string[] = [
   '--print', '--verbose', '--output-format', 'stream-json',
-  '--model', 'haiku', '--max-turns', '1', '--dangerously-skip-permissions',
+  '--model', PROBE_MODEL, '--max-turns', '1', '--dangerously-skip-permissions',
   'ping',
 ];
 
@@ -80,6 +82,7 @@ export function runClaudeProbe(claudePath: string, args: readonly string[]): Pro
     encoding: 'utf-8',
     timeout: PROBE_TIMEOUT_MS,
     stdio: ['ignore', 'pipe', 'pipe'],
+    env: buildClaudeLaunchEnv(),
   });
   if (result.error) throw result.error;
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };

@@ -83,11 +83,11 @@ function safeReadDoc(
   };
 }
 
-function safeDefaultBranch(boundary: LaunchBoundary): string {
+function safeDefaultBranch(boundary: LaunchBoundary): string | null {
   try {
     return boundary.providers.codeHost.getDefaultBranch();
   } catch {
-    return 'main';
+    return null;
   }
 }
 

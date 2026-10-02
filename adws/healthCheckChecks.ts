@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
+import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath, buildClaudeLaunchEnv } from './core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { CodeHost, IssueTracker } from '@paysdoc/devplatform';
 
@@ -21,45 +21,30 @@ export function commandExists(command: string): boolean {
   }
 }
 
-export function execCommand(command: string): string | null {
+export function execCommand(command: string, env?: NodeJS.ProcessEnv): string | null {
   try {
-    return execSync(command, { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    return execSync(command, { encoding: 'utf-8', stdio: 'pipe', env }).trim();
   } catch {
     return null;
   }
 }
 
+const OPTIONAL_ENV_VARS: readonly string[] = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_PATH', 'GITHUB_PAT'];
+
+const API_BILLING_WARNING =
+  'ANTHROPIC_API_KEY is set: billing for every agent ADW starts moves from the Claude subscription to the Anthropic API. Unset it to return to the subscription.';
+
+/** No variable is required: without ANTHROPIC_API_KEY every agent runs on the Claude subscription. */
 export function checkEnvironmentVariables(): CheckResult {
-  const required = ['ANTHROPIC_API_KEY'];
-  const optional = ['CLAUDE_CODE_PATH', 'GITHUB_PAT'];
-
-  const missing: string[] = [];
-  const present: string[] = [];
-  const optionalPresent: string[] = [];
-
-  for (const envVar of required) {
-    if (process.env[envVar]) {
-      present.push(envVar);
-    } else {
-      missing.push(envVar);
-    }
-  }
-
-  for (const envVar of optional) {
-    if (process.env[envVar]) {
-      optionalPresent.push(envVar);
-    }
-  }
-
-  const success = missing.length === 0;
+  const optional = OPTIONAL_ENV_VARS.filter((name) => Boolean(process.env[name]));
+  const billsApi = optional.includes('ANTHROPIC_API_KEY');
 
   return {
-    success,
-    error: missing.length > 0 ? `Missing required environment variables: ${missing.join(', ')}` : undefined,
+    success: true,
+    warning: billsApi ? API_BILLING_WARNING : undefined,
     details: {
-      required: present,
-      missing,
-      optional: optionalPresent
+      optional,
+      claudeBilling: billsApi ? 'api' : 'subscription'
     }
   };
 }
@@ -131,7 +116,7 @@ export function checkClaudeCodeCLI(): CheckResult {
     };
   }
 
-  const version = execCommand(`${resolvedPath} --version`);
+  const version = execCommand(`${resolvedPath} --version`, buildClaudeLaunchEnv());
   details.version = version || 'unknown';
 
   return {

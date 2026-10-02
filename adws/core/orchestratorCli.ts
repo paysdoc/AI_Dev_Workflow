@@ -68,7 +68,7 @@ export function printUsageAndExit(scriptName: string, usagePattern: string, opti
     console.error('');
   }
   console.error('Environment Requirements:');
-  console.error('  ANTHROPIC_API_KEY  - Anthropic API key');
+  console.error('  ANTHROPIC_API_KEY  - (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API');
   console.error('  CLAUDE_CODE_PATH   - Path to Claude CLI (default: /usr/local/bin/claude)');
   console.error('  GITHUB_PAT         - (Optional) GitHub Personal Access Token');
   process.exit(1);

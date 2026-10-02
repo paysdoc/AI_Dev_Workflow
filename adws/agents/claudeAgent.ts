@@ -1,7 +1,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
+import { log, AgentStateManager, buildClaudeLaunchEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { GitContext } from '@paysdoc/devplatform/git';
@@ -39,11 +39,24 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** `gitContext` narrows to `mainRepoPath` only — the seam a spawned agent needs to learn its main repo path without constructing a GitContext of its own. */
+/** `gitContext` narrows to the seam a spawned agent needs: its main repo path and the git identity its own commits must carry, without constructing a GitContext of its own. */
 export interface AgentLaunchContext {
   selfHost: boolean;
   adwId: string;
-  gitContext?: Pick<GitContext, 'mainRepoPath'>;
+  gitContext?: Pick<GitContext, 'mainRepoPath' | 'commandEnv'>;
+}
+
+const GIT_IDENTITY_ENV_KEYS = ['GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL'] as const;
+
+/**
+ * Agents run `git commit` themselves, and without these variables git falls back to the host's own identity.
+ * Only the identity is taken: the credential stays opt-in per caller.
+ */
+function launchIdentityEnv(gitContext: AgentLaunchContext['gitContext']): NodeJS.ProcessEnv {
+  if (!gitContext) return {};
+  const commandEnv = gitContext.commandEnv();
+  const present = GIT_IDENTITY_ENV_KEYS.filter((key) => commandEnv[key] !== undefined);
+  return Object.fromEntries(present.map((key): [string, string | undefined] => [key, commandEnv[key]]));
 }
 
 /**
@@ -51,7 +64,7 @@ export interface AgentLaunchContext {
  *
  * @param args - Arguments to pass to the command. A string replaces $ARGUMENTS; an array passes each element as a separate positional argument ($1, $2, $3, ...).
  * @param launchContext - Optional launch-boundary facts used to decide guardrails `--settings`
- *   injection and to resolve ADW_MAIN_REPO_PATH via its `gitContext`.
+ *   injection, to resolve ADW_MAIN_REPO_PATH, and to give the agent the git identity of its commits, via its `gitContext`.
  *   Absent → treated as self-host, so an un-threaded caller never injects (fail-safe = today's
  *   behaviour).
  * @param killOnCompaction - Only a caller that restarts the agent when the result carries
@@ -62,7 +75,7 @@ export async function runClaudeAgentWithCommand(
   args: string | readonly string[],
   agentName: string,
   outputFile: string,
-  model: string = 'sonnet',
+  model: string,
   effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
@@ -111,13 +124,7 @@ export async function runClaudeAgentWithCommand(
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 
   // Subprocess receives per-command auth from the launch-boundary context, never from a process-global (PRD Auth model).
-  const spawnEnv = { ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) };
-  // Pipeline agents are stateless: Claude Code's auto-memory (the operator's
-  // ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned
-  // agent. A worktree resolves to the same project key as the framework checkout, so
-  // without this the operator's interactive-session memories are read as instructions
-  // Set after the overlay so no caller can re-enable it.
-  spawnEnv['CLAUDE_CODE_DISABLE_AUTO_MEMORY'] = '1';
+  const spawnEnv = buildClaudeLaunchEnv({ ...launchIdentityEnv(launchContext?.gitContext), ...(subprocessEnv ?? {}) });
   const resolvedCwd = cwd || process.cwd();
   if (cwd && cwd.includes('.worktrees/') && launchContext?.gitContext) {
     try {
@@ -209,8 +216,7 @@ export async function runClaudeAgentWithCommand(
     try {
       const statusOutput = execSync(`${resolvedPath} auth status --json`, {
         timeout: 15_000,
-        // Inherit full env so the CLI can access its own config/credentials at HOME
-        env: { ...process.env },
+        env: spawnEnv,
       }).toString();
       const status = JSON.parse(statusOutput);
       if (!status.loggedIn) {

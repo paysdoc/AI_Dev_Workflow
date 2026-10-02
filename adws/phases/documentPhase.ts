@@ -19,7 +19,7 @@ export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName, defaultBranch } = config;
   const phaseStartTime = Date.now();
   const gitCtx = requireWorkflowGitContext(config);
 
@@ -53,6 +53,7 @@ export async function executeDocumentPhase(
     issue.body,
     gitCtx.commandEnv(),
     { selfHost: !repoContext, adwId, gitContext: gitCtx },
+    defaultBranch,
   );
 
   costUsd = result.totalCostUsd || 0;

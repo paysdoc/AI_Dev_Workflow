@@ -149,7 +149,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
 export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 
 /**
- * @param baseBranch - base/default branch to diff committed work against, e.g. `dev`; when
+ * @param baseBranch - base/default branch to diff committed work against; when
  *   omitted with checkpoint commits present, falls back to generic branch-history inspection.
  * @param checkpointCommitsPresent - true when the build branch carries checkpoint commits
  *   beyond the base; directs the fresh agent to inspect committed git state as the source of

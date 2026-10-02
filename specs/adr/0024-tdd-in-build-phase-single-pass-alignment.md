@@ -69,10 +69,6 @@ Checked against the code on 2026-09-29:
 
 No CI gate enforces this decision.
 
-## Divergence
-
-1. **The step-definition independence check is missing from review.** The independence check of #307 is not in `.claude/commands/review.md`. `git log --all -S'ndependence' -- .claude/commands/review.md` returns no commit, and no revision of the file between 2026-03-24 and 2026-04-08 contains it. PR #310 merged the feature file, step definitions and documents for #307, but not the prompt change. The review prompt was rewritten on 2026-04-08 (ADR-0031) without it. Ruling (owner, 2026-09-29): the check is required. Its absence from `review.md` is a bug.
-
 ## More Information
 
 * **Part that no longer holds:** dropping the step-definition phase. [ADR-0031](0031-active-test-phase-passive-review-judge.md) wired `executeStepDefPhase` back in between build and unit test. The build agent may still write step definitions in its loop.

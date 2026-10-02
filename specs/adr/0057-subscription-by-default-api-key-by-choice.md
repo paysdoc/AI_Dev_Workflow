@@ -52,11 +52,6 @@ Not verified: that the CLI bills the API whenever the variable is set. This is t
 
 No CI gate enforces the decision.
 
-## Divergence
-
-1. **The health check requires the key.** `checkEnvironmentVariables` in `adws/healthCheckChecks.ts` lists `ANTHROPIC_API_KEY` as its one required variable, so an installation on the subscription fails the check. Ruling (owner, 2026-10-01): the key is optional; a bug.
-2. **The documents tell the operator to set the key.** `.env.sample`, `README.md`, `adws/README.md`, the usage text in `adws/core/orchestratorCli.ts` and the header comment of each orchestrator script name the key as something to set, and none says that it changes billing. Ruling (owner, 2026-10-01): the documents must present the key as an optional choice and state its effect.
-
 ## More Information
 
 * The CI secret for the conformance gate is recorded in the Divergence section of ADR-0055. It does not affect how the pipeline is billed.

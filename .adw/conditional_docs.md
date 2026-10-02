@@ -197,6 +197,7 @@
     - adws/vcs/**
     - adws/phases/worktreeSetup.ts
   - Conditions:
+    - When working on the protected-branch check (`isProtectedBranch`, `deleteRemoteBranchUnlessProtected` in `adws/vcs/branchOperations.ts`) or the default branch resolved at run time before a remote-branch deletion
     - When working with `pushBranch` in `adws/vcs/commitOperations.ts` or the force-with-lease push behavior
     - When implementing or troubleshooting `ensureWorktree`, `createWorktree`, or `createWorktreeForNewBranch`
     - When working with `generateBranchName`, `validateSlug`, or branch naming in `adws/vcs/branchOperations.ts`
@@ -226,6 +227,7 @@
     - When `fetchLinkedPRs(codeHost)` is referenced — it now takes a `Pick<CodeHost, 'listPullRequests'>` instead of a `repoInfo`, reading `CodeHost.listPullRequests()` (every PR of the repo — open/closed/merged; new port method, #821)
     - When `buildUnaddressedCommentReads(boundary)`/`hasUnaddressedComments(prNumber, boundary)` are referenced — rewritten around `Pick<LaunchBoundary, 'providers' | 'gitContext'>`, shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`
     - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
+    - When `provisionAdwLabels(boundary, logger?)` is referenced — the never-throw wrapper called once from `trigger_cron.ts` at startup
     - When `ensureAdwLabelsExist(repoInfo, tracker, logger?)` is referenced — the one piece of label-provisioning policy kept from the deleted `labelManager.ts`, over `Pick<IssueTracker, 'ensureLabel'>`
     - When `getRepoInfo`, `fetchGitHubIssue`, `commentOnIssue` (the free function; `IssueTracker.commentOnIssue` the port method still exists), `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts`, `activateGitHubAppAuth`, or `activeRepo` are referenced and not found — the entire legacy free-function GitHub API layer was deleted in #821; every op now routes through a forge provider port (`IssueTracker`/`CodeHost`) reached via a `LaunchBoundary`. `getRepoInfo` survives only as a name-based reintroduction guard in `adws/guard/identityRule.ts`'s `CWD_DERIVED_IDENTITY_FNS` set
   - Decisions:
@@ -246,6 +248,7 @@
     - When `checkAndTrigger`'s top-of-function boundary-null guard (logs and returns; only reachable when the module is imported, never at tick time) or `trigger_cron.ts` constructing zero contexts (no `gitContextForRepo` import) is relevant
     - When working on the cron trigger loop, cron issue filtering, label eligibility for cron, cron process guard, repo resolver, or stage resolver
     - When working on `trigger_cron.ts`, `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `cronProcessGuard.ts`, `cronRepoResolver.ts`, or `cronStageResolver.ts`
+    - When an `adw:none` issue is still being taken over or merged by the cron, or when `provisionAdwLabels` / `adw:*` label provisioning at cron start is relevant
     - When working with `decideLabelRecovery`, `evaluateLabelRecovery`, or the `reserved_label` reason in `cronLabelEligibility.ts`
     - When a truly-unlabeled fresh issue is being filtered out of the cron sweep instead of falling through to downstream LLM classification (#754)
     - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper, or a multi-label conflict was cleaned up but the issue is not auto-recovering
@@ -276,6 +279,7 @@
     - adws/triggers/webhookEventBoundary.ts
     - adws/triggers/__tests__/webhookEventBoundary.test.ts
   - Conditions:
+    - When an `adw:none` issue still starts a run on the comment, dependency-closure, opened or cron path, or when the opt-out gate in `classifyAndSpawnWorkflow` is relevant
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
     - When working with `handleIssueClosedDependencyUnblock`, `selectDependents`, or `issueClosedUnblockRouter.ts` (the `issues.closed` dependency-unblock path)
@@ -560,6 +564,7 @@
     - adws/triggers/__tests__/docsIndexSweepDefaults.test.ts
     - adws/__tests__/checkLivingDocsIndex.test.ts
   - Conditions:
+    - When working on the `/document` `defaultBranch` argument (`$3`, passed from `config.defaultBranch`) or the docs-index report body's branch clause when the default-branch lookup fails
     - When working on the document phase orchestrator step (`adws/phases/documentPhase.ts`) that invokes `/document`, commits, and pushes generated docs
     - When working on the living-docs convergence registry (`adws/core/conditionalDocsRegistry.ts`) — parsing, serializing, collapsing, or querying `.adw/conditional_docs.md`
     - When working on the per-write post-write guards (`adws/core/docsGuards.ts`, `adws/phases/docsSelfCheck.ts`) — bloat or regrowth flags on a just-produced doc
@@ -578,6 +583,8 @@
     - adws/core/repoIdentityCrossCheck.ts
     - adws/core/__tests__/repoIdentityCrossCheck.test.ts
     - adws/checkGitGhGuard.ts
+    - adws/checkBranchNames.ts
+    - adws/__tests__/checkBranchNames.test.ts
     - adws/guard/**
     - adws/phases/branchIdentityFallback.ts
     - adws/phases/__tests__/branchIdentityFallback.test.ts
@@ -602,6 +609,7 @@
     - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one `GitContext` and one bound provider triple per process, threaded into the assembly via `ForgeProvidersOptions.gitContext`
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
     - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its three rules (shellout, cwd-derived-identity, unsanctioned-construction), its empty `EXEMPT_PACKAGES` set, or its one-entry `SANCTIONED_CONSTRUCTION_SITES` allowlist
+    - When working on the branch-name guard (`adws/checkBranchNames.ts`, `bun run lint:branch-names`) or when a branch name written into `adws/` or `.claude/commands/` is flagged
     - When troubleshooting a wrong-repo worktree, `GH_TOKEN` bleed, or a construction site newly flagged by `lint:git-guard`
     - When working on the `.adw/providers.md` reader (`loadProviderConfig`/`parseCodeHostForge`/`parseIssueTrackerForge`, `adws/core/providerConfig.ts`)
     - When `buildLaunchBoundary`'s `forgeProviders`/`forgeDeps`/`forgeCredentials` seams or `buildAdwForgeDeps` (`adws/core/forgeWiring.ts`) are relevant
@@ -625,15 +633,24 @@
     - scripts/guardrails-probe.ts
     - templates/claude-settings-starter.json
     - adws/agents/claudeAgent.ts
+    - adws/agents/__tests__/commitIdentity.integration.test.ts
     - adws/agents/commandAgent.ts
     - adws/agents/gitAgent.ts
     - adws/agents/agentProcessHandler.ts
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
     - adws/agents/__tests__/agentProcessHandler.test.ts
+    - adws/agents/__tests__/commandAgent.test.ts
+    - adws/checkModelLiterals.ts
+    - adws/__tests__/checkModelLiterals.test.ts
+    - adws/core/__tests__/fixtures/recordingClaudeCli.ts
+    - adws/core/__tests__/guardrailsProbe.integration.test.ts
+    - .claude/commands/correct_output.md
   - Conditions:
+    - When working on the git identity agent commits carry (the `GIT_AUTHOR_*`/`GIT_COMMITTER_*` overlay from `launchContext.gitContext.commandEnv()` in `runClaudeAgentWithCommand`) or when agent commits show the host's identity instead of the App's
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on context-compaction handling in the agent process handler — the opt-in `killOnCompaction` flag, which agents are killed and restarted (build phase, unit-test path) versus run on, or `compactionDetected` results
+    - When working on the output-validation retry (`/correct_output`, `runRetryLoop`), the shared stateless Claude launch environment (`buildClaudeLaunchEnv`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`) used by agents, probes, auth-status and version checks, or the model-literal guard (`checkModelLiterals.ts`, `bun run lint:model-literals`, `PROBE_MODEL`)
     - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
   - Decisions:
     - 0001
@@ -820,7 +837,7 @@
     - adws/phases/stackCoherenceReporter.ts
     - adws/proof/**
   - Conditions:
-    - When working on proof artifact harvesting, PR proof publishing, scenario proof attachment, stack coherence reporting, or the `adws/proof/` module
+    - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, scenario proof attachment, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
     - 0022

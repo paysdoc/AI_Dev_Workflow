@@ -146,7 +146,7 @@ describe('prepareSweepBase — custom spec', () => {
 });
 
 describe('cleanupSweepBase', () => {
-  function makeFakeCleanupBase(overrides: Record<string, unknown> = {}) {
+  function makeFakeCleanupBase(overrides: Record<string, unknown> = {}, baseOverrides: Partial<SweepBase> = {}) {
     return {
       ctx: {
         deleteRemoteBranch: vi.fn(() => true),
@@ -154,6 +154,7 @@ describe('cleanupSweepBase', () => {
         ...overrides,
       },
       sweepBranch: SWEEP_BRANCH,
+      ...baseOverrides,
     } as unknown as SweepBase;
   }
 
@@ -177,5 +178,23 @@ describe('cleanupSweepBase', () => {
     const base = makeFakeCleanupBase({ removeWorktree: vi.fn(() => { throw new Error('worktree busy'); }) });
 
     expect(() => cleanupSweepBase(base)).not.toThrow();
+  });
+
+  it('leaves the remote branch and the worktree alone when the sweep branch is the default branch', () => {
+    const base = makeFakeCleanupBase({}, { defaultBranch: SWEEP_BRANCH });
+
+    cleanupSweepBase(base);
+
+    expect(base.ctx.deleteRemoteBranch).not.toHaveBeenCalled();
+    expect(base.ctx.removeWorktree).not.toHaveBeenCalled();
+  });
+
+  it('tears the sweep branch down when the default branch is another branch', () => {
+    const base = makeFakeCleanupBase({}, { defaultBranch: 'trunk' });
+
+    cleanupSweepBase(base);
+
+    expect(base.ctx.deleteRemoteBranch).toHaveBeenCalledWith(SWEEP_BRANCH);
+    expect(base.ctx.removeWorktree).toHaveBeenCalledWith(SWEEP_BRANCH);
   });
 });

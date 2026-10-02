@@ -3,7 +3,7 @@
  * Usage: bunx tsx adws/adwPlanBuild.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
  *
  * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
+ * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */

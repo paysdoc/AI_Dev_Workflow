@@ -26,6 +26,9 @@ import type {
   PullRequestSummary,
   PullRequestRecord,
   ReviewComment,
+  IssueListEntry,
+  IssueListField,
+  IssueListQuery,
 } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
 import { GitHubCodeHost, GitHubIssueTracker } from '@paysdoc/devplatform/providers';
@@ -77,11 +80,16 @@ export interface Fixture {
   issueCreatedAts: Map<number, string>;
   issueAuthors: Map<number, string>;
   issueStates: Map<number, string>;
+  /** Bodies and update times: served alike by fetchIssue and listIssues; absent means today's empty answer. */
+  issueBodies: Map<number, string>;
+  issueUpdatedAts: Map<number, string>;
   /** Issue numbers whose fetchIssue should reject, as the real tracker does on a forge refusal. */
   refuseIssueFetch: Set<number>;
   /** codeHost refusal flags for the two "refuses by name" health-check rows. */
   refuseListPullRequests: boolean;
   refuseAuthenticatedUser: boolean;
+  /** When true, getDefaultBranch records the call then refuses by name (throws), as the real code host does on a forge refusal. */
+  refuseDefaultBranch: boolean;
   /** When true, approvePullRequest records the call but reports { success: false }. */
   approveFails: boolean;
   /** When true, canApprovePullRequests records the call then refuses by name (throws). */
@@ -243,9 +251,12 @@ export function makeFixture(): Fixture {
     issueCreatedAts: new Map(),
     issueAuthors: new Map(),
     issueStates: new Map(),
+    issueBodies: new Map(),
+    issueUpdatedAts: new Map(),
     refuseIssueFetch: new Set(),
     refuseListPullRequests: false,
     refuseAuthenticatedUser: false,
+    refuseDefaultBranch: false,
     approveFails: false,
     refuseCanApprove: false,
     approvalsCountAsReviews: false,
@@ -290,6 +301,36 @@ export function record(callLog: CallRecord[], operation: string, ...args: unknow
   callLog.push({ operation, args });
 }
 
+/** Every issue a scenario has seeded anything for, in the order its first seed landed. */
+export function seededIssueNumbers(fixture: Fixture): number[] {
+  const seeds = [
+    fixture.issueLabels, fixture.issueTitles, fixture.issueBodies,
+    fixture.issueComments, fixture.issueStates, fixture.issueCreatedAts,
+  ];
+  return [...new Set(seeds.flatMap((seeded) => [...seeded.keys()]))];
+}
+
+function listedIssue(fixture: Fixture, issueNumber: number, fields: readonly IssueListField[]): IssueListEntry {
+  const projections: Record<IssueListField, Partial<IssueListEntry>> = {
+    number: {},
+    title: { title: fixture.issueTitles.get(issueNumber) ?? '' },
+    body: { body: fixture.issueBodies.get(issueNumber) ?? '' },
+    state: { state: fixture.issueStates.get(issueNumber) ?? 'OPEN' },
+    labels: { labels: (fixture.issueLabels.get(issueNumber) ?? []).map((name) => ({ name })) },
+    comments: { comments: fixture.issueComments.get(issueNumber) ?? [] },
+    createdAt: { createdAt: fixture.issueCreatedAts.get(issueNumber) ?? '' },
+    updatedAt: { updatedAt: fixture.issueUpdatedAts.get(issueNumber) ?? '' },
+  };
+  return fields.reduce<IssueListEntry>((entry, field) => ({ ...entry, ...projections[field] }), { number: issueNumber });
+}
+
+/** Lists every seeded issue whose seeded state is not "CLOSED" — what an open-issue listing returns. */
+function listSeededIssues(fixture: Fixture, query: IssueListQuery): IssueListEntry[] {
+  return seededIssueNumbers(fixture)
+    .filter((issueNumber) => fixture.issueStates.get(issueNumber) !== 'CLOSED')
+    .map((issueNumber) => listedIssue(fixture, issueNumber, query.fields));
+}
+
 function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): IssueTracker {
   return {
     async fetchIssue(issueNumber) {
@@ -300,9 +341,11 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
         throw new Error(`Failed to fetch issue #${issueNumber}: recording tracker configured to refuse`);
       }
       return {
-        id: String(issueNumber), number: issueNumber, title: fixture.issueTitles.get(issueNumber) ?? '', body: '',
+        id: String(issueNumber), number: issueNumber, title: fixture.issueTitles.get(issueNumber) ?? '',
+        body: fixture.issueBodies.get(issueNumber) ?? '',
         state: fixture.issueStates.get(issueNumber) ?? 'open',
-        author: fixture.issueAuthors.get(issueNumber) ?? '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        author: fixture.issueAuthors.get(issueNumber) ?? '', labels: fixture.issueLabels.get(issueNumber) ?? [],
+        comments: fixture.issueComments.get(issueNumber) ?? [],
         createdAt: fixture.issueCreatedAts.get(issueNumber) ?? '', url: fixture.issueUrls.get(issueNumber) ?? '',
       };
     },
@@ -318,7 +361,7 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
     },
     getIssueState(issueNumber) {
       record(callLog, 'getIssueState', issueNumber);
-      return 'open';
+      return fixture.issueStates.get(issueNumber) ?? 'open';
     },
     fetchComments(issueNumber) {
       record(callLog, 'fetchComments', issueNumber);
@@ -366,7 +409,7 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
     },
     listIssues(query) {
       record(callLog, 'listIssues', query);
-      return [];
+      return listSeededIssues(fixture, query);
     },
     getIssueTitle(issueNumber) {
       record(callLog, 'getIssueTitle', issueNumber);
@@ -379,6 +422,7 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
   return {
     getDefaultBranch() {
       record(callLog, 'getDefaultBranch');
+      if (fixture.refuseDefaultBranch) throw new Error('default branch lookup failed');
       return fixture.defaultBranch;
     },
     createPullRequest(options) {
@@ -483,7 +527,8 @@ function makeRecordingProviders(fixture: Fixture, callLog: CallRecord[], repoId:
   };
 }
 
-export function buildRecordingBoundary(owner: string, repo: string): void {
+/** `overrides` replaces any seam this harness wires, so a scenario can inject, for one, its own git identity. */
+export function buildRecordingBoundary(owner: string, repo: string, overrides: Partial<LaunchGitContextDeps> = {}): void {
   w.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-796-framework-'));
   w.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-796-target-repos-'));
   w.tempDirs.push(w.frameworkRoot, w.targetReposDir);
@@ -507,6 +552,7 @@ export function buildRecordingBoundary(owner: string, repo: string): void {
       w.mintedRepoId = options.identity;
       return makeRecordingProviders(w.activeFixture!, w.activeCallLog, options.identity);
     },
+    ...overrides,
   };
   w.boundary = buildLaunchBoundary(makeTargetRepo(owner, repo), deps);
 }

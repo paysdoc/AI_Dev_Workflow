@@ -63,10 +63,6 @@ Checked on 2026-09-29:
 * `workers/screenshot-router/wrangler.toml` routes `screenshots.paysdoc.nl/*` and sets the cron `0 3 * * *`. The hostname resolves.
 * Unit tests exist for `adws/proof/`. None exist for `adws/r2/` or for the Worker.
 
-## Divergence
-
-2. **Screenshots never reach the issue's review comments.** `screenshotUrls` in the review comment formatters (`adws/forge/workflowCommentsIssue.ts`) is never set by any caller, so the review-comment path of #278 is dead code. Ruling (owner, 2026-09-29): screenshots were meant to appear in the review comments on the issue as well. A bug.
-
 ## More Information
 
 * The `cost-api` Worker shares the layout and the deploy workflow; see [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md). DNS for the hostnames is covered by [ADR-0030](0030-cloudflare-dns-managed-by-hand.md). The review became a passive judge under [ADR-0031](0031-active-test-phase-passive-review-judge.md); a comment in `adws/adwSdlc.tsx` as of commit 7c65081b says it "no longer produces images". Whether that is why #278's call site disappeared was not checked.

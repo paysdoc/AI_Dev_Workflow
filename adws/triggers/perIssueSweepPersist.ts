@@ -19,6 +19,7 @@ import { log as coreLog, type LogLevel } from '../core';
 import type { LaunchBoundary } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { CodeHost } from '@paysdoc/devplatform';
+import { isProtectedBranch } from '../vcs/branchOperations';
 
 /** Stable dedicated branch the per-issue sweep's removal is pushed to and PR'd from. */
 export const SWEEP_BRANCH = 'chore/scenario-sweep';
@@ -148,8 +149,9 @@ export async function persistRemovalViaPr(paths: readonly string[], base: SweepB
   await persistCommitViaPr((b) => b.ctx.removeAndCommitPaths(paths, SWEEP_COMMIT_MESSAGE, b.worktreePath), base);
 }
 
-/** Best-effort teardown of the sweep's remote branch and local worktree. Never throws. */
+/** Best-effort teardown of the sweep's remote branch and local worktree. Never throws, and never touches the default branch. */
 export function cleanupSweepBase(base: SweepBase): void {
+  if (isProtectedBranch(base.sweepBranch, base.defaultBranch)) return;
   try {
     base.ctx.deleteRemoteBranch(base.sweepBranch);
   } catch {

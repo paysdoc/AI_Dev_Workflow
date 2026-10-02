@@ -59,10 +59,6 @@ Checked on 2026-09-29:
 
 Not re-run: the check reported in PR #811 that the headless init event no longer lists `memory_paths`.
 
-## Divergence
-
-1. **Three probes start `claude` with auto-memory on.** Three probes start `claude` outside `claudeAgent.ts` and do not set the variable: `adws/triggers/rateLimitProbe.ts`, `adws/jsonl/schemaProbe.ts` and `scripts/guardrails-probe.ts`. The schema probe and the guardrails probe run in a temporary directory; a comment in `schemaProbe.ts` gives keeping project memory out of the probe as the reason. The rate-limit probe inherits the trigger's working directory and environment. Ruling (owner, 2026-10-01): every `claude` process ADW starts is stateless, probes included. All three are bugs.
-
 ## More Information
 
 PR #811 also carried the repair of the documentation index; that is ADR-0053 ([0053-docs-index-health-gate-and-sweep.md](0053-docs-index-health-gate-and-sweep.md)). The other fixed property of the spawn, guardrail injection, is ADR-0050 ([0050-target-repo-guardrails.md](0050-target-repo-guardrails.md)).

@@ -18,7 +18,9 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 - `getDefaultBranch`: queries `gh repo view --json defaultBranchRef` for the repo's default branch.
 - `mergeLatestFromDefaultBranch`: fetches and merges `origin/<defaultBranch>` into the current branch; logs warnings on failure without throwing.
 - `fetchAndResetToRemote`: fetches `origin/<defaultBranch>` and hard-resets the worktree to it; throws on failure.
-- `deleteLocalBranch` / `deleteRemoteBranch`: delete branches, refusing to touch protected branches (`main`, `master`, `develop`).
+- `deleteLocalBranch` / `deleteRemoteBranch`: delete branches; the library's own fixed protected list sits underneath ADW's run-time check.
+- `isProtectedBranch(branch, defaultBranch)` (`branchOperations.ts`): pure `branch === defaultBranch`; no branch name is hard-coded.
+- `deleteRemoteBranchUnlessProtected(ports, branch, cwd?)`: resolves the default branch through `ports.getDefaultBranch()`, never deletes it, and deletes nothing when the lookup throws. Both of ADW's remote-branch deletions (the `issues.closed` cleanup in `webhookHandlers.ts`, and `cleanupSweepBase` in `perIssueSweepPersist.ts`) go through this check.
 - `commitChanges`: stages all changes and commits with a message; returns false when there is nothing to commit.
 - `getHeadTreeHash`: returns `HEAD^{tree}` hash for use by the progress gate.
 - `hasUncommittedChanges`: returns true when `git status --porcelain` is non-empty.
@@ -43,7 +45,7 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 
 ## Configuration
 
-The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file's location (`../../` from `adws/phases/`). Worktrees are created under `.worktrees/<branchName>` relative to the base repo root. `PROTECTED_BRANCHES` is a module-level constant.
+The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file's location (`../../` from `adws/phases/`). Worktrees are created under `.worktrees/<branchName>` relative to the base repo root. The protected branch is the repository's default branch, resolved at run time from the code host; there is no fixed list of names in ADW.
 
 ## Gotchas
 
