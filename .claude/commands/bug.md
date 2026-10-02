@@ -20,10 +20,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - Create the plan in the `specs/` directory with filename: `issue-{issueNumber}-adw-{adwId}-sdlc_planner-{descriptiveName}.md`
   - Replace `{descriptiveName}` with a short, descriptive name based on the bug (e.g., "fix-login-error", "resolve-timeout", "patch-memory-leak")
 - Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
-- Research the codebase to understand the bug and work out how to reproduce it, then put together a plan to fix it. The reproduction goes into the plan; you do not perform it.
-- Research is read-only. Read files and use `cat`, `grep`, `ls` and `git log/show/diff`. Do NOT run tests, builds, linters, type checks or the plan's `Validation Commands`, and do not dry-run them to see whether they fail today. The build agent runs them.
-- Write exactly one file: the plan. Do not create or edit anything else: no reproduction tests, no scratch files, no source changes.
-- Planning runs under a hard time limit. Write the plan as soon as your research answers every section of the `Plan Format`. Once it is written, stop. Do not revise it to match `features/` files that appear while you work; aligning the plan with the scenarios is a separate, later step.
+- Research the codebase to understand the bug, reproduce it, and put together a plan to fix it.
 - Be surgical: solve the bug at hand with the minimal number of changes. Don't fall off track.
 - Don't use decorators. Keep it simple.
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
@@ -85,7 +82,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 ## Validation Commands
 Execute every command to validate the bug is fixed with zero regressions.
 
-<list commands you'll use to validate with 100% confidence the bug is fixed with zero regressions. every command must execute without errors so be specific about what you want to run to validate the bug is fixed with zero regressions. Include commands to reproduce the bug before and after the fix. List these commands; do not execute them while planning.>
+<list commands you'll use to validate with 100% confidence the bug is fixed with zero regressions. every command must execute without errors so be specific about what you want to run to validate the bug is fixed with zero regressions. Include commands to reproduce the bug before and after the fix.>
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues
 - `bun run build` - Build the application to verify no build errors

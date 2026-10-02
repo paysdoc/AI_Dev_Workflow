@@ -786,6 +786,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
+│   ├── planCommitGuard.ts  # Plan-phase guard: snapshots the planner's off-limits dirs (`.claude/`, `.adw/`) before planning and detects/reverts any change the planner makes to them
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation — initializePRReviewWorkflow accepts an optional LaunchBoundary and reuses its providers for createRepoContext when the identities agree, mirroring workflowInit.ts (#796)
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
