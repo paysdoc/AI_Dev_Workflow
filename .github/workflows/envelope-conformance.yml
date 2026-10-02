@@ -18,8 +18,6 @@ jobs:
     name: Fixtures and parsers conform to the envelope of the pinned Claude CLI
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
 
     steps:
       - name: Checkout
@@ -45,12 +43,14 @@ jobs:
       - name: Fixtures and stub envelopes conform to the committed schema and parsers
         run: bun run jsonl:check
 
+      # The probe runs on the API key, and only subscription logins receive rate_limit_event,
+      # so that schema entry is covered by the committed fixture alone.
       - name: Live envelope check against the pinned CLI
-        if: env.HAS_ANTHROPIC_KEY == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: bun run jsonl:probe:check
-
-      - name: Live envelope check skipped
-        if: env.HAS_ANTHROPIC_KEY != 'true'
-        run: echo "::warning title=Envelope conformance::ANTHROPIC_API_KEY secret is not set, so the live probe of Claude CLI ${CLAUDE_CLI_VERSION} was skipped. Only the committed schema, fixtures and parsers were checked."
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "::error title=Envelope conformance::ANTHROPIC_API_KEY secret is not set, so the live probe of Claude CLI ${CLAUDE_CLI_VERSION} cannot run. Add the ANTHROPIC_API_KEY repository secret (Dependabot pull requests read Dependabot secrets, not Actions secrets)."
+            exit 1
+          fi
+          bun run jsonl:probe:check
