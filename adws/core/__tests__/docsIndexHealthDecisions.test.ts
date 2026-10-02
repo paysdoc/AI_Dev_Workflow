@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assessDocsIndexHealth, applyRepairs, type DocsIndexRepair } from '../docsIndexHealth';
+import { assessDocsIndexHealth, applyRepairs, findViolations, type DocsIndexRepair } from '../docsIndexHealth';
 import { serializeConditionalDocs } from '../conditionalDocsRegistry';
 import { entry, registryOf } from './fixtures/docsIndexEntries';
 
@@ -14,6 +14,26 @@ describe('applyRepairs — decisions', () => {
 
     expect(repaired.entries[0].ownedGlobs).toEqual(['adws/live.ts']);
     expect(repaired.entries[0].decisions).toEqual(['0044', '0053']);
+  });
+});
+
+describe('findViolations — decisions', () => {
+  it('an index whose first entry ends in a Decisions: block reports no non-canonical violation', () => {
+    const first = entry({
+      docPath: 'app_docs/feature-first.md',
+      ownedGlobs: ['adws/first/**'],
+      conditions: ['When working on first'],
+      decisions: ['0043'],
+    });
+    const second = entry({ docPath: 'app_docs/feature-second.md', ownedGlobs: ['adws/second/**'] });
+    const registry = registryOf([first, second]);
+    const content = serializeConditionalDocs(registry);
+    const files = [first.docPath, second.docPath, 'adws/first/x.ts', 'adws/second/y.ts'];
+
+    const violations = findViolations(content, registry, files, null);
+
+    expect(content).toContain('    - When working on first\n  - Decisions:\n    - 0043\n');
+    expect(violations.filter((v) => v.kind === 'non-canonical')).toEqual([]);
   });
 });
 
