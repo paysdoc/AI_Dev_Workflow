@@ -169,6 +169,7 @@
     - adws/__tests__/regressionWorkflow.test.ts
   - Conditions:
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
+    - When working on the artefact-only contract of the shared Then/When steps (T1 state-file lookup, T5 `World.lastExitCode`, W1/W10 staying pending) or the rot-detection rubric forbidding source-reading steps
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
