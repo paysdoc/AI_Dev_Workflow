@@ -19,6 +19,7 @@ import {
 } from "../agents";
 import type { ValidationResult } from "../agents";
 import type { WorkflowConfig } from "./workflowInit";
+import { workflowLaunchContext } from "./workflowRepoIdentity";
 
 export async function executePlanValidationPhase(
   config: WorkflowConfig
@@ -35,7 +36,7 @@ export async function executePlanValidationPhase(
     repoContext,
     ctx,
   } = config;
-  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.gitContext };
+  const launchContext = workflowLaunchContext(config);
 
   if (!shouldExecuteStage('plan_validating', recoveryState)) {
     log('Skipping plan validation phase (already completed in previous run)', 'info');

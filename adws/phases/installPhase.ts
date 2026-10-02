@@ -9,6 +9,7 @@ import {
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runInstallAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 
 /**
  * Pairs tool_use (Read/Bash) with their tool_result content.
@@ -87,7 +88,7 @@ export function extractInstallContext(jsonlPath: string): string {
 export async function executeInstallPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
@@ -105,7 +106,7 @@ export async function executeInstallPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body, undefined, workflowLaunchContext(config));
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

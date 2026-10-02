@@ -637,6 +637,9 @@
     - adws/core/guardrailsPayload.ts
     - adws/core/guardrailsGate.ts
     - adws/core/guardrailsProbe.ts
+    - adws/core/selfHostLaunch.ts
+    - adws/core/__tests__/selfHostLaunch.test.ts
+    - adws/agents/__tests__/claudeAgentGuardrails.test.ts
     - scripts/guardrails-probe.ts
     - templates/claude-settings-starter.json
     - adws/agents/claudeAgent.ts
@@ -658,7 +661,7 @@
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on context-compaction handling in the agent process handler — the opt-in `killOnCompaction` flag, which agents are killed and restarted (build phase, unit-test path) versus run on, or `compactionDetected` results
     - When working on the output-validation retry (`/correct_output`, `runRetryLoop`), the shared stateless Claude launch environment (`buildClaudeLaunchEnv`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`) used by agents, probes, auth-status and version checks, or the model-literal guard (`checkModelLiterals.ts`, `bun run lint:model-literals`, `PROBE_MODEL`)
-    - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
+    - When working on target-repo agent guardrails injection — the `--settings` payload, the kill-switch/self-host gate (no per-repository `.github/adw.yml` switch; `isSelfHostLaunch`, `workflowLaunchContext`), or the fail-open startup probe
   - Decisions:
     - 0001
     - 0010

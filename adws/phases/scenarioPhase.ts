@@ -9,12 +9,13 @@ import {
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 
 /** This phase is non-fatal — errors are caught and logged, never thrown. */
 export async function executeScenarioPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
+  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
 
   // Promotion issues must never author scenarios: a junk feature-<promotionIssueN>.feature
   // would redden the run and become its own future promotion candidate.
@@ -49,7 +50,7 @@ export async function executeScenarioPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext, workflowLaunchContext(config));
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

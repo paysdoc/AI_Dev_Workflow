@@ -150,7 +150,7 @@ Given('the issue has an implementation plan in its worktree', function () {
 });
 
 Given('unit tests are enabled for the workflow', function () {
-  requireWorkflow().config.adwYmlConfig = { hitl: false, unitTests: true, guardrails: false };
+  requireWorkflow().config.adwYmlConfig = { hitl: false, unitTests: true };
 });
 
 Given('the first unit-test run reports one failing unit test and every later run reports all unit tests passing', function () {

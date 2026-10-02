@@ -243,11 +243,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 # Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
 # the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
 # hitl: false
-
-# Guardrails canary (opt-in). When true, ADW injects its own deny rules and hooks
-# into every agent spawn in this repo via --settings, even if this repo ships no
-# .claude/settings.json of its own. Default: false.
-# guardrails: false
 EOF
        echo "created .github/adw.yml"
      else

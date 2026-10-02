@@ -139,7 +139,7 @@ export function buildWorkflowConfig(sc: PlanScenario): WorkflowConfig {
     targetRepo: { owner: sc.owner, repo: sc.repo, cloneUrl: '' },
     repoContext: undefined,
     projectConfig: {},
-    adwYmlConfig: { hitl: false, unitTests: true, guardrails: false },
+    adwYmlConfig: { hitl: false, unitTests: true },
     topLevelStatePath: '',
     gitContext: sc.gitContext,
   } as unknown as WorkflowConfig;

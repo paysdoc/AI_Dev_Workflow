@@ -119,7 +119,7 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
     targetRepo: undefined,
     repoContext,
     projectConfig: repositoryProjectConfig(proofRunDir),
-    adwYmlConfig: { hitl: false, unitTests: false, guardrails: false },
+    adwYmlConfig: { hitl: false, unitTests: false },
     topLevelStatePath: '',
     gitContext: undefined,
   } as unknown as WorkflowConfig;
