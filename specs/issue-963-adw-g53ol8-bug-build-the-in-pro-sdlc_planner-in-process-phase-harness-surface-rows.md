@@ -73,7 +73,7 @@ Four findings, checked against the code, shape the design:
   - Five committed manifests lose their `.adw/state.json` edit.
   - Three new manifests serve the plan, plan-error and build rows. They touch nothing under `.adw/` or `.claude/`, because the plan phase's commit guard would fail row 02 (F6).
   - `vocabulary.md` gains a `## Given/When/Then — Surface phases and lifecycles` section. `adws/promotion/vocabularyParser.ts:53` reads tables only under `## Given|When|Then…` headings, hence the prefix. G5, G11 and T6 get their new semantics.
-- **Per-issue support.** feature-963's step definitions are written from that feature's notes. feature-960's §6 row gets its amended step.
+- **Per-issue support.** feature-963's step definitions are written to task 16's specification; the feature itself carries Gherkin only. feature-960's §6 row gets its amended step.
 
 ## Steps to Reproduce
 Run from the repository root. `ROOT` is that directory.
@@ -130,7 +130,7 @@ Use these files to fix the bug:
 - `features/per-issue/step_definitions/feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`: an existing in-process `executePlanPhase` fixture with a real `GitContext` (`selfHost: false`, `createLiteralTokenProvider`). Use it as the reference.
 - `features/regression/surfaces/row-02-adwPlan-planPhase-happy.feature`, `row-03-adwPlan-planPhase-error-stub-failure.feature`, `row-04-adwBuild-buildPhase-happy.feature`, `row-05-adwBuild-buildPhase-edge-missing-lock.feature`, `row-31-adwPlan-orchestratorLock-acquired-happy.feature`, `row-32-adwBuild-orchestratorLock-re-entry-edge.feature`: the six rows. The scenario phase already rewrote them in place in the working tree.
 - `features/regression/vocabulary.md`: the registry. It gains the new section and the new G5, G11 and T6 semantics.
-- `features/per-issue/feature-963.feature`: this issue's scenarios. Its "Notes for the step definitions" are the specification for task 15.
+- `features/per-issue/feature-963.feature`: this issue's scenarios. It holds Gherkin only, with no notes for the step definitions; task 16 specifies each of its phrases.
 - `features/per-issue/feature-960.feature`, `features/per-issue/step_definitions/feature-960.steps.ts`, `features/per-issue/step_definitions/feature-960-run.ts`: §6 is amended, and the child-run helper moves.
 - `features/per-issue/feature-909.feature`, `feature-930.feature`, `feature-959.feature`: rows flagged `@adw-963` that run the stub's rate-limited and default responses, manifests with `.adw/` edits, and G-PQ14. They must stay green.
 - `adws/core/phaseRunner.ts`: `runPhase`, `CostTracker` (`commit` posts to D1), and `isPhaseAlreadyCompleted` (F4).
@@ -322,6 +322,7 @@ Follow the conventions of `claude-cli-stub.test.ts` and `manifestHarness.ts`: te
   - No step returns `'pending'`.
 - **G5** (`givenSteps.ts`): `releaseIssueSpawnLock(SURFACE_REPO, issueNumber)`.
 - **T6** (`thenSteps.ts`): assert `!existsSync(getSpawnLockFilePath(SURFACE_REPO, issueNumber))`. The message names the lock path.
+  - Declare the callback `function (this: RegressionWorld, issueNumber: number)`. Today its first parameter is a real `_this: RegressionWorld`. Cucumber passes the issue number there and, seeing two parameters for one capture, takes the second for a callback that is never called, so the step times out after 60 s. Rows 05 and 31 and feature-963's G5 scenario need T6 to pass.
 - Leave W1 and the other parked When steps as they are.
 
 ### 13. Release G-PQ14's lock under the `@regression` hooks
@@ -347,16 +348,57 @@ Follow the conventions of `claude-cli-stub.test.ts` and `manifestHarness.ts`: te
 - Move `features/per-issue/step_definitions/feature-960-run.ts` to `features/support/cucumberChildRun.ts` and repoint `feature-960.steps.ts`.
   - That directory is outside the `cucumber.js` import globs and the per-issue sweep. The sweep's sibling rule (`startsWith('feature-N.')`) would delete `feature-960.steps.ts` and leave the helper orphaned.
   - Extend it with what feature-963 needs:
-    - selection by `--name`;
-    - each test case's `testCaseStarted`/`testCaseFinished` timestamps;
-    - a per-run fresh `TMPDIR` the caller can walk.
-- Write `features/per-issue/step_definitions/feature-963.steps.ts`, plus sibling helpers if it would pass 300 lines. It implements every phrase of `features/per-issue/feature-963.feature` that is not defined elsewhere, following that feature's "Notes for the step definitions". In short:
-  - hooks keyed on `@adw-g53ol8-bug-build-the-in-pro`. They run the World's cleanup list, remove the temp dirs, restore `CLAUDE_CODE_PATH`, and remove `acme/widgets` locks for the issues the feature names;
-  - child Cucumber runs, by feature-960's rules;
-  - stub runs with `buildClaudeLaunchEnv()`;
-  - the in-process agent run through `runClaudeAgentWithCommand`;
-  - the committed-manifest sweep, which recognises refusals by `ManifestRefusalError`.
-- In `feature-960.steps.ts`, add `every smoke and surface scenario is reported pending, except these surface rows, which pass:` beside its sibling. Give it a step timeout that covers the six rows' run time.
+    - each test case's duration, from its `testCaseStarted` and `testCaseFinished` timestamps;
+    - the run's own temp directory (`<directory>/tmp`, the child's `TMPDIR`), returned so the caller can walk it. Every run gets a fresh directory.
+- Write `features/per-issue/step_definitions/feature-963.steps.ts`, plus sibling helpers if it would pass 300 lines. It implements every phrase of `features/per-issue/feature-963.feature` that is not defined elsewhere. The feature carries no notes for the step definitions, so this list is their specification.
+  - **Hooks.** Key them on `@adw-g53ol8-bug-build-the-in-pro`, never `@adw-963`: the flagged rows of features 909, 930, 959 and 960 carry `@adw-963` and must not run them.
+    - Before: reset the module state. Remove the `acme/widgets` spawn locks for issues 1005, 1031, 1032, 9631 and 9632, so a lock an earlier run left behind cannot decide an assertion.
+    - After: run `this.cleanup` last in, first out, each entry guarded. G11 pushes its removal there, and no `@regression` hook runs in this feature. Then remove the scenario's temp directories, restore `CLAUDE_CODE_PATH` and call `clearClaudeCodePathCache()` if a step changed it, and remove the same five locks.
+  - **Child runs**, through `cucumberChildRun.ts` and by feature-960's rules:
+    - `the regression suite's surface scenarios are run through Cucumber twice in a row`: two runs of `--tags "@surface"`, one after the other, each in a fresh directory. Running the whole surface tier means the parked rows' G11 cleanup is checked too.
+    - `each of these surface rows passes on both runs, in under 5 seconds each time:`: for each row and each run, exactly one scenario has a `uri` ending in `features/regression/surfaces/<row>`. It passes, and its duration is under 5000 ms. The message shows `describeScenario` and the duration.
+    - `the checkout holds no spawn lock for issue {int} in the repository {string}`: no file exists at `getSpawnLockFilePath({ owner, repo, platform: Platform.GitHub }, N)`. The message names the path.
+    - `neither run left a git repository in its temporary directory`: walk each run's `TMPDIR`. Fail on any directory that holds a `.git` entry, or that is a bare repository (`HEAD` beside `objects/` and `refs/`), and list them.
+    - `a throwaway regression scenario with the steps:`: `writeThrowawayFeature(directory, true, steps)`, so the scenario carries its unique tag and `@regression`.
+    - `the throwaway regression scenario is run through Cucumber`: as feature-960's `the throwaway feature is run through Cucumber`. Exactly one scenario ran, and it carries the unique tag.
+    - `the throwaway regression scenario fails at the step {string}`: the first failed step has that text, and every step before it passed.
+    - `the throwaway regression scenario passes`: `verdictHolds(scenario, 'passes')`.
+  - **G11's worktree**, checked in-process. This feature carries no `@regression` tag, so G11 runs here without `REAL_GIT_PATH`:
+    - `the worktree for adwId {string} and its origin lie under the system's temporary directory`: the `realpathSync` of the registered worktree and of `git remote get-url origin` both lie under `realpathSync(os.tmpdir())`. On macOS, `/var` links to `/private/var`.
+    - `the worktree for adwId {string} has the branch {string} checked out`: `git rev-parse --abbrev-ref HEAD`.
+    - `in the worktree for adwId {string}, {string}, {string} and {string} name the same commit`: `git rev-parse --verify <ref>^{commit}` gives the same commit for all three refs.
+    - `in the worktree for adwId {string}, the branch {string} tracks every file of {string}`: take every path `git ls-files <dir>` lists in the checkout, relative to `<dir>`. Each must appear in `git ls-tree -r --name-only <branch>` in the worktree.
+    - `git ignores {string}, {string} and {string} in the worktree for adwId {string}`: `git check-ignore -q <name>` exits 0 for each.
+  - **Stub runs.** Spawn the stub the way an agent does: `test/mocks/claude-cli-stub.ts` as the executable, the throwaway worktree as cwd, and `buildClaudeLaunchEnv()` as env. No `MOCK_*` name then reaches the stub; only the marker file programs it.
+    - `a throwaway git worktree holding a stub manifest whose top-level entry answers {string} and writes {string}`: a temp git repository under `os.tmpdir()`, made with `git init -b main`, the harness identity, G11's `.gitignore` and one commit.
+      - Its marker `<worktree>/.adw-stub-manifest.json` has an absolute `jsonlPath` to a payload that answers the text, and one edit that writes the path.
+      - Payloads live outside the worktree, so the worktree only ever gains the declared edits.
+    - `the stub manifest also has these per-command entries:`: one `byCommand` entry per row, each with its own payload and one edit.
+    - `a throwaway git worktree holding a stub manifest whose (top-level entry|/feature entry) answers with the error response`: the same worktree with a default payload. Either the top level gets `response: { kind: 'error' }`, or a `/feature` entry `{ jsonlPath, response: { kind: 'error' } }` is added.
+    - `the stub manifest's (top-level entry|/feature entry|/commit entry) also writes {string}`: adds the edit to that entry, creating the entry with its own payload when it is absent.
+    - `/` is the alternation character in Cucumber expressions. Phrases that name `/feature` or `/commit` must be regular expressions, or escape it as `\\/`, as `whenSteps.ts` does for the git/gh guard phrase.
+    - `the Claude CLI stub is run in that worktree, as an agent runs it, with a prompt that opens with {string}`: the vector `runClaudeAgentWithCommand` builds. That is `--print --verbose --dangerously-skip-permissions --output-format stream-json --model <model> --effort <effort>`, then the prompt `<command> '7'`.
+    - `the Claude CLI stub is run in that worktree with the arguments an agent passes for a target repository whose guardrails are injected, ending in a prompt that opens with {string}`: the same vector, with `--settings <guardrails JSON>` unshifted as `claudeAgent.ts` does.
+    - Each run records the exit status, stdout and stderr.
+    - The exit steps:
+      - `the stub exits 0 with the result {string}`: status 0, and the last stdout line is a `result` carrying that text;
+      - `the stub exits 1`: status 1;
+      - `the stub exits 1 with an error that names {string}`: status 1, and stderr contains the path;
+      - `the stub's output ends with a result whose is_error is true`: the last stdout line is a `result` with `is_error: true`.
+    - `the stub wrote {string} into the worktree`, `the stub wrote {string} into the worktree, and none of the files the manifest's other entries write` and `the stub wrote none of the manifest's edits into the worktree` read only the edit paths the manifest declares, at the top level and in every entry.
+  - **The in-process agent run**, `an agent runs {string} in that worktree against the Claude CLI stub`:
+    - point `CLAUDE_CODE_PATH` at the stub and call `clearClaudeCodePathCache()`;
+    - call `runClaudeAgentWithCommand(<command>, '7', …)` with the worktree as cwd and no launch context, so nothing is injected;
+    - record the `AgentResult`, or the error it throws.
+    - `the agent run reports failure`: nothing was thrown, and `success` is false.
+    - `the agent run reports neither a rate limit nor an expired login`: `rateLimited` and `authExpired` are unset, and no `RateLimitError` or `AuthRequiredError` was thrown.
+  - **The committed-manifest sweep**, `the stub's manifest interpreter applies every manifest committed under {string}, each in a throwaway git worktree`:
+    - for each `*.json` directly in the directory, make a fresh throwaway worktree and call `applyManifest(<manifest>, <worktree>, "/feature '7'")`;
+    - record each `ManifestRefusalError` against the manifest's name. Any other error is not a refusal; an example is a `stage` path the throwaway worktree lacks.
+    - `the refusal guard refused none of them`: nothing was recorded. The message lists each refused manifest and its error.
+- In `feature-960.steps.ts`, add `every smoke and surface scenario is reported pending, except these surface rows, which pass:` beside its sibling.
+  - Each listed row has exactly one scenario, and it passes. Every other smoke and surface scenario is reported pending, and the run includes scenarios from both directories.
+  - The run itself happens in the existing When step. It is a `spawnSync`, which Cucumber's step timeout does not bound; the helper's `CHILD_TIMEOUT_MS` (120 s) does. Check that the whole `@smoke or @surface` run stays well inside it, now that six rows run for real and every parked row builds G11's fixture worktree.
 
 ### 17. Validation
 - Run every command in `Validation Commands`. Fix and re-run until all pass.
@@ -378,10 +420,10 @@ Run each command from the repository root. Never run two Cucumber processes from
 - `for i in 1 2; do NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@surface" --name "orchestrator's (plan phase|build phase|lifecycle)" --format summary || exit 1; done`: the six rows, twice in a row in the same checkout. Each run reports `6 scenarios (6 passed)` and exits 0. Before the fix they are undefined, and pending on `dev`.
 - `test -z "$(ls agents/spawn_locks 2>/dev/null | grep -E '^acme_widgets_issue-(1002|1003|1004|1005|1031|1032)\.json$')" && test -z "$(ls -d agents/surface-0[2-5] agents/surface-3[12] 2>/dev/null)"`: the rows left no spawn lock and no top-level state in the checkout.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-963"`: exits 0. It runs all of `feature-963.feature` and the `@adw-963` rows of features 909, 930, 959 and 960:
-  - §1: each row passes twice, in under 5 seconds per run, and leaves no lock and no repository behind (AC1);
-  - §2: G5 and T6 read the real lock;
-  - §3: G11's worktree;
-  - §4–§6: routing, the error response, value flags and the refusal guard, from outside;
+  - the six rows pass on two runs in a row, each in under 5 seconds, and leave no lock and no repository behind (AC1);
+  - under the `@regression` hooks, T6 fails while another live process holds the real lock and the After hook releases it, and G5 clears that lock so T6 passes;
+  - G11's worktree;
+  - from outside: per-command routing, the `--settings` vector, the error response (from the stub, and through an agent run) and the refusal guard, including the sweep of every committed manifest;
   - feature-960's amended §6: every other smoke and surface scenario stays pending.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@pause-queue-reset-time or @pause-queue-ownership"`: the timing-sensitive pause-queue features pass and exit 0 (AC4).
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" > /tmp/adw-963-regression.after 2>&1; tail -n 3 /tmp/adw-963-regression.after; ! tail -n 3 /tmp/adw-963-regression.after | grep -q failed`: the whole regression suite has no failed scenario.
