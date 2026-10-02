@@ -72,7 +72,8 @@ function statePathOf(workflow: Workflow929, agent: AgentIdentifier): string {
 }
 
 function launchContextOf(workflow: Workflow929): { selfHost: boolean; adwId: string; gitContext: ReturnType<typeof requireWorkflowGitContext> } {
-  return { selfHost: !workflow.config.repoContext, adwId: workflow.adwId, gitContext: requireWorkflowGitContext(workflow.config) };
+  const gitContext = requireWorkflowGitContext(workflow.config);
+  return { selfHost: gitContext.selfHost, adwId: workflow.adwId, gitContext };
 }
 
 const DRIVERS: Partial<Record<AgentName, Driver>> = {

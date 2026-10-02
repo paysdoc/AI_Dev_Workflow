@@ -15,7 +15,7 @@ import { runResolveScenarioAgent } from '../agents/testAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 import { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
 import { evaluateResolveEdit } from '../core/resolveFreezeGuard';
 
@@ -28,7 +28,6 @@ export async function executeScenarioFixPhase(
   phaseCostRecords: PhaseCostRecord[];
   gherkinFreezeViolations: string[];
 }> {
-  const repoContext = config.repoContext;
   const gitCtx = requireWorkflowGitContext(config);
 
   const {
@@ -79,7 +78,7 @@ export async function executeScenarioFixPhase(
       worktreePath,
       applicationUrl,
       issue.body,
-      { selfHost: !repoContext, adwId, gitContext: gitCtx },
+      workflowLaunchContext(config),
     );
 
     costUsd += resolveResult.totalCostUsd || 0;
@@ -114,7 +113,7 @@ export async function executeScenarioFixPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
-    { selfHost: !repoContext, adwId, gitContext: gitCtx },
+    workflowLaunchContext(config),
   );
   gitCtx.pushBranch(branchName, worktreePath);
   log('Scenario fix: changes committed and pushed', 'success');

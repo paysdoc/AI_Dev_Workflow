@@ -18,6 +18,7 @@ import {
 import { scenarioAuthoringSkipReason } from "../core";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
+import { workflowLaunchContext } from "./workflowRepoIdentity";
 
 /** Never throws — unresolvable conflicts are warnings, not errors. */
 export async function executeAlignmentPhase(
@@ -127,7 +128,7 @@ export async function executeAlignmentPhase(
       logsDir,
       alignmentAgentStatePath,
       worktreePath,
-      { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+      workflowLaunchContext(config),
     );
     costUsd += alignmentResult.totalCostUsd || 0;
     if (alignmentResult.modelUsage) {
@@ -182,7 +183,7 @@ export async function executeAlignmentPhase(
 
   if (changes.length > 0) {
     log("Committing updated plan/scenario artifacts...", "info");
-    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, workflowLaunchContext(config));
   }
 
   const phaseCostRecords = createPhaseCostRecords({

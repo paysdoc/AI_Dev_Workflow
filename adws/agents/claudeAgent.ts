@@ -140,7 +140,7 @@ export async function runClaudeAgentWithCommand(
   // launchContext defaults selfHost to true, so an un-threaded caller never injects
   // (fail-safe = today's behaviour).
   const guardrailsDecision = await resolveGuardrailsDecisionForSpawn(
-    { selfHost: launchContext?.selfHost ?? true, worktreePath: resolvedCwd, adwId: launchContext?.adwId ?? '' },
+    { selfHost: launchContext?.selfHost ?? true, adwId: launchContext?.adwId ?? '' },
   );
   if (guardrailsDecision.inject) {
     cliArgs.unshift('--settings', guardrailsDecision.settingsJson);

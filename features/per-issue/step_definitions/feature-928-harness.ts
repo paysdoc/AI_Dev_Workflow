@@ -17,7 +17,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { clearClaudeCodePathCache } from '../../../adws/core/environment.ts';
 import { setGuardrailsGateDepsForTesting } from '../../../adws/core/guardrailsGate.ts';
-import type { AdwYmlConfig } from '../../../adws/core/adwYmlConfig.ts';
 
 export const VALID_TEXT = '[12]';
 export const INVALID_TEXT = 'twelve';
@@ -200,12 +199,11 @@ export function issueBodyFor(clause: string): string {
   return keyword === undefined ? PLAIN_ISSUE_BODY : `${PLAIN_ISSUE_BODY} ${keyword}`;
 }
 
-/** A guardrails gate that never probes and never injects `--settings`. */
+/** A guardrails gate that never runs the real probe and never injects `--settings`. */
 function quietGuardrailsGate(): void {
   setGuardrailsGateDepsForTesting({
     probeGuardrails: async () => ({ ok: false }),
     notifySlack: async () => undefined,
-    readAdwYml: () => ({}) as AdwYmlConfig,
     getEnv: () => undefined,
   });
 }
@@ -215,8 +213,8 @@ Before({ tags: '@adw-928' }, function () {
   quietGuardrailsGate();
 });
 
-After({ tags: '@adw-928' }, function () {
-  setGuardrailsGateDepsForTesting(null);
+/** Undoes `installStandIn`, `setAdwEnv` and `makeTempDir`. The hooks here are scoped to `@adw-928`, so any other feature that uses them calls this from its own `After`. */
+export function releaseHarness(): void {
   harness.savedEnv.forEach((original, name) => {
     if (original === undefined) delete process.env[name];
     else process.env[name] = original;
@@ -226,6 +224,11 @@ After({ tags: '@adw-928' }, function () {
   harness.tempDirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true }));
   harness.tempDirs = [];
   harness.standIn = null;
+}
+
+After({ tags: '@adw-928' }, function () {
+  setGuardrailsGateDepsForTesting(null);
+  releaseHarness();
 });
 
 Given('the Claude CLI is a recording stand-in', function () {

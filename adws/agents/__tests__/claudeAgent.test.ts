@@ -437,7 +437,7 @@ describe('runClaudeAgentWithCommand — launch environment', () => {
 });
 
 describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)', () => {
-  it('passes selfHost/worktreePath/adwId derived from launchContext + cwd to the gate', async () => {
+  it('passes selfHost/adwId derived from launchContext to the gate', async () => {
     mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
     mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
 
@@ -447,9 +447,7 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
       { selfHost: false, adwId: 'adw-guard-1' },
     );
 
-    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
-      { selfHost: false, worktreePath: '/worktrees/target-repo', adwId: 'adw-guard-1' },
-    );
+    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith({ selfHost: false, adwId: 'adw-guard-1' });
   });
 
   it('defaults to selfHost: true and adwId: "" when launchContext is omitted (fail-safe)', async () => {
@@ -458,9 +456,7 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
 
     await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet');
 
-    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
-      { selfHost: true, worktreePath: process.cwd(), adwId: '' },
-    );
+    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith({ selfHost: true, adwId: '' });
   });
 
   it('unshifts --settings and sets an absolute CLAUDE_HOOKS_LOG_DIR when the gate injects', async () => {

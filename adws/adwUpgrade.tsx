@@ -424,7 +424,7 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     undefined,
-    { selfHost: false, adwId: params.adwId, gitContext: params.gitContext },
+    { selfHost: params.gitContext?.selfHost ?? true, adwId: params.adwId, gitContext: params.gitContext },
   );
   return {
     success: result.success,

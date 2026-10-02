@@ -22,6 +22,7 @@ import { parsePromotesMarker } from '../core/promotionReconcileLink';
 import { runRotAnalysisAgent, type RotVerdict } from '../agents/rotAnalysisAgent';
 import { formatRotAdvisoryComment } from './rotAdvisoryFormat';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 
 export interface PromotionRotAdvisoryContext {
   prNumber: number;
@@ -115,7 +116,7 @@ export async function executePromotionRotAdvisory(
             issueBody: issue.body,
             subprocessEnv: config.gitContext?.commandEnv(),
             phaseName: 'promotionRotAdvisory',
-            launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+            launchContext: workflowLaunchContext(config),
           });
           costUsd += result.totalCostUsd || 0;
           modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage ?? emptyModelUsageMap());

@@ -105,7 +105,7 @@ export function createWorkflow(issueNumber: number, repoStr: string): Workflow92
       commands: { testFramework: 'vitest', runTests: 'bun run test:unit', runScenariosByTag: 'bunx cucumber-js --tags "@{tag}"' },
       scenarios: { bddFramework: 'cucumber-js' },
     },
-    adwYmlConfig: { hitl: false, unitTests: false, guardrails: false },
+    adwYmlConfig: { hitl: false, unitTests: false },
     topLevelStatePath: '',
     gitContext: boundary.gitContext,
   } as unknown as WorkflowConfig;

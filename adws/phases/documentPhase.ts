@@ -13,7 +13,7 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 
 export async function executeDocumentPhase(
   config: WorkflowConfig,
@@ -52,7 +52,7 @@ export async function executeDocumentPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
-    { selfHost: !repoContext, adwId, gitContext: gitCtx },
+    workflowLaunchContext(config),
     defaultBranch,
   );
 
@@ -101,7 +101,7 @@ export async function executeDocumentPhase(
     }
   }
 
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), workflowLaunchContext(config));
 
   gitCtx.pushBranch(branchName, worktreePath);
 
