@@ -256,3 +256,7 @@ Given(
     };
   },
 );
+
+Given('the ADW codebase is checked out', function () {
+  // Deliberate no-op: every scenario already runs inside the ADW checkout.
+});

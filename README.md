@@ -550,7 +550,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
-│   │   │   └── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
+│   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
+│   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   └── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
@@ -777,6 +780,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── fixtures/
+│   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
+│   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -801,6 +807,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
+│   │   ├── startupFailureLog.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
@@ -828,6 +835,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation — initializePRReviewWorkflow accepts an optional LaunchBoundary and reuses its providers for createRepoContext when the identities agree, mirroring workflowInit.ts (#796)
+│   ├── startupFailureLog.ts  # recordStartupFailure — writes a detached orchestrator's startup failure to its own execution log (never throws)
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
 │   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
@@ -868,6 +876,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronIssueFilter.eligibility.test.ts
 │   │   ├── cronIssueFilter.optOut.test.ts
 │   │   ├── cronIssueFilter.test.ts
+│   │   ├── cronIssueFilterFixtures.ts  # Shared fixtures for the cronIssueFilter tests
+│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
@@ -1030,7 +1040,7 @@ workers/                # Cloudflare Workers
 │   │   ├── index.ts        # Worker entry point
 │   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
-│   │   │   └── 0001_initial.sql
+│   │   │   └── 0001_initial.sql  # Initial D1 schema migration
 │   │   ├── queries.ts      # D1 query helpers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
@@ -1080,6 +1090,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   ├── fixtures/
+│   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestByCommand.test.ts
 │   │   ├── manifestInterpreter.test.ts
@@ -1117,13 +1129,13 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows
+│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
+│   ├── webhook/        # Regression scenarios covering the webhook launching a cron for every accepted event that names a repository
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
-├── step_definitions/   # Top-level step definitions (webhook integration scenario; repo-identity persistence scenario)
-├── support/            # Top-level Cucumber support (tsx registration; cucumberChildRun.ts, the shared runner for nested cucumber-js child runs)
-└── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
+├── step_definitions/   # Top-level step definitions (repo-identity persistence scenario)
+└── support/            # Top-level Cucumber support (tsx registration; cucumberChildRun.ts, the shared runner for nested cucumber-js child runs)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── adr/                # Architecture Decision Records, one per design decision (index: specs/adr/README.md)

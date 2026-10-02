@@ -62,7 +62,7 @@ Scenarios in this repo can assert against the following observable surfaces:
 | G15 | `the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` | Inserts `@promotion-suggested-<today − N days>` into the tag block above the (single) seeded scenario header | subprocess | worktree artefact |
 | G16 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` | For multi-scenario files: targets the scenario whose `Scenario:` line matches the given name and inserts `@promotion-suggested-<today>` | subprocess | worktree artefact |
 | G17 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` | Multi-scenario variant for N-days-ago pre-tagging | subprocess | worktree artefact |
-| G18 | `the ADW codebase is checked out` | Background no-op; codebase is always present in the test environment | mock-query | test environment state |
+| G18 | `the ADW codebase is checked out` | Background no-op; codebase is always present in the test environment. Defined in `features/regression/step_definitions/givenSteps.ts`. | mock-query | test environment state |
 | G19 | `the cron is polling the target repository {string} from a host checked out at {string}` | Sets up two-repo world in World; seeds targetRepo and hostRepo paths | mock-query | test harness world state |
 | G20 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}` | Seeds a pause-queue entry for the target repo with the given issue number | mock-query / subprocess | pause-queue state artefact |
 | G21 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}, with its worktree remote pointing at {string}` | Seeds a pause-queue entry for the target repo with correct git remote configured in the fixture worktree | subprocess | pause-queue + worktree artefacts |
@@ -343,3 +343,43 @@ These rows also reuse already-registered phrases, so they need no new rows: `the
 checked out` (G18, Background), G3, G4, G5, G11, G-PQ14 (`another live process holds the spawn lock
 for issue {int} in the repository {string}`, whose process and lock the `@regression` After hook
 releases), T1, T2, T3 and T6.
+
+---
+
+## Given/When/Then — Webhook Cron On Every Event (@webhook)
+
+These phrases drive the real exported `dispatchWebhookEvent(req, res, rawBody, mintEventBoundary)`
+in-process (phase-import pattern). The request is a fake that carries `x-github-event` and, when
+signed, `x-hub-signature-256`; the response records the status code and body the dispatcher writes.
+`mintEventBoundary` returns a fake boundary whose providers throw if touched, so no provider is ever
+minted. Launches are caught by the shared launch recorder
+(`features/regression/support/launchRecorder.ts`): a `bunx` shadow put first on `PATH` for the
+dispatch, which records its argv and exits at once. A cron launch is a record that names
+`adws/triggers/trigger_cron.ts` and `--target-repo <repository>`. Every assertion targets a runtime
+artefact: the response the dispatcher wrote, the launches the recorder captured, or the cron registry
+record. No step reads, greps or parses a source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `webhookCronSteps.ts`. Every `@webhook` scenario starts with
+`GITHUB_WEBHOOK_SECRET` unset, the GitHub App variables blank, `SLACK_WEBHOOK_URL` unset and
+`agents/.auth_gate` cleared. Each is restored afterwards, together with the cron registry entries and
+cron logs the scenario touched.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-WH1 | `no cron is running for the repository {string}` | Removes the repository's cron registry entry (`agents/cron/<owner>_<repo>.json`) after saving it for restoration | phase-import | cron registry artefact |
+| G-WH2 | `a cron is already running for the repository {string}` | Registers the live test process as the repository's cron (`writeCronPid(<repo>, process.pid)`) after saving any existing entry for restoration | phase-import | cron registry artefact |
+| G-WH3 | `the webhook secret is set to {string}` | Sets `GITHUB_WEBHOOK_SECRET`, which the dispatcher reads at call time | phase-import | SUT input (environment) |
+| W-WH1 | `the webhook receives an approved review from the repository {string}` | Dispatches an unsigned `pull_request_review` event (`submitted`, `review.state` approved) naming the repository (`full_name`, `clone_url`) with the launch recorder on `PATH`, then waits until no new launch has been recorded for a quiet window | phase-import | recorded response + launch records |
+| W-WH2 | `the webhook receives an approved review from the repository {string}, signed with the secret {string}` | As W-WH1, with `x-hub-signature-256` set to `sha256=` plus the HMAC-SHA256 of the raw body under the given secret | phase-import | recorded response + launch records |
+| W-WH3 | `the webhook receives a {string} event with the action {string} from the repository {string}` | As W-WH1 for an unsigned event of the given type and action, carrying only the fields its branch reads (a pull request number, an issue number, a plain comment) | phase-import | recorded response + launch records |
+| W-WH4 | `the webhook receives an approved review that names no repository` | As W-WH1, with no `repository` object in the payload | phase-import | recorded response + launch records |
+| W-WH5 | `the webhook receives a {string} delivery whose body is not valid JSON` | As W-WH1 for an unsigned delivery of the given event type whose raw body is truncated JSON | phase-import | recorded response + launch records |
+| T-WH1 | `the webhook answers {int} with the status {string}` | Asserts the recorded status code and that the recorded body is exactly the given status, so a reason such as `auth_gate_set` or `duplicate` fails it | phase-import | recorded response |
+| T-WH2 | `the webhook answers {int} with the error {string}` | Asserts the recorded status code and that the recorded body is exactly the given error | phase-import | recorded response |
+| T-WH3 | `exactly one cron is launched, for the repository {string}` | Waits (bounded) for a cron launch record, then asserts the recorder holds exactly one cron launch and that it names `--target-repo <repo>` | mock-query | launch records |
+| T-WH4 | `nothing other than that cron is launched` | Asserts every launch the recorder captured is a cron launch: no workflow or other `bunx` launch was made | mock-query | launch records |
+| T-WH5 | `no cron is launched` | Asserts the recorder captured no cron launch | mock-query | launch records |
+| T-WH6 | `the cron that was already running is still the one registered for the repository {string}` | Reads the repository's cron registry record and asserts it still names the pid G-WH2 registered, so the dispatch neither replaced nor removed the running cron | phase-import | cron registry artefact |
+
+This scenario also reuses `the ADW codebase is checked out` (G18, Background no-op), now defined in
+`givenSteps.ts`.
