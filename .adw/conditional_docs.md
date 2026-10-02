@@ -392,10 +392,12 @@
   - Conditions:
     - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
     - When working on the CI envelope conformance gate (`.github/workflows/envelope-conformance.yml`, the pinned Claude CLI version, or `bun run jsonl:probe:check`)
+    - When troubleshooting a red envelope conformance run caused by a missing `ANTHROPIC_API_KEY` secret, or changing how the live probe leg authenticates
   - Decisions:
     - 0021
     - 0052
     - 0055
+    - 0057
 
 - app_docs/feature-9gjajh-types.md
   - Owns:
