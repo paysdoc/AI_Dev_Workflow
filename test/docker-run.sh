@@ -72,12 +72,15 @@ fi
 # Run the container
 # ---------------------------------------------------------------------------
 # Volume mounts:
-#   /workspace           — repo root, read-only
-#   /workspace/node_modules — writable overlay so bun install can write here
+#   /workspace              — repo root, read-only; the image's CMD copies it to
+#                             /tmp/bdd/workspace and runs the suite in the copy
+#   /workspace/node_modules — anonymous volume that hides the host's node_modules,
+#                             so the copy starts without them and installs fresh
 #
-# The node_modules overlay uses an anonymous volume, so each run starts with
-# a clean install without polluting the host checkout.
+# Docker cannot create the node_modules mount point inside the read-only mount,
+# so the checkout needs a node_modules/ directory first (bun install).
 
+# bash before 4.4 treats an empty array as unbound under set -u, hence the ${EXTRA_ENV[@]+...} expansions.
 EXTRA_ENV=()
 if [[ -n "${MOCK_STREAM_DELAY_MS:-}" ]]; then
   EXTRA_ENV+=(-e "MOCK_STREAM_DELAY_MS=${MOCK_STREAM_DELAY_MS}")
@@ -90,7 +93,7 @@ if $OPEN_SHELL; then
     -v /workspace/node_modules \
     -e "TEST_RUNTIME=docker" \
     -e "BDD_TAGS=${BDD_TAGS}" \
-    "${EXTRA_ENV[@]}" \
+    ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
     --entrypoint /bin/bash \
     "$IMAGE_TAG"
 else
@@ -100,6 +103,6 @@ else
     -v /workspace/node_modules \
     -e "TEST_RUNTIME=docker" \
     -e "BDD_TAGS=${BDD_TAGS}" \
-    "${EXTRA_ENV[@]}" \
+    ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
     "$IMAGE_TAG"
 fi
