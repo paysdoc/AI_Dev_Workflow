@@ -63,6 +63,16 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Script Execution` — How to run project scripts
      - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 8)
      - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 8)
+     - `## Test Directory` — Root directory where the project's unit tests live. Detection rules:
+       - If `tests/` exists at the repo root → `tests`
+       - If `test/` exists at the repo root → `test`
+       - If `src/` exists at the repo root → `src` (TypeScript / Bun convention)
+       - Otherwise → `.` (run from repo root)
+     - `## Test Framework` — Test framework detected in the dependency manifest (e.g., `pytest`, `vitest`, `jest`). Set to the detected framework name; leave empty when none detected. Examples:
+       - `pytest` or `pytest-asyncio` in `pyproject.toml` / `requirements*.txt` → `pytest`
+       - `vitest` in `package.json` devDependencies → `vitest`
+       - `jest` in `package.json` devDependencies → `jest`
+       - No test framework detected → leave empty
    - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 8 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
@@ -72,8 +82,10 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Framework Notes` — Framework-specific instructions for the ADW
      - `## Library Install Command` — How to add new libraries
      - `## Script Execution` — How to run project scripts
+   - Do not add a section that enables or disables unit tests. The only unit-test switch is `unitTests` in `.github/adw.yml` (step 9). If the existing `.adw/project.md` has such a section, leave it out.
 
 4. **Create `.adw/conditional_docs.md`**
+   - If `.adw/conditional_docs.md` already exists and is not empty, leave it unchanged and skip the rest of this step. `/document` maintains it, and its `Owns:` and `Decisions:` blocks cannot be regenerated from the code.
    - Generate `.adw/conditional_docs.md` with conditional documentation entries based on the project structure
    - Include `README.md` with relevant conditions
    - Include any documentation directories found in the project
@@ -130,7 +142,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Append a `## Agent Guardrails` section to `.adw/project.md` (created in step 3) reflecting the outcome:
      - If copied: note that ADW copied a starter deny-only guardrail file into the repo during initialization (the owner's to edit or delete), that its `Read(!**/.env.sample)` / `Read(!**/.env.example)` negation carve-outs rely on UNDOCUMENTED Claude Code CLI precedence behavior, that the framework verifies this with `scripts/guardrails-probe.ts` (issue #762), and that the probe should be re-run after each Claude Code CLI upgrade to confirm the carve-outs still hold.
      - If skipped (a `.claude/settings.json` already existed): note that the repo already had its own `.claude/settings.json`, so ADW left it untouched and did not apply the starter guardrails template.
-   - If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 9 report — same convention as the vocabulary template copy in step 8.
+   - If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 11 report — same convention as the vocabulary template copy in step 8.
 
 8. **Create `.adw/scenarios.md`**
    - Detect the scenario tool from the project's test configuration
@@ -161,7 +173,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      mkdir -p features/regression
      cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md
      ```
-     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 9 report.
+     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 11 report.
    - **Draft the observability-surfaces examples block**: after the template copy above, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`.
 
      **Classification rules** (use the analysis already performed in step 1 — do not re-read manifests):
@@ -169,7 +181,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - **CLI-only** — no browser test runner detected and at least one manifest was parseable.
      - **fallback** — no manifest could be parsed (empty repo, unrecognised stack).
 
-     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 9.
+     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 11.
 
      **Browser-test-equipped block** (`new_string`):
      ```
@@ -213,12 +225,51 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
      ```
 
-9. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
+9. **Create `.github/adw.yml` (only if absent)**
+   - Create `.github/adw.yml` only when it does not already exist. Never overwrite an existing file — it carries durable operator policy that survives regeneration, including the `unitTests` switch.
+   - Run the following via the Bash tool:
+     ```bash
+     if [ ! -f .github/adw.yml ]; then
+       mkdir -p .github
+       cat > .github/adw.yml <<'EOF'
+# ADW configuration for this repository.
+# This file lives outside `.adw/`, so `/adw_init` regeneration never overwrites it.
+# Uncomment a key and set its value to change policy; absent keys use the defaults below.
+
+# Unit-test gate (opt-out). When enabled, the unit-test phase runs your test
+# command and fails the workflow on unit-test failure. Default: enabled.
+# unitTests: true
+
+# Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
+# the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
+# hitl: false
+EOF
+       echo "created .github/adw.yml"
+     else
+       echo ".github/adw.yml already exists — left untouched"
+     fi
+     ```
+   - IMPORTANT: the heredoc content above MUST stay byte-identical to `ADW_YML_TEMPLATE` in `adws/core/adwYmlConfig.ts`; `adws/__tests__/adwInitPrompt.test.ts` compares them.
+
+10. **Add the Comments entry to the coding guidelines**
+   - Use `.adw/coding_guidelines.md` if it exists; otherwise `guidelines/coding_guidelines.md` if it exists; otherwise create `.adw/coding_guidelines.md` containing a `# Coding Guidelines` heading.
+   - The entry, verbatim:
+     ```md
+     - **Comments** — Comment only what the code cannot say: invariants, ordering constraints, and the reason a non-obvious choice was made. Never restate what the next line does, never add section banners, never cite issue numbers (git blame carries history). Do not JSDoc a field or function whose name already says what it is.
+     ```
+   - If the file already has a bullet starting with `- **Comments**`, replace that whole bullet with the entry. Otherwise add the entry as the last line of the file, after a blank line.
+   - Where the file asks for comments or JSDoc to explain non-obvious logic (the instruction this entry replaces), remove that clause and keep the rest of its line.
+   - Change nothing else in the file.
+
+11. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, `features/regression/vocabulary.md` when copied, `.github/adw.yml` when created, and the coding guidelines file when created)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
+   - Note the `## Test Directory` and `## Test Framework` values written to `commands.md`.
    - Note whether the starter guardrails `.claude/settings.json` (step 7) was copied or skipped (already present), and that a `## Agent Guardrails` section was written to `.adw/project.md` reflecting that outcome. This edit's presence in `adw_init.md` is what bumps `.adw-version` and fans the starter-settings copy out to every registered target repo on the next upgrade regen (issue #763).
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.
+   - `.github/adw.yml` status: `created` or `already present — left untouched`.
+   - Comments entry: the guidelines file used, and `added`, `replaced` or `already present`.
