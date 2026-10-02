@@ -8,12 +8,16 @@ import { tmpdir } from 'os';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
 import { releaseIssueSpawnLock } from '../../../adws/triggers/spawnGate.ts';
+import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
 import { initialiseFixtureWorktree } from '../support/fixtureWorktree.ts';
 import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
 const PAYLOAD_DIR = join(ROOT, 'test/fixtures/jsonl/payloads');
+
+/** Older than the cron's grace period, so the cron does not filter the seeded issue out as one a webhook may still be handling. */
+const SEEDED_ISSUE_AGE_MS = 60 * 60_000;
 
 Given(
   'the mock GitHub API is configured to accept issue comments',
@@ -44,10 +48,12 @@ Given(
   },
 );
 
+// The adw:feature label is one the cron's eligibility filter admits and the webhook gatekeeper routes to adwSdlc.tsx.
 Given(
   'an issue {int} exists in the mock issue tracker',
   async function (this: RegressionWorld, issueNumber: number) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
+    const anHourAgo = new Date(Date.now() - SEEDED_ISSUE_AGE_MS).toISOString();
     await this.mockContext.setState({
       issues: {
         [String(issueNumber)]: {
@@ -56,10 +62,14 @@ Given(
           state: 'open',
           body: '',
           user: { login: 'test-user' },
-          labels: [],
+          labels: [{ name: 'adw:feature' }],
+          created_at: anHourAgo,
+          updated_at: anHourAgo,
         },
       },
     });
+    // The state now holds exactly this issue.
+    this.seededIssues = new Set([issueNumber]);
     const serverUrl = this.mockContext.serverUrl;
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
@@ -92,11 +102,14 @@ Given(
   },
 );
 
+// Keeps the issues the scenario seeded, so the mock server's default fixture issues are the ones that go.
 Given(
   'the cron sweep is configured with empty queue',
   async function (this: RegressionWorld) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
-    await this.mockContext.setState({ issues: {} });
+    const current = getMockServerState().issues;
+    const seeded = [...this.seededIssues].filter((issueNumber) => String(issueNumber) in current);
+    await this.mockContext.setState({ issues: Object.fromEntries(seeded.map((issueNumber) => [String(issueNumber), current[String(issueNumber)]])) });
     const serverUrl = this.mockContext.serverUrl;
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
@@ -128,9 +141,13 @@ Given(
   'the mock GitHub API is configured to return PR {int} as merged',
   async function (this: RegressionWorld, prNumber: number) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
+    // Marked in place, so what an earlier Given recorded for the pull request, its head branch above all, survives.
+    const { prs } = getMockServerState();
     await this.mockContext.setState({
       prs: {
+        ...prs,
         [String(prNumber)]: {
+          ...(prs[String(prNumber)] as Record<string, unknown> | undefined),
           number: prNumber,
           state: 'closed',
           merged: true,

@@ -41,16 +41,21 @@
  *   getSafeSubprocessEnv()'s fixed allowlist, which does not include MOCK_*
  *   names — so MOCK_MANIFEST_PATH can't reach this process via env. cwd is NOT
  *   filtered (it's set explicitly by the spawn call), so as a fallback, when
- *   MOCK_MANIFEST_PATH is unset, this stub also checks for a manifest at
- *   <cwd>/.adw-stub-manifest.json.
+ *   MOCK_MANIFEST_PATH is unset, this stub searches its cwd and every directory
+ *   above it for .adw-stub-manifest.json, and the nearest one wins. A run whose
+ *   worktree lies at a path nobody knows in advance is programmed by a marker
+ *   placed above it. Every marker a harness places lives under os.tmpdir(), so
+ *   a search that starts in the ADW checkout finds none. The manifest's edits
+ *   still land in MOCK_WORKTREE_PATH, or the cwd, never beside the marker.
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { applyManifest, type ManifestResponse } from './manifestInterpreter.ts';
 import { resolveResponseMode, shouldRateLimit, buildRateLimitedLines, buildErrorResultLine, type RateLimitedResponseMode, type RateLimitedTemplates } from './stubResponse.ts';
 import { extractPrompt } from './stubArgs.ts';
+import { findStubManifestMarker } from './stubMarker.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, '../fixtures/jsonl');
@@ -106,13 +111,12 @@ function recordInvocation(prompt: string): void {
 }
 
 /** Resolves the manifest path: MOCK_MANIFEST_PATH takes precedence; falls back
- *  to a cwd-relative marker file (see the "Manifest marker-file fallback" note
- *  above) for callers whose env can't carry MOCK_* names to this process. */
+ *  to the nearest marker file at or above the cwd (see the "Manifest marker-file
+ *  fallback" note above) for callers whose env can't carry MOCK_* names to this process. */
 function resolveManifestPath(): string | undefined {
   const fromEnv = process.env['MOCK_MANIFEST_PATH'];
   if (fromEnv) return fromEnv;
-  const marker = resolve(process.cwd(), '.adw-stub-manifest.json');
-  return existsSync(marker) ? marker : undefined;
+  return findStubManifestMarker(process.cwd());
 }
 
 /** Missing or corrupt counter file counts as 0 (first call rejected). */

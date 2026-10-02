@@ -6,7 +6,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
   Background:
     Given the ADW codebase is checked out
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: The six in-process surface rows pass on two Cucumber runs in a row in the same checkout, each in under 5 seconds, and leave no spawn lock and no git repository behind
     When the regression suite's surface scenarios are run through Cucumber twice in a row
     Then each of these surface rows passes on both runs, in under 5 seconds each time:
@@ -22,7 +22,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
     And the checkout holds no spawn lock for issue 1032 in the repository "acme/widgets"
     And neither run left a git repository in its temporary directory
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: Under the @regression hooks, T6 fails while another live process holds the issue's spawn-gate lock, and the After hook releases that lock
     Given a throwaway regression scenario with the steps:
       """
@@ -33,7 +33,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
     Then the throwaway regression scenario fails at the step "the spawn-gate lock for issue 9631 is released"
     And the checkout holds no spawn lock for issue 9631 in the repository "acme/widgets"
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: Under the @regression hooks, G5 clears the spawn-gate lock another live process holds on the issue, after which T6 passes
     Given a throwaway regression scenario with the steps:
       """
@@ -44,7 +44,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
     When the throwaway regression scenario is run through Cucumber
     Then the throwaway regression scenario passes
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: G11 makes a git repository of the cli-tool fixture under the system's temporary directory, on the scenario's branch, whose origin's main is its own main, and which ignores the stub's files
     Given the worktree for adwId "fixture963-g11" is initialised at branch "fixture963-g11"
     Then the worktree for adwId "fixture963-g11" and its origin lie under the system's temporary directory
@@ -53,7 +53,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
     And in the worktree for adwId "fixture963-g11", the branch "main" tracks every file of "test/fixtures/cli-tool"
     And git ignores ".adw-stub-manifest.json", ".adw-stub-payload.json" and ".adw-stub-invocations" in the worktree for adwId "fixture963-g11"
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario Outline: A prompt that opens with <command> is answered by <entry>, and the stub writes only that entry's file
     Given a throwaway git worktree holding a stub manifest whose top-level entry answers "the default answer" and writes "notes/default.md"
     And the stub manifest also has these per-command entries:
@@ -71,7 +71,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
       | /implement-tdd | the top-level entry, as no entry is keyed on that command | the default answer | notes/default.md      |
       | /review        | the top-level entry, as no entry is keyed on that command | the default answer | notes/default.md      |
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: A prompt that follows the guardrails --settings JSON and the other value-taking flags an agent passes is still answered by its command's entry
     Given a throwaway git worktree holding a stub manifest whose top-level entry answers "the default answer" and writes "notes/default.md"
     And the stub manifest also has these per-command entries:
@@ -81,7 +81,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
     Then the stub exits 0 with the result "the plan answer"
     And the stub wrote "specs/issue-7-plan.md" into the worktree, and none of the files the manifest's other entries write
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario Outline: A manifest whose <entry> answers with the error response makes the stub stream a result marked is_error, and exit 1
     Given a throwaway git worktree holding a stub manifest whose <entry> answers with the error response
     When the Claude CLI stub is run in that worktree, as an agent runs it, with a prompt that opens with "/feature"
@@ -93,14 +93,14 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
       | top-level entry |
       | /feature entry  |
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: An agent whose /feature call the stub answers with the error response reports a plain failure, neither a rate limit nor an expired login
     Given a throwaway git worktree holding a stub manifest whose /feature entry answers with the error response
     When an agent runs "/feature" in that worktree against the Claude CLI stub
     Then the agent run reports failure
     And the agent run reports neither a rate limit nor an expired login
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario Outline: The stub refuses a manifest whose <entry> would write <path>, a file a Then step reads as the system's output, and writes none of the manifest's edits
     Given a throwaway git worktree holding a stub manifest whose top-level entry answers "the default answer" and writes "notes/default.md"
     And the stub manifest's <entry> also writes "<path>"
@@ -117,7 +117,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
       | /feature entry  | .adw/state.json                                 |
       | /commit entry   | agents/surface-04/state.json                    |
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario Outline: The refusal guard lets a manifest write <path>, which no Then step reads as the system's output
     Given a throwaway git worktree holding a stub manifest whose top-level entry answers "the default answer" and writes "<path>"
     When the Claude CLI stub is run in that worktree, as an agent runs it, with a prompt that opens with "/feature"
@@ -132,7 +132,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
       | specs/issue-7-plan.md       |
       | adws/agents/planAgent.ts    |
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
   Scenario: The refusal guard refuses none of the manifests committed under test/fixtures/jsonl/manifests
     When the stub's manifest interpreter applies every manifest committed under "test/fixtures/jsonl/manifests", each in a throwaway git worktree
     Then the refusal guard refused none of them

@@ -1,6 +1,7 @@
 import { setWorldConstructor, World, IWorldOptions } from '@cucumber/cucumber';
 import type { MockContext, RecordedRequest, FixtureRepoContext } from '../../../test/mocks/types.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
+import type { SubprocessHarness } from '../support/subprocessHarness.ts';
 import type { DepauditSetupResult } from '../../../adws/phases/depauditSetup.ts';
 
 export interface GitInvocation {
@@ -83,6 +84,18 @@ export class RegressionWorld extends World {
   phaseOutcome?: PhaseOutcome;
 
   lifecycleOutcome?: LifecycleOutcome;
+
+  /** Set in the `@regression and @subprocess` Before hook; without it W1, W9 and W10 stay pending. */
+  subprocess: SubprocessHarness | null = null;
+
+  /** Standard output and standard error of the last process the subprocess harness ran. */
+  lastOutput: string = '';
+
+  /** The issues G4 seeded, which the cron probe claims and the init driver is run for. */
+  seededIssues: Set<number> = new Set();
+
+  /** The launch record T-SP4 matched, which T-SP5 reads. */
+  matchedLaunch: readonly string[] | null = null;
 
   depauditOutcome?: DepauditOutcome;
 

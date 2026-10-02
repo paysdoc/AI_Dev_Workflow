@@ -36,13 +36,13 @@ function freshDirectory(world: RegressionWorld): string {
   return directory;
 }
 
-function throwawayDirectory(world: RegressionWorld): string {
+export function throwawayDirectory(world: RegressionWorld): string {
   const state = stateOf(world);
   state.throwawayDirectory ??= freshDirectory(world);
   return state.throwawayDirectory;
 }
 
-function throwawayScenario(world: RegressionWorld): ScenarioOutcome {
+export function throwawayScenario(world: RegressionWorld): ScenarioOutcome {
   const { throwawayScenarios } = stateOf(world);
   assert.ok(throwawayScenarios, 'Expected the throwaway regression scenario to have been run first');
   return throwawayScenarios[0];

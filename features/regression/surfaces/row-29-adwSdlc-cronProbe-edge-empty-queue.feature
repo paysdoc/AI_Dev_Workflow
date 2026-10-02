@@ -1,8 +1,7 @@
-@regression @surface
+@regression @surface @subprocess
 Feature: adwSdlc — cron probe — edge: empty queue
 
-  Scenario: cron probe with empty issue queue makes exactly one API call and exits
+  Scenario: cron probe with no eligible issue in the queue launches no orchestrator
     Given the cron sweep is configured with empty queue
     When the cron probe runs once
-    Then the mock GitHub API recorded 1 total API calls
-    And the orchestrator subprocess exited 0
+    Then the cron launched no orchestrator
