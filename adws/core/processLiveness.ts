@@ -97,3 +97,12 @@ export function isProcessLive(
   if (currentStartTime === null) return false;
   return currentStartTime === recordedStartTime;
 }
+
+/** An owner that was never recorded cannot be confirmed live. */
+export function isRecordedOwnerLive(
+  owner: { readonly pid?: number; readonly pidStartedAt?: string },
+  isLive: (pid: number, pidStartedAt: string) => boolean = isProcessLive,
+): boolean {
+  if (typeof owner.pid !== 'number' || !owner.pidStartedAt) return false;
+  return isLive(owner.pid, owner.pidStartedAt);
+}

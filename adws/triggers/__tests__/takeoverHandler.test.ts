@@ -818,3 +818,260 @@ describe('buildDefaultTakeoverDeps — deriveStageFromRemote boundary routing', 
     expect(mockDeriveStageFromRemote).toHaveBeenCalledWith('adw-1', fakeReconcileDeps);
   });
 });
+
+describe('starting — the recorded owner decides, never the stage', () => {
+  function startingState(overrides: Partial<AgentState> = {}): AgentState {
+    return makeState({ workflowStage: 'starting', branchName: 'feature-branch', ...overrides });
+  }
+
+  describe('a live recorded owner', () => {
+    const liveOwnerDeps = () => makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(startingState({ pid: 4242, pidStartedAt: 'live-start' })),
+      isProcessLive: vi.fn().mockReturnValue(true),
+    });
+
+    it('is deferred to, carrying its pid, with the lock released so it can take it itself', () => {
+      const deps = liveOwnerDeps();
+
+      const decision = evaluateCandidate({ issueNumber: 108, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: 4242 });
+      expect(deps.isProcessLive).toHaveBeenCalledWith(4242, 'live-start');
+      expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    });
+
+    it('is never killed, never has its worktree probed or reset, and nothing is reconciled or written', () => {
+      const deps = liveOwnerDeps();
+
+      evaluateCandidate({ issueNumber: 108, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(deps.killProcess).not.toHaveBeenCalled();
+      expect(deps.resetWorktree).not.toHaveBeenCalled();
+      expect(deps.probeWorktree).not.toHaveBeenCalled();
+      expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
+      expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a dead recorded owner', () => {
+    const deadOwner = { pid: 4242, pidStartedAt: 'crashed-run' };
+
+    it('healthy probe → take_over_adwId through the reuse gate: probed with its path, branch, pid and start time, never reset or killed', () => {
+      const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(startingState(deadOwner)) });
+
+      const decision = evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(decision).toEqual({ kind: 'take_over_adwId', adwId: ADW_ID, derivedStage: 'abandoned' });
+      expect(deps.probeWorktree).toHaveBeenCalledWith('/worktrees/feature-branch', 'feature-branch', 4242, 'crashed-run');
+      expect(deps.resetWorktree).not.toHaveBeenCalled();
+      expect(deps.killProcess).not.toHaveBeenCalled();
+    });
+
+    it('unhealthy probe → resetWorktree runs before deriveStageFromRemote', () => {
+      const callOrder: string[] = [];
+      const deps = makeDeps({
+        readTopLevelState: vi.fn().mockReturnValue(startingState(deadOwner)),
+        probeWorktree: vi.fn().mockReturnValue(unhealthyProbe('wrong_head')),
+        resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
+        deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'starting'; }),
+      });
+
+      const decision = evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(decision.kind).toBe('take_over_adwId');
+      expect(callOrder).toEqual(['reset', 'reconcile']);
+      expect(deps.killProcess).not.toHaveBeenCalled();
+    });
+
+    it('keeps the lock for the caller that spawns the take-over', () => {
+      const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(startingState(deadOwner)) });
+
+      evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('no recorded owner', () => {
+    it('counts as dead: through the reuse gate to take_over_adwId, with nothing killed', () => {
+      const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(startingState()) });
+
+      const decision = evaluateCandidate({ issueNumber: 110, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(decision.kind).toBe('take_over_adwId');
+      expect(deps.probeWorktree).toHaveBeenCalledWith('/worktrees/feature-branch', 'feature-branch', undefined, undefined);
+      expect(deps.resetWorktree).not.toHaveBeenCalled();
+      expect(deps.killProcess).not.toHaveBeenCalled();
+    });
+
+    it('counts a pid that has no start time as unrecorded, since liveness cannot be confirmed', () => {
+      const deps = makeDeps({
+        readTopLevelState: vi.fn().mockReturnValue(startingState({ pid: 4242 })),
+        isProcessLive: vi.fn().mockReturnValue(true),
+      });
+
+      const decision = evaluateCandidate({ issueNumber: 110, boundary: FAKE_BOUNDARY }, deps);
+
+      expect(decision.kind).toBe('take_over_adwId');
+      expect(deps.isProcessLive).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('the spawn lock never outlives an evaluation that throws', () => {
+  it('releases the lock exactly once and rethrows when the reset of an unpushed branch fails', () => {
+    const resetFailure = new Error("Failed to fetch origin/bugfix-issue-935: fatal: couldn't find remote ref");
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'build_running', branchName: 'feature-branch', pid: 1, pidStartedAt: 'old' })),
+      resetWorktree: vi.fn().mockImplementation(() => { throw resetFailure; }),
+    });
+
+    expect(() => evaluateCandidate({ issueNumber: 111, boundary: FAKE_BOUNDARY }, deps)).toThrow(resetFailure);
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+  });
+
+  it('releases the lock exactly once and rethrows when the remote reconcile fails for an abandoned workflow', () => {
+    const reconcileFailure = new Error('gh: HTTP 502');
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+      deriveStageFromRemote: vi.fn().mockImplementation(() => { throw reconcileFailure; }),
+    });
+
+    expect(() => evaluateCandidate({ issueNumber: 112, boundary: FAKE_BOUNDARY }, deps)).toThrow(reconcileFailure);
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+  });
+
+  it('releases the lock when reading the state fails after it was taken', () => {
+    const deps = makeDeps({ readTopLevelState: vi.fn().mockImplementation(() => { throw new Error('EIO'); }) });
+
+    expect(() => evaluateCandidate({ issueNumber: 113, boundary: FAKE_BOUNDARY }, deps)).toThrow('EIO');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+  });
+
+  it('never releases a lock it failed to take', () => {
+    const deps = makeDeps({
+      acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
+      readSpawnLockRecord: vi.fn().mockImplementation(() => { throw new Error('EIO'); }),
+    });
+
+    expect(() => evaluateCandidate({ issueNumber: 114, boundary: FAKE_BOUNDARY }, deps)).toThrow('EIO');
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+});
+
+describe('a spawn lock this very process left behind', () => {
+  const ownLock = () => vi.fn().mockReturnValue({ pid: process.pid, pidStartedAt: 'cron-start' });
+  const heldThenFree = () => vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+  function depsHoldingOwnLock(state: AgentState | null, overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
+    return makeDeps({
+      acquireIssueSpawnLock: heldThenFree(),
+      readSpawnLockRecord: ownLock(),
+      readTopLevelState: vi.fn().mockReturnValue(state),
+      ...overrides,
+    });
+  }
+
+  it('is reclaimed for a starting workflow that records no owner: released once, taken again, then taken over', () => {
+    const deps = depsHoldingOwnLock(makeState({ workflowStage: 'starting', branchName: 'feature-branch' }));
+
+    const decision = evaluateCandidate({ issueNumber: 115, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.acquireIssueSpawnLock).toHaveBeenCalledTimes(2);
+  });
+
+  it('is reclaimed for an abandoned workflow that records no owner', () => {
+    const deps = depsHoldingOwnLock(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' }));
+
+    const decision = evaluateCandidate({ issueNumber: 116, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.acquireIssueSpawnLock).toHaveBeenCalledTimes(2);
+  });
+
+  it('is reclaimed for a phase_timeout workflow within the resume cap, which counts the resume once', () => {
+    const deps = depsHoldingOwnLock(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' }));
+
+    const decision = evaluateCandidate({ issueNumber: 117, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.writeTopLevelState).toHaveBeenCalledOnce();
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 1 });
+  });
+
+  it('is reclaimed for a *_running workflow whose recorded owner is dead', () => {
+    const deps = depsHoldingOwnLock(
+      makeState({ workflowStage: 'build_running', branchName: 'feature-branch', pid: 4242, pidStartedAt: 'crashed-run' }),
+    );
+
+    const decision = evaluateCandidate({ issueNumber: 118, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.killProcess).not.toHaveBeenCalled();
+  });
+
+  it('is not reclaimed while the workflow\'s recorded owner is alive', () => {
+    const deps = depsHoldingOwnLock(
+      makeState({ workflowStage: 'starting', branchName: 'feature-branch', pid: 4242, pidStartedAt: 'live-start' }),
+      { isProcessLive: vi.fn().mockReturnValue(true) },
+    );
+
+    const decision = evaluateCandidate({ issueNumber: 119, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: process.pid });
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+    expect(deps.acquireIssueSpawnLock).toHaveBeenCalledOnce();
+  });
+
+  it('is not reclaimed for a stage the handler answers with spawn_fresh, which is the hold an in-process wait spans', () => {
+    const deps = depsHoldingOwnLock(makeState({ workflowStage: 'build_completed', branchName: 'feature-branch' }));
+
+    const decision = evaluateCandidate({ issueNumber: 120, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: process.pid });
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no adwId is known yet', () => depsHoldingOwnLock(null, { resolveAdwId: vi.fn().mockReturnValue(null) })],
+    ['the adwId has no state file', () => depsHoldingOwnLock(null)],
+  ])('is not reclaimed when %s', (_label, buildDeps) => {
+    const deps = buildDeps();
+
+    const decision = evaluateCandidate({ issueNumber: 121, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: process.pid });
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('is never touched when another process holds the lock, and the workflow is not even read', () => {
+    const deps = makeDeps({
+      acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
+      readSpawnLockRecord: vi.fn().mockReturnValue({ pid: process.pid + 1, pidStartedAt: 'other-start' }),
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+    });
+
+    const decision = evaluateCandidate({ issueNumber: 122, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: process.pid + 1 });
+    expect(deps.resolveAdwId).not.toHaveBeenCalled();
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('defers when the lock cannot be taken again after it was released', () => {
+    const deps = depsHoldingOwnLock(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' }), {
+      acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
+    });
+
+    const decision = evaluateCandidate({ issueNumber: 123, boundary: FAKE_BOUNDARY }, deps);
+
+    expect(decision.kind).toBe('defer_live_holder');
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.probeWorktree).not.toHaveBeenCalled();
+  });
+});

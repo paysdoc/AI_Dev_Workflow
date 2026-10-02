@@ -2,6 +2,7 @@ import { accessSync, constants as fsConstants } from 'fs';
 import {
   log,
   setLogAdwId,
+  getLogAdwId,
   ensureLogsDirectory,
   generateAdwId,
   resolveClaudeCodePath,
@@ -11,6 +12,7 @@ import {
   type AgentIdentifier,
   type RecoveryState,
   getNextStage,
+  getProcessStartTime,
   allocateRandomPort,
   type TargetRepoInfo,
   ensureTargetRepoWorkspace,
@@ -40,6 +42,7 @@ import { resolveWorkflowBranchName, readPersistedBranchName } from './branchName
 import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeAssetsToWorktree } from './worktreeSetup';
+import { recordStartupFailure } from './startupFailureLog';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
 import { fileURLToPath } from 'node:url';
@@ -99,11 +102,32 @@ export function resolveWorkflowProviders(
   return { repoId, providers: boundary.providers };
 }
 
+type InitializeWorkflowOptions = { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo; repoId?: RepoIdentifier };
+
+/**
+ * Every trigger passes the adwId on the command line; `getLogAdwId()` covers a manual run that
+ * failed after resolving one itself. The rethrow keeps the orchestrator's exit status.
+ */
 export async function initializeWorkflow(
   issueNumber: number,
   adwId: string | null,
   orchestratorName: AgentIdentifier,
-  options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo; repoId?: RepoIdentifier }
+  options?: InitializeWorkflowOptions,
+): Promise<WorkflowConfig> {
+  try {
+    return await initializeWorkflowSteps(issueNumber, adwId, orchestratorName, options);
+  } catch (error) {
+    const knownAdwId = adwId ?? getLogAdwId();
+    if (knownAdwId) recordStartupFailure(knownAdwId, orchestratorName, error);
+    throw error;
+  }
+}
+
+async function initializeWorkflowSteps(
+  issueNumber: number,
+  adwId: string | null,
+  orchestratorName: AgentIdentifier,
+  options?: InitializeWorkflowOptions,
 ): Promise<WorkflowConfig> {
   const claudePath = resolveClaudeCodePath();
   try {
@@ -315,6 +339,11 @@ export async function initializeWorkflow(
     repoIdentity: launchRepoIdentity,
     // Conditionally include branchName so options.cwd path never clobbers a persisted name.
     ...(branchName ? { branchName } : {}),
+    pid: process.pid,
+    // Always written, even as undefined: the shallow merge would otherwise pair this pid with a previous run's start time.
+    pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
+    // The heartbeat's first beat lands one interval after the lifecycle lock; until then a resumed run's old value reads as hung.
+    lastSeenAt: new Date().toISOString(),
   });
 
   const initialState: Partial<AgentState> = {

@@ -9,11 +9,12 @@
  * detecting a dead PID or a start-time mismatch (PID reuse).
  */
 
-import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../triggers/spawnGate';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock, readSpawnLockRecord } from '../triggers/spawnGate';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
 import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { startHeartbeat, stopHeartbeat } from '../core/heartbeat';
+import { AgentStateManager } from '../core/agentState';
 import { HEARTBEAT_TICK_INTERVAL_MS } from '../core/config';
 
 export function acquireOrchestratorLock(config: WorkflowConfig): boolean {
@@ -28,7 +29,8 @@ export function releaseOrchestratorLock(config: WorkflowConfig): void {
  * Runs fn wrapped in the full orchestrator lifecycle:
  * lock-acquire → heartbeat-start → fn → heartbeat-stop → lock-release.
  *
- * Returns false if the lock was not acquired (caller should log a warning and process.exit(0)).
+ * Returns false if the lock was not acquired (caller should log a warning and process.exit(0));
+ * the refusal is also written to the orchestrator's execution log, naming the holder.
  * Returns true on normal completion (phases ran, lock released).
  *
  * NOTE: if fn calls process.exit() internally (via handleWorkflowError), the finally block
@@ -38,7 +40,13 @@ export async function runWithOrchestratorLifecycle(
   config: WorkflowConfig,
   fn: () => Promise<void>,
 ): Promise<boolean> {
-  if (!acquireIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber, process.pid)) {
+  const repoId = resolveWorkflowRepoId(config);
+  if (!acquireIssueSpawnLock(repoId, config.issueNumber, process.pid)) {
+    const holder = readSpawnLockRecord(repoId, config.issueNumber);
+    AgentStateManager.appendLog(
+      config.orchestratorStatePath,
+      `Spawn lock for issue #${config.issueNumber} is held by pid ${holder?.pid ?? 'unknown'}; exiting without running a phase`,
+    );
     return false;
   }
   const heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);

@@ -30,7 +30,7 @@ import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
-import { evaluateCandidate } from './takeoverHandler';
+import { evaluateCandidate, type CandidateDecision } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { resolvePrReviewSpawn } from './webhookHandlers';
@@ -254,6 +254,26 @@ export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger
 }
 
 /**
+ * One candidate whose takeover evaluation throws, for example a reset against a branch that was never
+ * pushed, must not abort the tick for every candidate after it. evaluateCandidate has already released
+ * its lock. Returns null for a failed evaluation, which is retried next cycle. Exported with an
+ * injectable evaluator so tests can drive the containment directly.
+ */
+export function evaluateCandidateForTick(
+  issueNumber: number,
+  boundary: LaunchBoundary,
+  evaluate: typeof evaluateCandidate = evaluateCandidate,
+): CandidateDecision | null {
+  try {
+    return evaluate({ issueNumber, boundary });
+  } catch (error) {
+    const detail = error instanceof Error && error.stack ? error.stack : String(error);
+    log(`Issue #${issueNumber}: takeover evaluation failed, retrying next cycle: ${detail}`, 'error');
+    return null;
+  }
+}
+
+/**
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
  */
@@ -443,7 +463,8 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, boundary });
+    const takeoverDecision = evaluateCandidateForTick(issue.number, boundary);
+    if (takeoverDecision === null) continue;
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
@@ -470,16 +491,19 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
       // Takeover: spawn the orchestrator for the existing adwId directly, skipping classification.
       const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
       log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
-      const takeoverState = AgentStateManager.readTopLevelState(takeoverAdwId);
-      if (takeoverState) {
-        const { script, args } = resolveResumeSpawn(takeoverState);
-        log(`Issue #${issue.number}: resume routing → ${script}`, 'info');
-        spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
-      } else {
-        // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
-        spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+      try {
+        const takeoverState = AgentStateManager.readTopLevelState(takeoverAdwId);
+        if (takeoverState) {
+          const { script, args } = resolveResumeSpawn(takeoverState);
+          log(`Issue #${issue.number}: resume routing → ${script}`, 'info');
+          spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+        } else {
+          // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
+          spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+        }
+      } finally {
+        releaseIssueSpawnLock(repoInfo, issue.number);
       }
-      releaseIssueSpawnLock(repoInfo, issue.number);
       continue;
     }
 

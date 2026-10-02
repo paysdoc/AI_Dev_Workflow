@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   extractLatestAdwId,
   getLastActivityFromState,
@@ -202,4 +202,69 @@ describe('resolveIssueWorkflowStage', () => {
     expect(result.stage).toBe('build_running');
     expect(result.adwId).toBe('new-adw-id');
   });
+});
+
+describe('resolveIssueWorkflowStage — owner liveness of an active stage', () => {
+  const comments = [{ body: '**ADW ID:** `owner-adw-id`' }];
+  const readStateAt = (stage: string, owner: Partial<AgentState> = {}) => (): AgentState => ({
+    ...makeState({}),
+    workflowStage: stage,
+    ...owner,
+  });
+
+  it('reports a starting state whose recorded owner is dead as ownerDead', () => {
+    const isLive = vi.fn().mockReturnValue(false);
+
+    const result = resolveIssueWorkflowStage(comments, readStateAt('starting', { pid: 4242, pidStartedAt: 'crashed-run' }), isLive);
+
+    expect(result.ownerDead).toBe(true);
+    expect(isLive).toHaveBeenCalledWith(4242, 'crashed-run');
+  });
+
+  it('reports a starting state whose recorded owner is alive as not ownerDead', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    const result = resolveIssueWorkflowStage(comments, readStateAt('starting', { pid: 4242, pidStartedAt: 'live-run' }), isLive);
+
+    expect(result.ownerDead).toBe(false);
+    expect(result.stage).toBe('starting');
+  });
+
+  it('counts an active stage that records no owner as dead, without asking for liveness', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    const result = resolveIssueWorkflowStage(comments, readStateAt('build_running'), isLive);
+
+    expect(result.ownerDead).toBe(true);
+    expect(isLive).not.toHaveBeenCalled();
+  });
+
+  it('counts a recorded pid without a start time as an unconfirmed owner', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    const result = resolveIssueWorkflowStage(comments, readStateAt('starting', { pid: 4242 }), isLive);
+
+    expect(result.ownerDead).toBe(true);
+    expect(isLive).not.toHaveBeenCalled();
+  });
+
+  it('treats a dynamic phase stage such as stepDef_running as active', () => {
+    const isLive = vi.fn().mockReturnValue(false);
+
+    const result = resolveIssueWorkflowStage(comments, readStateAt('stepDef_running', { pid: 4242, pidStartedAt: 'crashed-run' }), isLive);
+
+    expect(result.ownerDead).toBe(true);
+  });
+
+  it.each(['phase_timeout', 'abandoned', 'build_completed', 'awaiting_merge', 'completed'])(
+    'never asks about the owner of the non-active stage %s',
+    (stage) => {
+      const isLive = vi.fn().mockReturnValue(false);
+
+      const result = resolveIssueWorkflowStage(comments, readStateAt(stage, { pid: 4242, pidStartedAt: 'crashed-run' }), isLive);
+
+      expect(result.ownerDead).toBe(false);
+      expect(isLive).not.toHaveBeenCalled();
+    },
+  );
 });

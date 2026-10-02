@@ -479,7 +479,6 @@ templates/              # ADW framework-level templates
 adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
 │   ├── adwChore.test.ts
-│   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts
 │   ├── adwPlanBuildTestReview.test.ts
@@ -487,10 +486,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── checkBranchNames.test.ts
 │   ├── checkGitGhGuard.test.ts
 │   ├── checkLivingDocsIndex.test.ts
-│   ├── checkModelLiterals.test.ts
 │   ├── depauditSetup.test.ts
-│   ├── depauditTriageSkill.test.ts
-│   ├── deployWorkersWorkflow.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
@@ -500,16 +496,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── agentProcessHandler.test.ts
 │   │   ├── claudeAgent.test.ts
-│   │   ├── claudeAgentGuardrails.test.ts
-│   │   ├── commandAgent.test.ts
 │   │   ├── commitIdentity.integration.test.ts
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
-│   │   ├── scenarioFidelityAgent.test.ts
-│   │   ├── testAgent.test.ts
-│   │   └── testRetry.test.ts
+│   │   └── scenarioFidelityAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -546,19 +538,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
-│   │   ├── conditionalDocsRegistryMutations.test.ts
-│   │   ├── conditionalDocsRegistryQueries.test.ts
-│   │   ├── docsDecisions.test.ts
-│   │   ├── docsDecisionViolations.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── docsGuards.test.ts
 │   │   ├── docsIndexHealth.test.ts
-│   │   ├── docsIndexHealthDecisions.test.ts
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── forgeWiring.test.ts
-│   │   ├── guardrailsProbe.integration.test.ts
 │   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
 │   │   ├── guardrailsPayload.test.ts
@@ -587,9 +573,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── resolveResumeSpawn.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
-│   │   ├── modelRouting.test.ts
 │   │   ├── slackNotifier.test.ts
-│   │   ├── selfHostLaunch.test.ts
 │   │   ├── sshCloneUrl.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
@@ -665,7 +649,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── selfHostLaunch.ts  # Self-host launch guard: detects a run whose launch identity is the framework repo itself
 │   ├── sshCloneUrl.ts  # Host-neutral HTTPS→SSH clone URL rewrite (convertToSshUrl) replacing the GitHub-only version; passes through anything not a two-segment HTTPS URL (#844)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
@@ -722,8 +705,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
-│   │   ├── d1Client.test.ts
-│   │   ├── phaseCostRecords.test.ts
 │   │   └── extractor.test.ts
 │   ├── providers/anthropic/  # Anthropic token usage extraction
 │   │   ├── extractor.ts
@@ -744,8 +725,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── conformanceCheck.test.ts
 │   │   ├── fixtureUpdater.test.ts
 │   │   ├── schemaFields.test.ts
-│   │   ├── schemaMerge.test.ts
-│   │   └── schemaProbe.test.ts
+│   │   └── schemaMerge.test.ts
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
 │   │   ├── assistant-text.jsonl
@@ -772,12 +752,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
-│   │   ├── buildPhase.test.ts
-│   │   ├── planCommitGuard.test.ts
-│   │   ├── planCommitGuardPhase.test.ts
-│   │   ├── planPhaseCommit.test.ts
-│   │   ├── reviewPhaseScreenshots.test.ts
-│   │   ├── worktreeSetupTrackedAssets.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── prReviewCompletion.test.ts
 │   │   ├── progressGate.test.ts
@@ -808,7 +782,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
-│   ├── planCommitGuard.ts  # Guard over what the plan phase may commit
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
@@ -852,12 +825,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cancelHandler.test.ts
 │   │   ├── concurrencyGuard.test.ts
 │   │   ├── cronIssueFilter.test.ts
-│   │   ├── cronIssueFilter.eligibility.test.ts
-│   │   ├── cronIssueFilter.optOut.test.ts
-│   │   ├── cronIssueFilterFixtures.ts
-│   │   ├── docsIndexSweepDecisions.test.ts
-│   │   ├── docsIndexSweepDefaults.test.ts
-│   │   ├── trigger_webhook.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
@@ -1067,7 +1034,6 @@ test/                   # Integration test infrastructure
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestInterpreter.test.ts
-│   │   ├── manifestInterpreterGit.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
 │   ├── git-remote-mock.ts      # Git remote mock

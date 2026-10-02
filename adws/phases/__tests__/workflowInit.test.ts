@@ -55,6 +55,12 @@ vi.mock('../../core/environment', async (importOriginal) => {
 
 vi.mock('../../vcs', () => ({}));
 
+// This file mocks child_process, which breaks the macOS `ps` read, so the start time is pinned.
+vi.mock('../../core/processLiveness', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/processLiveness')>()),
+  getProcessStartTime: vi.fn(),
+}));
+
 vi.mock('../branchIdentityFallback', () => ({
   findExistingBranchForIssue: vi.fn().mockReturnValue(null),
   recoverAdwIdForBranch: vi.fn().mockReturnValue(null),
@@ -116,8 +122,10 @@ vi.mock('../../agents', () => ({
 
 import { initializeWorkflow } from '../workflowInit';
 import { AgentStateManager } from '../../core/agentState';
-import { AGENTS_STATE_DIR } from '../../core/config';
-import { existsSync, rmSync } from 'fs';
+import { AGENTS_STATE_DIR, LOGS_DIR } from '../../core/config';
+import { getLogAdwId, resetLogAdwId } from '../../core/logger';
+import { getProcessStartTime } from '../../core/processLiveness';
+import { accessSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { runGenerateBranchNameAgent } from '../../agents';
 import { fetchIssueRecord } from '../../core/issueRecord';
@@ -340,5 +348,122 @@ describe('initializeWorkflow: boundary-providers passthrough to bindWorkspaceCon
     // falls back to undefined.
     expect(mockBindWorkspaceContext).not.toHaveBeenCalled();
     expect(cfg.repoContext).toBeUndefined();
+  });
+});
+
+describe('initializeWorkflow: a startup failure is written to the orchestrator execution log', () => {
+  const adwId = `${BASE_ADW_ID}-startup-failure`;
+  const executionLogOf = (id: string) => join(AGENTS_STATE_DIR, id, 'orchestrator', 'execution.log');
+
+  beforeEach(() => resetLogAdwId());
+
+  afterEach(() => {
+    cleanupAdwId(adwId);
+    resetLogAdwId();
+  });
+
+  it('rethrows the startup error and leaves it, with its stack, in agents/<adwId>/<orchestrator>/execution.log', async () => {
+    mockFetchIssue.mockRejectedValueOnce(new Error('issue fetch exploded'));
+
+    await expect(
+      initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' }),
+    ).rejects.toThrow('issue fetch exploded');
+
+    const log = readFileSync(executionLogOf(adwId), 'utf-8');
+    expect(log).toContain('startup failed');
+    expect(log).toContain('issue fetch exploded');
+  });
+
+  it('records a failed pre-flight check, which throws before any other startup step runs', async () => {
+    vi.mocked(accessSync).mockImplementationOnce(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    await expect(
+      initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' }),
+    ).rejects.toThrow('Pre-flight check failed');
+
+    expect(readFileSync(executionLogOf(adwId), 'utf-8')).toContain('Pre-flight check failed');
+  });
+
+  it('records under the adwId it resolved itself when the caller passed none', async () => {
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-startup-failure' });
+    mockGitCtx.ensureWorktree.mockImplementationOnce(() => {
+      throw new Error('worktree exploded');
+    });
+
+    await expect(
+      initializeWorkflow(ISSUE_NUMBER, null, 'orchestrator', { issueType: '/feature' }),
+    ).rejects.toThrow('worktree exploded');
+
+    const resolvedAdwId = getLogAdwId();
+    expect(resolvedAdwId).toBeDefined();
+    try {
+      expect(readFileSync(executionLogOf(resolvedAdwId!), 'utf-8')).toContain('worktree exploded');
+    } finally {
+      cleanupAdwId(resolvedAdwId!);
+      rmSync(join(LOGS_DIR, resolvedAdwId!), { recursive: true, force: true });
+    }
+  });
+
+  it('writes no log when the failure precedes any adwId, and still rethrows', async () => {
+    mockFetchIssue.mockRejectedValueOnce(new Error('issue fetch exploded'));
+    const initializeState = vi.spyOn(AgentStateManager, 'initializeState');
+
+    await expect(
+      initializeWorkflow(ISSUE_NUMBER, null, 'orchestrator', { issueType: '/feature' }),
+    ).rejects.toThrow('issue fetch exploded');
+
+    expect(initializeState).not.toHaveBeenCalled();
+    initializeState.mockRestore();
+  });
+});
+
+describe('initializeWorkflow: the top-level starting state records its owner', () => {
+  const adwId = `${BASE_ADW_ID}-owner`;
+
+  beforeEach(() => {
+    mockAgent.mockResolvedValue({ ...baseAgentResult, branchName: 'feature-issue-9000-owner' });
+  });
+
+  afterEach(() => cleanupAdwId(adwId));
+
+  it('records this process, its start time and a fresh heartbeat next to the starting stage', async () => {
+    vi.mocked(getProcessStartTime).mockReturnValue('start-token');
+    const beforeInit = Date.now();
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.workflowStage).toBe('starting');
+    expect(state?.pid).toBe(process.pid);
+    expect(state?.pidStartedAt).toBe('start-token');
+    expect(Date.parse(state?.lastSeenAt ?? '')).toBeGreaterThanOrEqual(beforeInit);
+  });
+
+  it('never pairs this pid with a previous run\'s start time or heartbeat when it resumes the same adwId', async () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      pid: 1,
+      pidStartedAt: 'previous-run',
+      lastSeenAt: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(getProcessStartTime).mockReturnValue(null);
+    const beforeInit = Date.now();
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.pid).toBe(process.pid);
+    expect(state?.pidStartedAt).toBeUndefined();
+    expect(Date.parse(state?.lastSeenAt ?? '')).toBeGreaterThanOrEqual(beforeInit);
+  });
+
+  it('still writes the orchestrator\'s own sub-state pid', async () => {
+    vi.mocked(getProcessStartTime).mockReturnValue('start-token');
+
+    const config = await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(AgentStateManager.readState(config.orchestratorStatePath)?.pid).toBe(process.pid);
   });
 });
