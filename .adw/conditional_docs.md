@@ -171,6 +171,8 @@
     - When working on the BDD regression scenario suite, vocabulary registry, or step definition registry in `features/regression/`
     - When working on the artefact-only contract of the shared Then/When steps (T1 state-file lookup, T5 `World.lastExitCode`, W1/W10 staying pending) or the rot-detection rubric forbidding source-reading steps
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
+    - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
+    - When the Background phrase G18 `the ADW codebase is checked out` is undefined or ambiguous, or a `.feature` file sits outside the `cucumber.js` paths and never runs
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server, Claude CLI stub, git remote mock, test harness) used by BDD step definitions
     - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)

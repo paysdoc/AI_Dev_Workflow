@@ -204,6 +204,8 @@ describe('uploadProofArtifacts — the uploader seam', () => {
 });
 
 describe('uploadProofArtifacts — R2 is not configured', () => {
+  // Deliberately never restored: vitest registers queued doMocks of one module in no fixed order, so a
+  // restoring doMock could override this one. The statically imported module keeps its credentials.
   async function loadWithoutR2Credentials() {
     vi.resetModules();
     vi.doMock('../../core/environment', () => ({
@@ -215,10 +217,6 @@ describe('uploadProofArtifacts — R2 is not configured', () => {
     const r2 = await import('../../r2/uploadService');
     return { ...proofUploader, uploadToR2: vi.mocked(r2.uploadToR2) };
   }
-
-  afterEach(() => {
-    vi.doMock('../../core/environment', () => configuredEnvironment);
-  });
 
   it('reports itself unconfigured', async () => {
     const { isR2Configured } = await loadWithoutR2Credentials();

@@ -819,6 +819,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
+│   ├── planCommitGuard.ts  # Baseline/diff guard that stops the planner from changing or committing off-limits `.claude`/`.adw` files
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
@@ -1104,13 +1105,13 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks for @regression suite
+│   ├── support/        # Cucumber hooks for @regression suite; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
+│   ├── webhook/        # Regression scenarios covering the webhook launching a cron for every accepted event that names a repository
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
-├── step_definitions/   # Top-level step definitions (webhook integration scenario; repo-identity persistence scenario)
-├── support/            # Top-level Cucumber support (tsx registration)
-└── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
+├── step_definitions/   # Top-level step definitions (repo-identity persistence scenario)
+└── support/            # Top-level Cucumber support (tsx registration)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── adr/                # Architecture Decision Records, one per design decision (index: specs/adr/README.md)
