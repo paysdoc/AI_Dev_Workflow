@@ -66,11 +66,6 @@ Checked on 2026-09-29 by reading the code:
 
 Unit tests cover the decider, the tag state, the reconcile link and the cron tick (`adws/core/__tests__/promotionSweepDecider.test.ts`, `promotionTagState.test.ts`, `promotionReconcileLink.test.ts`, `adws/triggers/__tests__/trigger_cron.test.ts`). No CI gate enforces the decision. One promotion issue exists on GitHub, #760 (promoting #537), merged through PR #761.
 
-## Divergence
-
-1. **The threshold cannot ramp.** `promotionStatsLoader.ts` counts promotions as commits whose subject starts with `regression-promotion:`. That prefix was written by the deleted `promotionMover`. A grep finds no code that writes it, and `git log --all --grep='^regression-promotion:'` returns nothing. The threshold's numerator is therefore always zero and N stays at 3. The PRD lists the threshold logic as reused unchanged. Ruling (owner, 2026-10-01): the ramp is the decision. Both PRDs and the plan for #744 keep it, and no source reverses it. The dead counter is a bug; promotions must be counted from something that still exists.
-2. **The marker is pushed straight to the default branch.** `tagAndCommit` in `adws/triggers/promotionSweepDefaults.ts` commits the marker and pushes straight to the default branch, as the PRD specified. The repository ruleset requires a pull request on the default branch, and the sibling per-issue sweep was moved to a branch plus PR (`perIssueSweepPersist.ts`). `git log --all` holds no `chore: mark feature-N promotion-suggested` commit. The sweep ran on 2026-09-30: the App filed #923 and #924, and `git log origin/dev` still holds no marker commit. Ruling (owner, 2026-10-01): the tag is kept, because it exempts a candidate from the 14-day deletion sweep (`adws/triggers/perIssueScenarioSweep.ts`) and records a declined promotion. It must be delivered through a branch and a pull request. The direct push is a bug.
-
 ## More Information
 
 * The PRD and the generated issue body describe per-issue scenarios as "input-only, never executed". That wording is wrong; see the first divergence in [ADR-0037](0037-tiered-regression-suite-with-fixed-vocabulary.md).

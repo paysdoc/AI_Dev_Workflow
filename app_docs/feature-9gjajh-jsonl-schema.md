@@ -27,9 +27,9 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 ## Configuration
 
 - `CLAUDE_CODE_PATH` environment variable (or `claude` on PATH) determines which CLI binary the probe spawns, resolved through `resolveClaudeCodePath()`.
-- The probe spawns in a fresh temp directory (`getSafeSubprocessEnv()`'s allowed vars only) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
 - `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; in CI the session authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run with an error naming it.
 - The CI gate (`.github/workflows/envelope-conformance.yml`) runs `bun run jsonl:check` first, then the live step unconditionally. The `ANTHROPIC_API_KEY` secret reaches that one step only; the step prints an `::error` naming the secret and exits 1 when it is empty, and no condition or `continue-on-error` can skip it. The key check lives in the workflow, not in `schemaProbe.ts`, because the same probe runs locally on the operator's subscription login without a key. The contract is pinned by `adws/__tests__/envelopeConformanceWorkflow.test.ts`.
+- The probe spawns in a fresh temp directory (the shared Claude launch environment: the allowlisted vars plus the auto-memory switch) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
 - Schema and fixtures paths default to sibling directories of the module files; every entry point accepts overrides for use from tests (a throwaway schema copy, a throwaway fixtures directory).
 
 ## Gotchas

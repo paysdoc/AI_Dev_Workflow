@@ -15,6 +15,7 @@ import { executeScenarioTestPhase } from './scenarioTestPhase';
 import { executeScenarioFixPhase } from './scenarioFixPhase';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 
 export class ScenarioHermeticityError extends Error {
   readonly name = 'ScenarioHermeticityError';
@@ -42,7 +43,7 @@ export async function runScenarioTestFixLoop(
   opts?: { maxAttempts?: number },
 ): Promise<ScenarioTestFixLoopResult> {
   const maxAttempts = opts?.maxAttempts ?? MAX_TEST_RETRY_ATTEMPTS;
-  const { issueNumber, worktreePath, adwId, logsDir, orchestratorStatePath, repoContext } = config;
+  const { issueNumber, worktreePath, adwId, logsDir, orchestratorStatePath } = config;
 
   let scenarioProof: ScenarioProofResult | undefined;
   let scenarioProofPath = '';
@@ -83,7 +84,7 @@ export async function runScenarioTestFixLoop(
             logsDir,
             fidelityStatePath,
             worktreePath,
-            { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+            workflowLaunchContext(config),
           );
           tracker.accumulate({ costUsd: fidelityResult.totalCostUsd ?? 0, modelUsage: {} });
           postResolveAligned = fidelityResult.fidelityResult.aligned;

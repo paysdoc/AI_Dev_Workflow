@@ -1,4 +1,4 @@
-@regression @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
+@regression @upgrade-regen
 Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gitignored
 
   Issue #729 fixes a crash in the framework self-upgrade lane. When `adwUpgrade`
@@ -135,7 +135,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
   Background:
     Given the ADW codebase is checked out
 
-  @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
   Scenario: A regen commit whose excluded command file is gitignored is recorded and carries the genuine .adw/ change
     Given an upgrade regen worktree whose command file ".claude/commands/adw_init.md" is gitignored by the real copy-init-command step
     And the worktree has a pending regen change to ".adw/project.md"
@@ -144,7 +143,6 @@ Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gi
     And the recorded commit's tree includes ".adw/project.md"
     And the recorded commit's tree excludes ".claude/commands/adw_init.md"
 
-  @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
   Scenario: A regen commit still holds out a tracked, non-ignored command file via the exclude
     Given an upgrade regen worktree with a tracked, modified ".claude/commands/adw_init.md" that is not gitignored
     And the worktree has a pending regen change to ".adw/project.md"

@@ -50,10 +50,6 @@ Checked on 2026-10-01:
 
 No guard exists.
 
-## Divergence
-
-1. **The plan commit stages everything.** As shown under Confirmation, the planner commits through `git add -A` and nothing restricts the paths. Ruling (owner, 2026-10-01): the decision above; the current behaviour is a bug. Why the worktree's copies of the prompt files differed from the branch in the two cases was not determined.
-
 ## More Information
 
 * Not settled: the plan commit ca72a4a7 also carried `features/per-issue/feature-583.feature`. Whether the per-issue scenario file belongs in the plan commit was not asked.

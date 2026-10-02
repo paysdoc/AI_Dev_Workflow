@@ -1,7 +1,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
+import { log, AgentStateManager, buildClaudeLaunchEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { GitContext } from '@paysdoc/devplatform/git';
@@ -75,7 +75,7 @@ export async function runClaudeAgentWithCommand(
   args: string | readonly string[],
   agentName: string,
   outputFile: string,
-  model: string = 'sonnet',
+  model: string,
   effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
@@ -124,13 +124,7 @@ export async function runClaudeAgentWithCommand(
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 
   // Subprocess receives per-command auth from the launch-boundary context, never from a process-global (PRD Auth model).
-  const spawnEnv = { ...getSafeSubprocessEnv(), ...launchIdentityEnv(launchContext?.gitContext), ...(subprocessEnv ?? {}) };
-  // Pipeline agents are stateless: Claude Code's auto-memory (the operator's
-  // ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned
-  // agent. A worktree resolves to the same project key as the framework checkout, so
-  // without this the operator's interactive-session memories are read as instructions
-  // Set after the overlay so no caller can re-enable it.
-  spawnEnv['CLAUDE_CODE_DISABLE_AUTO_MEMORY'] = '1';
+  const spawnEnv = buildClaudeLaunchEnv({ ...launchIdentityEnv(launchContext?.gitContext), ...(subprocessEnv ?? {}) });
   const resolvedCwd = cwd || process.cwd();
   if (cwd && cwd.includes('.worktrees/') && launchContext?.gitContext) {
     try {
@@ -146,7 +140,7 @@ export async function runClaudeAgentWithCommand(
   // launchContext defaults selfHost to true, so an un-threaded caller never injects
   // (fail-safe = today's behaviour).
   const guardrailsDecision = await resolveGuardrailsDecisionForSpawn(
-    { selfHost: launchContext?.selfHost ?? true, worktreePath: resolvedCwd, adwId: launchContext?.adwId ?? '' },
+    { selfHost: launchContext?.selfHost ?? true, adwId: launchContext?.adwId ?? '' },
   );
   if (guardrailsDecision.inject) {
     cliArgs.unshift('--settings', guardrailsDecision.settingsJson);
@@ -222,8 +216,7 @@ export async function runClaudeAgentWithCommand(
     try {
       const statusOutput = execSync(`${resolvedPath} auth status --json`, {
         timeout: 15_000,
-        // Inherit full env so the CLI can access its own config/credentials at HOME
-        env: { ...process.env },
+        env: spawnEnv,
       }).toString();
       const status = JSON.parse(statusOutput);
       if (!status.loggedIn) {

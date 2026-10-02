@@ -150,7 +150,7 @@ export function createWorkflow(issueNumber: number, repoStr: string, appSlug: st
     applicationUrl: 'http://localhost:0',
     repoContext,
     projectConfig: getDefaultProjectConfig(),
-    adwYmlConfig: { hitl: false, unitTests: false, guardrails: false },
+    adwYmlConfig: { hitl: false, unitTests: false },
     topLevelStatePath: AgentStateManager.getTopLevelStatePath(adwId),
     gitContext: boundary.gitContext,
   };

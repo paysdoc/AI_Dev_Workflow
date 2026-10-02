@@ -38,13 +38,13 @@ function committedTreeFiles(): string[] {
     .filter(Boolean);
 }
 
-Before({ tags: '@adw-729' }, function () {
+Before({ tags: '@upgrade-regen' }, function () {
   worktreeDir = undefined;
   preCommitHead = undefined;
   commitThrew = undefined;
 });
 
-After({ tags: '@adw-729' }, function () {
+After({ tags: '@upgrade-regen' }, function () {
   if (worktreeDir) {
     fs.rmSync(worktreeDir, { recursive: true, force: true });
     worktreeDir = undefined;

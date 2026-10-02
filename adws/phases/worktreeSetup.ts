@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'node:url';
-import { log, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from '../core';
+import { log, REPO_ROOT, readLocalRepoIdentity, sameRepoIdentity, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from '../core';
+import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
 /** The six canonical .adw/ config files that /adw_init must produce. */
@@ -84,38 +84,47 @@ function parseFrontmatterTarget(filePath: string): boolean {
   return false;
 }
 
-function copyDirContents(srcDir: string, destDir: string): void {
+/** Returns how many files were left as they are because `isLeftAlone` named them. */
+function copyDirContents(srcDir: string, destDir: string, isLeftAlone: (file: string) => boolean): number {
   fs.mkdirSync(destDir, { recursive: true });
-  fs.readdirSync(srcDir).forEach((file) => {
-    const srcFile = path.join(srcDir, file);
-    if (fs.statSync(srcFile).isFile()) {
-      fs.copyFileSync(srcFile, path.join(destDir, file));
-    }
-  });
+  const files = fs.readdirSync(srcDir).filter((file) => fs.statSync(path.join(srcDir, file)).isFile());
+  const toCopy = files.filter((file) => !isLeftAlone(file));
+  toCopy.forEach((file) => fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file)));
+  return files.length - toCopy.length;
+}
+
+function getTrackedPaths(ctx: GitContext, worktreePath: string, prefix: string): string[] {
+  try {
+    return ctx.lsFiles(worktreePath, prefix);
+  } catch {
+    return [];
+  }
 }
 
 function getTrackedBasenames(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
-  try {
-    return new Set(ctx.lsFiles(worktreePath, prefix).map((f) => path.basename(f)));
-  } catch {
-    return new Set();
-  }
+  return new Set(getTrackedPaths(ctx, worktreePath, prefix).map((f) => path.basename(f)));
 }
 
 /** E.g., for `.claude/skills/` returns `{'tdd', 'refactor', ...}`. */
 function getTrackedTopDirs(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
+  return new Set(
+    getTrackedPaths(ctx, worktreePath, prefix)
+      .map((f) => (f.startsWith(prefix) ? f.slice(prefix.length) : f).split('/')[0])
+      .filter(Boolean),
+  );
+}
+
+/** `null` when the framework checkout has no readable `origin`, in which case the copy treats every worktree as an external target. */
+function readFrameworkIdentity(frameworkRepoRoot: string): RepoIdentity | null {
   try {
-    return new Set(
-      ctx.lsFiles(worktreePath, prefix)
-        .map((f) => {
-          const relative = f.startsWith(prefix) ? f.slice(prefix.length) : f;
-          return relative.split('/')[0];
-        })
-        .filter(Boolean),
-    );
+    return readLocalRepoIdentity(frameworkRepoRoot);
   } catch {
-    return new Set();
+    return null;
   }
+}
+
+export function isFrameworkOwnRepository(target: RepoIdentity, framework: RepoIdentity | null): boolean {
+  return framework !== null && sameRepoIdentity(framework, target);
 }
 
 /**
@@ -208,26 +217,39 @@ export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: re
  *   - `target: true` assets: left committable (refresh + propagation into the product repo).
  *   - `target: false` assets: gitignored for run-availability only, UNLESS already tracked
  *     by git (never gitignore an already-committed path — gitignore can't untrack).
+ *
+ * In the framework's own repository the worktree's branch is the authority for its prompts and
+ * the running checkout can be behind it, so no file the branch tracks is overwritten there.
  */
-export function copyClaudeAssetsToWorktree(worktreePath: string, gitContext: GitContext): void {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const adwRepoRoot = path.resolve(currentDir, '../../');
-
-  const commandsSourceDir = path.join(adwRepoRoot, '.claude', 'commands');
-  const skillsSourceDir = path.join(adwRepoRoot, '.claude', 'skills');
+export function copyClaudeAssetsToWorktree(
+  worktreePath: string,
+  gitContext: GitContext,
+  frameworkRepoRoot: string = REPO_ROOT,
+): void {
+  const commandsSourceDir = path.join(frameworkRepoRoot, '.claude', 'commands');
+  const skillsSourceDir = path.join(frameworkRepoRoot, '.claude', 'skills');
 
   const gitignoreEntries: string[] = [];
+  let leftAloneCount = 0;
 
   const trackedCommandFiles = getTrackedBasenames(gitContext, worktreePath, '.claude/commands/');
   const trackedSkillDirs = getTrackedTopDirs(gitContext, worktreePath, '.claude/skills/');
+  const ownRepository = isFrameworkOwnRepository(
+    { owner: gitContext.owner, repo: gitContext.repo },
+    readFrameworkIdentity(frameworkRepoRoot),
+  );
+  const trackedClaudePaths = new Set(ownRepository ? getTrackedPaths(gitContext, worktreePath, '.claude/') : []);
+  const isLeftAlone = (relPath: string): boolean => trackedClaudePaths.has(relPath);
 
   if (fs.existsSync(commandsSourceDir)) {
     const commandsDestDir = path.join(worktreePath, '.claude', 'commands');
     fs.mkdirSync(commandsDestDir, { recursive: true });
     const mdFiles = fs.readdirSync(commandsSourceDir).filter((f) => f.endsWith('.md'));
-    mdFiles.forEach((file) =>
+    const toCopy = mdFiles.filter((f) => !isLeftAlone(`.claude/commands/${f}`));
+    toCopy.forEach((file) =>
       fs.copyFileSync(path.join(commandsSourceDir, file), path.join(commandsDestDir, file)),
     );
+    leftAloneCount += mdFiles.length - toCopy.length;
     gitignoreEntries.push(
       ...mdFiles
         .filter((f) => !parseFrontmatterTarget(path.join(commandsSourceDir, f)) && !trackedCommandFiles.has(f))
@@ -241,11 +263,13 @@ export function copyClaudeAssetsToWorktree(worktreePath: string, gitContext: Git
     const skillDirs = fs.readdirSync(skillsSourceDir).filter((n) =>
       fs.statSync(path.join(skillsSourceDir, n)).isDirectory(),
     );
-    skillDirs.forEach((skillName) =>
-      copyDirContents(
+    leftAloneCount += skillDirs.reduce(
+      (count, skillName) => count + copyDirContents(
         path.join(skillsSourceDir, skillName),
         path.join(worktreePath, '.claude', 'skills', skillName),
+        (file) => isLeftAlone(`.claude/skills/${skillName}/${file}`),
       ),
+      0,
     );
     gitignoreEntries.push(
       ...skillDirs
@@ -256,5 +280,8 @@ export function copyClaudeAssetsToWorktree(worktreePath: string, gitContext: Git
     log(`No .claude/skills/ found in ADW repo at ${skillsSourceDir}, skipping`, 'info');
   }
 
+  if (leftAloneCount > 0) {
+    log(`Worktree belongs to the framework repository ${gitContext.owner}/${gitContext.repo}; left ${leftAloneCount} tracked Claude asset(s) as its branch has them`, 'info');
+  }
   ensureGitignoreEntries(worktreePath, gitignoreEntries);
 }

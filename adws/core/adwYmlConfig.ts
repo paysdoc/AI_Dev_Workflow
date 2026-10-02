@@ -3,7 +3,7 @@
  * clobber it — the same rationale that keeps `.adw-version` outside `.adw/`.
  *
  * Read rules:
- *   - File absent           → { hitl: false, unitTests: true, guardrails: false } (no warning; absence is the common case)
+ *   - File absent           → { hitl: false, unitTests: true } (no warning; absence is the common case)
  *   - `hitl: true`          → hitl: true
  *   - `hitl: false`         → hitl: false
  *   - No `hitl:` key        → hitl: false (file is not malformed, key just omitted)
@@ -12,11 +12,8 @@
  *   - `unitTests: true`     → unitTests: true (gate enabled)
  *   - No `unitTests:` key   → unitTests: true (absent → enabled; opt-out default)
  *   - Malformed `unitTests` → unitTests: true + warn log (fails safe toward enabled)
- *   - `guardrails: true`    → guardrails: true (opt-in canary)
- *   - `guardrails: false`   → guardrails: false
- *   - No `guardrails:` key  → guardrails: false (absent → withheld; opt-in default)
- *   - Malformed `guardrails` → guardrails: false + warn log (fails safe toward disabled)
- *   - File unreadable       → { hitl: false, unitTests: true, guardrails: false } + warn log
+ *   - Any other key         → ignored without a log line (a `guardrails:` line left from the retired opt-in is one)
+ *   - File unreadable       → { hitl: false, unitTests: true } + warn log
  */
 
 import * as fs from 'fs';
@@ -32,17 +29,13 @@ export const ADW_YML_RELATIVE_PATH = path.join('.github', 'adw.yml');
  * Default is `false` (auto-merge).
  *
  * `unitTests: false` opts out of the unit-test phase gate; default `true` (enabled, opt-out).
- *
- * `guardrails: true` opts a target repo into ADW's `--settings` guardrail injection —
- * a temporary rollout canary key. Default `false` (withheld).
  */
 export interface AdwYmlConfig {
   readonly hitl: boolean;
   readonly unitTests: boolean;
-  readonly guardrails: boolean;
 }
 
-const DEFAULT_CONFIG: AdwYmlConfig = { hitl: false, unitTests: true, guardrails: false };
+const DEFAULT_CONFIG: AdwYmlConfig = { hitl: false, unitTests: true };
 
 /**
  * All keys are commented out so the file parses to the defaults.
@@ -59,11 +52,6 @@ export const ADW_YML_TEMPLATE = `# ADW configuration for this repository.
 # Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
 # the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
 # hitl: false
-
-# Guardrails canary (opt-in). When true, ADW injects its own deny rules and hooks
-# into every agent spawn in this repo via --settings, even if this repo ships no
-# .claude/settings.json of its own. Default: false.
-# guardrails: false
 `;
 
 /**
@@ -101,12 +89,6 @@ const KEY_SPECS: readonly KeySpec[] = [
     defaultValue: DEFAULT_CONFIG.unitTests,
     malformedWarn: (v) => `adw.yml: malformed 'unitTests' value "${v}", defaulting to enabled (unitTests: true)`,
   },
-  {
-    key: 'guardrails',
-    regex: /^\s*guardrails\s*:\s*(.*)$/,
-    defaultValue: DEFAULT_CONFIG.guardrails,
-    malformedWarn: (v) => `adw.yml: malformed 'guardrails' value "${v}", defaulting to disabled (guardrails: false)`,
-  },
 ];
 
 function applyKeySpec(rawLine: string, spec: KeySpec, resolved: Map<keyof AdwYmlConfig, boolean>): void {
@@ -140,7 +122,6 @@ export function parseAdwYml(content: string): AdwYmlConfig {
   return {
     hitl: resolved.get('hitl') ?? DEFAULT_CONFIG.hitl,
     unitTests: resolved.get('unitTests') ?? DEFAULT_CONFIG.unitTests,
-    guardrails: resolved.get('guardrails') ?? DEFAULT_CONFIG.guardrails,
   };
 }
 
@@ -151,7 +132,7 @@ export function readAdwYmlConfig(worktreePath: string): AdwYmlConfig {
     const content = fs.readFileSync(filePath, 'utf-8');
     return parseAdwYml(content);
   } catch (error) {
-    log(`adw.yml: failed to read "${filePath}": ${String(error)}, defaulting to { hitl: false, unitTests: true, guardrails: false }`, 'warn');
+    log(`adw.yml: failed to read "${filePath}": ${String(error)}, defaulting to { hitl: false, unitTests: true }`, 'warn');
     return DEFAULT_CONFIG;
   }
 }

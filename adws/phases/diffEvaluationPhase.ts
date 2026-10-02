@@ -4,6 +4,7 @@ import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import type { PhaseCostRecord } from '../cost';
 import { runDiffEvaluatorAgent } from '../agents/diffEvaluatorAgent';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
 export type DiffEvaluationPhaseResult = {
@@ -58,7 +59,7 @@ function postVerdictComment(
 export async function executeDiffEvaluationPhase(
   config: WorkflowConfig,
 ): Promise<DiffEvaluationPhaseResult> {
-  const { adwId, issueNumber, worktreePath, defaultBranch, logsDir, issue, repoContext } = config;
+  const { adwId, issueNumber, worktreePath, defaultBranch, logsDir, issue } = config;
   const phaseStartTime = Date.now();
 
   log('Phase: Diff Evaluation', 'info');
@@ -95,7 +96,7 @@ export async function executeDiffEvaluationPhase(
       logsDir,
       issueBody: issue.body,
       cwd: worktreePath,
-      launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+      launchContext: workflowLaunchContext(config),
     });
 
     modelUsage = result.modelUsage ?? emptyModelUsageMap();

@@ -4,7 +4,6 @@ import {
   shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
-  OrchestratorId,
   type RecoveryState,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
@@ -15,14 +14,22 @@ import {
   planFileExists,
   readPlanFile,
   correctPlanFileNaming,
-  runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
+import {
+  assertPlanPhaseLeftOffLimitsAlone,
+  buildPlanCommitMessage,
+  capturePlanPhaseBaseline,
+  commitPlanFileOnly,
+} from './planCommitGuard';
 import { BoardStatus } from '@paysdoc/devplatform';
 
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
+  const gitCtx = requireWorkflowGitContext(config);
+  const baseline = capturePlanPhaseBaseline(gitCtx, worktreePath);
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -77,7 +84,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId, config.installContext, workflowLaunchContext(config));
 
     if (!planResult.success) {
       AgentStateManager.writeState(planAgentStatePath, {
@@ -127,7 +134,10 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'plan_committing', ctx);
     }
-    await runCommitAgent(OrchestratorId.Plan, issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    assertPlanPhaseLeftOffLimitsAlone(gitCtx, worktreePath, baseline);
+    const planFile = getPlanFilePath(issueNumber, worktreePath);
+    const committed = commitPlanFileOnly(gitCtx, worktreePath, planFile, buildPlanCommitMessage(issueType, issueNumber));
+    log(committed ? `Plan committed: ${planFile}` : `Plan already committed, nothing to commit: ${planFile}`, committed ? 'success' : 'info');
   } else {
     log('Skipping plan commit (already completed)', 'info');
   }

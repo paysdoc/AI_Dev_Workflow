@@ -213,31 +213,6 @@ export function parseMarkdownSections(content: string): Record<string, string> {
 }
 
 /**
- * Returns `true` when `.adw/project.md` has unit tests enabled.
- *
- * Handles two formats:
- * - `## Unit Tests: enabled` (colon-inline heading → key = "unit tests: enabled")
- * - `## Unit Tests` with body `enabled`
- *
- * Returns `false` for `disabled`, absent section, or any other value.
- */
-export function parseUnitTestsEnabled(projectMd: string): boolean {
-  const sections = parseMarkdownSections(projectMd);
-
-  for (const [key, value] of Object.entries(sections)) {
-    if (key.startsWith('unit tests')) {
-      if (key.includes(':')) {
-        const inlineValue = key.split(':').slice(1).join(':').trim();
-        return inlineValue === 'enabled';
-      }
-      return value.trim().toLowerCase() === 'enabled';
-    }
-  }
-
-  return false;
-}
-
-/**
  * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
  * Defaults to `'cli'` when the section is absent or has any other value.
  */
@@ -286,6 +261,10 @@ export function parseProvidersMd(content: string): ProvidersConfig {
   return result;
 }
 
+function stripHtmlComments(value: string): string {
+  return value.replace(/<!--[\s\S]*?-->/g, '').trim();
+}
+
 export function parseScenariosMd(content: string): ScenariosConfig {
   const defaults = getDefaultScenariosConfig();
   if (!content.trim()) return defaults;
@@ -294,9 +273,8 @@ export function parseScenariosMd(content: string): ScenariosConfig {
   const result = { ...defaults };
 
   for (const [heading, key] of Object.entries(SCENARIOS_HEADING_TO_KEY)) {
-    if (heading in sections && sections[heading]) {
-      result[key] = sections[heading];
-    }
+    const value = stripHtmlComments(sections[heading] ?? '');
+    if (value) result[key] = value;
   }
 
   return result;

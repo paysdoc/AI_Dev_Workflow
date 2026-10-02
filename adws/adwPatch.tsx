@@ -3,7 +3,7 @@
  * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
  *
  * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
+ * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
@@ -27,6 +27,7 @@ import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
+import { workflowLaunchContext } from './phases/workflowRepoIdentity';
 
 /** This makes executeBuildPhase usable in the standard pipeline (it reads from the spec file). */
 async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
@@ -41,7 +42,6 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
 
   const specPath = getPlanFilePath(issueNumber, worktreePath);
 
-  // selfHost pinned to true = the un-threaded default this call had; only gitContext is new, so the guardrails decision is unchanged.
   const patchResult = await runPatchAgent(
     adwId,
     reviewIssue,
@@ -52,7 +52,7 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
     worktreePath,
     undefined,
     undefined,
-    { selfHost: true, adwId, gitContext: config.gitContext },
+    workflowLaunchContext(config),
   );
 
   if (!patchResult.success) {

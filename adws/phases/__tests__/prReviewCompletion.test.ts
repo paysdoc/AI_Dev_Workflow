@@ -93,7 +93,7 @@ describe('handlePRReviewWorkflowError — notifier deps fallback', () => {
       branchName: 'test-branch',
       applicationUrl: '',
       projectConfig: {} as WorkflowConfig['projectConfig'],
-      adwYmlConfig: { hitl: false, unitTests: true, guardrails: false },
+      adwYmlConfig: { hitl: false, unitTests: true },
     };
 
     const prReviewConfig: PRReviewWorkflowConfig = {

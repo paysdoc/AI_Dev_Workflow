@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { classifyProbeResult, probeRateLimit, PROBE_ARGS, type ProbeExecResult, type ProbeExec } from '../rateLimitProbe';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { classifyProbeResult, probeRateLimit, runClaudeProbe, PROBE_ARGS, type ProbeExecResult, type ProbeExec } from '../rateLimitProbe';
+import { PROBE_MODEL } from '../../core/modelRouting';
+import { createRecordingClaudeCli, overrideEnv, type RecordingClaudeCli } from '../../core/__tests__/fixtures/recordingClaudeCli';
 import {
   INCIDENT_STREAM,
   INCIDENT_RESULT_429,
@@ -231,5 +233,29 @@ describe('probeRateLimit', () => {
     const { exec } = makeExec(result({ status: 1, stdout }));
     probeRateLimit(exec);
     expect(vi.mocked(log)).toHaveBeenCalledWith(expect.stringContaining('authentication'), 'error');
+  });
+});
+
+describe('runClaudeProbe', () => {
+  let cli: RecordingClaudeCli | undefined;
+  let restoreEnv: (() => void) | undefined;
+
+  afterEach(() => {
+    restoreEnv?.();
+    cli?.cleanup();
+    cli = undefined;
+  });
+
+  it('starts the claude process with auto-memory disabled and without the trigger\'s full environment', () => {
+    restoreEnv = overrideEnv({ ADW_RECORDING_SENTINEL: 'leak', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0' });
+    cli = createRecordingClaudeCli();
+
+    runClaudeProbe(cli.cliPath, PROBE_ARGS);
+
+    expect(cli.readInvocations()).toEqual([{ memory: '1', hooksLogDir: '', sentinel: '' }]);
+  });
+
+  it('probes on the probe model from the routing module', () => {
+    expect(PROBE_ARGS[PROBE_ARGS.indexOf('--model') + 1]).toBe(PROBE_MODEL);
   });
 });

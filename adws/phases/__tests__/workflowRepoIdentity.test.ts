@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest';
-import { resolveWorkflowRepoId } from '../workflowRepoIdentity';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../core/localRepoIdentity', () => ({ readLocalRepoIdentity: vi.fn() }));
+
+import { readLocalRepoIdentity } from '../../core/localRepoIdentity';
+import { resetFrameworkIdentityMemo } from '../../core/selfHostLaunch';
+import { resolveWorkflowRepoId, workflowLaunchContext } from '../workflowRepoIdentity';
 import { Platform } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from '../workflowInit';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
 type Identity = Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>;
+
+beforeEach(() => {
+  resetFrameworkIdentityMemo();
+  vi.mocked(readLocalRepoIdentity).mockReturnValue({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
+});
 
 describe('resolveWorkflowRepoId', () => {
   it('prefers repoContext.repoId when present', () => {
@@ -33,5 +43,46 @@ describe('resolveWorkflowRepoId', () => {
   it('throws an actionable error when the config carries no launch identity', () => {
     const config: Identity = { repoContext: undefined, gitContext: undefined, targetRepo: undefined };
     expect(() => resolveWorkflowRepoId(config)).toThrow(/carries no launch identity/);
+  });
+});
+
+describe('workflowLaunchContext', () => {
+  it('takes selfHost from a self-host GitContext and passes adwId and that GitContext through', () => {
+    const gitContext = { selfHost: true } as unknown as GitContext;
+
+    const launchContext = workflowLaunchContext({ adwId: 'adw-self', gitContext });
+
+    expect(launchContext).toEqual({ selfHost: true, adwId: 'adw-self', gitContext });
+    expect(launchContext.gitContext).toBe(gitContext);
+  });
+
+  it('takes selfHost: false from a target-repository GitContext', () => {
+    const gitContext = { selfHost: false, owner: 'acme', repo: 'widgets' } as unknown as GitContext;
+
+    expect(workflowLaunchContext({ adwId: 'adw-target', gitContext }).selfHost).toBe(false);
+  });
+
+  it("counts a --target-repo GitContext for the framework's own repository as self-host", () => {
+    const gitContext = { selfHost: false, owner: 'paysdoc', repo: 'AI_Dev_Workflow' } as unknown as GitContext;
+
+    expect(workflowLaunchContext({ adwId: 'adw-framework', gitContext })).toEqual({ selfHost: true, adwId: 'adw-framework', gitContext });
+  });
+
+  it('is not derived from a bound RepoContext, which a self-host run binds too', () => {
+    const config = {
+      adwId: 'adw-self',
+      gitContext: { selfHost: true } as unknown as GitContext,
+      repoContext: {} as WorkflowConfig['repoContext'],
+    };
+
+    expect(workflowLaunchContext(config).selfHost).toBe(true);
+  });
+
+  it('counts a config without a GitContext as self-host, so it never injects', () => {
+    expect(workflowLaunchContext({ adwId: 'adw-fixture', gitContext: undefined })).toEqual({
+      selfHost: true,
+      adwId: 'adw-fixture',
+      gitContext: undefined,
+    });
   });
 });

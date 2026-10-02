@@ -18,7 +18,7 @@ import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
 import type { CodeHost, IssueTracker, RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
 import { uploadProofArtifacts } from '../proof/proofUploader';
@@ -140,7 +140,7 @@ export async function executeReviewPhase(
     issue.body,
     scenarioProofPath || undefined,
     config.gitContext?.commandEnv(),
-    { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+    workflowLaunchContext(config),
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
@@ -219,7 +219,6 @@ export async function executeReviewPatchCycle(
     logsDir,
     worktreePath,
     branchName,
-    repoContext,
   } = config;
 
   const gitCtx = requireWorkflowGitContext(config);
@@ -240,7 +239,7 @@ export async function executeReviewPatchCycle(
   );
 
   const subprocessEnv = gitCtx.commandEnv();
-  const launchContext = { selfHost: !repoContext, adwId, gitContext: gitCtx };
+  const launchContext = workflowLaunchContext(config);
 
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {

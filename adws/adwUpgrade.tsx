@@ -25,6 +25,7 @@ import {
   isPushRejectionError,
   writeAdwVersion,
   readAdwYmlConfig,
+  writeAdwYmlTemplateIfAbsent,
   type AdwYmlConfig,
   MAX_FAILURES,
   postSlack,
@@ -33,7 +34,10 @@ import {
   type IssueCommentRecord,
   ADW_BLOCKED_LABEL,
   hasWontFixLabelName,
+  getModelForCommand,
+  getEffortForCommand,
 } from './core';
+import { isSelfHostLaunch } from './core/selfHostLaunch';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import { runClaudeAgentWithCommand } from './agents';
 import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from '@paysdoc/devplatform';
@@ -86,6 +90,8 @@ export interface UpgradeDeps {
   readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
   /** Copies the starter guardrails `settings.json` into the worktree, skipping if one already exists. */
   readonly copyStarterSettings: (worktreePath: string, frameworkRepoRoot: string) => StarterSettingsResult;
+  /** Create-if-absent: an existing `.github/adw.yml` carries operator policy and is never overwritten. */
+  readonly writeAdwYmlTemplate: (worktreePath: string) => { created: boolean };
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string, opts?: { excludePaths?: readonly string[] }) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
@@ -330,6 +336,10 @@ export async function executeUpgrade(
   const starter = deps.copyStarterSettings(worktreePath, frameworkRepoRoot);
   deps.log(`adwUpgrade: starter guardrails settings ${starter.action} (${starter.destPath})`, 'info');
 
+  // Written before the commit so a new file rides into the regen commit.
+  const adwYml = deps.writeAdwYmlTemplate(worktreePath);
+  deps.log(`adwUpgrade: .github/adw.yml ${adwYml.created ? 'created' : 'already present, left untouched'}`, 'info');
+
   deps.writeAdwVersion(worktreePath, hash);
   try {
     deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath, { excludePaths: ['.claude/commands/adw_init.md'] });
@@ -407,15 +417,15 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     [String(params.issueNumber), params.adwId, params.issueJson, params.frameworkRepoRoot],
     'adw-upgrade',
     params.logPath,
-    'sonnet',
-    undefined,
+    getModelForCommand('/adw_init'),
+    getEffortForCommand('/adw_init'),
     undefined,
     undefined,
     params.worktreePath,
     undefined,
     undefined,
     undefined,
-    { selfHost: false, adwId: params.adwId, gitContext: params.gitContext },
+    { selfHost: isSelfHostLaunch(params.gitContext), adwId: params.adwId, gitContext: params.gitContext },
   );
   return {
     success: result.success,
@@ -435,6 +445,7 @@ export function buildDefaultUpgradeDeps(providers: BoundProviders, gitCtx: GitCo
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
     copyStarterSettings: copyStarterSettingsToWorktree,
+    writeAdwYmlTemplate: writeAdwYmlTemplateIfAbsent,
     writeAdwVersion,
     commitChanges: (message, cwd, opts) => gitCtx.commitChanges(message, cwd, opts),
     pushBranch: (branch, cwd) => gitCtx.pushBranch(branch, cwd),

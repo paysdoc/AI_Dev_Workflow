@@ -180,12 +180,16 @@
     - adws/phases/__tests__/planPhase.test.ts
     - adws/phases/buildPhase.ts
     - adws/phases/planPhase.ts
+    - adws/phases/planCommitGuard.ts
+    - adws/phases/__tests__/planCommitGuard*.test.ts
+    - adws/phases/__tests__/planPhaseCommit.test.ts
     - adws/phases/planValidationPhase.ts
     - adws/phases/installPhase.ts
     - adws/phases/alignmentPhase.ts
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
+    - When working on the plan commit (plan-file-only commit, `PlanCommitGuardError`, `capturePlanPhaseBaseline`, `assertPlanPhaseLeftOffLimitsAlone`, `commitPlanFileOnly`) or troubleshooting a plan phase that fails because `.claude/` or `.adw/` changed
   - Decisions:
     - 0023
     - 0024
@@ -205,7 +209,7 @@
     - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
     - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
     - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
-    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant
+    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
@@ -363,7 +367,8 @@
   - Conditions:
     - When working on scenario promotion scoring, threshold ramping, vocabulary/scenario parsing, or promotion stats loading in `adws/promotion/`
     - When working on promotion tag-state tracking (`adws/core/promotionTagState.ts`)
-    - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
+    - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, the plan → land → settle flow, marker delivery through the `chore/promotion-sweep` pull request, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
+    - When troubleshooting a promotion threshold stuck at 3 (merged-promotion-PR numerator, `features/per-issue` pathspec denominator) or a promotion issue filed without its `@promotion-suggested` marker on the default branch
     - When working on the rot/reuse advisory PR comment (`adws/phases/promotionRotAdvisory.ts`, `rotAdvisoryFormat.ts`, `adws/agents/rotAnalysisAgent.ts`, `.claude/commands/promote_regression_vocabulary.md`)
   - Decisions:
     - 0049
@@ -472,8 +477,11 @@
     - .claude/commands/tools.md
     - .claude/skills/**
     - .claude/hooks/**
+    - adws/__tests__/adwInitPrompt.test.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
+    - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
+    - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
   - Decisions:
     - 0005
     - 0014
@@ -631,6 +639,9 @@
     - adws/core/guardrailsPayload.ts
     - adws/core/guardrailsGate.ts
     - adws/core/guardrailsProbe.ts
+    - adws/core/selfHostLaunch.ts
+    - adws/core/__tests__/selfHostLaunch.test.ts
+    - adws/agents/__tests__/claudeAgentGuardrails.test.ts
     - scripts/guardrails-probe.ts
     - templates/claude-settings-starter.json
     - adws/agents/claudeAgent.ts
@@ -641,11 +652,18 @@
     - adws/agents/jsonlParser.ts
     - adws/agents/index.ts
     - adws/agents/__tests__/agentProcessHandler.test.ts
+    - adws/agents/__tests__/commandAgent.test.ts
+    - adws/checkModelLiterals.ts
+    - adws/__tests__/checkModelLiterals.test.ts
+    - adws/core/__tests__/fixtures/recordingClaudeCli.ts
+    - adws/core/__tests__/guardrailsProbe.integration.test.ts
+    - .claude/commands/correct_output.md
   - Conditions:
     - When working on the git identity agent commits carry (the `GIT_AUTHOR_*`/`GIT_COMMITTER_*` overlay from `launchContext.gitContext.commandEnv()` in `runClaudeAgentWithCommand`) or when agent commits show the host's identity instead of the App's
     - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
     - When working on context-compaction handling in the agent process handler — the opt-in `killOnCompaction` flag, which agents are killed and restarted (build phase, unit-test path) versus run on, or `compactionDetected` results
-    - When working on target-repo agent guardrails injection — the `--settings` payload, the `.github/adw.yml`/kill-switch/self-host gate, or the fail-open startup probe
+    - When working on the output-validation retry (`/correct_output`, `runRetryLoop`), the shared stateless Claude launch environment (`buildClaudeLaunchEnv`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`) used by agents, probes, auth-status and version checks, or the model-literal guard (`checkModelLiterals.ts`, `bun run lint:model-literals`, `PROBE_MODEL`)
+    - When working on target-repo agent guardrails injection — the `--settings` payload, the kill-switch/self-host gate (no per-repository `.github/adw.yml` switch; `isSelfHostLaunch`, `workflowLaunchContext`), or the fail-open startup probe
   - Decisions:
     - 0001
     - 0010

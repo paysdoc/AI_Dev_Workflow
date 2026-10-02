@@ -23,6 +23,11 @@
  *   MOCK_RATE_LIMIT_TYPE       — echoed into rate_limit_info.rateLimitType. Defaults to
  *                                "five_hour".
  *
+ * Manifest worktree actions (all opt-in; see manifestInterpreter.ts):
+ *   A manifest may also delete and stage paths, commit everything itself (`commitAll`), or set
+ *   `onCommitCommand` so that an invocation of the /commit slash command stages and commits every
+ *   change in the worktree, as `.claude/commands/commit.md` does, and answers with the subject.
+ *
  * Manifest marker-file fallback:
  *   Callers that spawn this stub through a production code path (e.g. a phase
  *   function invoked in-process) route the child's environment through
@@ -173,16 +178,19 @@ async function handleRateLimitedMode(mode: RateLimitedResponseMode): Promise<voi
 
 async function main(): Promise<void> {
   try {
-    recordInvocation(extractPrompt(process.argv));
+    const prompt = extractPrompt(process.argv);
+    recordInvocation(prompt);
 
     const manifestPath = resolveManifestPath();
     let payloadPath: string;
     let manifestResponse: ManifestResponse | undefined;
+    let commitSubject: string | undefined;
     if (manifestPath) {
       const worktreePath = process.env['MOCK_WORKTREE_PATH'] ?? process.cwd();
-      const result = applyManifest(manifestPath, worktreePath);
+      const result = applyManifest(manifestPath, worktreePath, prompt);
       payloadPath = result.jsonlPath;
       manifestResponse = result.response;
+      commitSubject = result.commitSubject;
     } else {
       payloadPath = selectPayloadPath();
     }
@@ -192,10 +200,9 @@ async function main(): Promise<void> {
       await handleRateLimitedMode(mode);
     }
 
-    const payload = JSON.parse(readFileSync(payloadPath, 'utf-8')) as Array<{
-      type: string;
-      text?: string;
-    }>;
+    const payload: Array<{ type: string; text?: string }> = commitSubject !== undefined
+      ? [{ type: 'text', text: commitSubject }]
+      : JSON.parse(readFileSync(payloadPath, 'utf-8'));
 
     const envelopePath = join(ENVELOPE_DIR, 'assistant-message.jsonl');
     const envelope = JSON.parse(readFileSync(envelopePath, 'utf-8')) as {

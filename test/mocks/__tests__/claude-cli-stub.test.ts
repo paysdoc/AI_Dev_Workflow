@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve, dirname } from 'path';
@@ -27,8 +27,8 @@ afterEach(() => {
   }
 });
 
-function runStub(env: Record<string, string | undefined>, cwd?: string): { status: number | null; stdout: string } {
-  const result = spawnSync('bun', [STUB_PATH, '--print', '--verbose', '--output-format', 'stream-json', 'ping'], {
+function runStub(env: Record<string, string | undefined>, cwd?: string, prompt = 'ping'): { status: number | null; stdout: string } {
+  const result = spawnSync('bun', [STUB_PATH, '--print', '--verbose', '--output-format', 'stream-json', prompt], {
     encoding: 'utf-8',
     cwd,
     env: { ...process.env, MOCK_STREAM_DELAY_MS: '0', ...env },
@@ -105,6 +105,39 @@ describe('claude-cli-stub — manifest-driven limitedInvocations', () => {
     const second = runStub({}, cwd);
     expect(second.status).toBe(0);
     expect(second.stdout).not.toContain('rate_limit_event');
+  });
+});
+
+describe('claude-cli-stub — manifest-driven stand-in for /commit', () => {
+  function makeRepoWithPendingEdit(): string {
+    const repo = makeTempDir('stub-commit-repo-');
+    const run = (command: string): string => execSync(command, { cwd: repo, encoding: 'utf-8' }).trim();
+    run('git init -q');
+    run('git config user.email "test@adw.local"');
+    run('git config user.name "ADW Test"');
+    writeFileSync(join(repo, 'README.md'), 'readme\n');
+    run('git add -A && git commit -q -m init');
+    writeFileSync(join(repo, 'README.md'), 'readme, edited\n');
+    writeFileSync(join(repo, 'untracked.txt'), 'untracked\n');
+    return repo;
+  }
+
+  it('commits every change in the worktree and answers with the subject it committed', () => {
+    const repo = makeRepoWithPendingEdit();
+    const manifestPath = join(makeTempDir('stub-commit-manifest-'), 'manifest.json');
+    writeFileSync(manifestPath, JSON.stringify({ jsonlPath: 'unused.json', edits: [], onCommitCommand: 'stage-all-and-commit' }), 'utf-8');
+
+    const { status, stdout } = runStub({ MOCK_MANIFEST_PATH: manifestPath }, repo, "/commit 'plan-orchestrator: fix' '{}'");
+
+    expect(status).toBe(0);
+    const subject = execSync('git log -1 --format=%s', { cwd: repo, encoding: 'utf-8' }).trim();
+    expect(subject).toMatch(/^plan-orchestrator: fix: /);
+    expect(execSync('git show --name-only --format= HEAD', { cwd: repo, encoding: 'utf-8' }).trim().split('\n').sort())
+      .toEqual(['README.md', 'untracked.txt']);
+
+    const state = createJsonlParserState();
+    parseJsonlOutput(stdout, state);
+    expect((state.lastResult as unknown as Record<string, unknown>)['result']).toBe(subject);
   });
 });
 

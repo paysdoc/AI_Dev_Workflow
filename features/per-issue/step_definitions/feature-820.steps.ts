@@ -297,7 +297,7 @@ function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; l
     targetRepo: undefined,
     repoContext,
     projectConfig: {},
-    adwYmlConfig: { hitl: false, unitTests: true, guardrails: false },
+    adwYmlConfig: { hitl: false, unitTests: true },
     topLevelStatePath: '',
     gitContext: undefined,
   } as unknown as WorkflowConfig;

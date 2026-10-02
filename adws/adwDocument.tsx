@@ -3,7 +3,7 @@
  * Usage: bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
  *
  * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
+ * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
