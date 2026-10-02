@@ -137,13 +137,13 @@ if (installsGlobally && spec !== undefined) {
 `;
 }
 
-const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+export const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
 function bunShadowSource(realBun: string): string {
   return `#!/bin/sh\nif [ "$1" = "install" ]; then exit 0; fi\nexec ${shellQuote(realBun)} "$@"\n`;
 }
 
-function writeExecutable(file: string, source: string): void {
+export function writeExecutable(file: string, source: string): void {
   fs.writeFileSync(file, source);
   fs.chmodSync(file, 0o755);
 }

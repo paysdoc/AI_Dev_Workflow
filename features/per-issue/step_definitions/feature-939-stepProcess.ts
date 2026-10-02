@@ -72,17 +72,18 @@ function killProcessGroup(pid: number | undefined): void {
   }
 }
 
-interface Exit {
+export interface Exit {
   readonly exitCode: number | null;
   readonly timedOut: boolean;
 }
 
-async function waitForExit(child: ChildProcess): Promise<Exit> {
+/** Waits for `child` to close; its whole process group is killed once it has run for `timeoutMs`. */
+export async function waitForExit(child: ChildProcess, timeoutMs = STEP_TIMEOUT_MS): Promise<Exit> {
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     killProcessGroup(child.pid);
-  }, STEP_TIMEOUT_MS);
+  }, timeoutMs);
   try {
     const [exitCode] = (await once(child, 'close')) as [number | null];
     return { exitCode, timedOut };

@@ -359,11 +359,15 @@ NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@mock-infrastructure"
 
 A generic Docker image (`test/Dockerfile`) provides an isolated runtime (Bun + Git) so
 the full `@regression` suite can run inside a container without host-specific dependencies.
-The image is generic — no ADW source code is baked in; the repo is mounted read-only at run
-time. `TEST_RUNTIME=docker` is set automatically inside the container.
+The image is generic — no ADW source code is baked in. The repo is mounted read-only at
+`/workspace` and is never written. The container copies it with `cp -R` into
+`/tmp/bdd/workspace`, then installs dependencies and runs the suite there, because ADW writes
+its runtime state (`agents/`, `logs/`) under the working directory. An anonymous volume over
+`/workspace/node_modules` keeps the host's `node_modules` out of the copy.
+`TEST_RUNTIME=docker` is set automatically inside the container.
 
 ```bash
-# Build the image once
+# Build the image once (again after any change to test/Dockerfile)
 bun run test:docker:build
 
 # Run @regression scenarios inside the container (same results as host)
@@ -372,9 +376,13 @@ bun run test:docker
 # Run a specific tag inside the container
 bash test/docker-run.sh --tags "@mock-infrastructure"
 
-# Open an interactive shell for debugging
+# Open an interactive shell for debugging (in the read-only /workspace; no copy is made)
 bash test/docker-run.sh --shell
 ```
+
+The daily `Regression Scenarios` workflow (`.github/workflows/regression.yml`) runs the suite in
+two jobs, `host` and `docker`. A manual dispatch runs the job its `runtime` input names. Each
+job fails when a scenario fails, is pending or is undefined.
 
 Docker execution is entirely optional — the test suite runs identically on the host without it.
 

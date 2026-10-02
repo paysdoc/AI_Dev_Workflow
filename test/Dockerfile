@@ -18,14 +18,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# The mounted repo is owned by the host user (e.g. the CI runner's UID),
-# which differs from the container user — git >= 2.35.2 refuses to read
-# such a repo ("dubious ownership"). System-level config covers every
-# container user and survives env-sanitized subprocess spawns.
-RUN git config --system --add safe.directory /workspace
-
 # /workspace — ADW repo root, mounted read-only at run time
-# /tmp/bdd   — writable scratch space for fixture repos and mock artifacts
+# /tmp/bdd   — writable scratch space; the suite runs in a copy of /workspace at /tmp/bdd/workspace
 RUN mkdir -p /workspace /tmp/bdd
 
 WORKDIR /workspace
@@ -35,7 +29,8 @@ WORKDIR /workspace
 ENV BDD_TAGS="@regression"
 ENV TEST_RUNTIME="docker"
 
-# Install dependencies from the mounted bun.lock, then run Cucumber.
-# node_modules is written to a writable overlay volume mounted over
-# /workspace/node_modules by the docker-run.sh wrapper script.
-CMD ["sh", "-c", "bun install --frozen-lockfile && NODE_OPTIONS='--import tsx' bunx cucumber-js --tags \"${BDD_TAGS}\" --format progress"]
+# ADW writes its runtime state (agents/, logs/) under the working directory, so the suite runs in a
+# writable copy of the read-only mount. cp -R, not -a: the copy must belong to the container user, or
+# git refuses it as a repository of dubious ownership. docker-run.sh overlays /workspace/node_modules
+# with an empty volume, so the host's modules stay out of the copy.
+CMD ["sh", "-c", "cp -R /workspace/. /tmp/bdd/workspace && cd /tmp/bdd/workspace && bun install --frozen-lockfile && NODE_OPTIONS='--import tsx' bunx cucumber-js --tags \"${BDD_TAGS}\" --format progress"]

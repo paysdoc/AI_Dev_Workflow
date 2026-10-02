@@ -418,7 +418,8 @@ Then(
   function () {
     try {
       // Cucumber runs under `--import tsx`, which tsc does not need, so NODE_OPTIONS is blanked.
-      execFileSync('bunx', ['tsc', '--noEmit'], { cwd: ROOT, encoding: 'utf-8', env: { ...process.env, NODE_OPTIONS: '' } });
+      // tsconfig.json sets `incremental`, which would write tsconfig.tsbuildinfo into the checkout.
+      execFileSync('bunx', ['tsc', '--noEmit', '--incremental', 'false'], { cwd: ROOT, encoding: 'utf-8', env: { ...process.env, NODE_OPTIONS: '' } });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string };
       assert.fail(`Expected the ADW TypeScript type-check to pass. Output:\n${(e.stdout ?? '') + (e.stderr ?? '')}`);
