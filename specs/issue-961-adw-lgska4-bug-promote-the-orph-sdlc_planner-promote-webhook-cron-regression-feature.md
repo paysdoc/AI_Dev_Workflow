@@ -54,26 +54,30 @@ This change touches tests and docs only; there is no production code change.
    - Pure query helpers: the recorded launches, a quiet-window settle, a bounded wait, and the "cron launch for repo" predicate.
    - No hooks, so later slices can import it.
 4. **Add `features/regression/step_definitions/webhookCronSteps.ts`.**
-   - `@webhook`-tagged hooks save and neutralise these, and restore them after each scenario:
-     - the environment: unset `GITHUB_WEBHOOK_SECRET`, blank the GitHub App variables, unset `SLACK_WEBHOOK_URL`;
+   - Hooks scoped to `@webhook or @adw-961` save and neutralise these, and restore them after each scenario:
+     - the environment: unset `GITHUB_WEBHOOK_SECRET`, blank the GitHub App variables, unset `SLACK_WEBHOOK_URL`. `PATH` is saved unchanged, as a backstop;
      - `agents/.auth_gate`;
      - each touched cron registry entry and cron log.
-   - Thirteen registered phrases, which build:
+   - The `@adw-961` arm gives the rows of `features/per-issue/feature-961.feature` the same hooks. Those rows carry only their `@adw-` tags.
+   - Fourteen registered phrases. They build:
      - fake requests, signed or unsigned;
      - a recording response;
      - a fake boundary whose `providers` getter throws;
      - minimal payloads.
-5. **Write `features/regression/webhook/cron_on_every_event.feature`.** It is tagged `@regression @webhook`, with no `@adw-` tag, and holds six scenarios (11 examples), as the issue lists them.
-6. **Register the phrases** in `features/regression/vocabulary.md`, and note G18's new home.
-7. **Remove Divergence item 6** from ADR-0037.
-8. **Update `README.md`'s Project Structure.**
+
+     They assert on the recorded response, the recorded launches and the cron registry record.
+5. **Write `features/regression/webhook/cron_on_every_event.feature`.** It is tagged `@regression @webhook`, with no `@adw-` tag, and holds six scenarios (11 examples), as the issue lists them. Its rows mirror §1–§4 of `features/per-issue/feature-961.feature` step for step.
+6. **Add the per-issue step definitions** for §5 of `features/per-issue/feature-961.feature` in `features/per-issue/step_definitions/feature-961.steps.ts`: the G18 dry-run row and the promoted-run row. They go with the per-issue file when the sweep deletes it.
+7. **Register the phrases** in `features/regression/vocabulary.md`, and note G18's new home.
+8. **Remove Divergence item 6** from ADR-0037.
+9. **Update `README.md`'s Project Structure.**
 
 ## Steps to Reproduce
 Do not run these during planning. They show the bug on the current tree.
 
 1. `find features -name '*.feature' -not -path 'features/regression/*' -not -path 'features/per-issue/*'`. It prints `features/webhook_ensure_cron_on_every_event.feature`, a feature outside the configured paths.
 2. `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --tags "@adw-501"`. It reports `0 scenarios`: the configured run never selects the orphan.
-3. `NODE_OPTIONS="--import tsx" bunx cucumber-js features/webhook_ensure_cron_on_every_event.feature` (the path given explicitly). Three scenarios fail on the vanished `ensureAppAuthForRepo(` and `if (webhookRepoInfo) ensureCronProcess(` markers. The other 14 pass by reading source text.
+3. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-501" features/webhook_ensure_cron_on_every_event.feature`. This gives the path explicitly and narrows by the orphan's tag. A path argument does not narrow a run here: Cucumber adds it to the configured `paths` (see Notes), so without the tag this runs the whole suite. Three scenarios fail on the vanished `ensureAppAuthForRepo(` and `if (webhookRepoInfo) ensureCronProcess(` markers. The other 14 pass by reading source text.
 4. `grep -n "ensureCronProcess" adws/triggers/__tests__/trigger_webhook.test.ts`. It shows `ensureCronProcess: vi.fn()` only, so no executed test observes a cron launch.
 5. `grep -rn --include='*.ts' "'the ADW codebase is checked out'" features`. The only definition is in `features/step_definitions/ensureCronOnEveryEventSteps.ts`, the file the fix must delete.
 
@@ -109,7 +113,7 @@ Use these files to fix the bug:
   - The `@regression` Before/After hooks set up and tear down the mock harness, which prepends a git shadow to `PATH`.
   - Step files load before support files, so `@webhook` Before hooks run before the harness setup, and the `@webhook` After hooks run after its teardown.
 - `test/mocks/test-harness.ts` (read-only): the harness's own save and restore of `PATH`, `GH_TOKEN` and `GH_HOST`. The recorder must restore `PATH` to the value it found, not the original.
-- `features/regression/step_definitions/realCronProcess.ts` (read-only): exports `cronPidFilePath(repoKey)` (`agents/cron/<owner>_<repo>.json`). Reuse it rather than re-deriving the path.
+- `features/regression/step_definitions/realCronProcess.ts` (read-only): exports `cronPidFilePath(repoKey)` (`agents/cron/<owner>_<repo>.json`) and `readCronPid(repoKey)` (the registered pid, or `null`). Reuse them; do not derive the path or parse the record again.
 - `features/regression/step_definitions/world.ts` (read-only): `RegressionWorld`. The new steps keep their own module-level context, as `feature-537.steps.ts` does.
 - `adws/triggers/trigger_webhook.ts` (read-only, the system under test): `dispatchWebhookEvent`.
   - It reads `GITHUB_WEBHOOK_SECRET` at call time (`:130`) and returns 401 `{ error: 'invalid signature' }` and 400 `{ error: 'invalid json' }`.
@@ -129,13 +133,27 @@ Use these files to fix the bug:
 - `adws/core/slackNotifier.ts` (read-only): `postSlack` reads `SLACK_WEBHOOK_URL` at call time and skips the post when it is unset.
 - `adws/core/githubAppAuth.ts` (read-only): `readGitHubAppConfig` reads `GITHUB_APP_ID`, `GITHUB_APP_SLUG` and `GITHUB_APP_PRIVATE_KEY_PATH` at call time.
 - `adws/core/launchGitContext.ts` (read-only): the `LaunchBoundary` type, and what the self-host boundary mint does with blank App variables.
-- `adws/core/authGate.ts` (read-only): exports `AUTH_GATE_PATH` (`'agents/.auth_gate'`) and `readAuthGate`.
+- `adws/core/authGate.ts` (read-only): exports `AUTH_GATE_PATH` (`'agents/.auth_gate'`), `readAuthGate` and `writeAuthGate`. §5's auth-gate row calls `writeAuthGate` to write a record in the real shape.
 - `adws/core/config.ts` (read-only): exports `LOGS_DIR` and `AGENTS_STATE_DIR`.
 - `adws/core/workflowCommentParsing.ts` (read-only): the `## Continue`, `## Cancel` and `## Retry` patterns. The plain comment must match none of them.
 - `adws/types/issueTypes.ts` (read-only): the `TargetRepoInfo` parameter of `mintEventBoundary`.
 - `features/per-issue/step_definitions/feature-908.steps.ts` (read-only precedent): `fakeWebhookReq`, `fakeWebhookRes` and `buildFakeWebhookBoundary`, the save, clear and restore of the auth gate and `GITHUB_WEBHOOK_SECRET`, and `writeCronPid(repo, process.pid)`.
 - `features/per-issue/step_definitions/feature-932-world.ts` (read-only precedent): the argv-recording `/bin/sh` `bunx` shadow (`recordArgvLine`, NUL-separated) and the quiet-window `settle()` (750 ms). Copy the idea, not an import: per-issue files are swept 14 days after merge.
 - `features/regression/step_definitions/feature-902-queue.steps.ts` (read-only precedent): `withBunxShadow`, which scopes the `PATH` shadow to one call and restores it in `finally`.
+- `features/regression/step_definitions/feature-910.steps.ts` and `feature-911.steps.ts` (read-only precedent): regression step files whose hooks are scoped to a descriptive tag and `@adw-` tags together, for example `@adw-911 or @pause-queue-ownership`. That is how per-issue rows get the same hooks.
+- `features/per-issue/feature-961.feature`: this issue's BDD scenarios, which are the build's RED tests. The file exists, so the build runs in TDD mode (`/implement-tdd`) and writes every step definition the file still lacks. Do not edit it.
+  - §1–§4 are the promoted feature's rows, step for step. Each row states its own precondition instead of using a Background, and the rows carry only `@adw-961 @adw-lgska4-bug-promote-the-orph`.
+  - §5 holds the issue's own checks:
+    - G18 resolves to exactly one definition at every use.
+    - The promoted feature passes in a child Cucumber run, and leaves the auth gate, the cron registry and the cron logs as it found them.
+    - T22, the type-check.
+  - Its "Notes for the step definitions" specify the hooks, the child runs and every §5 phrase.
+- `features/per-issue/step_definitions/feature-934-regression.steps.ts` (read-only precedent):
+  - `spawnSync('bunx', ['cucumber-js', '--dry-run', '--format', 'message', …])` with `NODE_OPTIONS: '--import tsx'` and a 256 MiB `maxBuffer`;
+  - the parsing of the `pickle` and `testCase` message envelopes.
+
+  Copy the idea; do not import it. That file goes when the sweep deletes feature-934.
+- `features/regression/step_definitions/thenSteps.ts` (read-only): T22 `the ADW TypeScript type-check passes`, which §5 reuses. Do not redefine it.
 - The G18 users, which must keep resolving:
   - `features/regression/hashing/feature-537.feature`
   - `features/regression/upgrade/feature-729.feature`
@@ -151,8 +169,9 @@ Use these files to fix the bug:
 
 ### New Files
 - `features/regression/support/launchRecorder.ts`: the shared launch recorder. It has no hooks and no import-time side effects, because `cucumber.js` loads `features/regression/support/**/*.ts` as support code.
-- `features/regression/step_definitions/webhookCronSteps.ts`: the `@webhook` hooks and the 13 new step definitions.
+- `features/regression/step_definitions/webhookCronSteps.ts`: the `@webhook or @adw-961` hooks and the 14 new step definitions.
 - `features/regression/webhook/cron_on_every_event.feature`: the promoted feature.
+- `features/per-issue/step_definitions/feature-961.steps.ts`: the step definitions for §5 of `feature-961.feature`. They are per-issue and go with that file. If the file would pass 300 lines, move the child-run helpers into `feature-961-cucumber.ts`.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -209,13 +228,13 @@ Keep the file under 300 lines. Use the house import style, with relative `.ts` p
 - `AUTH_GATE_PATH` from `../../../adws/core/authGate.ts`.
 - `writeCronPid` from `../../../adws/triggers/cronProcessGuard.ts`.
 - `dispatchWebhookEvent` from `../../../adws/triggers/trigger_webhook.ts`.
-- `cronPidFilePath` from `./realCronProcess.ts`.
+- `cronPidFilePath` and `readCronPid` from `./realCronProcess.ts`.
 - The recorder exports from `../support/launchRecorder.ts`.
 
 **Module context `ctx`.**
 - `recorder: LaunchRecorder | null`
 - `response: { statusCode?: number; body?: Record<string, unknown> }`
-- `savedEnv: Map<string, string | undefined>`
+- `savedEnv: Map<string, string | undefined>`, which also holds `PATH`
 - `savedAuthGate: string | null`
 - `cronSnapshots: Map<string, { registry: string | null; logExisted: boolean }>`
 
@@ -223,18 +242,26 @@ Keep the file under 300 lines. Use the house import style, with relative `.ts` p
 - `WEBHOOK_ENV_KEYS = ['GITHUB_WEBHOOK_SECRET', 'GITHUB_APP_ID', 'GITHUB_APP_SLUG', 'GITHUB_APP_PRIVATE_KEY_PATH', 'SLACK_WEBHOOK_URL'] as const`
 - `LAUNCH_WAIT_MS = 10_000`
 
-**`Before({ tags: '@webhook' })`:**
+**Hook scope.** Both hooks use the tag expression `@webhook or @adw-961`.
+- The rows of `features/per-issue/feature-961.feature` carry only `@adw-961 @adw-lgska4-bug-promote-the-orph`.
+- With a `@webhook`-only scope those rows would run with no recorder, a live auth gate and the host's secret. §5's promoted-run row also relies on these hooks to restore the registry entry that G-WH2 writes for it.
+- feature-910's and feature-911's hooks are the precedent: they pair a descriptive tag with `@adw-` tags.
+- The coding guideline against citing issue numbers covers comments, not tag expressions.
+- Once the sweep deletes the per-issue file, the `@adw-961` arm matches nothing.
+
+**`Before({ tags: '@webhook or @adw-961' })`:**
 - Create the recorder, reset `ctx.response`, and clear `ctx.cronSnapshots`.
 - Save every key in `WEBHOOK_ENV_KEYS`, then:
   - unset `GITHUB_WEBHOOK_SECRET`. Deliveries are unsigned unless G-WH3 sets a secret.
   - set `GITHUB_APP_ID`, `GITHUB_APP_SLUG` and `GITHUB_APP_PRIVATE_KEY_PATH` to `''`. With these blank, the no-repository row's memoised self-host boundary contacts nothing.
   - unset `SLACK_WEBHOOK_URL`. An event that strayed onto a provider branch would end in `reportWebhookEventFailure`, which posts to Slack.
+- Save `PATH` too, without changing it. The After hook puts it back as a backstop. `withLaunchRecorderOnPath` already restores it the moment each dispatch returns.
 - Save the contents of `AUTH_GATE_PATH` (or `null`), then remove the file. While a gate record exists, the review, review-comment and comment branches answer `auth_gate_set` before they look at the event.
 
-**`After({ tags: '@webhook' })`:**
+**`After({ tags: '@webhook or @adw-961' })`:**
 - For each `cronSnapshots` entry, write the saved registry content back to `cronPidFilePath(repo)`, or `rmSync(..., { force: true })` it. If the cron log did not exist before, remove it.
 - Restore `AUTH_GATE_PATH`: `mkdirSync` its directory and write the saved content, or `rmSync` with `force`.
-- Restore every env key: `delete process.env[key]` when the saved value is `undefined`, otherwise assign it. Never assign `undefined`: Node stores it as the string `"undefined"`.
+- Restore every saved env key, `PATH` included: `delete process.env[key]` when the saved value is `undefined`, otherwise assign it. Never assign `undefined`: Node stores it as the string `"undefined"`.
 - Dispose of the recorder and set it to `null`.
 
 **Helpers.** Each is small and named; inline callbacks stay at three lines or fewer.
@@ -260,7 +287,7 @@ Keep the file under 300 lines. Use the house import style, with relative `.ts` p
   - Then `await settleLaunches(recorder)`.
 - `async deliverPayload(event, payload, repoFullName?, signingSecret?)`: call `snapshotCronState(repoFullName)` when a repository is named, before dispatching, so the log's prior absence is captured. Then build `Buffer.from(JSON.stringify(payload))`, sign it when a secret is given, and call `deliver`.
 
-**Step definitions** (IDs as registered in Task 7):
+**Step definitions** (IDs as registered in Task 8):
 - G-WH1 `no cron is running for the repository {string}`: `snapshotCronState(repo)`, then `fs.rmSync(cronPidFilePath(repo), { force: true })`.
 - G-WH2 `a cron is already running for the repository {string}`: `snapshotCronState(repo)`, then `writeCronPid(repo, process.pid)`. The live test process stands in for the cron.
 - G-WH3 `the webhook secret is set to {string}`: `process.env.GITHUB_WEBHOOK_SECRET = secret`.
@@ -278,8 +305,14 @@ Keep the file under 300 lines. Use the house import style, with relative `.ts` p
   - Then assert that `recordedLaunches(recorder).filter(isCronLaunch)` has length 1 and that its only entry satisfies `isCronLaunchFor(…, repo)`. Use `describeLaunches` in the messages.
 - T-WH4 `nothing other than that cron is launched`: `assert.deepStrictEqual(recordedLaunches(recorder).filter((argv) => !isCronLaunch(argv)), [])`.
 - T-WH5 `no cron is launched`: `assert.deepStrictEqual(recordedLaunches(recorder).filter(isCronLaunch), [])`. The When step has already settled.
+- T-WH6 `the cron that was already running is still the one registered for the repository {string}`: `assert.strictEqual(readCronPid(repo), process.pid, …)`. The registry still names the pid that G-WH2 wrote, so the dispatch neither replaced nor removed the running cron.
 
-No step reads, greps or parses a source file. Every assertion targets the recorded response or the recorder's launch records. The hooks read only the state artefacts they restore: the auth gate, the registry entry and the cron log.
+No step reads, greps or parses a source file. Every assertion targets one of these:
+- the recorded response;
+- the recorder's launch records;
+- the cron registry record.
+
+The hooks read only the state artefacts they restore: the auth gate, the registry entry and the cron log.
 
 ### 5. Write the promoted feature `features/regression/webhook/cron_on_every_event.feature`
 Content (the scenario wording is fixed; tighten the prose if needed):
@@ -337,6 +370,7 @@ Feature: The webhook ensures a cron for the repository of every accepted event
     When the webhook receives an approved review from the repository "acme/widgets"
     Then the webhook answers 200 with the status "ignored"
     And no cron is launched
+    And the cron that was already running is still the one registered for the repository "acme/widgets"
 
   Scenario: A delivery with a wrong signature is answered 401 and launches no cron
     Given the webhook secret is set to "adw-regression-webhook-secret"
@@ -356,14 +390,60 @@ Feature: The webhook ensures a cron for the repository of every accepted event
 ```
 - The file carries `@regression @webhook` only: no `@adw-` tag (ADR-0037) and no scenario-level tags.
 - The headline scenario is signed with the configured secret, so the accepting side of signature validation is exercised alongside the 401 row.
+- Every step matches §1–§4 of `features/per-issue/feature-961.feature` word for word. The per-issue rows repeat the shared precondition in each row; this file states it once, in its Background. The scenario titles follow the issue's list.
+- The Background keeps G18, as 537, 729, 910 and 911 do. The per-issue file leaves this choice to the plan. If G18 were lost, these rows would become undefined, and two checks would fail: the per-issue G18 row and Validation Command 7.
 
-### 6. Prove the rows can fail (temporary mutation, reverted)
+### 6. Write the per-issue step definitions for §5 of `features/per-issue/feature-961.feature`
+§1–§4 of the per-issue file use only the phrases from Task 4, so this task defines nothing for them. §5 needs `features/per-issue/step_definitions/feature-961.steps.ts`. The file is per-issue: it goes with the feature file when the sweep deletes it. Keep it under 300 lines.
+
+**Reused, not redefined:**
+- G-WH2 `a cron is already running for the repository {string}`, from `webhookCronSteps.ts`. The `@webhook or @adw-961` hooks restore the `acme/elsewhere` entry it writes.
+- T22 `the ADW TypeScript type-check passes`, from `thenSteps.ts`.
+
+**Child Cucumber runs:**
+- Spawn `bunx cucumber-js` with `NODE_OPTIONS=--import tsx` and `--format message`, as `feature-934-regression.steps.ts` does.
+- Build the child's environment from `process.env` without `ADW_JUNIT_REPORT_PATH`. ADW's test phase sets that variable for the parent run. A child that inherits it gets a `junit:` formatter from `cucumber.js` and writes its report to the parent's report path.
+- `--format message` replaces `progress` on stdout, because Cucumber gives stdout to the last formatter that has no target.
+- Pass no path argument. Cucumber adds a path to the configured `paths` instead of narrowing the run, so select by tag expression only.
+- Parse stdout as NDJSON envelopes. Keep the `pickle`, `testCase` and `testStepFinished` messages.
+- Give each step a Cucumber timeout of several minutes, for example `{ timeout: 5 * 60_000 }`. Give `spawnSync` a `timeout` just under it: `spawnSync` blocks the event loop, so Cucumber's own timer cannot fire while it runs.
+
+**Steps:**
+- `Cucumber dry-runs every feature its configuration loads`: pass `--dry-run --format message` and nothing else. Do not assert the exit status. A dry run exits 0 even with undefined steps, and another feature's undefined step is not this row's concern.
+- `every {string} step in the dry run matches exactly one step definition`:
+  - Map each pickle step id to its text.
+  - Across every `testCase`, collect the test steps whose pickle step has the given text.
+  - Assert that there is at least one such step, and that each has exactly one entry in `stepDefinitionIds`. Zero entries means undefined; more than one means ambiguous.
+  - Name the offending `uri`s in the assertion message.
+  - At baseline, G18 matched one definition at each of its 402 uses, across 23 features.
+- `the dry run holds a {string} step in each of these features:`: the data table has one column, `feature`. For each row, assert that some pickle with that `uri` has a step with the given text.
+- `ADW's auth gate holds a record of an earlier authentication failure`: call `writeAuthGate({ adwId: null, issueNumber: null, agentName: '<any fixed name>' })`. The hooks have already saved and cleared the real gate, and they restore it afterwards.
+- `Cucumber runs the scenarios tagged {string} in a child process`:
+  - Just before it spawns, snapshot the state:
+    - the content of `agents/.auth_gate`, or `null`;
+    - the sorted names and contents of the files in `agents/cron/` and in `logs/agents/cron/`. An absent directory counts as empty.
+  - Then spawn with `--tags <expression> --format message`. Never select by path. Cucumber adds a path to the configured `paths`, so a path-selected child would run every configured feature, this file included, and so recurse.
+  - Keep the exit status and the envelopes.
+- `that run held at least one scenario, and every one of them passed`. It requires:
+  - exit status 0;
+  - at least one `testCase`;
+  - the status `PASSED` on every `testStepFinished`.
+
+  Report the messages of any failing steps.
+- `ADW's auth gate, the cron registry and the cron logs are as they were before that run`: take the same snapshot again, and `assert.deepStrictEqual` it against the snapshot taken before the run.
+
+The child run starts with two records in place: the gate record that the auth-gate row wrote, and the `acme/elsewhere` registry entry that G-WH2 wrote. Its rows must:
+- clear the gate for each dispatch and restore it afterwards;
+- leave the unrelated registry entry alone;
+- remove the `acme/widgets` entry and the cron log that they created.
+
+### 7. Prove the rows can fail (temporary mutation, reverted)
 The behaviour already holds, so the scenarios are green as soon as their steps exist. Show that they are not vacuous:
 - Temporarily delete the line `if (resolution) ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);` from `adws/triggers/trigger_webhook.ts`.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression and @webhook"`. Expect `11 scenarios (7 failed, 4 passed)`: the headline scenario and all six outline rows fail on "exactly one cron is launched".
 - Restore the file with `git checkout -- adws/triggers/trigger_webhook.ts`. Then `git diff --quiet -- adws/` must exit 0: `adws/` stays untouched by this fix.
 
-### 7. Register the vocabulary in `features/regression/vocabulary.md`
+### 8. Register the vocabulary in `features/regression/vocabulary.md`
 - In the G18 row, append to Semantics: `Defined in features/regression/step_definitions/givenSteps.ts.` The pattern and target columns are unchanged.
 - Append this section at the end of the file, keeping its 5-column shape. No cell may contain a literal `|`; `vocabularyParser.ts` splits on it.
   ```markdown
@@ -379,8 +459,9 @@ The behaviour already holds, so the scenarios are green as soon as their steps e
   (`features/regression/support/launchRecorder.ts`): a `bunx` shadow put first on `PATH` for the
   dispatch, which records its argv and exits at once. A cron launch is a record that names
   `adws/triggers/trigger_cron.ts` and `--target-repo <repository>`. Every assertion targets a
-  runtime artefact: the response the dispatcher wrote, or the launches the recorder captured. No
-  step reads, greps or parses a source file, satisfying the Rot-Detection Rubric. The definitions
+  runtime artefact: the response the dispatcher wrote, the launches the recorder captured, or the
+  cron registry record. No step reads, greps or parses a source file, satisfying the Rot-Detection
+  Rubric. The definitions
   live in `webhookCronSteps.ts`; every `@webhook` scenario starts with `GITHUB_WEBHOOK_SECRET` unset,
   the GitHub App variables blank, `SLACK_WEBHOOK_URL` unset and `agents/.auth_gate` cleared, and
   each is restored afterwards together with the cron registry entries and cron logs it touched.
@@ -400,17 +481,18 @@ The behaviour already holds, so the scenarios are green as soon as their steps e
   | T-WH3 | `exactly one cron is launched, for the repository {string}` | Waits (bounded) for a cron launch record, then asserts the recorder holds exactly one cron launch and that it names `--target-repo <repo>` | mock-query | launch records |
   | T-WH4 | `nothing other than that cron is launched` | Asserts every launch the recorder captured is a cron launch: no workflow or other `bunx` launch was made | mock-query | launch records |
   | T-WH5 | `no cron is launched` | Asserts the recorder captured no cron launch | mock-query | launch records |
+  | T-WH6 | `the cron that was already running is still the one registered for the repository {string}` | Reads the repository's cron registry record and asserts it still names the pid G-WH2 registered, so the dispatch neither replaced nor removed the running cron | phase-import | cron registry artefact |
 
   This scenario also reuses `the ADW codebase is checked out` (G18, Background no-op), now defined in
   `givenSteps.ts`.
   ```
 - Do not reuse W11 (`the webhook handler receives a {string} event for issue {int}`). It is a subprocess stub that POSTs to a mock listener, and it can name neither a repository nor an action.
 
-### 8. Remove Divergence item 6 from ADR-0037
+### 9. Remove Divergence item 6 from ADR-0037
 - In `specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md`, delete the single line that starts with `6. **One feature file is never run.**`.
 - Leave items 1–4 and their numbers as they are; the 517f823d removal of item 5 is the precedent. No other text in the ADR refers to item 6.
 
-### 9. Update `README.md`'s Project Structure (`features/` block only)
+### 10. Update `README.md`'s Project Structure (`features/` block only)
 - Under `├── regression/`:
   - Change `│   ├── support/        # Cucumber hooks for @regression suite` to `│   ├── support/        # Cucumber hooks for @regression suite; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv`.
   - After the `│   ├── upgrade/ …` line, add `│   ├── webhook/        # Regression scenarios covering the webhook launching a cron for every accepted event that names a repository`.
@@ -419,7 +501,7 @@ The behaviour already holds, so the scenarios are green as soon as their steps e
 - Change `├── support/            # Top-level Cucumber support (tsx registration)` to start with `└──`, since it is now the last entry.
 - Touch nothing else in the README. It already carries two uncommitted lines from the worktree setup (`selfHostLaunch.ts` and `planCommitGuard.ts` in the `adws/` tree). Leave them as they are.
 
-### 10. Run the validation commands
+### 11. Run the validation commands
 - Run every command in **Validation Commands** and confirm each expectation.
 - Run cucumber commands one at a time, never two at once from this checkout. Scenarios share `agents/` state under the working directory.
 
@@ -435,22 +517,36 @@ Before the fix, the reproduction commands in **Steps to Reproduce** show the bug
 5. `! grep -rnE "[\"']adws/triggers/trigger_webhook\.ts[\"']" features`: exits 0. No step reads the dispatcher's source by path.
 6. `! grep -n "One feature file is never run" specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md`: exits 0. Divergence item 6 is removed.
 7. `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --format summary`: 0 undefined and 0 ambiguous steps across the whole tree.
-8. `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run $(grep -rl --include='*.feature' "the ADW codebase is checked out" features)`: exits 0. Every Background that uses G18 resolves: 537, 729, 910, 911 and the 19 per-issue features.
+   - A dry run exits 0 even with undefined steps, so read the counts, not the exit code. Every scenario and step must be reported `skipped`.
+   - At baseline, the only undefined steps (54) are in `features/per-issue/feature-961.feature`, whose step definitions this change adds.
+   - Every configured feature is in this run, so it also shows that every Background using G18 resolves: 537, 729, 910, 911 and the 19 per-issue features.
+8. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-961"`: `14 scenarios (14 passed)`, exit 0. This is the issue's own proof. It covers:
+   - §1–§4, the promoted rows with per-row preconditions;
+   - the G18 row: G18 has exactly one definition at every use, and 537, 729, 910 and 911 hold it;
+   - the promoted-run row: the promoted feature passes in a child run, and leaves the seeded auth gate, the cron registry and the cron logs as they were;
+   - T22.
+
+   It spawns two child Cucumber runs, so allow a few minutes and run it alone. A path-based dry run cannot replace it. Cucumber adds path arguments to the configured `paths` instead of narrowing the run, and a dry run exits 0 whatever it finds.
 9. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression and @webhook"`: `11 scenarios (11 passed)`, exit 0. The configured paths select the promoted feature.
 10. State restoration, with a seeded auth gate. The run must pass and leave the auth gate, the cron registry and the cron logs exactly as before. The command refuses to run if a real gate already exists:
     `bash -c 'test ! -e agents/.auth_gate || { echo "agents/.auth_gate exists; refusing to seed"; exit 1; }; snap() { cat agents/.auth_gate 2>/dev/null; ls -1 agents/cron 2>/dev/null; ls -1 logs/agents/cron 2>/dev/null; }; mkdir -p agents; printf "%s" "{\"adwId\":null,\"issueNumber\":961,\"agentName\":\"restore-probe\",\"firstDetectedAt\":\"2026-10-02T00:00:00.000Z\"}" > agents/.auth_gate; snap > /tmp/adw-961-before.txt; NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression and @webhook"; run=$?; snap > /tmp/adw-961-after.txt; rm -f agents/.auth_gate; diff /tmp/adw-961-before.txt /tmp/adw-961-after.txt && exit $run'`
-    Expected: `11 scenarios (11 passed)`, no diff output, exit 0. A passing run also proves the hooks cleared the seeded gate for every dispatch: otherwise the review and comment rows answer `auth_gate_set`, and T-WH1's exact-body check fails. `PATH` and `GITHUB_WEBHOOK_SECRET` are in-process. `PATH` is restored in `withLaunchRecorderOnPath`'s `finally`, and the secret in the `@webhook` After hook; review both in the diff.
+    Expected: `11 scenarios (11 passed)`, no diff output, exit 0. A passing run also proves the hooks cleared the seeded gate for every dispatch: otherwise the review and comment rows answer `auth_gate_set`, and T-WH1's exact-body check fails. `PATH` and `GITHUB_WEBHOOK_SECRET` are in-process, so review them in the diff:
+    - `PATH` is restored in `withLaunchRecorderOnPath`'s `finally`, and again by the After hook's backstop;
+    - the secret is restored by the After hook.
+
+    Command 8's promoted-run row automates the same file check from inside Cucumber.
 11. `! pgrep -fl "adw-launch-recorder|trigger_cron.ts --target-repo acme/widgets"`: exits 0. No shadow lingers, and no real cron was ever started.
 12. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"`: the 11 new scenarios pass, with 0 failed, 0 undefined and 0 ambiguous. The exit code stays 1 only because of the pre-existing `return 'pending'` smoke and surface stubs (ADR-0037 Divergence item 3), and the pending count matches baseline.
 13. `bun run lint`: ESLint passes.
-14. `bunx tsc --noEmit`: the root type-check passes. It covers `features/**`, including the new recorder and step file.
+14. `bunx tsc --noEmit`: the root type-check passes. It covers `features/**`, including the new recorder and step files.
 15. `bunx tsc --noEmit -p adws/tsconfig.json`: the ADW type-check passes.
 16. `bun run lint:git-guard`: the git/gh guard passes.
 17. `bun run test:unit`: the Vitest suite is green and unchanged.
 18. `bun run build`: the build succeeds.
 19. `git status --porcelain -- features specs/adr README.md adws`. Expected changes:
     - the two deletions;
-    - the three new files;
+    - the three new regression files;
+    - the per-issue feature `features/per-issue/feature-961.feature` and its new step definitions under `features/per-issue/step_definitions/`;
     - `givenSteps.ts`, `vocabulary.md`, the ADR and `README.md`;
     - this spec;
     - nothing under `adws/`.
@@ -459,7 +555,7 @@ Before the fix, the reproduction commands in **Steps to Reproduce** show the bug
 
 ## Notes
 - **Coding guidelines.** Follow `.adw/coding_guidelines.md` strictly.
-  - Both new `.ts` files stay under 300 lines.
+  - Every new `.ts` file stays under 300 lines.
   - Use no `any`. Fakes use `as unknown as` casts, as in the 908 and 932 precedents.
   - Use guard clauses and keep nesting to depth 2 at most.
   - Name helpers instead of writing long inline callbacks.
@@ -471,7 +567,7 @@ Before the fix, the reproduction commands in **Steps to Reproduce** show the bug
 
     Cite no issue numbers in code.
 - **No new libraries.** `crypto`, `fs`, `path` and `os` are built in. If one were ever needed, the command is `bun add <package>`.
-- **No production code change.** `adws/` is untouched; Task 6's mutation is reverted and checked with `git diff --quiet -- adws/`. No unit test is added, because nothing pure in `adws/` changes. The BDD feature is the proof, as ADR-0037 intends.
+- **No production code change.** `adws/` is untouched; Task 7's mutation is reverted and checked with `git diff --quiet -- adws/`. No unit test is added, because nothing pure in `adws/` changes. The BDD feature is the proof, as ADR-0037 intends.
 - **Claims that get no row.** Put these in the pull request description, each with its reason:
   1. The ordering of `ensureCronProcess` against `ensureAppAuthForRepo`: the dispatcher no longer calls `ensureAppAuthForRepo`, so there is no order to pin.
   2. `/health`, 404 and 405: the HTTP listener (`http.createServer` in `trigger_webhook.ts`) answers them before `dispatchWebhookEvent` is reached, and `/health` runs a real `claude -p` guardrails probe. They cannot be driven in-process without a real listener and a paid probe.
@@ -484,12 +580,20 @@ Before the fix, the reproduction commands in **Steps to Reproduce** show the bug
   3. T-WH1 asserts the exact body `{ status }`. A leaked auth gate, a cooldown or a missing boundary cannot pass a row for the wrong reason. This also makes Validation Command 10 a real test of the auth-gate clearing.
   4. The Background states `no cron is running for the repository "acme/widgets"`, which makes the precondition of the launch rows explicit. The `already running` scenario then overrides it.
   5. The headline scenario is signed correctly. A configured secret with a valid signature launches the cron, and only a wrong signature is rejected.
+  6. The already-running row also asserts T-WH6: the running cron is still the registered one. The per-issue §2 row does the same, because "left alone" means no second launch and no replaced registration.
 - **Hook order.** `cucumber.js` loads `features/regression/step_definitions/**` before `features/regression/support/**`:
-  - The `@webhook` Before runs before the `@regression` mock-harness setup, and its After runs after the harness teardown.
-  - The `@webhook` hooks never touch `PATH`, so the order is harmless.
-  - `withLaunchRecorderOnPath` restores `PATH` to the value it found, which still includes the harness's git shadow, and the harness restores the original afterwards.
+  - The `@webhook or @adw-961` Before runs before the `@regression` mock-harness setup. After hooks run in reverse registration order, so its After runs after the harness teardown.
+  - `withLaunchRecorderOnPath` restores `PATH` to the value it found. That value still includes the harness's git shadow, and the harness restores the original afterwards.
+  - The After hook's `PATH` backstop then writes back the value its Before saw, which is that same original. The restores therefore unwind in reverse order of the changes.
+  - A `bunx` shadow left on `PATH` would also answer §5's child runs and T22's `bunx tsc`, and T22 would then pass without type-checking anything. That is why the shadow lives only for the dispatch.
+  - The per-issue rows carry no `@regression` tag, so they run without the mock harness. The dispatch needs none.
+- **Cucumber CLI facts** (`@cucumber/cucumber` 12.7.0, checked 2026-10-02):
+  - `paths` is an additive array (`ADDITIVE_ARRAYS` in `lib/configuration/merge_configurations.js`). A path on the command line is added to the `cucumber.js` paths, never substituted for them, so only tags and `--name` narrow a run.
+  - A dry run exits 0 even with undefined steps. The baseline dry run did, with 54 undefined steps, all in `feature-961.feature`.
+  - Stdout goes to the last formatter that has no target (`lib/api/convert_configuration.js`). So `--format message` or `--format summary` on the command line replaces the configured `progress`.
+  - `cucumber.js` adds a `junit:` formatter whenever `ADW_JUNIT_REPORT_PATH` is set. A child run must not inherit it.
 - **Module state in the system under test** needs no reset:
-  - `ensureCronProcess`'s `cronSpawnedForRepo` set re-spawns once the registry entry is gone, which the Background guarantees.
+  - `ensureCronProcess`'s `cronSpawnedForRepo` set re-spawns once the registry entry is gone. The Background guarantees that; in the per-issue rows, each launch row's own `no cron is running…` step does.
   - The review and issue cooldown maps are never reached by the chosen actions.
   - `selfHostBoundary()` is memoised for the whole process; with blank App variables it contacts nothing.
 - **Reuse.** The recorder is generic so later slices can import it. Do not refactor the existing per-suite shadows to use it here: the `bunx` shadow in `feature-902-queue.steps.ts` and the 932 shadows are out of scope.
