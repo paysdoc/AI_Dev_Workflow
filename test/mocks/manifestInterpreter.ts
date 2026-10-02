@@ -4,6 +4,18 @@
  * file contents). The interpreter writes every edit atomically before the
  * stub begins streaming.
  *
+ * Per-command entries: `byCommand` is keyed on the slash command that opens the prompt, matched
+ * exactly (`/implement-tdd` never selects `/implement`). A matching entry applies alone — its
+ * edits, its commits, its jsonlPath and its response — and none of the top-level actions run.
+ * A prompt no entry matches gets the top-level manifest.
+ *
+ * Response: `{ "kind": "error" }` makes the stub stream an `is_error` result and exit 1;
+ * `{ "kind": "rate-limited" }` answers as a rate limit does.
+ *
+ * Refusal guard: before anything is written, every declared edit and delete — top-level and in every
+ * entry, selected or not — is checked, and a manifest that would write `.adw/state.json`, anything
+ * under `agents/` or anything beyond the worktree is refused whole (see manifestRefusalGuard.ts).
+ *
  * Side-effect boundary: the only intentional side effects are writing files
  * to `worktreePath` and the opt-in deletes and git actions a manifest names
  * (`deletes`, `stage`, `commits`, `commitAll`, `onCommitCommand`). All other
@@ -17,92 +29,11 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
 import { resolve, dirname, isAbsolute } from 'path';
 import { execSync, execFileSync } from 'child_process';
+import { isManifest, type Manifest, type ManifestCommandEntry, type ManifestCommit, type ManifestEdit, type ManifestResponse } from './manifestSchema.ts';
+import { findRefusedPaths, ManifestRefusalError } from './manifestRefusalGuard.ts';
 
-interface ManifestEdit {
-  path: string;
-  contents: string;
-}
-
-interface ManifestCommit {
-  subject: string;
-  date?: string;
-}
-
-export interface ManifestResponse {
-  kind: 'rate-limited';
-  /** Epoch seconds; defaults to now + 300 when absent. */
-  resetsAt?: number;
-  /** Defaults to 'five_hour'. */
-  rateLimitType?: string;
-  /** Reject only the first N invocations counted per worktree; absent means every invocation. */
-  limitedInvocations?: number;
-}
-
-type CommitCommandBehaviour = 'stage-all-and-commit';
-
-interface Manifest {
-  jsonlPath: string;
-  edits: ManifestEdit[];
-  /** Removed after the edits are written; a path that is already gone is not an error. */
-  deletes?: string[];
-  /** Staged with `git add -- <paths>` after the edits and deletes, so a deletion is staged too. */
-  stage?: string[];
-  commits?: ManifestCommit[];
-  /** After everything above, stages every change in the worktree and commits it — a planner that commits for itself. */
-  commitAll?: ManifestCommit;
-  /** Makes the stub answer /commit the way the real command does, instead of applying the edits. */
-  onCommitCommand?: CommitCommandBehaviour;
-  response?: ManifestResponse;
-}
-
-function isManifestEdit(v: unknown): v is ManifestEdit {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    typeof (v as Record<string, unknown>)['path'] === 'string' &&
-    typeof (v as Record<string, unknown>)['contents'] === 'string'
-  );
-}
-
-function isManifestCommit(v: unknown): v is ManifestCommit {
-  if (typeof v !== 'object' || v === null) return false;
-  const obj = v as Record<string, unknown>;
-  if (typeof obj['subject'] !== 'string') return false;
-  if ('date' in obj && typeof obj['date'] !== 'string') return false;
-  return true;
-}
-
-function isManifestResponse(v: unknown): v is ManifestResponse {
-  if (typeof v !== 'object' || v === null) return false;
-  const obj = v as Record<string, unknown>;
-  if (obj['kind'] !== 'rate-limited') return false;
-  if ('resetsAt' in obj && typeof obj['resetsAt'] !== 'number') return false;
-  if ('rateLimitType' in obj && typeof obj['rateLimitType'] !== 'string') return false;
-  if ('limitedInvocations' in obj && typeof obj['limitedInvocations'] !== 'number') return false;
-  return true;
-}
-
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every((item) => typeof item === 'string');
-}
-
-function isManifest(v: unknown): v is Manifest {
-  if (typeof v !== 'object' || v === null) return false;
-  const obj = v as Record<string, unknown>;
-  if (typeof obj['jsonlPath'] !== 'string') return false;
-  if (!Array.isArray(obj['edits'])) return false;
-  if (!(obj['edits'] as unknown[]).every(isManifestEdit)) return false;
-  if ('deletes' in obj && !isStringArray(obj['deletes'])) return false;
-  if ('stage' in obj && !isStringArray(obj['stage'])) return false;
-  if ('commits' in obj) {
-    if (!Array.isArray(obj['commits'])) return false;
-    if (!(obj['commits'] as unknown[]).every(isManifestCommit)) return false;
-  }
-  if ('commitAll' in obj && !isManifestCommit(obj['commitAll'])) return false;
-  if ('onCommitCommand' in obj && obj['onCommitCommand'] !== 'stage-all-and-commit') return false;
-  if ('response' in obj && !isManifestResponse(obj['response'])) return false;
-  return true;
-}
+export type { Manifest, ManifestCommandEntry, ManifestResponse } from './manifestSchema.ts';
+export { findRefusedPaths, ManifestRefusalError };
 
 function writeEdit(absolutePath: string, contents: string): void {
   mkdirSync(dirname(absolutePath), { recursive: true });
@@ -111,6 +42,7 @@ function writeEdit(absolutePath: string, contents: string): void {
 
 const COMMIT_COMMAND = /^\/commit(\s|$)/;
 const COMMIT_COMMAND_PREFIX_ARG = /^\/commit\s+'([^']*)'/;
+const PROMPT_COMMAND = /^\/\S+/;
 
 function stageAllAndCommit(worktreePath: string, subject: string): void {
   execFileSync('git', ['add', '-A'], { cwd: worktreePath });
@@ -140,23 +72,13 @@ export interface ApplyManifestResult {
   /** Resolved absolute path of the JSONL payload to stream. */
   jsonlPath: string;
   commitsCreated: number;
-  /** Present when the manifest asks the stub to answer rate-limited instead of streaming jsonlPath. */
+  /** Present when the manifest asks the stub to answer rate-limited or with an error instead of streaming jsonlPath. */
   response?: ManifestResponse;
   /** Present when the stub stood in for /commit; the subject it committed under, which the stub answers with. */
   commitSubject?: string;
 }
 
-/**
- * @param prompt - The slash-command prompt the stub was invoked with. Only consulted when the
- *   manifest sets `onCommitCommand`.
- * @throws `Error` with `manifestInterpreter:` prefix for malformed manifests.
- * @throws `Error` with `conflicting edits` message for duplicate edit paths.
- */
-export function applyManifest(
-  manifestPath: string,
-  worktreePath: string,
-  prompt: string = '',
-): ApplyManifestResult {
+function readManifest(manifestPath: string): Manifest {
   let raw: string;
   try {
     raw = readFileSync(manifestPath, 'utf-8');
@@ -177,21 +99,19 @@ export function applyManifest(
 
   if (!isManifest(parsed)) {
     throw new Error(
-      `manifestInterpreter: malformed manifest at ${manifestPath}: schema validation failed — expected { jsonlPath: string, edits: Array<{ path: string, contents: string }> }`,
+      `manifestInterpreter: malformed manifest at ${manifestPath}: schema validation failed — expected { jsonlPath: string, edits: Array<{ path: string, contents: string }>, byCommand?: { "/command": { jsonlPath: string, edits?, commits?, response? } } }`,
     );
   }
+  return parsed;
+}
 
-  const jsonlPath = isAbsolute(parsed.jsonlPath)
-    ? parsed.jsonlPath
-    : resolve(worktreePath, parsed.jsonlPath);
+function resolveJsonlPath(jsonlPath: string, worktreePath: string): string {
+  return isAbsolute(jsonlPath) ? jsonlPath : resolve(worktreePath, jsonlPath);
+}
 
-  if (parsed.onCommitCommand && COMMIT_COMMAND.test(prompt)) {
-    const commitSubject = standInForCommitCommand(worktreePath, prompt);
-    return { editsApplied: [], jsonlPath, commitsCreated: 1, response: parsed.response, commitSubject };
-  }
-
+function assertNoConflictingEdits(edits: readonly ManifestEdit[]): void {
   const seenPaths = new Set<string>();
-  for (const edit of parsed.edits) {
+  for (const edit of edits) {
     if (seenPaths.has(edit.path)) {
       throw new Error(
         `manifestInterpreter: conflicting edits for ${edit.path}`,
@@ -199,34 +119,80 @@ export function applyManifest(
     }
     seenPaths.add(edit.path);
   }
+}
 
-  const editsApplied: string[] = [];
-  for (const edit of parsed.edits) {
+function writeEdits(edits: readonly ManifestEdit[], worktreePath: string): string[] {
+  return edits.map((edit) => {
     const absolutePath = resolve(worktreePath, edit.path);
     writeEdit(absolutePath, edit.contents);
-    editsApplied.push(absolutePath);
+    return absolutePath;
+  });
+}
+
+/** Optional — produces git history for loadPromotionStats. */
+function createAllowEmptyCommits(commits: readonly ManifestCommit[] | undefined, worktreePath: string): number {
+  for (const commit of commits ?? []) {
+    const dateFlag = commit.date ? `--date="${commit.date}"` : '';
+    const subject = commit.subject.replace(/"/g, '\\"');
+    execSync(
+      `git commit --allow-empty ${dateFlag} -m "${subject}"`,
+      { cwd: worktreePath, encoding: 'utf-8' },
+    );
+  }
+  return commits?.length ?? 0;
+}
+
+function selectEntry(manifest: Manifest, prompt: string): ManifestCommandEntry | undefined {
+  const command = PROMPT_COMMAND.exec(prompt)?.[0];
+  return command === undefined ? undefined : manifest.byCommand?.[command];
+}
+
+function applyEntry(entry: ManifestCommandEntry, worktreePath: string): ApplyManifestResult {
+  const edits = entry.edits ?? [];
+  assertNoConflictingEdits(edits);
+  const editsApplied = writeEdits(edits, worktreePath);
+  const commitsCreated = createAllowEmptyCommits(entry.commits, worktreePath);
+  return { editsApplied, jsonlPath: resolveJsonlPath(entry.jsonlPath, worktreePath), commitsCreated, response: entry.response };
+}
+
+function applyTopLevel(manifest: Manifest, worktreePath: string, prompt: string): ApplyManifestResult {
+  const jsonlPath = resolveJsonlPath(manifest.jsonlPath, worktreePath);
+
+  if (manifest.onCommitCommand && COMMIT_COMMAND.test(prompt)) {
+    const commitSubject = standInForCommitCommand(worktreePath, prompt);
+    return { editsApplied: [], jsonlPath, commitsCreated: 1, response: manifest.response, commitSubject };
   }
 
-  applyWorktreeActions(parsed, worktreePath);
+  assertNoConflictingEdits(manifest.edits);
+  const editsApplied = writeEdits(manifest.edits, worktreePath);
+  applyWorktreeActions(manifest, worktreePath);
+  let commitsCreated = createAllowEmptyCommits(manifest.commits, worktreePath);
 
-  // Apply synthetic commits (optional — produces git history for loadPromotionStats)
-  let commitsCreated = 0;
-  if (parsed.commits && parsed.commits.length > 0) {
-    for (const commit of parsed.commits) {
-      const dateFlag = commit.date ? `--date="${commit.date}"` : '';
-      const subject = commit.subject.replace(/"/g, '\\"');
-      execSync(
-        `git commit --allow-empty ${dateFlag} -m "${subject}"`,
-        { cwd: worktreePath, encoding: 'utf-8' },
-      );
-      commitsCreated++;
-    }
-  }
-
-  if (parsed.commitAll) {
-    stageAllAndCommit(worktreePath, parsed.commitAll.subject);
+  if (manifest.commitAll) {
+    stageAllAndCommit(worktreePath, manifest.commitAll.subject);
     commitsCreated++;
   }
 
-  return { editsApplied, jsonlPath, commitsCreated, response: parsed.response };
+  return { editsApplied, jsonlPath, commitsCreated, response: manifest.response };
+}
+
+/**
+ * @param prompt - The slash-command prompt the stub was invoked with. Selects a `byCommand` entry,
+ *   and is consulted for `onCommitCommand`.
+ * @throws `Error` with `manifestInterpreter:` prefix for malformed manifests.
+ * @throws `ManifestRefusalError` when the manifest declares a path it may not write; nothing is written.
+ * @throws `Error` with `conflicting edits` message for duplicate edit paths.
+ */
+export function applyManifest(
+  manifestPath: string,
+  worktreePath: string,
+  prompt: string = '',
+): ApplyManifestResult {
+  const manifest = readManifest(manifestPath);
+
+  const refusedPaths = findRefusedPaths(manifest, worktreePath);
+  if (refusedPaths.length > 0) throw new ManifestRefusalError(manifestPath, refusedPaths);
+
+  const entry = selectEntry(manifest, prompt);
+  return entry ? applyEntry(entry, worktreePath) : applyTopLevel(manifest, worktreePath, prompt);
 }

@@ -1081,14 +1081,21 @@ test/                   # Integration test infrastructure
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   ├── claude-cli-stub.test.ts
+│   │   ├── manifestByCommand.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
+│   │   ├── manifestRefusalGuard.test.ts
+│   │   ├── mockServerDispatch.test.ts
+│   │   ├── stubErrorAndFlags.test.ts
 │   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
-│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
+│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing (incl. per-command lookup)
+│   ├── manifestRefusalGuard.ts # Guard that refuses manifests which would mask a stub failure
+│   ├── manifestSchema.ts       # Manifest shape and validation
+│   ├── stubArgs.ts             # Claude CLI stub argument parsing
 │   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
@@ -1110,12 +1117,12 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks for @regression suite
+│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Top-level step definitions (webhook integration scenario; repo-identity persistence scenario)
-├── support/            # Top-level Cucumber support (tsx registration)
+├── support/            # Top-level Cucumber support (tsx registration; cucumberChildRun.ts, the shared runner for nested cucumber-js child runs)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent

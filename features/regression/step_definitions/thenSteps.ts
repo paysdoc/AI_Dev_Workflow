@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
+import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
+import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
@@ -93,19 +95,15 @@ Then(
   },
 );
 
+// `this` is declared so Cucumber reads the issue number as the capture: a real first parameter makes it take the second for a callback.
 Then(
   'the spawn-gate lock for issue {int} is released',
-  function (_this: RegressionWorld, issueNumber: number) {
-    // The lock path mirrors orchestratorLock.ts; the lock is a runtime artefact, not a source file.
-    const lockCandidates = [
-      join(process.cwd(), `.adw/locks/issue-${issueNumber}.lock`),
-    ];
-    for (const lockPath of lockCandidates) {
-      assert.ok(
-        !existsSync(lockPath),
-        `Expected lock artefact ${lockPath} to be absent (released) after orchestrator exit`,
-      );
-    }
+  function (this: RegressionWorld, issueNumber: number) {
+    const lockPath = getSpawnLockFilePath(SURFACE_REPO, issueNumber);
+    assert.ok(
+      !existsSync(lockPath),
+      `Expected the spawn-gate lock ${lockPath} to be absent (released), but it is held`,
+    );
   },
 );
 

@@ -6,10 +6,6 @@
       "contents": "[{\"type\":\"text\",\"text\":\"# Implementation Plan\\n\\nMinimal SDLC smoke plan stub.\\n\"}]\n"
     },
     {
-      "path": ".adw/state.json",
-      "contents": "{\"workflowStage\":\"awaiting_merge\",\"adwId\":\"sdlc-smoke-100\",\"issueNumber\":100}\n"
-    },
-    {
       "path": "specs/plan.md",
       "contents": "# Implementation Plan\n\nMinimal plan stub for SDLC smoke test.\n\n## Steps\n1. Analyse requirements\n2. Implement changes\n3. Write tests\n"
     },

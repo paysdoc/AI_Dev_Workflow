@@ -13,6 +13,31 @@ export interface GitGhGuardResult {
   output: string;
 }
 
+/** What W-S1 records: how the phase run ended. A `process.exit` the run made is `exitCode`, not `error`. */
+export interface PhaseOutcome {
+  adwId: string;
+  orchestrator: string;
+  phase: string;
+  resolved: boolean;
+  error?: unknown;
+  exitCode?: number;
+}
+
+/** What W-S2 records: whether the workflow ran under the lifecycle, and who held the spawn lock while it did. */
+export interface LifecycleOutcome {
+  adwId: string;
+  orchestrator: string;
+  issueNumber: number;
+  /** What `runWithOrchestratorLifecycle` returned; absent when it threw or exited. */
+  returned?: boolean;
+  ran: boolean;
+  lockHolderPid: number | null;
+  error?: unknown;
+  exitCode?: number;
+}
+
+export type CleanupEntry = () => void | Promise<void>;
+
 export class RegressionWorld extends World {
   /** Set in the @regression Before hook. */
   mockContext: MockContext | null = null;
@@ -39,6 +64,13 @@ export class RegressionWorld extends World {
   capturedProofComment?: string;
 
   gitGhGuardResult?: GitGhGuardResult;
+
+  phaseOutcome?: PhaseOutcome;
+
+  lifecycleOutcome?: LifecycleOutcome;
+
+  /** Run last in, first out by the @regression After hook, each entry guarded, before the mock infrastructure is torn down. */
+  cleanup: CleanupEntry[] = [];
 
   constructor(options: IWorldOptions) {
     super(options);

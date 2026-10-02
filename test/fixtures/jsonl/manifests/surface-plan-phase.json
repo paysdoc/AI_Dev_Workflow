@@ -1,0 +1,24 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface plan-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The implementation plan for issue 1002 was written.\\n\"}]\n"
+        },
+        {
+          "path": "specs/issue-1002-adw-surface-02-sdlc_planner-surface-plan-phase.md",
+          "contents": "# Implementation Plan: surface plan phase\n\n## Steps\n1. Add the surface plan-phase stub\n2. Run the plan phase in-process\n3. Commit the plan\n"
+        }
+      ]
+    }
+  }
+}
