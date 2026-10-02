@@ -13,35 +13,19 @@ const ROOT = resolve(__dirname, '../../..');
 Then(
   'the state file for adwId {string} records workflowStage {string}',
   function (this: RegressionWorld, adwId: string, expectedStage: string) {
-    // Per-issue (source-inspection) scenarios: mockContext is null → source inspection.
-    if (this.mockContext === null) {
-      const sdlcContent = readFileSync(resolve(ROOT, 'adws/adwSdlc.tsx'), 'utf-8');
-      assert.ok(sdlcContent.includes('handleAuthRequiredPause('),
-        'Expected handleAuthRequiredPause( in adwSdlc.tsx');
-      const authPauseContent = readFileSync(resolve(ROOT, 'adws/phases/authPause.ts'), 'utf-8');
-      assert.ok(
-        authPauseContent.includes(`'${expectedStage}'`) || authPauseContent.includes(`"${expectedStage}"`),
-        `Expected '${expectedStage}' in authPause.ts`,
-      );
-      void adwId;
-      return;
-    }
     const worktreePath = this.worktreePaths.get(adwId);
-    const productionStateFile = resolve(ROOT, `agents/${adwId}/state.json`);
-    const worktreeStateFile = worktreePath ? join(worktreePath, '.adw', 'state.json') : null;
-    const stateFile = existsSync(productionStateFile)
-      ? productionStateFile
-      : worktreeStateFile;
-    assert.ok(
-      stateFile && existsSync(stateFile),
-      `State file artefact not found at ${productionStateFile} (production) or ${worktreeStateFile} (G11 temp worktree)`,
-    );
+    const candidates = [
+      resolve(ROOT, `agents/${adwId}/state.json`),
+      ...(worktreePath ? [join(worktreePath, '.adw', 'state.json')] : []),
+    ];
+    const stateFile = candidates.find((candidate) => existsSync(candidate));
+    assert.ok(stateFile, `No state file artefact for adwId "${adwId}". Tried: ${candidates.join(', ')}`);
 
     const state = JSON.parse(readFileSync(stateFile, 'utf-8')) as Record<string, unknown>;
     assert.strictEqual(
       state['workflowStage'],
       expectedStage,
-      `Expected workflowStage "${expectedStage}" but got "${String(state['workflowStage'])}"`,
+      `Expected workflowStage "${expectedStage}" in ${stateFile} but got "${String(state['workflowStage'])}"`,
     );
   },
 );
@@ -101,15 +85,6 @@ Then(
 Then(
   'the orchestrator subprocess exited {int}',
   function (this: RegressionWorld, expectedCode: number) {
-    // Per-issue (source-inspection) scenarios: mockContext is null → source inspection.
-    if (this.mockContext === null) {
-      const authPauseContent = readFileSync(resolve(ROOT, 'adws/phases/authPause.ts'), 'utf-8');
-      assert.ok(
-        authPauseContent.includes(`process.exit(${expectedCode})`),
-        `Expected process.exit(${expectedCode}) in adws/phases/authPause.ts`,
-      );
-      return;
-    }
     assert.strictEqual(
       this.lastExitCode,
       expectedCode,
@@ -418,7 +393,8 @@ Then(
   function () {
     try {
       // Cucumber runs under `--import tsx`, which tsc does not need, so NODE_OPTIONS is blanked.
-      execFileSync('bunx', ['tsc', '--noEmit'], { cwd: ROOT, encoding: 'utf-8', env: { ...process.env, NODE_OPTIONS: '' } });
+      // tsconfig.json sets `incremental`, which would write tsconfig.tsbuildinfo into the checkout.
+      execFileSync('bunx', ['tsc', '--noEmit', '--incremental', 'false'], { cwd: ROOT, encoding: 'utf-8', env: { ...process.env, NODE_OPTIONS: '' } });
     } catch (err) {
       const e = err as { stdout?: string; stderr?: string };
       assert.fail(`Expected the ADW TypeScript type-check to pass. Output:\n${(e.stdout ?? '') + (e.stderr ?? '')}`);

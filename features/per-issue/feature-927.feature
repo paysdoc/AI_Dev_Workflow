@@ -234,7 +234,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
 
   # ── §1 A FAILED REVIEW STOPS THE ORCHESTRATOR ──────────────────────────────────────────────────
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario: An escalated chore whose review still has blockers after its last attempt stops at review_failed: no document phase, no pull request, no pre-approval, and awaiting_merge is never written
     Given an "adwChore" workflow has started for issue 9271 under adwId "fail927-chore" on the branch "chore-issue-9271-rename-config-keys"
     And issue 9271 has no labels
@@ -249,7 +249,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
     And the code host approved no pull request
     And the "adwChore" orchestrator ended without an error
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario Outline: adwPlanBuildReview and adwPlanBuildTestReview stop at review_failed when the review still has blockers after its last attempt: no pull request, no proof, no approval, and awaiting_merge is never written
     Given an "<orchestrator>" workflow has started for issue <issue> under adwId "<adwId>" on the branch "<branch>"
     And issue <issue> has no labels
@@ -296,7 +296,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
 
   # ── §3 A PASSING REVIEW BEHAVES AS TODAY ───────────────────────────────────────────────────────
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario Outline: An escalated chore whose review passes, on its first attempt or after a patch, documents, opens and pre-approves its pull request and ends at awaiting_merge, as today
     Given an "adwChore" workflow has started for issue <issue> under adwId "<adwId>" on the branch "<branch>"
     And issue <issue> has no labels
@@ -316,7 +316,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
       | passes on its first attempt                                        | 1 time    | 9277  | pass927-chore-1 | chore-issue-9277-rename-config-keys |
       | fails with 1 blocker on its first attempt and passes on its second | 2 times   | 9278  | pass927-chore-2 | chore-issue-9278-rename-config-keys |
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario: An escalated chore whose review passes on an issue labelled hitl opens its pull request and leaves it unapproved, as today
     Given an "adwChore" workflow has started for issue 9279 under adwId "hitl927-chore" on the branch "chore-issue-9279-rename-config-keys"
     And issue 9279 is labelled "hitl"
@@ -327,7 +327,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
     And the code host approved no pull request
     And the state file for adwId "hitl927-chore" records workflowStage "awaiting_merge"
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario Outline: adwPlanBuildReview and adwPlanBuildTestReview, whose review passes on its first attempt or after a patch, open the pull request, publish the proof where they always have, approve nothing and end at awaiting_merge, as today
     Given an "<orchestrator>" workflow has started for issue <issue> under adwId "<adwId>" on the branch "<branch>"
     And issue <issue> has no labels
@@ -350,7 +350,7 @@ Feature: A review loop that ends with blockers stops adwChore, adwPlanBuildRevie
 
   # ── §4 AN UNESCALATED CHORE IS UNAFFECTED ──────────────────────────────────────────────────────
 
-  @adw-927 @adw-o4eoya-bug-a-failed-review
+  @adw-927 @adw-o4eoya-bug-a-failed-review @adw-960
   Scenario: A chore the diff judge rules safe has no review loop and is unaffected: it opens and pre-approves its pull request and ends at awaiting_merge
     Given an "adwChore" workflow has started for issue 9284 under adwId "safe927-chore" on the branch "chore-issue-9284-fix-readme-typo"
     And issue 9284 has no labels

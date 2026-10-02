@@ -7,7 +7,7 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 ## Responsibilities
 
 - Emit periodic `lastSeenAt` heartbeat writes to the top-level state file so the cron sweeper can distinguish alive-but-wedged from alive-and-progressing orchestrators (`heartbeat.ts`).
-- Determine whether a recorded PID is still the original process by pairing `kill -0` with process start-time comparison, eliminating PID-reuse false positives (`processLiveness.ts`).
+- Determine whether a recorded PID is still the original process by pairing `kill -0` with process start-time comparison, eliminating PID-reuse false positives (`processLiveness.ts`). `isRecordedOwnerLive(owner, isLive?)` applies that check to a state's recorded `{ pid, pidStartedAt }` and returns false when either is missing.
 - Scan all agent state directories and return orchestrators whose `workflowStage` ends in `_running`, whose PID is live per start-time, and whose `lastSeenAt` is older than a caller-supplied staleness threshold — without performing any kills or state writes (`hungOrchestratorDetector.ts`).
 - Resolve per-phase watchdog timeouts from env vars, a static override map, or a configurable default (`agentTimeouts.ts`).
 - Run a generic run-then-resolve retry loop, accumulating cost and model-usage, handling context-compaction resets without consuming retry budget, and logging each attempt to the agent state file (`retryOrchestrator.ts`).
@@ -17,6 +17,8 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 
 - `isProcessLive` returns `false` — never throws — on Windows or when start-time cannot be read; callers must not rely on an exception to detect unsupported platforms.
 - `findHungOrchestrators` never throws and never mutates state; all recovery actions belong to the caller.
+- `initializeWorkflow` records `pid`, `pidStartedAt` (always written, so a resumed run never pairs a new pid with a previous start time) and a fresh `lastSeenAt` in the top-level state at `starting`. This makes the hung sweep, the auth-gate SIGTERM and the worktree probe's `liveOwner` see real owners; the fresh `lastSeenAt` stops the sweep killing a resumed run before its first heartbeat.
+- An owner that was never recorded cannot be confirmed live (`isRecordedOwnerLive` returns false).
 - An entry is reported as hung only when all three conditions hold simultaneously: `workflowStage` ends in `_running`, the PID+start-time tuple is live, and `lastSeenAt` age strictly exceeds `staleThresholdMs`.
 - Context-compaction resets in `retryWithResolution` do not increment `retryCount`; they increment `contextResetCount` and throw once `maxContextResets` is exceeded.
 - `killProcessGroup` uses negative-PID (`-pid`) to signal the entire process group; it silently ignores ESRCH (process already gone) at both the SIGTERM and SIGKILL stages.

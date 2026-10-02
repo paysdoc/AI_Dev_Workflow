@@ -45,7 +45,8 @@ export interface OverlapDeferral {
  * it prevents the cron from re-spawning a workflow it just started before the
  * child has had time to write its state or post its adw-id comment. It gates
  * ONLY the `stage === null` (fresh) path in `evaluateIssue` and must NOT
- * short-circuit the recovery stages (`retriable` / `phase_timeout`); those are
+ * short-circuit the recovery stages (`retriable` / `phase_timeout` / an
+ * `active` stage whose owner is dead); those are
  * deduped by the on-disk spawn gate (via `acquireIssueSpawnLock`). The merge
  * path uses the spawn lock on disk (via `shouldDispatchMerge`) rather than an
  * in-memory set.
@@ -160,7 +161,9 @@ export function evaluateIssue(
     return { eligible: false, reason: 'paused' };
   }
   if (classifyStageString(stage) === 'active') {
-    return { eligible: false, reason: 'active' };
+    if (!resolution.ownerDead) return { eligible: false, reason: 'active' };
+    // A dead owner can never advance its stage; evaluateCandidate recovers it.
+    return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
   if (classifyStageString(stage) === 'retriable') {
     return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getProcessStartTime, isProcessLive } from '../processLiveness';
+import { getProcessStartTime, isProcessLive, isRecordedOwnerLive } from '../processLiveness';
 import type { ProcessLivenessDeps } from '../processLiveness';
 
 // Build a fake stat line where field 22 (starttime) has the given value.
@@ -177,5 +177,50 @@ describe('non-existent PID', () => {
   it('getProcessStartTime returns null when readFile throws (linux, dead PID)', () => {
     setPlatform('linux');
     expect(getProcessStartTime(99999, throwingLinuxDeps)).toBeNull();
+  });
+});
+
+describe('isRecordedOwnerLive', () => {
+  it('is false and never asks for liveness when no pid is recorded', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    expect(isRecordedOwnerLive({ pidStartedAt: 'Mon Apr 20 10:15:23 2026' }, isLive)).toBe(false);
+    expect(isLive).not.toHaveBeenCalled();
+  });
+
+  it('is false for a null pid, as a JSON state file can hold', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    expect(isRecordedOwnerLive({ pid: null as unknown as undefined, pidStartedAt: 'token' }, isLive)).toBe(false);
+    expect(isLive).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+  ])('is false and never asks for liveness when the start time is %s', (_label, pidStartedAt) => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    expect(isRecordedOwnerLive({ pid: 4242, pidStartedAt }, isLive)).toBe(false);
+    expect(isLive).not.toHaveBeenCalled();
+  });
+
+  it('delegates to the injected liveness check with the exact recorded pair', () => {
+    const isLive = vi.fn().mockReturnValue(true);
+
+    expect(isRecordedOwnerLive({ pid: 4242, pidStartedAt: 'token' }, isLive)).toBe(true);
+    expect(isLive).toHaveBeenCalledTimes(1);
+    expect(isLive).toHaveBeenCalledWith(4242, 'token');
+  });
+
+  it('is false when the injected liveness check says the pair is dead', () => {
+    expect(isRecordedOwnerLive({ pid: 4242, pidStartedAt: 'token' }, () => false)).toBe(false);
+  });
+
+  it('reads liveness from the process table by default', () => {
+    setPlatform('linux');
+    mockKillThrows();
+
+    expect(isRecordedOwnerLive({ pid: 99999, pidStartedAt: 'token' })).toBe(false);
   });
 });

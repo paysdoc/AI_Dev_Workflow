@@ -57,6 +57,7 @@ vi.mock('../devServerJanitor', () => ({
 
 vi.mock('../cronIssueFilter', () => ({
   filterEligibleIssues: vi.fn(() => ({ eligible: [], filteredAnnotations: [] })),
+  resolveTouchedFilesFromBody: vi.fn(() => []),
 }));
 
 vi.mock('../cronStageResolver', () => ({
@@ -74,6 +75,17 @@ vi.mock('../issueEligibility', () => ({
 
 vi.mock('../webhookGatekeeper', () => ({
   classifyAndSpawnWorkflow: vi.fn(() => Promise.resolve()),
+  spawnDetached: vi.fn(),
+}));
+
+vi.mock('../takeoverHandler', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../takeoverHandler')>()),
+  evaluateCandidate: vi.fn(),
+}));
+
+vi.mock('../spawnGate', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../spawnGate')>()),
+  releaseIssueSpawnLock: vi.fn(),
 }));
 
 vi.mock('../../core/authGate', async (importOriginal) => {
@@ -103,7 +115,12 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, checkAndTrigger } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
+import { evaluateCandidate, type CandidateDecision } from '../takeoverHandler';
+import { releaseIssueSpawnLock } from '../spawnGate';
+import { filterEligibleIssues, type EligibleIssue } from '../cronIssueFilter';
+import { checkIssueEligibility } from '../issueEligibility';
+import { spawnDetached } from '../webhookGatekeeper';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { readAuthGate, clearAuthGate, type AuthGateRecord } from '../../core/authGate';
 import { clearClaudeCodePathCache } from '../../core/environment';
@@ -390,5 +407,107 @@ describe('auth-gate tick', () => {
 
     expect(vi.mocked(clearAuthGate)).toHaveBeenCalledTimes(1);
     expect(cli.readInvocations()).toEqual([{ memory: '1', hooksLogDir: '', sentinel: '' }]);
+  });
+});
+
+describe('evaluateCandidateForTick', () => {
+  const BOUNDARY = { repoId: { owner: 'test-owner', repo: 'test-repo' } } as unknown as LaunchBoundary;
+
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('returns the injected evaluator\'s decision unchanged', () => {
+    const decision: CandidateDecision = { kind: 'take_over_adwId', adwId: 'adw-7', derivedStage: 'starting' };
+    const evaluate = vi.fn().mockReturnValue(decision);
+
+    expect(evaluateCandidateForTick(7, BOUNDARY, evaluate)).toBe(decision);
+    expect(evaluate).toHaveBeenCalledWith({ issueNumber: 7, boundary: BOUNDARY });
+  });
+
+  it('returns null and logs an error naming the issue when the evaluator throws', () => {
+    const evaluate = vi.fn().mockImplementation(() => {
+      throw new Error("fatal: couldn't find remote ref");
+    });
+
+    expect(evaluateCandidateForTick(935, BOUNDARY, evaluate)).toBeNull();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('#935'), 'error');
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("couldn't find remote ref"), 'error');
+  });
+
+  it('does not let a throw for one issue stop the next call from returning its decision', () => {
+    const decision: CandidateDecision = { kind: 'spawn_fresh' };
+    const evaluate = vi.fn()
+      .mockImplementationOnce(() => { throw new Error('boom'); })
+      .mockReturnValueOnce(decision);
+
+    expect(evaluateCandidateForTick(1, BOUNDARY, evaluate)).toBeNull();
+    expect(evaluateCandidateForTick(2, BOUNDARY, evaluate)).toBe(decision);
+  });
+});
+
+describe('checkAndTrigger — the takeover decision for each candidate', () => {
+  const BOUNDARY = {
+    repoId: { owner: 'test-owner', repo: 'test-repo' },
+    providers: { issueTracker: { listIssues: () => [] }, codeHost: {} },
+  } as unknown as LaunchBoundary;
+  const takeOver = (issueNumber: number): CandidateDecision => ({ kind: 'take_over_adwId', adwId: `adw-${issueNumber}`, derivedStage: 'starting' });
+
+  function candidate(issueNumber: number): EligibleIssue {
+    const issue = { number: issueNumber, body: '', comments: [], createdAt: '', updatedAt: '', labels: [] };
+    return { issue, action: 'spawn', adwId: `adw-${issueNumber}` };
+  }
+
+  function pollCandidates(...issueNumbers: number[]): void {
+    vi.mocked(filterEligibleIssues).mockReturnValueOnce({
+      eligible: issueNumbers.map(candidate),
+      filteredAnnotations: [],
+      overlapDeferrals: [],
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(spawnDetached).mockReset();
+    vi.mocked(releaseIssueSpawnLock).mockReset();
+    vi.mocked(evaluateCandidate).mockReset();
+    vi.mocked(checkIssueEligibility).mockResolvedValue({ eligible: true });
+  });
+
+  it('releases the issue\'s spawn lock once the take-over has been spawned', async () => {
+    pollCandidates(9601);
+    vi.mocked(evaluateCandidate).mockReturnValueOnce(takeOver(9601));
+
+    await checkAndTrigger(BOUNDARY);
+
+    expect(spawnDetached).toHaveBeenCalledTimes(1);
+    expect(releaseIssueSpawnLock).toHaveBeenCalledTimes(1);
+    expect(releaseIssueSpawnLock).toHaveBeenCalledWith(expect.anything(), 9601);
+  });
+
+  it('still releases the spawn lock when spawning the take-over throws, and lets the error out', async () => {
+    pollCandidates(9602);
+    vi.mocked(evaluateCandidate).mockReturnValueOnce(takeOver(9602));
+    vi.mocked(spawnDetached).mockImplementationOnce(() => {
+      throw new Error('spawn EAGAIN');
+    });
+
+    await expect(checkAndTrigger(BOUNDARY)).rejects.toThrow('spawn EAGAIN');
+
+    expect(releaseIssueSpawnLock).toHaveBeenCalledTimes(1);
+    expect(releaseIssueSpawnLock).toHaveBeenCalledWith(expect.anything(), 9602);
+  });
+
+  it('skips a candidate whose evaluation throws and still takes over the candidates after it', async () => {
+    pollCandidates(9603, 9604);
+    vi.mocked(evaluateCandidate)
+      .mockImplementationOnce(() => { throw new Error("fatal: couldn't find remote ref"); })
+      .mockReturnValueOnce(takeOver(9604));
+
+    await expect(checkAndTrigger(BOUNDARY)).resolves.toBeUndefined();
+
+    expect(spawnDetached).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(spawnDetached).mock.calls[0][1]).toContain('9604');
+    expect(releaseIssueSpawnLock).toHaveBeenCalledTimes(1);
+    expect(releaseIssueSpawnLock).toHaveBeenCalledWith(expect.anything(), 9604);
   });
 });

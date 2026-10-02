@@ -100,11 +100,11 @@ Scenarios in this repo can assert against the following observable surfaces:
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|
-| T1 | `the state file for adwId {string} records workflowStage {string}` | Reads the state JSON written by the orchestrator under test; asserts the `workflowStage` field equals the expected value. (State file is an *artefact*, not a source file — permitted read.) | subprocess / phase-import | state file artefact |
+| T1 | `the state file for adwId {string} records workflowStage {string}` | Reads `agents/<adwId>/state.json`, or failing that `.adw/state.json` under the worktree G6 or G11 registered for the adwId, and asserts its `workflowStage` field equals the expected value. Fails naming every path it tried when no state file exists. Never reads source files, whichever hooks ran. (State file is an *artefact*, not a source file — permitted read.) | subprocess / phase-import | state file artefact |
 | T2 | `the mock GitHub API recorded a comment on issue {int}` | Queries recorded requests; asserts at least one POST /repos/.../issues/N/comments was captured | mock-query | recorded requests |
 | T3 | `the mock GitHub API recorded a comment containing the text {string}` | Queries recorded requests; parses comment bodies; asserts one contains the expected string | mock-query | recorded requests |
 | T4 | `the git-mock recorded a commit on branch {string}` | Queries git-mock invocations in World; asserts a `git commit` call on the named branch was recorded | mock-query | git invocations |
-| T5 | `the orchestrator subprocess exited {int}` | Reads `World.lastExitCode`; asserts it equals N | subprocess | exit code |
+| T5 | `the orchestrator subprocess exited {int}` | Reads `World.lastExitCode`; asserts it equals N. The field is `-1` until a subprocess When step (W1, W10) records an exit code, so the step fails when no subprocess ran. Never reads source files, whichever hooks ran. | subprocess | exit code |
 | T6 | `the spawn-gate lock for issue {int} is released` | Asserts the orchestrator lock artefact for issue N is absent after the subprocess completes | subprocess | orchestrator lock artefact |
 | T7 | `the mock harness recorded zero PR-merge calls` | Queries recorded requests; asserts no PATCH /repos/.../pulls/:n with `merged: true` was captured | mock-query | recorded requests |
 | T8 | `the mock GitHub API recorded a PR creation for issue {int}` | Queries recorded requests; asserts a POST /repos/.../pulls was captured referencing issue N | mock-query | recorded requests |

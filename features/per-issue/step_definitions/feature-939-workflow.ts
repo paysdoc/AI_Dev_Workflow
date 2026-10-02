@@ -1,7 +1,8 @@
 /**
- * The parts of a workflow file the scenario runner executes: the pull_request trigger, the
- * `env` of the workflow, its jobs and the steps of each. Only the shapes the runner understands
- * are read; anything else throws, so an unexpected edit fails loudly instead of being misread.
+ * The parts of a workflow file the scenario runner executes: the trigger of the run's event (a
+ * pull request unless the caller reads another), the `env` of the workflow, its jobs and the steps
+ * of each. Only the shapes the runner understands are read; anything else throws, so an unexpected
+ * edit fails loudly instead of being misread.
  */
 
 import { parseYamlMap, type YamlMap, type YamlNode } from './feature-939-yaml.ts';
@@ -11,6 +12,8 @@ export type Shell = 'default' | 'bash';
 export interface UsesAction {
   readonly kind: 'uses';
   readonly action: string;
+  /** The step's `with:`, as written. */
+  readonly inputs: ReadonlyMap<string, string>;
 }
 
 export interface RunAction {
@@ -40,9 +43,25 @@ export interface WorkflowJob {
   readonly steps: readonly WorkflowStep[];
 }
 
+/** What started the run: `github.event_name`, and the inputs of a manual run, which are empty for any other event. */
+export interface RunEvent {
+  readonly name: string;
+  readonly inputs: ReadonlyMap<string, string>;
+}
+
 export interface Workflow {
+  readonly event: RunEvent;
   readonly env: ReadonlyMap<string, string>;
   readonly jobs: readonly WorkflowJob[];
+}
+
+/** Reads the `on:` of a workflow for the run's event, and throws when the workflow does not run for it. */
+export type EventResolver = (on: YamlNode | undefined) => RunEvent;
+
+export interface ReadOptions {
+  readonly resolveEvent?: EventResolver;
+  /** `uses:` actions besides the no-op ones, which the caller runs. */
+  readonly actions?: ReadonlySet<string>;
 }
 
 const TOP_LEVEL_KEYS = new Set(['name', 'on', 'env', 'jobs', 'permissions', 'concurrency']);
@@ -78,16 +97,17 @@ function readEnv(node: YamlNode | undefined, where: string): ReadonlyMap<string,
   return new Map([...mapOf(node, where)].map(([name, value]): [string, string] => [name, stringOf(value, `${where}.${name}`)]));
 }
 
-function assertPullRequestTrigger(on: YamlNode | undefined): void {
+function resolvePullRequest(on: YamlNode | undefined): RunEvent {
   if (!isMap(on)) throw unsupported('no block-style "on:" trigger');
   if (!on.has('pull_request')) throw new Error('The workflow does not run for a pull request: its "on:" lists no pull_request');
   if (on.get('pull_request') !== '') throw unsupported('the pull_request trigger has a filter');
+  return { name: 'pull_request', inputs: new Map() };
 }
 
-function readUses(uses: string, where: string): StepAction {
+function readUses(uses: string, step: YamlMap, actions: ReadonlySet<string>, where: string): StepAction {
   const action = uses.split('@')[0];
-  if (!NO_OP_ACTIONS.has(action)) throw unsupported(`${where} uses ${uses}`);
-  return { kind: 'uses', action };
+  if (!NO_OP_ACTIONS.has(action) && !actions.has(action)) throw unsupported(`${where} uses ${uses}`);
+  return { kind: 'uses', action, inputs: readEnv(step.get('with'), `${where}.with`) };
 }
 
 function readShell(node: YamlNode | undefined, where: string): Shell {
@@ -97,17 +117,17 @@ function readShell(node: YamlNode | undefined, where: string): Shell {
   return 'bash';
 }
 
-function readAction(step: YamlMap, where: string): StepAction {
+function readAction(step: YamlMap, actions: ReadonlySet<string>, where: string): StepAction {
   const uses = optionalString(step.get('uses'), `${where}.uses`);
   const run = optionalString(step.get('run'), `${where}.run`);
-  if (uses !== undefined && run === undefined) return readUses(uses, where);
+  if (uses !== undefined && run === undefined) return readUses(uses, step, actions, where);
   if (run === undefined || uses !== undefined) throw unsupported(`${where} must have one of "uses" and "run"`);
 
   const workingDirectory = optionalString(step.get('working-directory'), `${where}.working-directory`);
   return { kind: 'run', script: run, shell: readShell(step.get('shell'), where), workingDirectory };
 }
 
-function readStep(jobId: string, index: number, node: YamlNode): WorkflowStep {
+function readStep(jobId: string, index: number, node: YamlNode, actions: ReadonlySet<string>): WorkflowStep {
   const where = `step ${index + 1} of job "${jobId}"`;
   const step = mapOf(node, where);
   assertKeys(step, STEP_KEYS, where);
@@ -119,7 +139,7 @@ function readStep(jobId: string, index: number, node: YamlNode): WorkflowStep {
     condition: optionalString(step.get('if'), `${where}.if`),
     env: readEnv(step.get('env'), `${where}.env`),
     continueOnError: optionalString(step.get('continue-on-error'), `${where}.continue-on-error`) ?? 'false',
-    action: readAction(step, where),
+    action: readAction(step, actions, where),
   };
 }
 
@@ -130,7 +150,7 @@ function readNeeds(node: YamlNode | undefined, where: string): readonly string[]
   return node.map(item => stringOf(item, `${where}.needs`));
 }
 
-function readJob(id: string, node: YamlNode): WorkflowJob {
+function readJob(id: string, node: YamlNode, actions: ReadonlySet<string>): WorkflowJob {
   const where = `job "${id}"`;
   const job = mapOf(node, where);
   assertKeys(job, JOB_KEYS, where);
@@ -142,18 +162,20 @@ function readJob(id: string, node: YamlNode): WorkflowJob {
     condition: optionalString(job.get('if'), `${where}.if`),
     needs: readNeeds(job.get('needs'), where),
     env: readEnv(job.get('env'), `${where}.env`),
-    steps: steps.map((step, index) => readStep(id, index, step)),
+    steps: steps.map((step, index) => readStep(id, index, step, actions)),
   };
 }
 
-export function readWorkflow(text: string): Workflow {
+export function readWorkflow(text: string, options: ReadOptions = {}): Workflow {
+  const { resolveEvent = resolvePullRequest, actions = new Set<string>() } = options;
   const root = parseYamlMap(text);
   assertKeys(root, TOP_LEVEL_KEYS, 'the workflow');
-  assertPullRequestTrigger(root.get('on'));
+  const event = resolveEvent(root.get('on'));
 
   const jobs = mapOf(root.get('jobs'), 'the workflow "jobs"');
   return {
+    event,
     env: readEnv(root.get('env'), 'the workflow "env"'),
-    jobs: [...jobs].map(([id, job]) => readJob(id, job)),
+    jobs: [...jobs].map(([id, job]) => readJob(id, job, actions)),
   };
 }

@@ -1,8 +1,9 @@
 /**
  * The expression language of a workflow file, as far as the scenario runner needs it: literals,
  * `!`, `==`, `!=`, `&&`, `||`, parentheses, `success()`, `failure()`, `always()` and `cancelled()`,
- * and the `env`, `github`, `secrets`, `steps` and `vars` contexts, with GitHub's rules for equality
- * and truthiness. Anything else throws, so an unexpected edit fails loudly instead of being misread.
+ * and the `env`, `github`, `inputs`, `secrets`, `steps` and `vars` contexts, with GitHub's rules for
+ * equality and truthiness. Anything else throws, so an unexpected edit fails loudly instead of being
+ * misread.
  */
 
 export type Value = string | number | boolean | null;
@@ -13,15 +14,15 @@ export type Place = 'workflow env' | 'job if' | 'job env' | 'step if' | 'step en
 
 /** `secrets` reaches `env` and `run`, never an `if:`; a step's own `env` is not yet set in its `if:` or its `env`. */
 const CONTEXTS_AT: Readonly<Record<Place, readonly string[]>> = {
-  'workflow env': ['github', 'secrets', 'vars'],
-  'job if': ['github', 'vars'],
-  'job env': ['github', 'secrets', 'vars'],
-  'step if': ['github', 'env', 'vars', 'steps'],
-  'step env': ['github', 'env', 'secrets', 'steps', 'vars'],
-  'step run': ['github', 'env', 'secrets', 'steps', 'vars'],
+  'workflow env': ['github', 'inputs', 'secrets', 'vars'],
+  'job if': ['github', 'inputs', 'vars'],
+  'job env': ['github', 'inputs', 'secrets', 'vars'],
+  'step if': ['github', 'inputs', 'env', 'vars', 'steps'],
+  'step env': ['github', 'inputs', 'env', 'secrets', 'steps', 'vars'],
+  'step run': ['github', 'inputs', 'env', 'secrets', 'steps', 'vars'],
 };
 
-const KNOWN_CONTEXTS = ['env', 'github', 'secrets', 'steps', 'vars'];
+const KNOWN_CONTEXTS = ['env', 'github', 'inputs', 'secrets', 'steps', 'vars'];
 const STATUS_FUNCTIONS = ['success', 'failure', 'always', 'cancelled'] as const;
 type StatusFunction = (typeof STATUS_FUNCTIONS)[number];
 type BinaryOperator = '==' | '!=' | '&&' | '||';
@@ -51,6 +52,10 @@ export interface StepRecord {
 
 export interface ContextValues {
   readonly env: ReadonlyMap<string, string>;
+  /** `github.event_name`. */
+  readonly eventName: string;
+  /** The inputs of a manual run; empty for any other event. */
+  readonly inputs: ReadonlyMap<string, string>;
   readonly secrets: ReadonlyMap<string, string>;
   readonly steps: ReadonlyMap<string, StepRecord>;
   readonly workspace: string;
@@ -225,10 +230,12 @@ function namedLookup(context: string, values: ReadonlyMap<string, string>): Look
   };
 }
 
-function githubLookup(workspace: string): Lookup {
+function githubLookup(workspace: string, eventName: string, eventInputs: ReadonlyMap<string, string>): Lookup {
+  const inputs = namedLookup('github.event.inputs', eventInputs);
   return path => {
-    if (path.length === 1 && path[0] === 'event_name') return 'pull_request';
+    if (path.length === 1 && path[0] === 'event_name') return eventName;
     if (path.length === 1 && path[0] === 'workspace') return workspace;
+    if (path.length === 3 && path[0] === 'event' && path[1] === 'inputs') return inputs([path[2]]);
     throw unsupported(`github.${path.join('.')}`);
   };
 }
@@ -247,7 +254,8 @@ function stepsLookup(steps: ReadonlyMap<string, StepRecord>): Lookup {
 export function scopeAt(place: Place, values: ContextValues, status: Status): Scope {
   const lookups: Readonly<Record<string, Lookup>> = {
     env: namedLookup('env', values.env),
-    github: githubLookup(values.workspace),
+    github: githubLookup(values.workspace, values.eventName, values.inputs),
+    inputs: namedLookup('inputs', values.inputs),
     secrets: namedLookup('secrets', values.secrets),
     steps: stepsLookup(values.steps),
     vars: namedLookup('vars', new Map()),
