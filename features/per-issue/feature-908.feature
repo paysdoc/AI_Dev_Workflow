@@ -279,7 +279,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §2 WHAT ## Retry STILL LEAVES ALONE ─────────────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario: `## Retry` on a paused_auth workflow does nothing and logs that the auth queue owns its recovery
     Given the latest ADW workflow comment on issue 873 names adwId "retry908-873"
     And the top-level state for adwId "retry908-873" records issue 873 at workflowStage "paused_auth" with orchestrator script "adws/adwChore.tsx"
@@ -289,7 +289,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the mock harness recorded zero comment posts on issue 873
     And the Retry handling logged that issue 873 is paused_auth and left to the auth queue
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario Outline: `## Retry` on a running stage does nothing, so it can never start a second orchestrator beside a live one
     Given the latest ADW workflow comment on issue 876 names adwId "retry908-876"
     And the top-level state for adwId "retry908-876" records issue 876 at workflowStage "<stage>" with orchestrator script "adws/adwChore.tsx"
@@ -309,7 +309,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
       | document_running |
       | stepDef_running  |
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario Outline: `## Retry` on a finished or automatically recovered stage still does nothing
     Given the latest ADW workflow comment on issue 877 names adwId "retry908-877"
     And the top-level state for adwId "retry908-877" records issue 877 at workflowStage "<stage>" with orchestrator script "adws/adwChore.tsx"
@@ -328,7 +328,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §3 THE HUMAN-GATED BRANCHES ARE UNCHANGED ───────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario: `## Retry` on merge_blocked still re-arms the merge exactly as before and launches nothing itself
     Given the latest ADW workflow comment on issue 881 names adwId "retry908-881"
     And the top-level state for adwId "retry908-881" records issue 881 at workflowStage "merge_blocked" with a merge retry count of 2
@@ -338,7 +338,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And no orchestrator was launched for issue 881
     And the mock harness recorded zero comment posts on issue 881
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
+  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario Outline: `## Retry` on human_gated or review_failed still re-arms the resume counter exactly as before and launches nothing itself
     Given the latest ADW workflow comment on issue 882 names adwId "retry908-882"
     And the top-level state for adwId "retry908-882" records issue 882 at workflowStage "<stage>" with a resume attempt count of 3

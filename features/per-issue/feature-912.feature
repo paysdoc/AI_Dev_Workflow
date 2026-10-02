@@ -314,7 +314,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §2 RIDING OUT THE LIMIT IN-PROCESS ─────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: Replaying #840 — three five-hour rejections in a row are each waited out in-process until the reset time the CLI reported, and the fourth run completes the phase without the workflow ever being paused
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 840 in the target repository "acme/widgets" is running under adwId "wait912-840"
@@ -357,7 +357,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And every wait comment on issue 840 says the workflow is waiting for a rate limit to reset
     And every wait comment on issue 840 is recognised by ADW as its own comment
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: There is no retry budget — however many five-hour limits reject the phase in a row, each is waited out in-process, and the phase completes when a run finally succeeds
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 877 in the target repository "acme/widgets" is running under adwId "wait912-877"
@@ -377,7 +377,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §3 STILL A LIVE, RUNNING ORCHESTRATOR ──────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: While it waits, a workflow whose phase runs under its name stays in that phase's running stage and keeps its heartbeat, so the hung-orchestrator detector never mistakes it for a wedged process
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 871 in the target repository "acme/widgets" is running under adwId "wait912-871"
@@ -398,7 +398,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
       | build   |
       | stepDef |
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: A phase run anonymously, as the orchestrators run most of their phases, keeps the stage the workflow already had throughout every wait — the wait never writes a stage of its own
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 872 in the target repository "acme/widgets" is running under adwId "wait912-872"
@@ -415,7 +415,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the state file for adwId "wait912-872" records workflowStage "starting"
     And the pause queue does not hold adwId "wait912-872"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: The waiting orchestrator keeps the issue's spawn lock, so every candidate that arrives at the issue during a wait defers to it instead of starting a competing run
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 874 in the target repository "acme/widgets" is running under adwId "wait912-874"
@@ -430,7 +430,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the "build" phase ran 3 times
     And the state file for adwId "wait912-874" records workflowStage "build_completed"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: An orchestrator that dies while it waits leaves its workflow in the running stage, so the next candidate at the issue takes it over under its adwId instead of leaving it stranded or starting it afresh
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 876 in the target repository "acme/widgets" is running under adwId "wait912-876"
@@ -447,7 +447,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §4 EVERYTHING ELSE STILL EXITS ─────────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: A first rejection that is not a five-hour limit with a known reset time is never waited out — the orchestrator exits 0 through the pause path at once, posts no wait comment, and the queue entry keeps the facts the CLI reported
     Given the orchestrator's clock reads "2026-09-25T09:00:00Z"
     And an orchestrator for issue 875 in the target repository "acme/widgets" is running under adwId "wait912-875"
@@ -470,7 +470,7 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
       | a limit type ADW does not know        | monthly    | 2026-10-01T00:00:00Z | with a "monthly" limit that resets at "2026-10-01T00:00:00Z"   |
       | no facts: an overload or server error |            |                      | with no limit type and no reset time                           |
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
+  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: After an in-process wait, a rejection that is not a five-hour limit with a known reset time is decided afresh — the orchestrator stops waiting and exits 0 through the pause path, whatever waits came before
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 873 in the target repository "acme/widgets" is running under adwId "wait912-873"
