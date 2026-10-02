@@ -37,6 +37,7 @@ import {
   getModelForCommand,
   getEffortForCommand,
 } from './core';
+import { isSelfHostLaunch } from './core/selfHostLaunch';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import { runClaudeAgentWithCommand } from './agents';
 import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from '@paysdoc/devplatform';
@@ -424,7 +425,7 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     undefined,
-    { selfHost: params.gitContext?.selfHost ?? true, adwId: params.adwId, gitContext: params.gitContext },
+    { selfHost: isSelfHostLaunch(params.gitContext), adwId: params.adwId, gitContext: params.gitContext },
   );
   return {
     success: result.success,

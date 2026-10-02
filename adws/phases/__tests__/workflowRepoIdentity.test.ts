@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../core/localRepoIdentity', () => ({ readLocalRepoIdentity: vi.fn() }));
+
+import { readLocalRepoIdentity } from '../../core/localRepoIdentity';
+import { resetFrameworkIdentityMemo } from '../../core/selfHostLaunch';
 import { resolveWorkflowRepoId, workflowLaunchContext } from '../workflowRepoIdentity';
 import { Platform } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from '../workflowInit';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
 type Identity = Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>;
+
+beforeEach(() => {
+  resetFrameworkIdentityMemo();
+  vi.mocked(readLocalRepoIdentity).mockReturnValue({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
+});
 
 describe('resolveWorkflowRepoId', () => {
   it('prefers repoContext.repoId when present', () => {
@@ -47,9 +57,15 @@ describe('workflowLaunchContext', () => {
   });
 
   it('takes selfHost: false from a target-repository GitContext', () => {
-    const gitContext = { selfHost: false } as unknown as GitContext;
+    const gitContext = { selfHost: false, owner: 'acme', repo: 'widgets' } as unknown as GitContext;
 
     expect(workflowLaunchContext({ adwId: 'adw-target', gitContext }).selfHost).toBe(false);
+  });
+
+  it("counts a --target-repo GitContext for the framework's own repository as self-host", () => {
+    const gitContext = { selfHost: false, owner: 'paysdoc', repo: 'AI_Dev_Workflow' } as unknown as GitContext;
+
+    expect(workflowLaunchContext({ adwId: 'adw-framework', gitContext })).toEqual({ selfHost: true, adwId: 'adw-framework', gitContext });
   });
 
   it('is not derived from a bound RepoContext, which a self-host run binds too', () => {

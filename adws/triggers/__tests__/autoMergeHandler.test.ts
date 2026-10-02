@@ -9,12 +9,16 @@ vi.mock('../../agents', () => ({
   runClaudeAgentWithCommand: vi.fn().mockResolvedValue({ success: true, output: '' }),
 }));
 
+vi.mock('../../core/localRepoIdentity', () => ({ readLocalRepoIdentity: vi.fn() }));
+
 import { runClaudeAgentWithCommand } from '../../agents';
+import { readLocalRepoIdentity } from '../../core/localRepoIdentity';
 import { getModelForCommand, getEffortForCommand } from '../../core/modelRouting';
+import { resetFrameworkIdentityMemo } from '../../core/selfHostLaunch';
 import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeHandler';
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import type { ExecFn } from '@paysdoc/devplatform/git';
-import type { CodeHost, ForgeActionResult } from '@paysdoc/devplatform';
+import { Platform, type CodeHost, type ForgeActionResult } from '@paysdoc/devplatform';
 
 const HEAD_BRANCH = 'feature-issue-42';
 const BASE_BRANCH = 'main';
@@ -51,11 +55,11 @@ function makeSpyExec(
   return { exec, calls };
 }
 
-function makeGitContext(exec: ExecFn): GitContext {
+function makeGitContext(exec: ExecFn, owner = 'acme', repo = 'widgets'): GitContext {
   return new GitContext(
     {
-      owner: 'acme',
-      repo: 'widgets',
+      owner,
+      repo,
       selfHost: false,
       tokenProvider: createLiteralTokenProvider('test-token'),
       gitIdentity: {
@@ -76,6 +80,8 @@ beforeEach(() => {
   mockedAgent.mockReset();
   mockedMergePullRequest.mockReturnValue({ success: true });
   mockedAgent.mockResolvedValue({ success: true, output: '' });
+  resetFrameworkIdentityMemo();
+  vi.mocked(readLocalRepoIdentity).mockReturnValue({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 });
 
 describe('isMergeConflictError', () => {
@@ -130,6 +136,14 @@ describe('mergeWithConflictResolution', () => {
       undefined,
       { selfHost: false, adwId: ADW_ID, gitContext: ctx },
     );
+  });
+
+  it("starts /resolve_conflict as self-host when the pull request is the framework repository's own", async () => {
+    const ctx = makeGitContext(makeSpyExec('', true).exec, 'paysdoc', 'AI_Dev_Workflow');
+
+    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
+
+    expect(mockedAgent.mock.calls[0]?.[12]).toEqual({ selfHost: true, adwId: ADW_ID, gitContext: ctx });
   });
 
   it('does not break out of the retry loop when gh returns "not mergeable" (loop continues)', async () => {

@@ -13,10 +13,17 @@ vi.mock('../agentProcessHandler', () => ({
   handleAgentProcess: vi.fn(),
 }));
 
+vi.mock('../../core/localRepoIdentity', () => ({ readLocalRepoIdentity: vi.fn() }));
+
 import { spawn } from 'child_process';
+import { Platform } from '@paysdoc/devplatform';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import { clearClaudeCodePathCache, REPO_ROOT } from '../../core/environment';
 import { setGuardrailsGateDepsForTesting } from '../../core/guardrailsGate';
 import { buildGuardrailsSettings, resolveHookLogDir } from '../../core/guardrailsPayload';
+import { readLocalRepoIdentity } from '../../core/localRepoIdentity';
+import { resetFrameworkIdentityMemo } from '../../core/selfHostLaunch';
+import { workflowLaunchContext } from '../../phases/workflowRepoIdentity';
 import { handleAgentProcess } from '../agentProcessHandler';
 import { runClaudeAgentWithCommand, type AgentLaunchContext } from '../claudeAgent';
 
@@ -33,6 +40,8 @@ beforeEach(() => {
   process.env.CLAUDE_CODE_PATH = process.execPath;
   clearClaudeCodePathCache();
   setGuardrailsGateDepsForTesting({ probeGuardrails, notifySlack: vi.fn(async () => undefined), getEnv: () => undefined });
+  resetFrameworkIdentityMemo();
+  vi.mocked(readLocalRepoIdentity).mockReturnValue({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 });
 
 afterEach(() => {
@@ -57,6 +66,11 @@ async function startAgent(cwd: string, launchContext: AgentLaunchContext): Promi
     '/commit', 'args', 'guardrails-agent', path.join(os.tmpdir(), 'adw-guardrails-agent.jsonl'),
     'sonnet', undefined, undefined, undefined, cwd, undefined, undefined, undefined, launchContext,
   );
+}
+
+/** `commandEnv` is what the spawn reads the git identity overlay from. */
+function targetGitContext(owner: string, repo: string): GitContext {
+  return { selfHost: false, owner, repo, commandEnv: () => ({}) } as unknown as GitContext;
 }
 
 function spawned(): { argv: readonly string[]; env: NodeJS.ProcessEnv } {
@@ -103,5 +117,28 @@ describe('runClaudeAgentWithCommand — guardrails for every target repository',
     expect(argv).not.toContain('--settings');
     expect(env['CLAUDE_HOOKS_LOG_DIR']).toBeUndefined();
     expect(probeGuardrails).not.toHaveBeenCalled();
+  });
+});
+
+describe("runClaudeAgentWithCommand — a --target-repo launch for the framework's own repository", () => {
+  it('starts the agent without --settings or CLAUDE_HOOKS_LOG_DIR and never runs the probe', async () => {
+    const worktree = makeWorktree();
+    const gitContext = targetGitContext('paysdoc', 'AI_Dev_Workflow');
+
+    await startAgent(worktree, workflowLaunchContext({ adwId: 'adw-framework-target', gitContext }));
+
+    const { argv, env } = spawned();
+    expect(argv).not.toContain('--settings');
+    expect(env['CLAUDE_HOOKS_LOG_DIR']).toBeUndefined();
+    expect(probeGuardrails).not.toHaveBeenCalled();
+  });
+
+  it('still injects the guardrail settings for any other --target-repo repository', async () => {
+    const worktree = makeWorktree();
+    const gitContext = targetGitContext('acme', 'widgets');
+
+    await startAgent(worktree, workflowLaunchContext({ adwId: 'adw-other-target', gitContext }));
+
+    expectInjected(worktree, 'adw-other-target');
   });
 });
