@@ -20,6 +20,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
   - Replace `{descriptive-name}` with a short, descriptive name based on the feature (e.g., "add-auth-system", "implement-search", "create-dashboard")
 - Use the `Plan Format` below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase to understand existing patterns, architecture, and conventions before planning the feature.
+- Research is read-only. Read files and use `cat`, `grep`, `ls` and `git log/show/diff`. Do NOT run tests, builds, linters, type checks or the plan's `Validation Commands`, and do not dry-run them to see whether they fail today. The build agent runs them.
+- Write exactly one file: the plan. Do not create or edit anything else: no reproduction tests, no scratch files, no source changes.
+- Planning runs under a hard time limit. Write the plan as soon as your research answers every section of the `Plan Format`. Once it is written, stop. Do not revise it to match `features/` files that appear while you work; aligning the plan with the scenarios is a separate, later step.
 - Follow existing patterns and conventions in the codebase. Don't reinvent the wheel.
 - Design for extensibility and maintainability.
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
@@ -104,7 +107,7 @@ If `.adw/project.md` contains `## Unit Tests: enabled` (inline) or a `## Unit Te
 ## Validation Commands
 Execute every command to validate the feature works correctly with zero regressions.
 
-<list commands you'll use to validate with 100% confidence the feature is implemented correctly with zero regressions. every command must execute without errors so be specific about what you want to run to validate the feature works as expected. Include commands to test the feature end-to-end.>
+<list commands you'll use to validate with 100% confidence the feature is implemented correctly with zero regressions. every command must execute without errors so be specific about what you want to run to validate the feature works as expected. Include commands to test the feature end-to-end. List these commands; do not execute them while planning.>
 
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues
