@@ -504,6 +504,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
+│   ├── regressionWorkflow.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -549,7 +550,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
-│   │   │   └── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
+│   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
+│   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
+│   │   │   └── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
@@ -776,6 +780,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── fixtures/
+│   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
+│   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -788,6 +795,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
 │   │   ├── prReviewCompletion.test.ts
+│   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
@@ -798,6 +806,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
+│   │   ├── startupFailureLog.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
@@ -819,13 +828,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
-│   ├── planCommitGuard.ts  # Baseline/diff guard that stops the planner from changing or committing off-limits `.claude`/`.adw` files
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation — initializePRReviewWorkflow accepts an optional LaunchBoundary and reuses its providers for createRepoContext when the identities agree, mirroring workflowInit.ts (#796)
+│   ├── startupFailureLog.ts  # recordStartupFailure — writes a detached orchestrator's startup failure to its own execution log (never throws)
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
 │   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
@@ -865,6 +874,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronIssueFilter.eligibility.test.ts
 │   │   ├── cronIssueFilter.optOut.test.ts
 │   │   ├── cronIssueFilter.test.ts
+│   │   ├── cronIssueFilterFixtures.ts  # Shared fixtures for the cronIssueFilter tests
+│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
@@ -1026,6 +1037,7 @@ workers/                # Cloudflare Workers
 │   │   ├── index.ts        # Worker entry point
 │   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
+│   │   │   └── 0001_initial.sql  # Initial D1 schema migration
 │   │   ├── queries.ts      # D1 query helpers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
@@ -1075,6 +1087,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   ├── fixtures/
+│   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
