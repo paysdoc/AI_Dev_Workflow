@@ -132,51 +132,60 @@ interface Watch {
   stopError: unknown;
 }
 
-function watchChild(child: Child, pid: number, harness: SubprocessHarness, spec: RunSpec): Promise<ProcessResult> {
-  return new Promise((resolve, reject) => {
-    const watch: Watch = { output: '', stopRequested: false, timedOut: false, stopError: undefined };
-    const timeout = setTimeout(() => {
-      watch.timedOut = true;
-      reapGroup(harness, pid);
-    }, spec.timeoutMs);
+function observeChild(
+  child: Child,
+  pid: number,
+  harness: SubprocessHarness,
+  spec: RunSpec,
+  resolve: (result: ProcessResult) => void,
+  reject: (reason: unknown) => void,
+): void {
+  const watch: Watch = { output: '', stopRequested: false, timedOut: false, stopError: undefined };
+  const timeout = setTimeout(() => {
+    watch.timedOut = true;
+    reapGroup(harness, pid);
+  }, spec.timeoutMs);
 
-    const stop = async (): Promise<void> => {
-      try {
-        await spec.beforeStop?.(watch.output);
-      } catch (error) {
-        watch.stopError = error;
-      } finally {
-        reapGroup(harness, pid);
-      }
-    };
-    const take = (chunk: string): void => {
-      watch.output += chunk;
-      if (watch.stopRequested || !spec.stopWhen?.(watch.output)) return;
-      watch.stopRequested = true;
-      void stop();
-    };
-    const settle = (exitCode: number | null, signal: NodeJS.Signals | null): void => {
-      clearTimeout(timeout);
+  const stop = async (): Promise<void> => {
+    try {
+      await spec.beforeStop?.(watch.output);
+    } catch (error) {
+      watch.stopError = error;
+    } finally {
       reapGroup(harness, pid);
-      if (watch.timedOut) {
-        reject(new assert.AssertionError({ message: `${spec.label} did not exit within ${spec.timeoutMs / 1000} s; the harness killed its process group. Last output:\n${tail(watch.output)}` }));
-      } else if (watch.stopError !== undefined) {
-        reject(watch.stopError);
-      } else {
-        resolve({ exitCode, signal, output: watch.output, stopped: watch.stopRequested });
-      }
-    };
+    }
+  };
+  const take = (chunk: string): void => {
+    watch.output += chunk;
+    if (watch.stopRequested || !spec.stopWhen?.(watch.output)) return;
+    watch.stopRequested = true;
+    void stop();
+  };
+  const settle = (exitCode: number | null, signal: NodeJS.Signals | null): void => {
+    clearTimeout(timeout);
+    reapGroup(harness, pid);
+    if (watch.timedOut) {
+      reject(new assert.AssertionError({ message: `${spec.label} did not exit within ${spec.timeoutMs / 1000} s; the harness killed its process group. Last output:\n${tail(watch.output)}` }));
+    } else if (watch.stopError !== undefined) {
+      reject(watch.stopError);
+    } else {
+      resolve({ exitCode, signal, output: watch.output, stopped: watch.stopRequested });
+    }
+  };
 
-    child.stdout.setEncoding('utf-8').on('data', take);
-    child.stderr.setEncoding('utf-8').on('data', take);
-    child.on('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    // A background process that outlives the child keeps its pipes open, and `close` waits for them.
-    child.on('exit', () => setTimeout(() => reapGroup(harness, pid), CLOSE_GRACE_MS).unref());
-    child.on('close', settle);
+  child.stdout.setEncoding('utf-8').on('data', take);
+  child.stderr.setEncoding('utf-8').on('data', take);
+  child.on('error', (error) => {
+    clearTimeout(timeout);
+    reject(error);
   });
+  // A background process that outlives the child keeps its pipes open, and `close` waits for them.
+  child.on('exit', () => setTimeout(() => reapGroup(harness, pid), CLOSE_GRACE_MS).unref());
+  child.on('close', settle);
+}
+
+function watchChild(child: Child, pid: number, harness: SubprocessHarness, spec: RunSpec): Promise<ProcessResult> {
+  return new Promise((resolve, reject) => observeChild(child, pid, harness, spec, resolve, reject));
 }
 
 /** Rejects, naming the output's tail, when the process outlives `timeoutMs`; its whole process group is killed first. */

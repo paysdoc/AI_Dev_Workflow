@@ -128,27 +128,31 @@ function list<T extends object>(
 const ISSUE_STATES: Readonly<Record<string, readonly GhIssue['state'][]>> = { open: ['OPEN'], closed: ['CLOSED'], all: ['OPEN', 'CLOSED'] };
 const PR_STATES: Readonly<Record<string, readonly GhPullRequest['state'][]>> = { open: ['OPEN'], closed: ['CLOSED'], merged: ['MERGED'], all: ['OPEN', 'CLOSED', 'MERGED'] };
 
+function selectIssues(state: ForgeState, parsed: ParsedArgs): GhIssue[] | undefined {
+  const states = ISSUE_STATES[lastValue(parsed, '--state') ?? 'open'];
+  if (!states) return undefined;
+  return Object.values(state.issues)
+    .filter((issue) => states.includes(issue.state))
+    .filter((issue) => allValues(parsed, '--label').every((label) => issue.labels.some((candidate) => candidate.name === label)))
+    .filter((issue) => matchesSearch(issue, lastValue(parsed, '--search')))
+    .sort(newestFirst);
+}
+
+function selectPullRequests(state: ForgeState, parsed: ParsedArgs): GhPullRequest[] | undefined {
+  const states = PR_STATES[lastValue(parsed, '--state') ?? 'open'];
+  const head = lastValue(parsed, '--head');
+  if (!states) return undefined;
+  return Object.values(state.pullRequests)
+    .filter((pullRequest) => states.includes(pullRequest.state))
+    .filter((pullRequest) => head === undefined || pullRequest.headRefName === head)
+    .sort((a, b) => b.number - a.number);
+}
+
 const issueList: GhHandler = (args, { state }) =>
-  list(parseArgs(args, ISSUE_LIST_FLAGS), state, (parsed) => {
-    const states = ISSUE_STATES[lastValue(parsed, '--state') ?? 'open'];
-    if (!states) return undefined;
-    return Object.values(state.issues)
-      .filter((issue) => states.includes(issue.state))
-      .filter((issue) => allValues(parsed, '--label').every((label) => issue.labels.some((candidate) => candidate.name === label)))
-      .filter((issue) => matchesSearch(issue, lastValue(parsed, '--search')))
-      .sort(newestFirst);
-  });
+  list(parseArgs(args, ISSUE_LIST_FLAGS), state, (parsed) => selectIssues(state, parsed));
 
 const prList: GhHandler = (args, { state }) =>
-  list(parseArgs(args, PR_LIST_FLAGS), state, (parsed) => {
-    const states = PR_STATES[lastValue(parsed, '--state') ?? 'open'];
-    const head = lastValue(parsed, '--head');
-    if (!states) return undefined;
-    return Object.values(state.pullRequests)
-      .filter((pullRequest) => states.includes(pullRequest.state))
-      .filter((pullRequest) => head === undefined || pullRequest.headRefName === head)
-      .sort((a, b) => b.number - a.number);
-  });
+  list(parseArgs(args, PR_LIST_FLAGS), state, (parsed) => selectPullRequests(state, parsed));
 
 function restComment(comment: GhComment): object {
   const id = Number(comment.id);
