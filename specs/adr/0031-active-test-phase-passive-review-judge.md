@@ -24,7 +24,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-09-30"
 supersedes: ["0024"]
-superseded-by: []
+superseded-by: ["0058", "0061", "0062"]
 ---
 
 # Active test phase, passive review judge
@@ -93,3 +93,4 @@ Checked against the code on 2026-09-29:
 * The PRD is the output of one grill session on 2026-04-08. Its rollout rule, small PRs merged while the cron runs from a separate clone, is recorded in [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md). The phase runner is recorded in [ADR-0020](0020-shared-phase-runner-and-core-decomposition.md).
 * The PRD's phase order ends "review → document → KPI → PR". The KPI phase was removed later ([ADR-0045](0045-kpi-module-removed.md)).
 * Settled (owner, 2026-09-29): the `## Run E2E Tests` heading is kept on purpose, as the scenario writer's tool descriptor. No code under `adws/` parses it; ADW's own `.adw/commands.md` carries it and `.claude/commands/scenario_writer.md` reads it (see [ADR-0043](0043-multi-language-test-seam.md)).
+* Superseded in part by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) (the proof design: Strategy A and B, `scenario_proof.md` as the reviewer's only input), [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) (the runner is no longer the target repository's choice in `web` repositories; the Playwright test runner returns as the Gherkin runner) and [ADR-0062](0062-dev-server-start-failure-is-a-failed-review.md) ("runs the work anyway after 3 failures"). The passive judge, the active test phase, the lifecycle and the janitor stand. This resolves Divergence item 1.

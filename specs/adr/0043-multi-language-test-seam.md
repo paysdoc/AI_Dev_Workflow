@@ -26,7 +26,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-10-01"
 supersedes: []
-superseded-by: []
+superseded-by: ["0061", "0063"]
 ---
 
 # Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
@@ -84,3 +84,4 @@ Checked against the code on 2026-09-29:
 ## More Information
 
 * Related: [ADR-0018](0018-unit-tests-restored-alongside-bdd.md) (unit tests), [ADR-0022](0022-review-proof-in-r2-behind-router-worker.md) (proof storage), [ADR-0042](0042-hash-versioned-self-upgrade.md) (the PRD's rule that a new parsed `.adw/` field and its `adw_init` emission ship in one PR).
+* Superseded in part by [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) ("only the step-definition runtime varies" and the detected `## BDD Framework` descriptor now apply to `cli` repositories only) and [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md) (the Proof bullet: only per-issue scenario images are published). The Gherkin mandate, the JUnit rail and the unit-test verdict table stand.

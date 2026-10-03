@@ -16,7 +16,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-09-29"
 supersedes: []
-superseded-by: []
+superseded-by: ["0063"]
 ---
 
 # Proof images stored in R2 and served by a router Worker
@@ -67,3 +67,4 @@ Checked on 2026-09-29:
 
 * The `cost-api` Worker shares the layout and the deploy workflow; see [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md). DNS for the hostnames is covered by [ADR-0030](0030-cloudflare-dns-managed-by-hand.md). The review became a passive judge under [ADR-0031](0031-active-test-phase-passive-review-judge.md); a comment in `adws/adwSdlc.tsx` as of commit 7c65081b says it "no longer produces images". Whether that is why #278's call site disappeared was not checked.
 * The spec for #274 names a parent PRD, `specs/prd/prd-review-revamp.md`. That file is not in the repository or its history.
+* Superseded in part by [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md): images are selected per issue and shown to the reviewer before the pull request exists, instead of every harvested image being posted after the pull request phase. The storage and the Worker stand.
