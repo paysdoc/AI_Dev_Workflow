@@ -1,6 +1,6 @@
 /**
- * The per-scenario state of a subprocess run, which the `@regression and @subprocess` Before hook
- * creates: a temporary root holding the child's `TARGET_REPOS_DIR` and `HOME` and the `gh` shadow's
+ * The per-scenario state of a subprocess run, which the `@regression and (@subprocess or @webhook)`
+ * Before hook creates: a temporary root holding the child's `TARGET_REPOS_DIR` and `HOME` and the `gh` shadow's
  * state and log, the shadow's directory, the launch recorder, the workspace of the target repository,
  * the adwIds and issues the scenario claimed, and the process groups the harness started.
  *
@@ -42,8 +42,12 @@ export interface SubprocessHarness {
   readonly claimedIssues: Set<number>;
 }
 
-/** `agents/<adwId>/` also holds the state of real workflows, so the harness clears only the directories of adwIds made up for a scenario. */
-const MADE_UP_ADW_ID = /^(surface|throwaway\d+)-[a-z0-9-]+$/;
+/**
+ * `agents/<adwId>/` also holds the state of real workflows, so the harness clears only the directories of
+ * adwIds made up for a scenario: `surface-…`, `throwaway<N>-…`, or the `<name>-smoke-<N>` a smoke file names.
+ * A real adwId starts with a random six-character id, then the issue's slug.
+ */
+const MADE_UP_ADW_ID = /^((surface|throwaway\d+)-[a-z0-9-]+|[a-z]+(-[a-z]+)*-smoke-\d+)$/;
 
 const REPO_KEY = `${SURFACE_REPO.owner}_${SURFACE_REPO.repo}`;
 const AUTH_GATE_FILE = resolve(REPO_ROOT, AUTH_GATE_PATH);
@@ -76,7 +80,7 @@ function removeDirectories(directories: readonly string[]): void {
 }
 
 export function requireHarness(world: Pick<RegressionWorld, 'subprocess'>): SubprocessHarness {
-  assert.ok(world.subprocess, 'Expected the @regression and @subprocess Before hook to have set up the subprocess harness');
+  assert.ok(world.subprocess, 'Expected the @regression and (@subprocess or @webhook) Before hook to have set up the subprocess harness');
   return world.subprocess;
 }
 
@@ -114,10 +118,15 @@ export function createSubprocessHarness(world: Pick<RegressionWorld, 'cleanup'>)
   return harness;
 }
 
+/** Whatever removes `agents/<adwId>/` must name only an adwId made up for a scenario. */
+export function assertMadeUpAdwId(adwId: string): void {
+  assert.match(adwId, MADE_UP_ADW_ID, `Only an adwId made up for a scenario (surface-…, throwaway<N>-… or <name>-smoke-<N>) may be acted on, since its agents/ and logs/ directories are removed; got "${adwId}"`);
+}
+
 /** The first claim in a scenario clears the adwId's state and logs, so a crashed earlier run cannot decide the outcome; later claims leave what a Given seeded. */
 export function claimAdwId(world: RegressionWorld, adwId: string): void {
   const harness = requireHarness(world);
-  assert.match(adwId, MADE_UP_ADW_ID, `Only an adwId made up for a scenario (surface-… or throwaway<N>-…) may be run by the subprocess harness, since its agents/ and logs/ directories are removed; got "${adwId}"`);
+  assertMadeUpAdwId(adwId);
   if (harness.claimedAdwIds.has(adwId)) return;
 
   harness.claimedAdwIds.add(adwId);

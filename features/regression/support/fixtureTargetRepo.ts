@@ -17,7 +17,7 @@ import { computeFrameworkHash } from '../../../adws/core/hashComputer.ts';
 import { commitFileOnBranch, initialiseRepository, realGit } from './fixtureWorktree.ts';
 
 const FIXTURE_DIR = resolve(REPO_ROOT, 'test/fixtures/cli-tool');
-const DEFAULT_BRANCH = 'main';
+export const DEFAULT_BRANCH = 'main';
 
 export function targetCloneUrl(owner: string, repo: string): string {
   return `https://github.com/${owner}/${repo}.git`;
@@ -34,6 +34,24 @@ export function materialiseTargetWorkspace(owner: string, repo: string, targetRe
   realGit(workspace, 'update-ref', `refs/remotes/origin/${DEFAULT_BRANCH}`, 'HEAD');
   realGit(workspace, 'symbolic-ref', 'refs/remotes/origin/HEAD', `refs/remotes/origin/${DEFAULT_BRANCH}`);
   return workspace;
+}
+
+/** The promotion sweep builds its worktree off `origin/<default>`, so a commit that does not move it is invisible to the sweep. */
+function moveRemoteDefaultBranch(workspace: string): void {
+  realGit(workspace, 'update-ref', `refs/remotes/origin/${DEFAULT_BRANCH}`, DEFAULT_BRANCH);
+}
+
+/** The workspace is on `main`: the file is committed there, and `origin/main` follows it. */
+export function commitOnDefaultBranch(workspace: string, relPath: string, contents: string, message: string): void {
+  commitFileOnBranch(workspace, relPath, contents, message);
+  moveRemoteDefaultBranch(workspace);
+}
+
+/** A commit that deletes the file from `main`, with `origin/main` following it. */
+export function removeOnDefaultBranch(workspace: string, relPath: string, message: string): void {
+  realGit(workspace, 'rm', '-q', '--', relPath);
+  realGit(workspace, 'commit', '-q', '-m', message);
+  moveRemoteDefaultBranch(workspace);
 }
 
 /** A branch off `main` holding one file, as `origin` would hold it. The workspace is back on `main` afterwards, so a worktree can be added for the branch. */
