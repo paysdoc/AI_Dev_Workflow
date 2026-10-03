@@ -87,7 +87,7 @@ Use these files to implement the feature:
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
 
-IMPORTANT: Read `.github/adw.yml` from the current working directory. Unit tests are disabled only when that file sets `unitTests` to `false` on an uncommented line; then do NOT include any tasks for creating, writing, or running unit tests. Otherwise (no file, no `unitTests` key, a commented-out key, or `unitTests: true`) unit tests are enabled: include unit test tasks.
+IMPORTANT: Read `.adw/project.md` from the current working directory. If it contains `## Unit Tests: disabled` or the `## Unit Tests` section is absent, do NOT include any tasks for creating, writing, or running unit tests. Only include unit test tasks when `.adw/project.md` explicitly contains `## Unit Tests: enabled`.
 
 <list step by step tasks as h3 headers plus bullet points. use as many h3 headers as needed to implement the feature. Order matters, start with the foundational shared changes required then move on to the specific implementation. Include creating tests throughout the implementation process.>
 
@@ -95,8 +95,8 @@ IMPORTANT: Read `.github/adw.yml` from the current working directory. Unit tests
 
 ## Testing Strategy
 ### Unit Tests
-Read `.github/adw.yml` from the current working directory. If it sets `unitTests` to `false` on an uncommented line, OMIT this entire `### Unit Tests` subsection from the plan. Do not plan any unit test tasks or unit test file creation.
-Otherwise unit tests are enabled (a missing file or key means enabled): describe the unit tests needed for the feature here.
+Read `.adw/project.md` from the current working directory. If it contains `## Unit Tests: disabled` or the `## Unit Tests` section is absent, OMIT this entire `### Unit Tests` subsection from the plan. Do not plan any unit test tasks or unit test file creation.
+If `.adw/project.md` contains `## Unit Tests: enabled` (inline) or a `## Unit Tests` section with body `enabled`, describe the unit tests needed for the feature here.
 
 ### Edge Cases
 <list edge cases that need to be tested>
