@@ -1,9 +1,9 @@
 /**
  * Steps for the webhook's cron-on-every-event scenarios. Each drives the real exported
- * `dispatchWebhookEvent` in-process, with a stand-in request and response and a fake per-event
- * boundary. Launches are caught by the shared launch recorder. Assertions read only the response the
- * dispatcher wrote, the recorder's launch records and the cron registry record; no step reads a
- * source file.
+ * `dispatchWebhookEvent` in-process, with a stand-in request and response and a per-event boundary:
+ * by default a fake whose providers throw, or the minter a row passes to `deliverPayload`. Launches
+ * are caught by the shared launch recorder. Assertions read only the response the dispatcher wrote,
+ * the recorder's launch records and the cron registry record; no step reads a source file.
  */
 
 import { Before, After, Given, When, Then } from '@cucumber/cucumber';
@@ -176,8 +176,11 @@ function recordingResponse(): http.ServerResponse {
   return res as unknown as http.ServerResponse;
 }
 
+/** What `dispatchWebhookEvent` calls to mint the one boundary of an event. */
+export type EventBoundaryMinter = (targetRepo: TargetRepoInfo | null) => LaunchBoundary | undefined;
+
 /** Its providers throw, so an event that reaches a forge fails the step loudly instead of acting. */
-function fakeEventBoundary(targetRepo: TargetRepoInfo | null): LaunchBoundary | undefined {
+const fakeEventBoundary: EventBoundaryMinter = (targetRepo) => {
   if (!targetRepo) return undefined;
   return {
     gitContext: {},
@@ -186,26 +189,32 @@ function fakeEventBoundary(targetRepo: TargetRepoInfo | null): LaunchBoundary | 
       throw new Error('A webhook scenario event reached a forge provider; pick an event that ends in "ignored"');
     },
   } as unknown as LaunchBoundary;
-}
+};
 
 function sign(rawBody: Buffer, secret: string): string {
   return `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
 }
 
-async function deliver(event: string, rawBody: Buffer, signature?: string): Promise<void> {
+async function deliver(event: string, rawBody: Buffer, signature?: string, mintEventBoundary: EventBoundaryMinter = fakeEventBoundary): Promise<void> {
   const recorder = requireRecorder();
   ctx.response = {};
   withLaunchRecorderOnPath(recorder, () =>
-    dispatchWebhookEvent(fakeRequest(event, signature), recordingResponse(), rawBody, fakeEventBoundary),
+    dispatchWebhookEvent(fakeRequest(event, signature), recordingResponse(), rawBody, mintEventBoundary),
   );
   await settleLaunches(recorder);
 }
 
 /** Snapshots the repository's cron state first, so a log the dispatch creates can be told from one that was already there. */
-async function deliverPayload(event: string, payload: Record<string, unknown>, repoFullName?: string, signingSecret?: string): Promise<void> {
+export async function deliverPayload(
+  event: string,
+  payload: Record<string, unknown>,
+  repoFullName?: string,
+  signingSecret?: string,
+  mintEventBoundary?: EventBoundaryMinter,
+): Promise<void> {
   if (repoFullName) snapshotCronState(repoFullName);
   const rawBody = Buffer.from(JSON.stringify(payload));
-  await deliver(event, rawBody, signingSecret === undefined ? undefined : sign(rawBody, signingSecret));
+  await deliver(event, rawBody, signingSecret === undefined ? undefined : sign(rawBody, signingSecret), mintEventBoundary);
 }
 
 Given('no cron is running for the repository {string}', function (repo: string) {

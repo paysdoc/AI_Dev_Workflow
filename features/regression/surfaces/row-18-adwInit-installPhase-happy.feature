@@ -1,11 +1,11 @@
 @regression @surface
-Feature: adwInit — installPhase — happy path
+Feature: adwBuild — installPhase — happy path
 
-  Scenario: init orchestrator completes install phase and exits successfully
-    Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
-    And an issue 1018 exists in the mock issue tracker
-    And the claude-cli-stub is loaded with fixture "plan-agent.json"
+  No adwInit orchestrator exists. adwBuild runs the install phase under the phase name "install", as adwPatch and adwPrReview do.
+
+  Scenario: build orchestrator's install phase runs in-process and records install_completed
+    Given an issue 1018 exists in the mock issue tracker
     And the worktree for adwId "surface-18" is initialised at branch "surface-18"
-    When the "init" orchestrator is invoked with adwId "surface-18" and issue 1018
-    Then the state file for adwId "surface-18" records workflowStage "awaiting_merge"
-    And the orchestrator subprocess exited 0
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-install-phase.json"
+    When the "install" phase of the "build" orchestrator runs for adwId "surface-18"
+    Then the state file for adwId "surface-18" records workflowStage "install_completed"

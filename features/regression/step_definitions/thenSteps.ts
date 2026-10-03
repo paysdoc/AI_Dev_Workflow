@@ -5,8 +5,10 @@ import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
-import type { RecordedRequest } from '../../../test/mocks/types.ts';
+import type { GitMockInvocation, RecordedRequest } from '../../../test/mocks/types.ts';
+import { readGitMockLog } from '../../../test/mocks/gitMockLog.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
+import { extractTagBlock, scenarioTags } from '../support/gherkinTags.ts';
 import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -239,16 +241,14 @@ Then(
   },
 );
 
-function extractTagBlock(lines: string[], headerIdx: number): string[] {
-  const tags: string[] = [];
-  for (let i = headerIdx - 1; i >= 0; i--) {
-    const trimmed = (lines[i] ?? '').trimStart();
-    if (trimmed.startsWith('@')) {
-      tags.push(...trimmed.split(/\s+/).filter((t) => t.startsWith('@')));
-    } else if (trimmed.length > 0) {
-      break;
-    }
-  }
+const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
+
+/** The scenario's own tags and its Feature's: the sweep writes its marker into the Feature's block. */
+function scenarioTagsInArtefact(world: RegressionWorld, filePath: string, adwId: string, scenarioName: string): string[] {
+  const worktreePath = world.worktreePaths.get(adwId);
+  assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+  const tags = scenarioTags(readFileSync(join(worktreePath, filePath), 'utf-8'), scenarioName);
+  assert.ok(tags, `Scenario named "${scenarioName}" not found in artefact file`);
   return tags;
 }
 
@@ -262,7 +262,6 @@ Then(
     const headerIdx = lines.findIndex((l) => /^\s*Scenario:/.test(l));
     assert.ok(headerIdx >= 0, 'No Scenario: header found in artefact file');
     const tags = extractTagBlock(lines, headerIdx);
-    const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
     const count = tags.filter((t) => SUGGESTION_RE.test(t)).length;
     assert.strictEqual(
       count,
@@ -275,21 +274,11 @@ Then(
 Then(
   'the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}',
   function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
-    const today = new Date().toISOString().slice(0, 10);
-    const expectedTag = `@promotion-suggested-${today}`;
-    const lines = content.split('\n');
-    const headerIdx = lines.findIndex((l) => {
-      const t = l.trimStart();
-      return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
-    });
-    assert.ok(headerIdx >= 0, `Scenario named "${scenarioName}" not found in artefact file`);
-    const tags = extractTagBlock(lines, headerIdx);
+    const tags = scenarioTagsInArtefact(this, filePath, adwId, scenarioName);
+    const expectedTag = `@promotion-suggested-${new Date().toISOString().slice(0, 10)}`;
     assert.ok(
       tags.includes(expectedTag),
-      `Expected tag "${expectedTag}" in tag block of scenario "${scenarioName}" but not found. Tags: ${tags.join(' ')}`,
+      `Expected tag "${expectedTag}" on scenario "${scenarioName}" but not found. Tags: ${tags.join(' ')}`,
     );
   },
 );
@@ -297,21 +286,10 @@ Then(
 Then(
   'the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}',
   function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
-    const lines = content.split('\n');
-    const headerIdx = lines.findIndex((l) => {
-      const t = l.trimStart();
-      return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
-    });
-    assert.ok(headerIdx >= 0, `Scenario named "${scenarioName}" not found in artefact file`);
-    const tags = extractTagBlock(lines, headerIdx);
-    const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
-    const found = tags.some((t) => SUGGESTION_RE.test(t));
+    const tags = scenarioTagsInArtefact(this, filePath, adwId, scenarioName);
     assert.ok(
-      !found,
-      `Expected no @promotion-suggested-* tag in scenario "${scenarioName}" but found one. Tags: ${tags.join(' ')}`,
+      !tags.some((t) => SUGGESTION_RE.test(t)),
+      `Expected no @promotion-suggested-* tag on scenario "${scenarioName}" but found one. Tags: ${tags.join(' ')}`,
     );
   },
 );
@@ -360,15 +338,18 @@ Then(
   },
 );
 
+function describeGitInvocations(invocations: readonly GitMockInvocation[]): string {
+  if (invocations.length === 0) return 'the git-mock recorded no invocation';
+  return `the git-mock recorded: ${invocations.map(({ args }) => args.join(' ')).join('; ')}`;
+}
+
 Then(
   'the git-mock recorded a push to branch {string}',
   function (this: RegressionWorld, branch: string) {
-    // The git-remote-mock's invocation log is not readable here yet, so this step checks branch-name agreement only.
-    assert.strictEqual(
-      this.targetBranch,
-      branch,
-      `Expected push to branch "${branch}" but World.targetBranch is "${this.targetBranch}"`,
-    );
+    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
+    const invocations = readGitMockLog(this.mockContext.gitLogPath);
+    const pushed = invocations.some(({ subcommand, args }) => subcommand === 'push' && args.includes(branch));
+    assert.ok(pushed, `Expected a git push naming the branch "${branch}", but ${describeGitInvocations(invocations)}`);
   },
 );
 

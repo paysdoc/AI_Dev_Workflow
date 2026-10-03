@@ -1,10 +1,12 @@
 /**
  * Wires together the Claude CLI stub, GitHub API mock server, and git remote
  * mock. Provides setup() and teardown() functions for Cucumber Before/After
- * hooks. Environment variable changes are fully reversible.
+ * hooks. Environment variable changes are fully reversible. Each setup gives
+ * the git mock a log of its own (`MockContext.gitLogPath`, named by MOCK_GIT_LOG)
+ * and teardown removes it.
  */
 
-import { mkdtempSync, cpSync, writeFileSync, existsSync } from 'fs';
+import { mkdtempSync, cpSync, writeFileSync, existsSync, rmSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -28,10 +30,17 @@ interface SavedEnv {
   REAL_GIT_PATH: string | undefined;
   MOCK_GITHUB_API_URL: string | undefined;
   MOCK_SERVER_PORT: string | undefined;
+  MOCK_GIT_LOG: string | undefined;
+}
+
+interface GitLog {
+  readonly dir: string;
+  readonly path: string;
 }
 
 let savedEnv: SavedEnv | null = null;
 let gitMockTempDir: string | null = null;
+let gitLog: GitLog | null = null;
 let isSetUp = false;
 
 /** Resolves the real git binary path before PATH is modified. */
@@ -74,7 +83,26 @@ function cleanupGitMockDir(): void {
   gitMockTempDir = null;
 }
 
-function buildContext(port: number): MockContext {
+/** Created empty, so a log nothing was written to still exists: a missing file means the setup was torn down. */
+function createGitLog(): GitLog {
+  const dir = mkdtempSync(join(tmpdir(), 'adw-git-log-'));
+  const path = join(dir, 'invocations.jsonl');
+  writeFileSync(path, '');
+  return { dir, path };
+}
+
+function cleanupGitLog(): void {
+  if (gitLog && existsSync(gitLog.dir)) {
+    try {
+      rmSync(gitLog.dir, { recursive: true, force: true });
+    } catch {
+      // best-effort cleanup
+    }
+  }
+  gitLog = null;
+}
+
+function buildContext(port: number, gitLogPath: string): MockContext {
   const serverUrl = `http://localhost:${port}`;
 
   const setState = async (state: Partial<MockServerState>): Promise<void> => {
@@ -85,16 +113,16 @@ function buildContext(port: number): MockContext {
     await teardownMockInfrastructure();
   };
 
-  return { serverUrl, port, getRecordedRequests, setState, teardown };
+  return { serverUrl, port, gitLogPath, getRecordedRequests, setState, teardown };
 }
 
 /** Idempotent: calling setup twice without teardown returns the existing context. */
 export async function setupMockInfrastructure(
   config?: Partial<MockConfig>,
 ): Promise<MockContext> {
-  if (isSetUp) {
+  if (isSetUp && gitLog) {
     const existingPort = parseInt(process.env['MOCK_SERVER_PORT'] ?? '0', 10);
-    return buildContext(existingPort);
+    return buildContext(existingPort, gitLog.path);
   }
 
   // Save originals before any mutation
@@ -106,6 +134,7 @@ export async function setupMockInfrastructure(
     REAL_GIT_PATH: process.env['REAL_GIT_PATH'],
     MOCK_GITHUB_API_URL: process.env['MOCK_GITHUB_API_URL'],
     MOCK_SERVER_PORT: process.env['MOCK_SERVER_PORT'],
+    MOCK_GIT_LOG: process.env['MOCK_GIT_LOG'],
   };
 
   try {
@@ -120,6 +149,9 @@ export async function setupMockInfrastructure(
     process.env['PATH'] = `${gitMockTempDir}:${originalPath}`;
     process.env['REAL_GIT_PATH'] = realGitPath;
 
+    gitLog = createGitLog();
+    process.env['MOCK_GIT_LOG'] = gitLog.path;
+
     process.env['GH_TOKEN'] = 'mock-token';
     process.env['GH_HOST'] = `localhost:${port}`;
     process.env['MOCK_GITHUB_API_URL'] = url;
@@ -127,7 +159,7 @@ export async function setupMockInfrastructure(
 
     isSetUp = true;
 
-    return buildContext(port);
+    return buildContext(port, gitLog.path);
   } catch (err) {
     // A failure anywhere after the mock server starts must not leak it — stop
     // everything acquired so far before propagating, regardless of isSetUp.
@@ -143,6 +175,7 @@ export async function setupMockInfrastructure(
 export async function teardownMockInfrastructure(): Promise<void> {
   stopMockServer();
   cleanupGitMockDir();
+  cleanupGitLog();
 
   if (savedEnv) {
     for (const [key, value] of Object.entries(savedEnv)) {

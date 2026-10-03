@@ -14,13 +14,19 @@ import type { Issue } from '@paysdoc/devplatform';
 import { executeAlignmentPhase } from '../../../adws/phases/alignmentPhase.ts';
 import { executeBuildPhase } from '../../../adws/phases/buildPhase.ts';
 import { executeDiffEvaluationPhase } from '../../../adws/phases/diffEvaluationPhase.ts';
+import { executeDocumentPhase } from '../../../adws/phases/documentPhase.ts';
+import { executeInstallPhase } from '../../../adws/phases/installPhase.ts';
 import { executePlanPhase } from '../../../adws/phases/planPhase.ts';
 import { executePlanValidationPhase } from '../../../adws/phases/planValidationPhase.ts';
+import { executePRPhase } from '../../../adws/phases/prPhase.ts';
+import { executePRReviewBuildPhase, executePRReviewCommitPushPhase, executePRReviewPlanPhase } from '../../../adws/phases/prReviewPhase.ts';
+import type { PRReviewWorkflowConfig } from '../../../adws/phases/prReviewPhase.ts';
 import { executeReviewPhase } from '../../../adws/phases/reviewPhase.ts';
 import { executeScenarioFixPhase } from '../../../adws/phases/scenarioFixPhase.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
 import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
+import type { PRReviewWorkflowContext } from '../../../adws/forge/workflowCommentsPR.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
 import {
@@ -35,10 +41,10 @@ import {
 } from '../../../adws/core/index.ts';
 import { deriveOrchestratorScript } from '../../../adws/core/orchestratorNames.ts';
 import type { PhaseFn } from '../../../adws/core/phaseRunner.ts';
-import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
 import type { RegressionWorld } from '../step_definitions/world.ts';
 import { HARNESS_GIT_IDENTITY } from './fixtureWorktree.ts';
 import { SURFACE_REPO, mockForgeProviders } from './mockForgeProviders.ts';
+import { seededIssue, seededPullRequest, seededReviewComments } from './seededRecords.ts';
 
 export interface PhaseDefinition {
   readonly fn: PhaseFn;
@@ -50,6 +56,28 @@ export interface OrchestratorDefinition {
   readonly id: OrchestratorIdType;
   readonly issueType: IssueClassSlashCommand;
   readonly phases: Readonly<Record<string, PhaseDefinition>>;
+}
+
+/** adwPrReview hands the build phase the plan phase's output, and the build row runs without the plan phase. */
+export const REVISION_PLAN = '1. Rename the helper as the review comment asks.';
+
+/** `base` is the harness config itself, as the PR-review phases read it from `config.base`. The pull request is the one G-S2 seeded. */
+function prReviewWorkflowConfig(base: WorkflowConfig): PRReviewWorkflowConfig {
+  const prDetails = seededPullRequest();
+  assert.strictEqual(
+    prDetails.sourceBranch,
+    base.branchName,
+    `The pull request is open on the branch "${prDetails.sourceBranch}", but the worktree is on "${base.branchName}". Production checks out the pull request's branch, and a mismatch would push a branch the worktree is not on`,
+  );
+  const unaddressedComments = seededReviewComments(prDetails.number);
+  const ctx: PRReviewWorkflowContext = {
+    issueNumber: base.issueNumber,
+    adwId: base.adwId,
+    prNumber: prDetails.number,
+    reviewComments: unaddressedComments.length,
+    branchName: prDetails.sourceBranch,
+  };
+  return { base, prNumber: prDetails.number, prDetails, unaddressedComments, ctx };
 }
 
 // Orchestrators pass the review the proof path of the scenario run before it, and an empty one when no proof preceded it, as here.
@@ -73,12 +101,21 @@ const fixFailedReviewProof: PhaseFn = (config) => executeScenarioFixPhase(config
 
 const ORCHESTRATORS: Readonly<Record<string, OrchestratorDefinition>> = {
   plan: { id: OrchestratorId.Plan, issueType: '/feature', phases: { plan: { fn: executePlanPhase } } },
-  build: { id: OrchestratorId.Build, issueType: '/feature', phases: { build: { fn: executeBuildPhase, phaseName: 'build' } } },
+  build: {
+    id: OrchestratorId.Build,
+    issueType: '/feature',
+    phases: { install: { fn: executeInstallPhase, phaseName: 'install' }, build: { fn: executeBuildPhase, phaseName: 'build' } },
+  },
   test: { id: OrchestratorId.Test, issueType: '/feature', phases: { 'unit test': { fn: executeUnitTestPhase, phaseName: 'test' } } },
   chore: {
     id: OrchestratorId.Chore,
     issueType: '/chore',
-    phases: { review: { fn: reviewWithoutProof }, 'diff evaluation': { fn: executeDiffEvaluationPhase } },
+    phases: {
+      plan: { fn: executePlanPhase },
+      build: { fn: executeBuildPhase },
+      review: { fn: reviewWithoutProof },
+      'diff evaluation': { fn: executeDiffEvaluationPhase },
+    },
   },
   sdlc: {
     id: OrchestratorId.Sdlc,
@@ -90,6 +127,21 @@ const ORCHESTRATORS: Readonly<Record<string, OrchestratorDefinition>> = {
       review: { fn: reviewWithoutProof },
     },
   },
+  patch: {
+    id: OrchestratorId.Patch,
+    issueType: '/feature',
+    phases: { build: { fn: executeBuildPhase, phaseName: 'build' }, pr: { fn: executePRPhase, phaseName: 'pr' } },
+  },
+  'pr-review': {
+    id: OrchestratorId.PrReview,
+    issueType: '/pr_review',
+    phases: {
+      pr_review_plan: { fn: (config) => executePRReviewPlanPhase(prReviewWorkflowConfig(config)), phaseName: 'pr_review_plan' },
+      pr_review_build: { fn: (config) => executePRReviewBuildPhase(prReviewWorkflowConfig(config), REVISION_PLAN), phaseName: 'pr_review_build' },
+      pr_review_commit_push: { fn: (config) => executePRReviewCommitPushPhase(prReviewWorkflowConfig(config)), phaseName: 'pr_review_commit_push' },
+    },
+  },
+  'plan-build-document': { id: OrchestratorId.PlanBuildDocument, issueType: '/feature', phases: { document: { fn: executeDocumentPhase } } },
 };
 
 // No orchestrator in adws/*.tsx runs these. A row drives one with no phase name, under adwSdlc's identity, the pipeline plan validation was written for.
@@ -119,45 +171,6 @@ export function directPhaseDefinition(phase: string): PhaseDefinition {
   const definition = DIRECT_PHASES[phase];
   assert.ok(definition, `Unknown direct phase "${phase}". No orchestrator runs: ${Object.keys(DIRECT_PHASES).join(', ')}`);
   return definition;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function labelName(label: unknown): string {
-  if (typeof label === 'string') return label;
-  return isRecord(label) && typeof label['name'] === 'string' ? label['name'] : '';
-}
-
-function toPortIssue(key: string, raw: unknown): Issue {
-  const record = isRecord(raw) ? raw : {};
-  const user = isRecord(record['user']) ? record['user'] : {};
-  const number = Number(record['number'] ?? key);
-  return {
-    id: String(record['id'] ?? number),
-    number,
-    title: String(record['title'] ?? ''),
-    body: String(record['body'] ?? ''),
-    state: String(record['state'] ?? 'open'),
-    author: String(user['login'] ?? ''),
-    labels: (Array.isArray(record['labels']) ? record['labels'] : []).map(labelName).filter(Boolean),
-    comments: [],
-    createdAt: typeof record['created_at'] === 'string' ? record['created_at'] : new Date(0).toISOString(),
-    url: `https://github.com/${SURFACE_REPO.owner}/${SURFACE_REPO.repo}/issues/${number}`,
-  };
-}
-
-/** G4 replaces the whole issue map, so after it the server holds exactly the issue the row seeded. */
-function seededIssue(): Issue {
-  const entries = Object.entries(getMockServerState().issues);
-  assert.strictEqual(
-    entries.length,
-    1,
-    `Expected the mock issue tracker to hold exactly the issue G4 seeded, but it holds: ${entries.map(([key]) => key).join(', ') || 'none'}`,
-  );
-  const [key, raw] = entries[0];
-  return toPortIssue(key, raw);
 }
 
 function removeOnCleanup(world: RegressionWorld, path: string): void {
@@ -193,8 +206,9 @@ function writeInitialTopLevelState(adwId: string, issue: Issue, orchestratorId: 
   });
 }
 
-export function buildPhaseConfig(world: RegressionWorld, adwId: string, orchestratorName: string): WorkflowConfig {
-  const { id, issueType } = orchestratorDefinition(orchestratorName);
+/** `launch` is what an orchestrator contributes to its config, so a run no orchestrator makes can name an id of its own. */
+export function buildConfigFor(world: RegressionWorld, adwId: string, launch: Pick<OrchestratorDefinition, 'id' | 'issueType'>): WorkflowConfig {
+  const { id, issueType } = launch;
   const worktreePath = world.worktreePaths.get(adwId);
   assert.ok(worktreePath, `No worktree is registered for adwId "${adwId}": G11 must initialise it first`);
   assert.match(adwId, SURFACE_ADW_ID, `Only a surface adwId (surface-…) may be run in-process, since its agents/<adwId>/ directory is cleared; got "${adwId}"`);
@@ -233,4 +247,8 @@ export function buildPhaseConfig(world: RegressionWorld, adwId: string, orchestr
     topLevelStatePath: AgentStateManager.getTopLevelStatePath(adwId),
     gitContext,
   };
+}
+
+export function buildPhaseConfig(world: RegressionWorld, adwId: string, orchestratorName: string): WorkflowConfig {
+  return buildConfigFor(world, adwId, orchestratorDefinition(orchestratorName));
 }

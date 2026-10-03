@@ -1,6 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
+ * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--issue-type <type>] [--cwd <path>]
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
@@ -72,15 +72,16 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
-  const { issueNumber, adwId, cwd } = parseOrchestratorArguments(args, {
+  const { issueNumber, adwId, cwd, providedIssueType } = parseOrchestratorArguments(args, {
     scriptName: 'adwPatch.tsx',
-    usagePattern: '<issueNumber> [adw-id] [--cwd <path>]',
-    supportsIssueType: false,
+    usagePattern: '<issueNumber> [adw-id] [--issue-type <type>] [--cwd <path>]',
+    supportsIssueType: true,
     supportsCwd: true,
   });
   const repoId = buildRepoIdentifier(targetRepo);
 
   const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Patch, {
+    issueType: providedIssueType || undefined,
     targetRepo: targetRepo || undefined,
     repoId,
     cwd: cwd || undefined,

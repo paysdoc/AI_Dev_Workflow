@@ -7,7 +7,7 @@ import { isProcessLive } from '../../../adws/core/processLiveness.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import { readSpawnLockRecord } from '../../../adws/triggers/spawnGate.ts';
 import { commitFileOnBranch } from '../support/fixtureWorktree.ts';
-import { SURFACE_REPO, runDirectSurfacePhase, runSurfaceLifecycle, runSurfacePhase } from '../support/phaseRun.ts';
+import { SURFACE_REPO, runDirectSurfacePhase, runSurfaceDepauditSetup, runSurfaceLifecycle, runSurfacePhase } from '../support/phaseRun.ts';
 import type { LifecycleOutcome, PhaseOutcome, RegressionWorld } from './world.ts';
 
 function describeEnd({ resolved, error, exitCode }: PhaseOutcome): string {
@@ -80,6 +80,13 @@ When(
   },
 );
 
+When(
+  'the dependency-audit setup runs for adwId {string} on a host whose environment sets every secret it propagates',
+  async function (this: RegressionWorld, adwId: string) {
+    this.depauditOutcome = await runSurfaceDepauditSetup(this, adwId);
+  },
+);
+
 Given(
   'the worktree for adwId {string} has the plan for issue {int} committed on its branch',
   function (this: RegressionWorld, adwId: string, issueNumber: number) {
@@ -129,6 +136,31 @@ Given(
       ].join('\n'),
       'step definitions: add the surface step definitions',
     );
+  },
+);
+
+Given(
+  'a pull request {int} for issue {int} is open on the branch {string} with a review comment to address',
+  async function (this: RegressionWorld, prNumber: number, issueNumber: number, branch: string) {
+    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
+    await this.mockContext.setState({
+      prs: {
+        [String(prNumber)]: {
+          number: prNumber,
+          title: `Issue ${issueNumber}`,
+          body: `Implements #${issueNumber}`,
+          state: 'OPEN',
+          headRefName: branch,
+          baseRefName: 'main',
+          url: `https://github.com/${SURFACE_REPO.owner}/${SURFACE_REPO.repo}/pull/${prNumber}`,
+        },
+      },
+      comments: {
+        [String(prNumber)]: [
+          { id: 1, body: 'Please rename the helper to say what it builds.', user: { login: 'reviewer' }, created_at: new Date(0).toISOString() },
+        ],
+      },
+    });
   },
 );
 
@@ -198,5 +230,44 @@ Then(
       (request) => request.method === 'POST' && request.url.includes(`/issues/${issueNumber}/comments`) && commentBodyContains(request.body, text),
     );
     assert.strictEqual(posts.length, 0, `Expected zero comment posts on issue ${issueNumber} containing "${text}", but recorded ${posts.length}`);
+  },
+);
+
+Then(
+  'the dependency-audit setup ran the command {string} in the worktree for adwId {string}',
+  function (this: RegressionWorld, command: string, adwId: string) {
+    const { depauditOutcome: outcome } = this;
+    assert.ok(outcome, 'Expected the dependency-audit setup to have been run first');
+    assert.strictEqual(outcome.adwId, adwId, `Expected the setup that ran to be for adwId "${adwId}", but it was for "${outcome.adwId}"`);
+    assert.strictEqual(outcome.error, undefined, `Expected the setup to finish, but it failed with ${String(outcome.error)}`);
+    assert.ok(outcome.result, 'Expected the setup to return its result');
+
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree is registered for adwId "${adwId}": G11 must initialise it first`);
+    const ran = outcome.execCalls.some((call) => call.command === command && call.cwd === worktreePath);
+    assert.ok(ran, `Expected the setup to run "${command}" in ${worktreePath}, but it ran: ${outcome.execCalls.map((call) => `"${call.command}" in ${call.cwd}`).join('; ') || 'nothing'}`);
+  },
+);
+
+Then(
+  'the mock GitHub API recorded a comment on pull request {int} containing the text {string}',
+  function (this: RegressionWorld, prNumber: number, text: string) {
+    const posts = this.getRecordedRequests().filter((request) => request.method === 'POST' && request.url.includes(`/issues/${prNumber}/comments`));
+    assert.ok(
+      posts.some((request) => commentBodyContains(request.body, text)),
+      `Expected a comment on pull request ${prNumber} containing "${text}", but recorded ${posts.length} comment post(s) for it`,
+    );
+  },
+);
+
+Then(
+  'the mock GitHub API recorded the Actions secret {string} set on the repository {string}',
+  function (this: RegressionWorld, secretName: string, repoFullName: string) {
+    const expectedUrl = `/repos/${repoFullName}/actions/secrets/${secretName}`;
+    const puts = this.getRecordedRequests().filter((request) => request.method === 'PUT');
+    assert.ok(
+      puts.some((request) => request.url === expectedUrl),
+      `Expected a PUT to ${expectedUrl}, but the recorded PUTs are: ${puts.map((request) => request.url).join(', ') || 'none'}`,
+    );
   },
 );

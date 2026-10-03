@@ -25,7 +25,8 @@ import {
 } from '../../support/cucumberChildRun.ts';
 
 // Never @adw-960: the flagged scenarios of features 908, 912 and 927 carry that tag and must not run these hooks.
-const HOOK_TAG = '@adw-f2mx98-bug-regression-then';
+// Feature-966 reuses this file's throwaway-feature phrases, whose scratch directory only this After hook removes.
+const HOOK_TAG = '@adw-f2mx98-bug-regression-then or @adw-p5u9xh-bug-build-the-hermet';
 
 // `agents/` also holds the state of real workflows, so only adwIds made up for this feature may be seeded or cleared.
 const THROWAWAY_ADW_ID = /^throwaway960-[a-z0-9-]+$/;
@@ -168,10 +169,17 @@ function assertAllReportedPending(scenarios: readonly ScenarioOutcome[], which: 
   );
 }
 
+/** A row names a feature file of the surface or the smoke directory. */
+function isScenarioOfRow(scenario: ScenarioOutcome, row: string): boolean {
+  return [SURFACE_DIRECTORY, SMOKE_DIRECTORY].some((directory) => scenario.uri.endsWith(`${directory}${row}`));
+}
+
+/** A smoke file may hold several scenarios, such as one per case of a threshold: each must pass. */
 function assertRowPasses(scenarios: readonly ScenarioOutcome[], row: string): void {
-  const rowScenarios = scenarios.filter((scenario) => scenario.uri.endsWith(`${SURFACE_DIRECTORY}${row}`));
-  assert.strictEqual(rowScenarios.length, 1, `Expected exactly one scenario from ${row}, but the child ran ${rowScenarios.length}`);
-  assert.ok(verdictHolds(rowScenarios[0], 'passes'), `Expected ${row} to pass, but the child Cucumber run reported:\n${describeScenario(rowScenarios[0])}`);
+  const rowScenarios = scenarios.filter((scenario) => isScenarioOfRow(scenario, row));
+  assert.ok(rowScenarios.length > 0, `Expected the child to run at least one scenario from ${row}, but it ran none`);
+  const failing = rowScenarios.filter((scenario) => !verdictHolds(scenario, 'passes'));
+  assert.deepStrictEqual(failing.map(describeScenario), [], `Expected every scenario of ${row} to pass, but the child Cucumber run reported otherwise`);
 }
 
 Then('every smoke and surface scenario is reported pending', function () {
@@ -180,13 +188,13 @@ Then('every smoke and surface scenario is reported pending', function () {
   assertAllReportedPending(scenarios, `all ${scenarios.length} smoke and surface scenarios`);
 });
 
-Then('every smoke and surface scenario is reported pending, except these surface rows, which pass:', function (table: DataTable) {
+Then('every smoke and surface scenario is reported pending, except these surface rows and smoke files, which pass:', function (table: DataTable) {
   const scenarios = ranScenarios();
   [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
 
   const rows = table.hashes().map(({ row }) => row);
   rows.forEach((row) => assertRowPasses(scenarios, row));
 
-  const parked = scenarios.filter((scenario) => !rows.some((row) => scenario.uri.endsWith(`${SURFACE_DIRECTORY}${row}`)));
-  assertAllReportedPending(parked, `every one of the ${parked.length} smoke and surface scenarios other than those ${rows.length} rows`);
+  const parked = scenarios.filter((scenario) => !rows.some((row) => isScenarioOfRow(scenario, row)));
+  assertAllReportedPending(parked, `every one of the ${parked.length} smoke and surface scenarios other than the ${rows.length} rows and files listed`);
 });

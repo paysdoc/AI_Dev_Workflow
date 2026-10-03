@@ -32,6 +32,15 @@ export interface MockServerState {
   comments: Record<string, unknown[]>;
   /** Map of issue number string → array of label objects. */
   labels: Record<string, unknown[]>;
+  /** Map of Actions secret name → its metadata (name and timestamps). Never the value. */
+  secrets: Record<string, unknown>;
+}
+
+/** One network subcommand the git-mock intercepted: `args` is everything after `git`, the subcommand included. */
+export interface GitMockInvocation {
+  readonly subcommand: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
 }
 
 export interface FixtureRepoContext {
@@ -44,6 +53,8 @@ export interface MockContext {
   /** Base URL of the GitHub API mock server, e.g. http://localhost:3456. */
   serverUrl: string;
   port: number;
+  /** The git-mock's invocation log for this setup; MOCK_GIT_LOG names it, and teardown removes it. */
+  gitLogPath: string;
   /** Returns all requests recorded since last reset. */
   getRecordedRequests: () => RecordedRequest[];
   setState: (state: Partial<MockServerState>) => Promise<void>;

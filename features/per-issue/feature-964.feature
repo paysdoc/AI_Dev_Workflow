@@ -65,8 +65,8 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
        scenarios are aligned." under the same heading.
    11. G13 is registered, but it has no step definition and its fixture directory,
        `test/fixtures/scenarios/promotion/`, does not exist. No registered Given puts a scenario
-       for the issue into a worktree, so G-S2 is added. None gives the worktree a step
-       definition, so G-S3 is added.
+       for the issue into a worktree, so G-S3 is added. None gives the worktree a step
+       definition, so G-S4 is added.
 
   The scenarios drive each phase as one orchestrator that runs it in production, and the rows
   can follow them:
@@ -88,7 +88,7 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
 
     §2  A PHASE RUNS ONLY AS AN ORCHESTRATOR THAT RUNS IT. W-S1 refuses a phase under an
         orchestrator that does not run it in production, or that does not exist, so no row can
-        claim a wiring that production lacks. W-S3 drives directly only a phase that no
+        claim a wiring that production lacks. W-S4 drives directly only a phase that no
         orchestrator runs.
 
     §3  EACH PHASE PRODUCES WHAT THE CODE PRODUCES. One throwaway regression scenario per path,
@@ -104,8 +104,8 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
   Each scenario is written to fail for a specific wrong implementation:
     • §1 fails while any of the eleven rows is pending or failing or takes 5 seconds or more,
       and when the change breaks one of the six rows #963 moved;
-    • each §2 refusal fails for a W-S1 that runs that phase under that orchestrator; the W-S3
-      refusal fails for a W-S3 that runs any phase it is given;
+    • each §2 refusal fails for a W-S1 that runs that phase under that orchestrator; the W-S4
+      refusal fails for a W-S4 that runs any phase it is given;
     • the unit test row fails for a run under no phase name or under another one, and for a
       mock forge that still refuses `applyLabel`;
     • the rows that read the stage `starting` fail for a run under a phase name;
@@ -128,7 +128,7 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
   property of the rows' text. Its behavioural counterparts are §4 and the Then steps the rows
   use: each reads the top-level state, which the refusal guard stops a manifest from writing,
   the requests the mock GitHub API recorded, or the outcome and scenario proof that W-S1 and
-  W-S3 keep in memory. The rest of AC3, that every scenario passing on `dev` still passes, needs
+  W-S4 keep in memory. The rest of AC3, that every scenario passing on `dev` still passes, needs
   a whole-suite comparison before and after the change, which belongs to the plan's validation
   commands. The vocabulary entries are documentation; no scenario reads the registry.
 
@@ -153,15 +153,15 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
       every other pair before it builds a config.
     • W-S1 keeps the scenario proof the phase leaves on the workflow context
       (`config.ctx.scenarioProof`, set by the scenario test phase to the proof it returns) as
-      `World.scenarioProofResult`, which T-PY3, T-S8 and T-S9 read.
-    • W-S3 runs, through `runPhase` and under no phase name, only a phase that no orchestrator
+      `World.scenarioProofResult`, which T-PY3, T-S11 and T-S12 read.
+    • W-S4 runs, through `runPhase` and under no phase name, only a phase that no orchestrator
       runs: today the plan validation phase. It refuses any other phase.
     • `mockForgeProviders` gains `applyLabel` and nothing else. Through `dispatchMockRequest`,
       as `commentOnIssue` does, it records `POST /repos/acme/widgets/issues/<n>/labels` with
       the body `{"labels":[<label>]}`, which T12 reads.
-    • G-S2 commits `features/feature-<issue>.feature`, tagged `@adw-<issue>`, in the fixture's
+    • G-S3 commits `features/feature-<issue>.feature`, tagged `@adw-<issue>`, in the fixture's
       `## Scenario Directory`, `features/`; `findScenarioFiles` searches the whole worktree.
-      G-S3 commits a `.ts` file under `features/step_definitions/`, the step definition
+      G-S4 commits a `.ts` file under `features/step_definitions/`, the step definition
       directory that the fixture's `.adw/scenarios.md` leaves at its default.
     • The new manifests sit under `test/fixtures/jsonl/manifests/`. Each answers its command
       through a `byCommand` entry, as `surface-plan-phase.json` does, with a result text under
@@ -177,18 +177,18 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
           and no change;
         – `surface-plan-validation-phase.json`: /validate_plan_scenarios, `aligned: true` and
           no mismatch.
-    • T-S7 holds when T-S2 holds and the error's message contains the text.
+    • T-S10 holds when T-S2 holds and the error's message contains the text.
 
   Vocabulary note. These registered phrases are reused: G3, G4, G11, G18, G-S1, W-S1, T1, T3,
   T12, T14, T22, T-S1, T-S6 and T-PY3 (`the scenario proof records no blocker failures`). The
   registry has no phrase for the following, so these regression phrases are new. They appear
   inside the throwaway scenarios and are to be registered under "Surface phases and lifecycles":
-    • G-S2 `the worktree for adwId {string} has a scenario for issue {int} committed on its branch`
-    • G-S3 `the worktree for adwId {string} has step definitions committed on its branch`
-    • W-S3 `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}`
-    • T-S7 `the {string} phase run failed with an error that names {string}`
-    • T-S8 `the scenario proof ran no tag`
-    • T-S9 `the scenario proof records a blocker failure for the tag {string}`
+    • G-S3 `the worktree for adwId {string} has a scenario for issue {int} committed on its branch`
+    • G-S4 `the worktree for adwId {string} has step definitions committed on its branch`
+    • W-S4 `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}`
+    • T-S10 `the {string} phase run failed with an error that names {string}`
+    • T-S11 `the scenario proof ran no tag`
+    • T-S12 `the scenario proof records a blocker failure for the tag {string}`
   The per-issue phrases outside the throwaway scenarios are feature-963's: the throwaway
   regression scenario and its verdicts, the two surface runs, the per-row table, the
   temporary-directory check and the manifest sweep.
@@ -248,7 +248,7 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
       | plan validation | sdlc         | no orchestrator runs the plan validation phase              |
 
   @adw-964 @adw-n5cfq2-bug-move-the-test-re
-  Scenario: Under the @regression hooks, W-S3 refuses to run the review phase directly, since five orchestrators, adwSdlc among them, run it
+  Scenario: Under the @regression hooks, W-S4 refuses to run the review phase directly, since five orchestrators, adwSdlc among them, run it
     Given a throwaway regression scenario with the steps:
       """
       Given an issue 9651 exists in the mock issue tracker
@@ -466,5 +466,5 @@ Feature: The test, review, alignment and diff-evaluation surface rows run in-pro
   # ── §5 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 
   @adw-964 @adw-n5cfq2-bug-move-the-test-re
-  Scenario: TypeScript type-check passes with the eleven rows on the phase harness, the new W-S1 pairs, W-S3 and the recording applyLabel in place
+  Scenario: TypeScript type-check passes with the eleven rows on the phase harness, the new W-S1 pairs, W-S4 and the recording applyLabel in place
     Then the ADW TypeScript type-check passes

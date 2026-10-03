@@ -1,0 +1,43 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface patch-run stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/patch": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"# Patch Plan: surface patch run for issue 1016\\n\\n## Steps\\n1. Add src/surfacePatch.ts\\n2. Export the patched value\\n\"}]\n"
+        }
+      ]
+    },
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The patch for issue 1016 was implemented.\\n\"}]\n"
+        },
+        {
+          "path": "src/surfacePatch.ts",
+          "contents": "// Surface patch-run stub — gives the commit agent a real change to commit.\nexport function surfacePatch(): string {\n  return 'patched';\n}\n"
+        }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"fix: surface patch run for issue #1016\\\",\\\"body\\\":\\\"Implements #1016\\\\n\\\\nThe surface patch run's pull request.\\\"}\"}]\n"
+        }
+      ]
+    }
+  }
+}

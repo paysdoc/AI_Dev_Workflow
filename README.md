@@ -353,6 +353,9 @@ NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"
 
 # Run a specific tag
 NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@mock-infrastructure"
+
+# Run the subprocess surface rows: real ADW processes behind the hermetic subprocess harness
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@surface and @subprocess"
 ```
 
 ### Docker (optional)
@@ -807,7 +810,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
-│   │   ├── startupFailureLog.test.ts
 │   │   ├── workflowInit.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
@@ -882,7 +884,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
-│   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
@@ -1093,6 +1094,8 @@ test/                   # Integration test infrastructure
 │   │   ├── fixtures/
 │   │   │   └── manifestHarness.ts  # Shared harness for the manifest interpreter tests
 │   │   ├── claude-cli-stub.test.ts
+│   │   ├── ghShadowLanding.test.ts
+│   │   ├── gitRemoteMock.test.ts
 │   │   ├── manifestByCommand.test.ts
 │   │   ├── manifestInterpreter.test.ts
 │   │   ├── manifestInterpreterGit.test.ts
@@ -1100,14 +1103,23 @@ test/                   # Integration test infrastructure
 │   │   ├── mockServerDispatch.test.ts
 │   │   ├── stubErrorAndFlags.test.ts
 │   │   └── test-harness.test.ts
-│   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response)
+│   ├── claude-cli-stub.ts      # Claude CLI process stub (incl. on-demand rate-limited response; finds its marker manifest in its cwd or the nearest directory above it)
+│   ├── gh-cli-shadow.ts        # `gh` CLI shadow run behind a /bin/sh wrapper named `gh`: answers reads from a forge state file, logs each write as the REST request it stands for, refuses every other call
+│   ├── ghShadowArgs.ts         # Pure: the shadow's outcome types and flag parser
+│   ├── ghShadowCommands.ts     # Pure: routes one `gh` call to its read or write handler, or refuses it
+│   ├── ghShadowLanding.ts      # Pure: lands a shadowed PR merge onto the fixture remote so later reads see the merged state
+│   ├── ghShadowReads.ts        # Pure: the shadow's reads (token, repo, issue and PR view and list, `api` GETs)
+│   ├── ghShadowState.ts        # Pure: the gh-shaped forge state, its normalisation from the mock server's state, and the `--json` projection
+│   ├── ghShadowWrites.ts       # Pure: the shadow's writes (comments, labels, issue and PR create, edit, close, merge and review, secrets)
 │   ├── git-remote-mock.ts      # Git remote mock
+│   ├── gitMockLog.ts           # The git mock's JSON-lines invocation log, appended by git-remote-mock.ts and read back by push-asserting steps
 │   ├── gitContextFixture.ts    # Shared GitContext test fixture builder
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
 │   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing (incl. per-command lookup)
 │   ├── manifestRefusalGuard.ts # Guard that refuses manifests which would mask a stub failure
 │   ├── manifestSchema.ts       # Manifest shape and validation
 │   ├── stubArgs.ts             # Claude CLI stub argument parsing
+│   ├── stubMarker.ts           # Pure upward lookup of the stub's `.adw-stub-manifest.json` marker from a directory to the filesystem root
 │   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
@@ -1122,14 +1134,15 @@ cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue scenarios — run by their own workflow's test phase only; swept 14 days after PR merges
 │   ├── step_definitions/  # Per-issue step definition files
-│   └── support/        # Per-issue Cucumber support (e.g. feature-846-ensure-driver.ts)
+│   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts, feature-936-commit-driver.ts, feature-936-cost-section-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
+│   ├── drivers/        # Scripts the subprocess harness runs as child processes (the workflow-init driver); outside the support and step-definition directories, which Cucumber imports
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv
+│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; gherkinTags.ts parses scenario tags for the harness
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
 │   ├── webhook/        # Regression scenarios covering the webhook launching a cron for every accepted event that names a repository
