@@ -8,7 +8,7 @@ provenance:
   - kind: contemporaneous
     source: specs/issue-121-adw-1773131354028-eosfan-sdlc_planner-adw-provider-config.md (issue #121, merged as PR #133 on 2026-03-12)
 supersedes: []
-superseded-by: []
+superseded-by: ["0058"]
 ---
 
 # Each target repository describes itself in a `.adw/` directory of Markdown files
@@ -65,3 +65,4 @@ No CI gate checks that a target's `.adw/` is complete.
 * Not all per-repository settings live in `.adw/`. `adws/core/adwYmlConfig.ts` reads the flags `hitl`, `unitTests` and `guardrails` from `.github/adw.yml`; see [ADR-0043](0043-multi-language-test-seam.md) and [ADR-0050](0050-target-repo-guardrails.md).
 * The `adwInit.tsx` orchestrator that issue #18 introduced was deleted on 2026-06-08 (commit 1122ba61). The `/adw_init` command remains and is run by `adwUpgrade.tsx`.
 * The default commands are now `bun` commands ([ADR-0009](0009-bun-as-package-manager-node-as-runtime.md)), not the npm values of February 2026.
+* Superseded in part by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md): `review_proof.md` is no longer one of the `.adw/` files. The directory and the other files stand.

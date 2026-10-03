@@ -4,7 +4,7 @@ One record per design decision, including decisions that were later replaced. Re
 
 New records are written with the `write-an-adr` skill (`.claude/skills/write-an-adr/`), which holds the template and the rules for numbering, provenance and supersession.
 
-Records 0001 to 0055 were written on 2026-09-29, after the fact. Each one states where its reasoning comes from: a document written at the time, a document written later, the owner's words in a saved session, or the owner's memory on the day of asking. The owner ruled on the open findings of those records between 2026-09-29 and 2026-10-01; two decisions made during that review are records 0056 and 0057. A record with a `## Divergence` section describes a decision the code does not currently follow.
+Records 0001 to 0055 were written on 2026-09-29, after the fact. Each one states where its reasoning comes from: a document written at the time, a document written later, the owner's words in a saved session, or the owner's memory on the day of asking. The owner ruled on the open findings of those records between 2026-09-29 and 2026-10-01; two decisions made during that review are records 0056 and 0057. Records 0058 to 0063 are the decisions of the review-proof redesign session of 2026-10-01 to 2026-10-04; they are not yet implemented and `specs/prd/review-proof-redesign.md` carries the work. A record with a `## Divergence` section describes a decision the code does not currently follow.
 
 Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are recorded in those repositories.
 
@@ -14,7 +14,7 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0002](0002-worktree-per-issue.md) | 2026-02-24 | One git worktree per issue | accepted |
 | [0003](0003-external-target-repo-workspaces.md) | 2026-02-25 | ADW runs from its own repository against target repositories cloned into external workspaces | accepted |
 | [0004](0004-cost-records-as-csv-in-git.md) | 2026-02-25 | Cost records as CSV files committed to the ADW repository | superseded by [ADR-0026](0026-cost-computed-locally-persisted-in-d1.md) |
-| [0005](0005-adw-directory-config-per-target-repo.md) | 2026-02-26 | Each target repository describes itself in a `.adw/` directory of Markdown files | accepted |
+| [0005](0005-adw-directory-config-per-target-repo.md) | 2026-02-26 | Each target repository describes itself in a `.adw/` directory of Markdown files | accepted, in part superseded by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) |
 | [0006](0006-global-target-repo-registry.md) | 2026-03-01 | A global registry holds the target repository for the process | superseded by [ADR-0011](0011-provider-ports-and-immutable-repo-context.md) |
 | [0007](0007-regex-only-issue-classification.md) | 2026-03-01 | Extract ADW commands and adwId from issue text by regex, not by an LLM | superseded by [ADR-0041](0041-label-based-classification.md) |
 | [0008](0008-webhook-endpoint-via-cloudflare-tunnel.md) | 2026-03-04 | Webhook endpoint through a Cloudflare Tunnel, with signed payloads | accepted |
@@ -31,7 +31,7 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0019](0019-dev-and-main-branches-with-runner-clone.md) | 2026-03-19 | Pipeline work lands on `dev`; the runner executes a separate clone of `main` | accepted |
 | [0020](0020-shared-phase-runner-and-core-decomposition.md) | 2026-03-22 | Phases run through a shared phase runner, and the core is split into single-purpose modules | accepted |
 | [0021](0021-behavioural-test-harness-with-mocked-boundaries.md) | 2026-03-23 | Behavioural test harness with mocked external boundaries | accepted |
-| [0022](0022-review-proof-in-r2-behind-router-worker.md) | 2026-03-24 | Proof images stored in R2 and served by a router Worker | accepted |
+| [0022](0022-review-proof-in-r2-behind-router-worker.md) | 2026-03-24 | Proof images stored in R2 and served by a router Worker | accepted, in part superseded by [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md) |
 | [0023](0023-context-exhaustion-is-a-reset.md) | 2026-03-25 | Context exhaustion restarts the agent with fresh context; git state carries the work over | accepted |
 | [0024](0024-tdd-in-build-phase-single-pass-alignment.md) | 2026-03-25 | TDD in the build phase and single-pass plan-scenario alignment | accepted, in part superseded by [ADR-0031](0031-active-test-phase-passive-review-judge.md) |
 | [0025](0025-rate-limit-pause-and-resume-queue.md) | 2026-03-26 | A rate-limited workflow pauses into a queue and is resumed by the cron trigger | accepted, in part superseded by [ADR-0055](0055-rate-limit-structured-signals-two-tier-wait.md) |
@@ -40,7 +40,7 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0028](0028-orchestrators-stop-at-awaiting-merge.md) | 2026-04-03 | Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator | accepted |
 | [0029](0029-top-level-state-file-as-source-of-truth.md) | 2026-04-03 | One top-level state file per adwId is the source of truth for workflow state | accepted |
 | [0030](0030-cloudflare-dns-managed-by-hand.md) | 2026-04-08 | Cloudflare DNS records managed by hand | accepted |
-| [0031](0031-active-test-phase-passive-review-judge.md) | 2026-04-08 | Active test phase, passive review judge | accepted |
+| [0031](0031-active-test-phase-passive-review-judge.md) | 2026-04-08 | Active test phase, passive review judge | accepted, in part superseded by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md), [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) and [ADR-0062](0062-dev-server-start-failure-is-a-failed-review.md) |
 | [0032](0032-explicit-cancel-and-retry-directives.md) | 2026-04-09 | A human steers a workflow with `## Cancel` and `## Retry` comments | accepted |
 | [0033](0033-depaudit-as-dependency-gate.md) | 2026-04-17 | depaudit as the dependency gate for ADW-managed repositories | deferred |
 | [0034](0034-coordination-kernel.md) | 2026-04-20 | A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote | accepted |
@@ -52,7 +52,7 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0040](0040-scenario-promotion-by-tag-edit.md) | 2026-05-21 | Scenario promotion by tag edit on the per-issue PR | superseded by [ADR-0049](0049-promotion-sweep-files-human-gated-issue.md) |
 | [0041](0041-label-based-classification.md) | 2026-06-08 | Issues are classified by `adw:*` labels; issue text never triggers a workflow | accepted |
 | [0042](0042-hash-versioned-self-upgrade.md) | 2026-06-08 | Target repos upgrade themselves when the framework hash changes | accepted |
-| [0043](0043-multi-language-test-seam.md) | 2026-06-15 | Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail | accepted |
+| [0043](0043-multi-language-test-seam.md) | 2026-06-15 | Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail | accepted, in part superseded by [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) and [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md) |
 | [0044](0044-living-docs-per-module.md) | 2026-06-17 | One living doc per module, rewritten in place | accepted, in part superseded by [ADR-0053](0053-docs-index-health-gate-and-sweep.md) |
 | [0045](0045-kpi-module-removed.md) | 2026-06-17 | KPI module removed | accepted |
 | [0046](0046-gitcontext-as-sole-git-authority.md) | 2026-06-19 | GitContext is the only way to run git or gh | accepted |
@@ -67,3 +67,9 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0055](0055-rate-limit-structured-signals-two-tier-wait.md) | 2026-09-25 | Rate limits are read from structured signals and waited out without limit, in the process or in the queue | accepted |
 | [0056](0056-planner-commits-only-the-plan.md) | 2026-10-01 | The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it | accepted |
 | [0057](0057-subscription-by-default-api-key-by-choice.md) | 2026-10-01 | The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key | accepted |
+| [0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) | 2026-10-01 | Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone | accepted |
+| [0059](0059-fix-loops-no-progress-stop-and-suppression-guard.md) | 2026-10-02 | Static-check fixes are retried until they stop making progress and may not suppress; test fix loops keep their caps | accepted |
+| [0060](0060-baseline-gate-on-the-base-branch.md) | 2026-10-02 | A red base branch parks the issue before any work; pre-existing failures are not the fix agent's job | accepted |
+| [0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) | 2026-10-02 | The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project | accepted |
+| [0062](0062-dev-server-start-failure-is-a-failed-review.md) | 2026-10-02 | A dev server that will not start on the issue branch is a failed review; a successful start resets the count | accepted |
+| [0063](0063-per-issue-scenario-images-are-the-visual-evidence.md) | 2026-10-04 | Every per-issue scenario image in a `web` repository is visual evidence; the reviewer judges it before the pull request exists | accepted |
