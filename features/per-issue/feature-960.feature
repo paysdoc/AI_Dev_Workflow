@@ -354,17 +354,28 @@ Feature: Regression steps T1 and T5 judge runtime artefacts only, so outside the
 
   # ── §6 PENDING STAYS PENDING ────────────────────────────────────────────────────────────────
 
-  @adw-960 @adw-f2mx98-bug-regression-then @adw-963
-  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the six surface rows that run in-process, which pass
+  @adw-960 @adw-f2mx98-bug-regression-then @adw-963 @adw-964
+  Scenario: The regression suite's smoke and surface scenarios are all still reported pending, except the surface rows that run in-process, which pass
     When the regression suite's smoke and surface scenarios are run through Cucumber
     Then every smoke and surface scenario is reported pending, except these surface rows, which pass:
-      | row                                                    |
-      | row-02-adwPlan-planPhase-happy.feature                 |
-      | row-03-adwPlan-planPhase-error-stub-failure.feature    |
-      | row-04-adwBuild-buildPhase-happy.feature               |
-      | row-05-adwBuild-buildPhase-edge-missing-lock.feature   |
-      | row-31-adwPlan-orchestratorLock-acquired-happy.feature |
-      | row-32-adwBuild-orchestratorLock-re-entry-edge.feature |
+      | row                                                        |
+      | row-02-adwPlan-planPhase-happy.feature                     |
+      | row-03-adwPlan-planPhase-error-stub-failure.feature        |
+      | row-04-adwBuild-buildPhase-happy.feature                   |
+      | row-05-adwBuild-buildPhase-edge-missing-lock.feature       |
+      | row-06-adwBuild-unitTestPhase-happy.feature                |
+      | row-07-adwReview-reviewPhase-happy.feature                 |
+      | row-08-adwReview-reviewPhase-error-review-rejected.feature |
+      | row-09-adwReview-diffEvaluationPhase-happy.feature         |
+      | row-15-adwChore-reviewPhase-happy.feature                  |
+      | row-20-adwTest-unitTestPhase-happy.feature                 |
+      | row-21-adwTest-scenarioTestPhase-happy.feature             |
+      | row-22-adwTest-scenarioProof-happy.feature                 |
+      | row-23-adwTest-scenarioFixPhase-error.feature              |
+      | row-31-adwPlan-orchestratorLock-acquired-happy.feature     |
+      | row-32-adwBuild-orchestratorLock-re-entry-edge.feature     |
+      | row-33-adwReview-planValidationPhase-happy.feature         |
+      | row-34-adwReview-alignmentPhase-happy.feature              |
 
   # ── §7 BACKSTOP ─────────────────────────────────────────────────────────────────────────────
 

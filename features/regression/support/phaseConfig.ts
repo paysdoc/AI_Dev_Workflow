@@ -11,8 +11,16 @@ import { dirname, join } from 'path';
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import type { Issue } from '@paysdoc/devplatform';
 
+import { executeAlignmentPhase } from '../../../adws/phases/alignmentPhase.ts';
 import { executeBuildPhase } from '../../../adws/phases/buildPhase.ts';
+import { executeDiffEvaluationPhase } from '../../../adws/phases/diffEvaluationPhase.ts';
 import { executePlanPhase } from '../../../adws/phases/planPhase.ts';
+import { executePlanValidationPhase } from '../../../adws/phases/planValidationPhase.ts';
+import { executeReviewPhase } from '../../../adws/phases/reviewPhase.ts';
+import { executeScenarioFixPhase } from '../../../adws/phases/scenarioFixPhase.ts';
+import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
+import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
+import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
 import {
@@ -44,10 +52,52 @@ export interface OrchestratorDefinition {
   readonly phases: Readonly<Record<string, PhaseDefinition>>;
 }
 
+// Orchestrators pass the review the proof path of the scenario run before it, and an empty one when no proof preceded it, as here.
+const reviewWithoutProof: PhaseFn = (config) => executeReviewPhase(config, '');
+
+/** What the scenario test phase leaves over the fixture once step definitions exist: the fenced scenario command exits 127 with nothing on stdout, so the review-proof blocker tag fails. */
+function failedReviewProof(adwId: string): ScenarioProofResult {
+  const proofDirectory = join(AGENTS_STATE_DIR, adwId, 'scenario-test');
+  return {
+    tagResults: [
+      { tag: '@review-proof', resolvedTag: '@review-proof', severity: 'blocker', optional: false, passed: false, output: '', exitCode: 127, skipped: false },
+    ],
+    hasBlockerFailures: true,
+    resultsFilePath: join(proofDirectory, 'scenario_proof.md'),
+    artifactsDir: join(proofDirectory, 'artifacts'),
+  };
+}
+
+// The scenario test-and-fix loop hands the fix phase only a proof with a failed blocker tag.
+const fixFailedReviewProof: PhaseFn = (config) => executeScenarioFixPhase(config, failedReviewProof(config.adwId));
+
 const ORCHESTRATORS: Readonly<Record<string, OrchestratorDefinition>> = {
   plan: { id: OrchestratorId.Plan, issueType: '/feature', phases: { plan: { fn: executePlanPhase } } },
   build: { id: OrchestratorId.Build, issueType: '/feature', phases: { build: { fn: executeBuildPhase, phaseName: 'build' } } },
+  test: { id: OrchestratorId.Test, issueType: '/feature', phases: { 'unit test': { fn: executeUnitTestPhase, phaseName: 'test' } } },
+  chore: {
+    id: OrchestratorId.Chore,
+    issueType: '/chore',
+    phases: { review: { fn: reviewWithoutProof }, 'diff evaluation': { fn: executeDiffEvaluationPhase } },
+  },
+  sdlc: {
+    id: OrchestratorId.Sdlc,
+    issueType: '/feature',
+    phases: {
+      alignment: { fn: executeAlignmentPhase },
+      'scenario test': { fn: executeScenarioTestPhase },
+      'scenario fix': { fn: fixFailedReviewProof },
+      review: { fn: reviewWithoutProof },
+    },
+  },
 };
+
+// No orchestrator in adws/*.tsx runs these. A row drives one with no phase name, under adwSdlc's identity, the pipeline plan validation was written for.
+const DIRECT_PHASES: Readonly<Record<string, PhaseDefinition>> = {
+  'plan validation': { fn: executePlanValidationPhase },
+};
+
+export const DIRECT_PHASE_ORCHESTRATOR = 'sdlc';
 
 /** `agents/<adwId>/` holds real workflows' state too, so the harness clears only the directories of adwIds made up for surface rows. */
 const SURFACE_ADW_ID = /^surface-[a-z0-9-]+$/;
@@ -62,6 +112,12 @@ export function phaseDefinition(orchestratorName: string, phase: string): PhaseD
   const { phases } = orchestratorDefinition(orchestratorName);
   const definition = phases[phase];
   assert.ok(definition, `Unknown phase "${phase}" of the "${orchestratorName}" orchestrator. The surface harness drives: ${Object.keys(phases).join(', ')}`);
+  return definition;
+}
+
+export function directPhaseDefinition(phase: string): PhaseDefinition {
+  const definition = DIRECT_PHASES[phase];
+  assert.ok(definition, `Unknown direct phase "${phase}". No orchestrator runs: ${Object.keys(DIRECT_PHASES).join(', ')}`);
   return definition;
 }
 

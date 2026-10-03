@@ -3,10 +3,10 @@
  * driven rows call; any other method throws, so a phase that starts needing one fails loudly
  * instead of being answered with an invented value.
  *
- * `commentOnIssue` goes through `dispatchMockRequest` rather than HTTP. The port's method is
- * synchronous and the phases do not await it, so a request over the wire could land after the
- * phase had resolved and the Then steps had read the recorded requests. The URL and body recorded
- * here are exactly those an HTTP call would record.
+ * `commentOnIssue` and `applyLabel` go through `dispatchMockRequest` rather than HTTP. The port's
+ * methods are synchronous and the phases do not await them, so a request over the wire could land
+ * after the phase had resolved and the Then steps had read the recorded requests. The URL and body
+ * recorded here are exactly those an HTTP call would record.
  */
 
 import { Platform, type CodeHost, type IssueTracker, type RepoContext, type RepoIdentifier } from '@paysdoc/devplatform';
@@ -18,19 +18,18 @@ function notSupported(method: string): never {
   throw new Error(`mockForgeProviders: ${method} not supported`);
 }
 
+function dispatchOrThrow(operation: string, method: string, path: string, body: unknown): void {
+  const response = dispatchMockRequest(method, path, JSON.stringify(body));
+  if (response.status >= 400) {
+    throw new Error(`mockForgeProviders: ${operation} was answered ${response.status}: ${response.body}`);
+  }
+}
+
 function issueTrackerFor(repoId: RepoIdentifier): IssueTracker {
+  const issuePath = (issueNumber: number, resource: string): string => `/repos/${repoId.owner}/${repoId.repo}/issues/${issueNumber}/${resource}`;
   return {
     fetchIssue: () => notSupported('fetchIssue'),
-    commentOnIssue: (issueNumber, body) => {
-      const response = dispatchMockRequest(
-        'POST',
-        `/repos/${repoId.owner}/${repoId.repo}/issues/${issueNumber}/comments`,
-        JSON.stringify({ body }),
-      );
-      if (response.status >= 400) {
-        throw new Error(`mockForgeProviders: commentOnIssue was answered ${response.status}: ${response.body}`);
-      }
-    },
+    commentOnIssue: (issueNumber, body) => dispatchOrThrow('commentOnIssue', 'POST', issuePath(issueNumber, 'comments'), { body }),
     deleteComment: () => notSupported('deleteComment'),
     closeIssue: () => notSupported('closeIssue'),
     getIssueState: () => notSupported('getIssueState'),
@@ -39,7 +38,7 @@ function issueTrackerFor(repoId: RepoIdentifier): IssueTracker {
     moveToStatus: async () => true,
     fetchLabels: () => notSupported('fetchLabels'),
     addLabel: () => notSupported('addLabel'),
-    applyLabel: () => notSupported('applyLabel'),
+    applyLabel: (issueNumber, labelName) => dispatchOrThrow('applyLabel', 'POST', issuePath(issueNumber, 'labels'), { labels: [labelName] }),
     ensureLabel: () => notSupported('ensureLabel'),
     createIssue: () => notSupported('createIssue'),
     updateIssueBody: () => notSupported('updateIssueBody'),

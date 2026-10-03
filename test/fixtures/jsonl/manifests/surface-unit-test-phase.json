@@ -1,0 +1,20 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface unit-test-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n"
+        }
+      ]
+    }
+  }
+}
