@@ -44,9 +44,9 @@ Use these files to implement the feature:
 - `README.md` — Project overview. Line 11 ("Per-repo unit-test gate via `adw.yml`") becomes inaccurate. The `adws/core/` and `adws/phases/` directory-tree entries (`adwYmlConfig.ts` line ~631, `authGate.ts`/`claudeStreamParser.ts` around line ~633, `unitTestPhase.ts` line ~856, and the `__tests__` listings around lines ~564 and ~811) need the new files. NOTE: the worktree already has an unrelated uncommitted README edit (a "Model-literal guard" bullet near line 22). Preserve it.
 - `.adw/coding_guidelines.md` — Must be followed: guard clauses, max nesting ~2, extract named functions, enums for named constant sets, `readonly`/immutability, no `any`, comments only for invariants/ordering/non-obvious reasons (no issue numbers, no banners), files under 300 lines.
 - `.adw/commands.md` — ADW's own commands. The check runner will run its `## Type Check`, `## Additional Type Checks`, `## Run Linter` and `## Run Build` on self-host runs. Also the source of the validation commands below. Read-only.
-- `adws/core/projectConfig.ts` — `CommandsConfig` (`typeCheck`, `additionalTypeChecks`, `runLinter`, `runBuild`), `parseCommandsMd` (section text is trimmed, absent sections fall back to `getDefaultCommandsConfig()`, code fences are NOT stripped), `getDefaultProjectConfig()` for test configs. Not modified.
+- `adws/core/projectConfig.ts` — `CommandsConfig` (`typeCheck`, `additionalTypeChecks`, `runLinter`, `runBuild`), `parseCommandsMd` (section text is trimmed, absent sections fall back to `getDefaultCommandsConfig()`, code fences are NOT stripped), `getDefaultProjectConfig()` for test configs. `loadProjectConfig(worktreePath)` is how the `@adw-988` step definitions read the `.adw/commands.md` a scenario wrote. Not modified.
 - `adws/core/index.ts` — Core barrel. Add the check runner's exports next to `computeTestVerdict` (lines ~84-85).
-- `adws/core/adwYmlConfig.ts` — `AdwYmlConfig.unitTests`. Update the doc comment to the new meaning (test run only). Leave `ADW_YML_TEMPLATE` byte-identical (see Notes).
+- `adws/core/adwYmlConfig.ts` — `AdwYmlConfig.unitTests`. Update the doc comment to the new meaning (test run only). Leave `ADW_YML_TEMPLATE` byte-identical (see Notes). `readAdwYmlConfig(worktreePath)` is how the `@adw-988` step definitions read the `.github/adw.yml` a scenario wrote.
 - `adws/core/testVerdict.ts` — `computeTestVerdict`. The `hard-fail` branch defines what "ends the run the way an exhausted test loop does today" means. Not modified.
 - `adws/phases/unitTestPhase.ts` — The integration point: add the static-check gate before the test run, make it independent of `unitTests`, extract the shared fail-the-run helper, add the `deps` seam.
 - `adws/agents/testRetry.ts` — `runUnitTestsWithRetry` / `TestRetryResult`. Its type is the injected test-run dependency of the phase. Not modified.
@@ -69,12 +69,25 @@ Use these files to implement the feature:
 - `app_docs/feature-9gjajh-commands-and-skills.md` — Conditional doc owning `.claude/commands/test.md`.
 - `app_docs/feature-9gjajh-scenario-and-stepdef-agents.md` — Conditional doc owning `testAgent.ts` and `testRetry.ts`.
 - `app_docs/feature-9gjajh-bdd-regression-suite.md` — Conditional doc owning `features/regression/**` and the surface/subprocess harness that runs the fixture.
+- `features/per-issue/feature-988.feature` — This issue's eight `@adw-988` BDD scenarios, the RED tests `/implement-tdd` drives. They match this plan. Do not edit the feature file.
+  - Check runner (scenarios 1–4): type check, additional type checks, lint and build run in that fixed order, whatever order `.adw/commands.md` lists them in. A check's verdict is its exit code, whatever its output says, and a failing check does not stop the checks after it. An `N/A` check is never run and is reported `skipped`, with a blank exit code and output. Both stdout and stderr are captured.
+  - Unit-test phase (scenarios 5–8, issues 9881–9884): with `unitTests: true` and every check green, the four checks run before the test agent starts (once), and the phase completes. With `unitTests: true`, a red lint ends the workflow with exit code 1 before any agent starts, with the lint's output in the execution log and an `ADW Workflow Error` comment on the issue. With `unitTests: false`, the configured checks still run, no agent starts and the phase completes. With `unitTests: false`, a red build that writes to stderr still ends the workflow with exit code 1, with that stderr in the execution log and an `ADW Workflow Error` comment.
+  - No step definition exists for any of its phrases yet, and none collides with an existing one: feature-929's `the unit-test phase runs` and `the {agent} was started {int} time(s)` do not match `the workflow's unit-test phase runs` or `the test agent was started once, after every static check had finished`.
+- `features/regression/step_definitions/givenSteps.ts` — Already defines the Background step `the ADW codebase is checked out` (G18, a no-op). Reuse it. Do not redefine it.
+- `features/per-issue/step_definitions/feature-929-workflow.ts` — Prior art for an in-process `WorkflowConfig` over a throwaway git worktree with recording providers (`createWorkflow`, `commitFile`, `commentsOn`). Its `projectConfig.commands` has no static-check keys and its `adwYmlConfig` is fixed. The `@adw-988` phase scenarios therefore load both from the worktree (task 7), and its own `@adw-929` unit-test scenarios need `N/A` for the four checks once the gate exists (task 8).
+- `features/per-issue/step_definitions/feature-929-compacting-cli.ts` — The throwaway Claude CLI (`installCompactingCli`, `readRuns`, `emptyBehaviour`). It points `CLAUDE_CODE_PATH` at a script that appends every agent start to a run log and, for `/test`, writes a passing JUnit report to `junitReportPath`. With it, the phase scenarios can observe "the test agent was started" and "no agent was started" while the real `runUnitTestsWithRetry` runs.
+- `features/per-issue/step_definitions/feature-929.steps.ts`, `features/per-issue/step_definitions/feature-929-comments.ts` — Prior art for:
+  - trapping `process.exit` around a phase (`runPhase`);
+  - `Before`/`After` hooks tagged with the issue that restore `CLAUDE_CODE_PATH` and `ADW_UNIT_TEST_REPORT_PATH` and remove the temp dirs and `agents/<adwId>`/`logs/<adwId>`;
+  - matching a comment heading (`isHeaded`).
+- `features/per-issue/step_definitions/feature-796.steps.ts` — `world796`, `resetWorld`, `buildRecordingBoundary`, `splitRepo`: the recording providers whose `activeCallLog` captures every `commentOnIssue`.
 
 ### New Files
 - `adws/core/checkRunner.ts` — The check runner deep module (types, `STATIC_CHECKS` table, `runStaticChecks`, default `runShellCommand`).
 - `adws/core/__tests__/checkRunner.test.ts` — Unit tests for `runStaticChecks` with a fake process runner.
 - `adws/core/__tests__/checkRunner.integration.test.ts` — Real-process tests for the default `runShellCommand` (exit code, stdout+stderr capture, spawn failure). Follows the `*.integration.test.ts` naming of `upgradeClaim.integration.test.ts`/`guardrailsProbe.integration.test.ts`.
 - `adws/phases/__tests__/unitTestPhase.test.ts` — Phase tests with injected fakes: checks run with `unitTests: false` and the test run is skipped; checks run before the test run; a red check ends the run before the test run with its output in the execution log.
+- `features/per-issue/step_definitions/feature-988.steps.ts` — Step definitions for `features/per-issue/feature-988.feature`. Move helpers into a `feature-988-*.ts` module if the file would pass 300 lines.
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -82,6 +95,7 @@ Build the check runner as a standalone module in `adws/core/`, test-first, with 
 - Types: `StaticCheckName` (string enum: `type check`, `additional type checks`, `lint`, `build`), `CheckStatus` (string enum: `passed`, `failed`, `skipped`), `StaticCheckCommands = Pick<CommandsConfig, 'typeCheck' | 'additionalTypeChecks' | 'runLinter' | 'runBuild'>`, `ProcessOutcome { readonly exitCode: number | null; readonly output: string }`, `ProcessRunner = (command: string, cwd: string) => Promise<ProcessOutcome>`, `CheckVerdict { readonly check; readonly command; readonly status; readonly exitCode: number | null; readonly output }`.
 - `STATIC_CHECKS`: the fixed, ordered table mapping each `StaticCheckName` to its `CommandsConfig` key.
 - `runStaticChecks` (sequential, all four always reported) and `runShellCommand` (default spawner).
+- Step definitions for the four check-runner scenarios of `features/per-issue/feature-988.feature`, run against the real shell.
 - Export from the core barrel.
 
 ### Phase 2: Core Implementation
@@ -90,13 +104,14 @@ Wire the gate into `executeUnitTestPhase`:
 - Extract the existing hard-fail block into `endRunOnFailedGate(config, errorMsg, costUsd): never` so the red-check path and the unit-test hard-fail path end the run identically.
 - Add `runStaticCheckGate(config, runProcess)`: run the checks, log each verdict (full output for failures) via `log` and `AgentStateManager.appendLog`, and call `endRunOnFailedGate` naming every failed check and its exit code.
 - Run the gate unconditionally, before the test run. Run the test run only when `adwYmlConfig.unitTests` is true. Extract the existing test-run block and the unverified-marking branch into named functions to keep nesting at most 2 and the file under 300 lines.
+- Step definitions for the four unit-test phase scenarios of `features/per-issue/feature-988.feature`. They drive the real `executeUnitTestPhase` and `runUnitTestsWithRetry` under a throwaway Claude CLI.
 
 ### Phase 3: Integration
 - Make the `cli-tool` fixture's static checks green so the regression surface rows and smoke runs (which execute the real phase) keep passing.
 - Strip lint, type check, additional type checks and build from `.claude/commands/test.md`.
 - Rewrite ADR-0058's `### Confirmation` to name the implemented checks and keep the list of what is still unimplemented.
 - Update README and the `AdwYmlConfig` doc comment.
-- Run the full validation suite, including the `@adw-988` scenarios and the `@regression` suite.
+- Run the full validation suite, including the `@adw-988`, `@adw-929` and `@regression` scenarios.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -117,7 +132,29 @@ Execute every step in order, top to bottom.
   - A runner that throws for one command → that verdict is `Failed` with `exitCode: null` and `output` containing the thrown error's message. The remaining checks still run.
   - The verdict's `command` is the command that was run.
 
-### 2. Implement `adws/core/checkRunner.ts` (GREEN)
+### 2. Write the step definitions for the check-runner scenarios (RED)
+- Create `features/per-issue/step_definitions/feature-988.steps.ts` for scenarios 1–4 of `features/per-issue/feature-988.feature`. Add `Before`/`After` hooks tagged `@adw-988` that reset the scenario state and remove every temp dir. The Background step comes from `givenSteps.ts`.
+- Cucumber expressions treat `/` as alternation. Match the quoted `".adw/commands.md"` and `".github/adw.yml"` with `{string}`, or escape the slash (`\\/`).
+- `a working directory whose ".adw/commands.md" configures these static checks, in this order:` — Create an `mkdtemp` dir and write `.adw/commands.md`.
+  - Write one section per table row, in the table's order. Scenario 1 lists them in reverse on purpose.
+  - Headings: `type check` → `## Type Check`, `additional type checks` → `## Additional Type Checks`, `lint` → `## Run Linter`, `build` → `## Run Build`.
+  - Each body is one plain, unfenced line, translated from the command column:
+    - `N/A` stays `N/A`.
+    - `prints "<text>" and exits <n>` becomes `printf '%s\n' '<text>'; exit <n>`.
+    - `prints "<text>" to standard error and exits <n>` becomes the same with `>&2`.
+    - Several texts contain single quotes, so escape them (`'` → `'\''`).
+    - Fail the step on any other wording instead of guessing.
+  - Keep the check → command map for the Then steps.
+- `the check runner runs the static checks configured in that working directory` — Call `runStaticChecks(loadProjectConfig(dir).commands, dir, recordingRunner)`. `recordingRunner` records each command and delegates to the real `runShellCommand`, so the real shell decides the exit codes and the stdout and stderr captured.
+- `exactly these static checks ran, in this order:` — Map the recorded commands back to check names through the check → command map, and assert that the list equals the table exactly. Task 7 reuses this step, so read the recorded commands from shared state.
+- `the check runner reported these verdicts, in this order:` — Assert on the returned verdicts, in order:
+  - `check` equals the check name (the `StaticCheckName` values are the scenario's names);
+  - the `verdict` column equals `status`;
+  - the `exit code` column equals `exitCode`, where a blank cell means `null`;
+  - `output` contains the `output includes` text (a blank cell asserts nothing).
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"`: scenarios 1–4 fail (RED). Scenarios 5–8 are still undefined.
+
+### 3. Implement `adws/core/checkRunner.ts` (GREEN)
 - Create the module with the types listed in *Phase 1*. Use `export enum` for `StaticCheckName` and `CheckStatus` (string values), matching `RateLimitType` in `rateLimitWaitPolicy.ts`.
 - `export const STATIC_CHECKS: readonly { readonly check: StaticCheckName; readonly commandKey: keyof StaticCheckCommands }[]` in the order type check (`typeCheck`), additional type checks (`additionalTypeChecks`), lint (`runLinter`), build (`runBuild`).
 - `isCheckConfigured(command: string): boolean` returns `false` when the trimmed command is empty or equals `n/a` case-insensitively.
@@ -128,20 +165,21 @@ Execute every step in order, top to bottom.
   - `status = outcome.exitCode === 0 ? CheckStatus.Passed : CheckStatus.Failed`.
 - No agent, phase, forge, logger or state imports. Only `child_process` and `type CommandsConfig` from `./projectConfig`. Keep nesting at most 2 and follow the comment discipline (no JSDoc that restates names).
 - Run `bunx vitest run adws/core/__tests__/checkRunner.test.ts` until green.
+- Then run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` until scenarios 1–4 pass.
 
-### 3. Add real-process tests for the default runner
+### 4. Add real-process tests for the default runner
 - Create `adws/core/__tests__/checkRunner.integration.test.ts`. Use `os.tmpdir()` (or an `mkdtemp` dir removed in `afterEach`) as cwd:
   - `printf 'to stdout\n'; printf 'to stderr\n' >&2; exit 3` → `exitCode: 3`, `output` contains both lines.
   - `true` → `exitCode: 0`.
   - A cwd that does not exist → `exitCode` is not `0` and `output` matches `/ENOENT/`.
   - `runStaticChecks` with the default runner over `{ typeCheck: 'exit 0', additionalTypeChecks: 'N/A', runLinter: 'echo lint-out; exit 1', runBuild: 'echo build-out' }` → passed / skipped / failed (exit 1, output contains `lint-out`) / passed (output contains `build-out`).
 
-### 4. Export the check runner from the core barrel
+### 5. Export the check runner from the core barrel
 - In `adws/core/index.ts`, next to the `testVerdict` exports, add:
   - `export type { CheckVerdict, ProcessOutcome, ProcessRunner, StaticCheckCommands } from './checkRunner';`
   - `export { runStaticChecks, runShellCommand, isCheckConfigured, STATIC_CHECKS, StaticCheckName, CheckStatus } from './checkRunner';`
 
-### 5. Write the unit-test phase tests first (RED)
+### 6. Write the unit-test phase tests first (RED)
 - Create `adws/phases/__tests__/unitTestPhase.test.ts`. Inject fakes through the new `deps` parameter. Do not `vi.mock` the agents or the check runner.
 - Config builder: start from `getDefaultProjectConfig()` and override `commands` with distinct fake commands (`tc`, `atc`, `lint`, `build`). Set `adwYmlConfig: { hitl: false, unitTests }`, `repoContext: undefined` (no forge calls), `orchestratorStatePath` and `logsDir` as `fs.mkdtempSync` temp dirs (`AgentStateManager.appendLog`/`writeState` need an existing dir), minimal `issue`/`ctx`, cast `as unknown as WorkflowConfig` like `scenarioTestPhase.test.ts`.
 - Fakes: a recording `runProcess` that pushes `check:<command>` onto a shared `events` array, and a fake `runUnitTestsWithRetry` that pushes `tests` and returns a passing `TestRetryResult` (`passed: true, reportPresent: true, hasFailures: false, testcaseCount: 2, costUsd: 0, totalRetries: 0, failedTests: [], modelUsage: {}, contextResetCount: 0`).
@@ -153,7 +191,32 @@ Execute every step in order, top to bottom.
   - All four commands `N/A` with `unitTests: false` → no `check:` events, no `tests`, resolves.
   - Regression guard for the extracted helper: green checks plus a fake test run returning `reportPresent: true, hasFailures: true` → `process.exit(1)` is still called and `ctx.errorMessage` starts with `Unit tests hard-failed`.
 
-### 6. Wire the check runner into `adws/phases/unitTestPhase.ts` (GREEN)
+### 7. Write the step definitions for the unit-test phase scenarios (RED)
+- In the `@adw-988` step file, cover scenarios 5–8. They drive the real `executeUnitTestPhase` with the real `runUnitTestsWithRetry`; never inject a fake test run here. Reuse or follow the `@adw-929`/`@adw-796` harness listed under *Relevant Files*.
+- `a workflow for issue {int} whose worktree's ".adw/commands.md" configures these static checks, in this order:` — Build a workflow over a throwaway git worktree, with recording providers for a fixed target repository, as `createWorkflow` in `feature-929-workflow.ts` does. Write the worktree's `.adw/commands.md` with the task-2 translation.
+- `the worktree's ".github/adw.yml" holds:` — Write the doc string to `<worktree>/.github/adw.yml`.
+- `the test agent writes a JUnit report in which every unit test passes` — Set the throwaway CLI's `junitReportPath` to `<logsDir>/junit-unit.xml`, with no failing runs.
+- `the workflow's unit-test phase runs` — In order:
+  - Set `config.projectConfig = loadProjectConfig(worktreePath)` and `config.adwYmlConfig = readAdwYmlConfig(worktreePath)`. These are the files the scenario wrote, never `createWorkflow`'s partial config.
+  - Install the throwaway CLI every time, so any agent start is recorded.
+  - Trap `process.exit` so that it records the code and throws.
+  - `await executeUnitTestPhase(config, { runProcess })`. `runProcess` records each command, delegates to the real `runShellCommand`, and on completion records how many agent runs the CLI's run log holds at that moment.
+  - Record whether the phase completed or which exit code ended it.
+  - Restore `process.exit` in a `finally`.
+- `exactly these static checks ran, in this order:` — The task-2 step, over the commands the phase passed to `runProcess`.
+- `the test agent was started once, after every static check had finished` — Every recorded check completion saw zero agent runs, and after the phase the run log holds exactly one run, of `/test`.
+- `the unit-test phase completed` — The phase resolved and `process.exit` was not called.
+- `the unit-test phase ended the workflow with exit code {int}` — The trapped exit code.
+- `no agent was started` — The CLI's run log holds no run.
+- `the workflow's execution log holds {string}` — `<orchestratorStatePath>/execution.log` contains the text.
+- `the unit-test phase posted a comment headed {string} on issue {int}` — A `commentOnIssue` call for that issue in `world796().activeCallLog` has a heading containing the text (`isHeaded`).
+- The `@adw-988` `After` hook:
+  - restores `CLAUDE_CODE_PATH` (the CLI's `restore()`), `ADW_UNIT_TEST_REPORT_PATH` and `process.exit`;
+  - removes the worktree, logs and CLI dirs and `agents/<adwId>`/`logs/<adwId>`;
+  - resets `world796`.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"`: scenarios 5–8 fail (RED), and scenarios 1–4 still pass.
+
+### 8. Wire the check runner into `adws/phases/unitTestPhase.ts` (GREEN)
 - Import `runStaticChecks`, `runShellCommand`, `CheckStatus` and the `CheckVerdict`/`ProcessRunner` types **directly from `'../core/checkRunner'`**, not through the `'../core'` barrel, as `scenarioTestPhase.ts` does for `devServerLifecycle`. Several tests mock `../core` wholesale. Resolve default deps **inside** `executeUnitTestPhase`, not in a module-level object, so a test that mocks `../agents` without `runUnitTestsWithRetry` never touches it at import time.
 - Add and export:
   ```ts
@@ -171,8 +234,14 @@ Execute every step in order, top to bottom.
 - Replace the stale header comment ("BDD scenarios are now run in the Review phase…") with a short one stating the invariant: static checks always run first and a red check ends the run, while `unitTests: false` in `.github/adw.yml` skips only the test run.
 - Keep the file under 300 lines and every function at nesting depth ≤ 2.
 - Run `bunx vitest run adws/phases/__tests__/unitTestPhase.test.ts` until green. Then run `bunx vitest run adws/__tests__/adwChore.test.ts adws/__tests__/adwPlanBuildReview.test.ts adws/__tests__/adwPlanBuildTestReview.test.ts` to confirm the injectable-phase orchestrator tests still compile and pass with the new optional parameter.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` until all eight scenarios pass.
+- Keep `@adw-929` working:
+  - `createWorkflow` in `features/per-issue/step_definitions/feature-929-workflow.ts` builds `projectConfig.commands` without `typeCheck`, `additionalTypeChecks`, `runLinter` or `runBuild`.
+  - Its two unit-test scenarios run the real `executeUnitTestPhase`. Once the gate exists they reach `isCheckConfigured` with `undefined`, and `trim()` throws.
+  - Fix: add `typeCheck: 'N/A', additionalTypeChecks: 'N/A', runLinter: 'N/A', runBuild: 'N/A'` to that harness config. This is a test-harness change; the check runner's `string` contract stays.
+  - Confirm with `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-929"`.
 
-### 7. Make the `cli-tool` fixture's static checks green
+### 9. Make the `cli-tool` fixture's static checks green
 - Edit `test/fixtures/cli-tool/.adw/commands.md`:
   - Replace the `## Lint` section (fenced) with `## Run Linter` whose body is the plain line `echo "lint ok"`.
   - Replace the fenced `## Type Check` body with the plain line `echo "type check ok"`.
@@ -182,7 +251,7 @@ Execute every step in order, top to bottom.
 - Why: surface rows 06 and 20 and the `@subprocess` smoke runs (`adw_sdlc_happy_path`, `adw_chore_diff_verdicts`, `pause_resume_rate_limit`) execute the real unit-test phase over this fixture. Without this edit, the parser defaults (`bun run lint`, `bunx tsc --noEmit -p adws/tsconfig.json`) and the fenced commands would turn the checks red and end those runs with `process.exit(1)`.
 - Check `test/fixtures/python-app` and `test/fixtures/python-flat`: both already declare all four static checks `N/A`, so they need no change.
 
-### 8. Strip lint, type check and build from `.claude/commands/test.md`
+### 10. Strip lint, type check and build from `.claude/commands/test.md`
 - Keep the frontmatter (`target: false`).
 - Retitle it as running the application's unit tests, and rewrite the intro and `## Purpose` to say ADW derives the verdict from the JUnit report and runs every other check of the code itself, before this command. Remove the bullets about detecting type mismatches and verifying build processes.
 - `## Instructions`: read `## Run Tests` from `.adw/commands.md` (default `bun run test:unit`). Run **only** the test in `## Test Execution Sequence`, and no other command that checks the code. Keep: JSON-only output (`JSON.parse()` runs on it), omit `error` on pass and include it on failure, a non-zero exit means failed, timeout after `TEST_COMMAND_TIMEOUT`, log start/end/result, paths relative to the root. Drop the multi-test wording ("Execute all tests even if some fail", "Test execution order is important…").
@@ -190,10 +259,10 @@ Execute every step in order, top to bottom.
 - `## Report` / `### Output Structure`: keep the JSON array contract (`test_name`, `passed`, `execution_command`, `test_purpose`, optional `error`). Replace `### Example Output` with a single failing `app_tests` entry (`"execution_command": "bun run test:unit"`, a vitest-style failure in `error`).
 - When done, `.claude/commands/test.md` must not contain `Run Linter`, `Type Check`, `Additional Type Checks`, `Run Build`, `bun run lint`, `tsc --noEmit`, `bun run build`, `linting`, `typescript_check` or `app_build`. Also avoid naming a branch (the `lint:branch-names` guard scans `.claude/commands/`).
 
-### 9. Update the `AdwYmlConfig` doc comment
+### 11. Update the `AdwYmlConfig` doc comment
 - In `adws/core/adwYmlConfig.ts`, change the `AdwYmlConfig` interface comment (`unitTests: false` "opts out of the unit-test phase gate") and the header rule line for `unitTests: false` to say it skips only the unit-test run. The static checks still run. Do **not** change `ADW_YML_TEMPLATE` (see Notes).
 
-### 10. Rewrite ADR-0058's `### Confirmation`
+### 12. Rewrite ADR-0058's `### Confirmation`
 - In `specs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md`, replace the opening "Not yet implemented." with "Partly implemented." Then add, as bullets dated with the day of the check and the short commit hash checked:
   - `adws/core/checkRunner.ts` (`runStaticChecks`) runs `## Type Check`, `## Additional Type Checks`, `## Run Linter` and `## Run Build` from the parsed `.adw/commands.md`, in that order, and returns one verdict per check with its exit code and captured output. The exit code is the verdict, and `N/A` is reported as skipped. Unit tests: `adws/core/__tests__/checkRunner.test.ts` (fake process runner: verdict per exit code, `N/A` skipped, output captured, fixed order) and `adws/core/__tests__/checkRunner.integration.test.ts` (the default shell runner).
   - `adws/phases/unitTestPhase.ts` (`executeUnitTestPhase`) runs the check runner before the test run whatever `unitTests` says. A red check ends the run as a hard-failed unit-test run does, with the check's output in the execution log, until the fix loop of ADR-0059 lands. `unitTests: false` skips only the test run. Unit tests: `adws/phases/__tests__/unitTestPhase.test.ts`.
@@ -201,12 +270,12 @@ Execute every step in order, top to bottom.
   - Outside `adws/core/projectConfig.ts`, the only TypeScript reader of `runLinter`, `typeCheck`, `additionalTypeChecks` and `runBuild` is `checkRunner.ts`.
 - Keep the existing not-yet-implemented list (`review.md` Strategy A and B; `adw_init.md` step 6 writes `review_proof.md`; `projectConfig.ts` parses `## Tags`/`## Supplementary Checks`; `adwPlanBuildReview.tsx` runs `executeScenarioTestPhase` outside the fix loop) under a sentence saying the PRD and its issues still carry that work. Update its "checked on" reference if re-checked. Keep `### Confirmation` as an h3 in its current position. Do not edit the decision, the drivers or the front matter.
 
-### 11. Update the README
+### 13. Update the README
 - Line 11: rewrite the "Per-repo unit-test gate via `adw.yml`" bullet so it says the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`, each check's exit code is its verdict, `N/A` is skipped, and a red check ends the run with the check's output in the log. `unitTests: false` in `.github/adw.yml` skips only the test run, and `/test` runs only the unit-test command. Keep the trailing `hitl` sentence.
 - Directory tree: add `checkRunner.ts  # Static-check runner: runs type check, additional type checks, lint and build from .adw/commands.md in fixed order; exit code is the verdict, N/A skipped (runStaticChecks, runShellCommand)` between `authGate.ts` and `claudeStreamParser.ts` under `adws/core/`. Add `checkRunner.integration.test.ts` and `checkRunner.test.ts` between `authGate.test.ts` and `claudeStreamParser.test.ts` in the core `__tests__` listing. Change the `adwYmlConfig.ts` description to "unit-test run switch". Change the `unitTestPhase.ts` description to "Unit test phase: static-check gate (always) then the unit-test run (unless `unitTests: false`)". Add `unitTestPhase.test.ts` between `startupFailureLog.test.ts` and `upgradeGate.test.ts` in the phases `__tests__` listing.
 - Do not revert the pre-existing uncommitted "Model-literal guard" bullet already in the worktree.
 
-### 12. Run the validation commands
+### 14. Run the validation commands
 - Run every command in `Validation Commands` below. Fix any failure before finishing. The `@regression` run is the proof that the fixture edit kept surface rows 06/20/21/22 and the smoke runs green.
 
 ## Testing Strategy
@@ -226,6 +295,20 @@ Execute every step in order, top to bottom.
   - all `N/A` → nothing spawned;
   - unit-test hard-fail still ends the run through the extracted helper.
 - Existing orchestrator tests (`adwChore.test.ts`, `adwPlanBuildReview.test.ts`, `adwPlanBuildTestReview.test.ts`) must keep passing unchanged.
+
+### BDD Scenarios
+`features/per-issue/feature-988.feature` (`@adw-988`), driven by `features/per-issue/step_definitions/feature-988.steps.ts`:
+- **Check runner (scenarios 1–4).** These run on the real shell, with a recording runner around `runShellCommand`. They cover:
+  - fixed order, whatever the file order;
+  - the exit code is the verdict, whatever the output says;
+  - a failure does not stop later checks;
+  - `N/A` is never run and is reported skipped;
+  - stdout and stderr are both captured.
+- **Unit-test phase (scenarios 5–8).** These run the real `executeUnitTestPhase` and `runUnitTestsWithRetry` under the throwaway Claude CLI, with recording providers and a trapped `process.exit`. They cover:
+  - `unitTests: true`: the checks finish before the single test-agent start;
+  - `unitTests: true`: a red lint ends the workflow with exit code 1 before any agent starts, with the lint output in `execution.log` and an `ADW Workflow Error` comment;
+  - `unitTests: false`: the configured checks run, no agent starts and the phase completes;
+  - `unitTests: false`: a red build that writes to stderr still ends the workflow the same way.
 
 ### Edge Cases
 - All four checks `N/A` (e.g. a Python CLI repo): four skipped verdicts, no process spawned, the gate passes.
@@ -247,6 +330,7 @@ Execute every step in order, top to bottom.
 - `.claude/commands/test.md` contains no lint, type-check, additional-type-check or build command or step. It still emits the `app_tests` JSON entry and keeps the `## Test Execution Sequence` heading.
 - `adws/core/__tests__/checkRunner.test.ts` covers verdict per exit code, `N/A` skipped, output captured and fixed order with a fake process runner, and passes.
 - `adws/phases/__tests__/unitTestPhase.test.ts` proves the `unitTests: false` behaviour, the checks-before-tests order and the red-check stop, and passes.
+- The eight `@adw-988` scenarios in `features/per-issue/feature-988.feature` pass against the real check runner and the real `executeUnitTestPhase`, and the `@adw-929` scenarios still pass.
 - ADR-0058's `### Confirmation` names the implemented checks (module, unit tests, phase wiring, `test.md` grep) and still lists the parts not yet implemented.
 - `test/fixtures/cli-tool/.adw/commands.md` declares green static checks, and the `@regression` suite passes (surface rows 06/20/21/22 and the smoke runs included).
 - Lint, both type checks, the unit suite and the build pass. The git/gh guard and branch-name guard pass.
@@ -264,7 +348,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run build` — Run Build
 - `bun run lint:git-guard` — the new `spawn` site introduces no git/gh shell-out
 - `bun run lint:branch-names` — the edited `test.md` and new `adws/` code name no branch
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` — the issue's BDD scenarios pass
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` — the eight scenarios of `features/per-issue/feature-988.feature` pass
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-929"` — the per-issue scenarios that run the real `executeUnitTestPhase` over a hand-built config still pass with the gate in place (task 8)
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — regression suite passes (surface rows 06/20 run the real phase with the real check runner over the fixed `cli-tool` fixture; rows 21/22 still see the fenced scenario command exit 127; smoke runs end `awaiting_merge` with no error)
 
 ## Notes
