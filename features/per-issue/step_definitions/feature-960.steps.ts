@@ -33,7 +33,7 @@ const THROWAWAY_ADW_ID = /^throwaway960-[a-z0-9-]+$/;
 
 const SMOKE_DIRECTORY = 'features/regression/smoke/';
 const SURFACE_DIRECTORY = 'features/regression/surfaces/';
-const NOT_PENDING_SHOWN = 3;
+const NOT_PASSING_SHOWN = 3;
 
 interface ScenarioState {
   /** adwIds whose `agents/<adwId>/` directory a step created or cleared. */
@@ -118,7 +118,7 @@ Given(
   },
 );
 
-// Stands in for W1 and W10 until they get real bodies, and appears only inside throwaway features.
+// Stands in for the subprocess step that records the exit code T5 reads, which needs a harness a throwaway scenario lacks, and appears only inside throwaway features.
 Given('a stand-in subprocess step has recorded exit code {int}', function (this: RegressionWorld, exitCode: number) {
   this.lastExitCode = exitCode;
 });
@@ -160,41 +160,26 @@ Then('the failure message reports the recorded workflowStage {string}', function
   assertFailureMessage(`report the recorded workflowStage "${workflowStage}"`, (message) => message.includes(workflowStage));
 });
 
-function assertAllReportedPending(scenarios: readonly ScenarioOutcome[], which: string): void {
-  const notPending = scenarios.filter((scenario) => !verdictHolds(scenario, 'is reported pending'));
-  assert.deepStrictEqual(
-    notPending.slice(0, NOT_PENDING_SHOWN).map(describeScenario),
-    [],
-    `Expected ${which} to be reported pending, but ${notPending.length} are not (the first ${NOT_PENDING_SHOWN} are shown)`,
-  );
-}
-
 /** A row names a feature file of the surface or the smoke directory. */
 function isScenarioOfRow(scenario: ScenarioOutcome, row: string): boolean {
   return [SURFACE_DIRECTORY, SMOKE_DIRECTORY].some((directory) => scenario.uri.endsWith(`${directory}${row}`));
 }
 
-/** A smoke file may hold several scenarios, such as one per case of a threshold: each must pass. */
-function assertRowPasses(scenarios: readonly ScenarioOutcome[], row: string): void {
-  const rowScenarios = scenarios.filter((scenario) => isScenarioOfRow(scenario, row));
-  assert.ok(rowScenarios.length > 0, `Expected the child to run at least one scenario from ${row}, but it ran none`);
-  const failing = rowScenarios.filter((scenario) => !verdictHolds(scenario, 'passes'));
-  assert.deepStrictEqual(failing.map(describeScenario), [], `Expected every scenario of ${row} to pass, but the child Cucumber run reported otherwise`);
+/** A smoke file may hold several scenarios, such as one per case of a threshold, and the row is held when the child ran any of them. */
+function assertRanScenarioOfRow(scenarios: readonly ScenarioOutcome[], row: string): void {
+  assert.ok(scenarios.some((scenario) => isScenarioOfRow(scenario, row)), `Expected the child to run at least one scenario from ${row}, but it ran none`);
 }
 
-Then('every smoke and surface scenario is reported pending', function () {
-  const scenarios = ranScenarios();
-  [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
-  assertAllReportedPending(scenarios, `all ${scenarios.length} smoke and surface scenarios`);
-});
-
-Then('every smoke and surface scenario is reported pending, except these surface rows and smoke files, which pass:', function (table: DataTable) {
+Then('every smoke and surface scenario passes, and each of these surface rows and smoke files holds at least one of them:', function (table: DataTable) {
   const scenarios = ranScenarios();
   [SMOKE_DIRECTORY, SURFACE_DIRECTORY].forEach((directory) => assertRanScenarioFrom(scenarios, directory));
 
-  const rows = table.hashes().map(({ row }) => row);
-  rows.forEach((row) => assertRowPasses(scenarios, row));
+  const notPassing = scenarios.filter((scenario) => !verdictHolds(scenario, 'passes'));
+  assert.deepStrictEqual(
+    notPassing.slice(0, NOT_PASSING_SHOWN).map(describeScenario),
+    [],
+    `Expected all ${scenarios.length} smoke and surface scenarios to pass, but ${notPassing.length} do not (the first ${NOT_PASSING_SHOWN} are shown)`,
+  );
 
-  const parked = scenarios.filter((scenario) => !rows.some((row) => isScenarioOfRow(scenario, row)));
-  assertAllReportedPending(parked, `every one of the ${parked.length} smoke and surface scenarios other than the ${rows.length} rows and files listed`);
+  table.hashes().forEach(({ row }) => assertRanScenarioOfRow(scenarios, row));
 });

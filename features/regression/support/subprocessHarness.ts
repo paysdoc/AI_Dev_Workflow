@@ -6,7 +6,8 @@
  *
  * Setup saves what a child could change in the checkout, and teardown, on the World's cleanup list,
  * puts it back: the auth gate, which a cron child would otherwise obey by skipping its poll and
- * SIGTERMing live orchestrators, and the cron registry and log of the target repository.
+ * SIGTERMing live orchestrators, the pause queue, which a paused run appends to, and the cron
+ * registry and log of the target repository.
  */
 
 import assert from 'assert';
@@ -17,6 +18,7 @@ import { dirname, join, resolve } from 'path';
 import { AUTH_GATE_PATH } from '../../../adws/core/authGate.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import { REPO_ROOT } from '../../../adws/core/environment.ts';
+import { PAUSE_QUEUE_PATH } from '../../../adws/core/pauseQueue.ts';
 import { releaseIssueSpawnLock } from '../../../adws/triggers/spawnGate.ts';
 import type { RegressionWorld } from '../step_definitions/world.ts';
 import { materialiseTargetWorkspace } from './fixtureTargetRepo.ts';
@@ -51,6 +53,7 @@ const MADE_UP_ADW_ID = /^((surface|throwaway\d+)-[a-z0-9-]+|[a-z]+(-[a-z]+)*-smo
 
 const REPO_KEY = `${SURFACE_REPO.owner}_${SURFACE_REPO.repo}`;
 const AUTH_GATE_FILE = resolve(REPO_ROOT, AUTH_GATE_PATH);
+const PAUSE_QUEUE_FILE = resolve(REPO_ROOT, PAUSE_QUEUE_PATH);
 const CRON_FILES: readonly string[] = [
   resolve(REPO_ROOT, 'agents', 'cron', `${REPO_KEY}.json`),
   resolve(REPO_ROOT, 'logs', 'agents', 'cron', `${REPO_KEY}.log`),
@@ -107,6 +110,7 @@ export function createSubprocessHarness(world: Pick<RegressionWorld, 'cleanup'>)
   };
 
   const savedAuthGate = saveFile(AUTH_GATE_FILE);
+  const savedPauseQueue = saveFile(PAUSE_QUEUE_FILE);
   const savedCronFiles = CRON_FILES.map(saveFile);
   rmSync(AUTH_GATE_FILE, { force: true });
 
@@ -114,7 +118,7 @@ export function createSubprocessHarness(world: Pick<RegressionWorld, 'cleanup'>)
   world.cleanup.push(() => rmSync(root, { recursive: true, force: true }));
   world.cleanup.push(() => disposeLaunchRecorder(harness.recorder));
   world.cleanup.push(() => harness.claimedIssues.forEach((issue) => releaseIssueSpawnLock(SURFACE_REPO, issue)));
-  world.cleanup.push(() => [savedAuthGate, ...savedCronFiles].forEach(restoreFile));
+  world.cleanup.push(() => [savedAuthGate, savedPauseQueue, ...savedCronFiles].forEach(restoreFile));
   return harness;
 }
 

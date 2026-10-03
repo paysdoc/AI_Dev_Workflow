@@ -3,19 +3,73 @@
   "edits": [
     {
       "path": ".adw-stub-payload.json",
-      "contents": "[{\"type\":\"text\",\"text\":\"# Implementation Plan\\n\\nMinimal SDLC smoke plan stub.\\n\"}]\n"
-    },
-    {
-      "path": "specs/plan.md",
-      "contents": "# Implementation Plan\n\nMinimal plan stub for SDLC smoke test.\n\n## Steps\n1. Analyse requirements\n2. Implement changes\n3. Write tests\n"
-    },
-    {
-      "path": "src/featureStub.ts",
-      "contents": "// Smoke test stub — featureStub provides a minimal real diff for build/review phases.\nexport function featureStub(): string {\n  return 'stub';\n}\n"
-    },
-    {
-      "path": "README.md",
-      "contents": "# Smoke Test Repo\n\nMinimal fixture for SDLC smoke test.\n"
+      "contents": "[{\"type\":\"text\",\"text\":\"SDLC smoke stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
     }
-  ]
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The implementation plan for issue 100 was written.\\n\"}]\n" },
+        { "path": "specs/issue-100-adw-sdlc-smoke-100-sdlc_planner-sdlc-smoke.md", "contents": "# Implementation Plan: sdlc smoke\n\n## Steps\n1. Add src/sdlcSmoke.ts\n2. Export the smoke value\n" }
+      ]
+    },
+    "/scenario_writer": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": "features/feature-100.feature", "contents": "@adw-100\nFeature: sdlc smoke\n\n  Scenario: the smoke value is exported\n    Given the sdlc smoke module\n    When its value is read\n    Then it is the smoke value\n" }
+      ]
+    },
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n" }
+      ]
+    },
+    "/implement-tdd": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The plan was implemented.\\n\"}]\n" },
+        { "path": "src/sdlcSmoke.ts", "contents": "export function sdlcSmoke(): string {\n  return 'smoke';\n}\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The SDLC review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n" }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"Documentation written.\\napp_docs/feature-sdlc-smoke-100-sdlc-smoke.md\\n\"}]\n" },
+        { "path": "app_docs/feature-sdlc-smoke-100-sdlc-smoke.md", "contents": "# Feature: sdlc smoke\n\nThe SDLC smoke run's document phase wrote this page.\n" }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"feat: #100 - Issue 100\\\",\\\"body\\\":\\\"Closes #100\\\\nImplements #100\\\\n\\\\nADW tracking ID: sdlc-smoke-100\\\"}\"}]\n" }
+      ]
+    }
+  }
 }

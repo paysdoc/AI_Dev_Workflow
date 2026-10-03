@@ -1,11 +1,17 @@
 @regression @surface
-Feature: adwTest — scenarioTestPhase — happy path
+Feature: adwSdlc — scenarioTestPhase — happy path
 
-  Scenario: test orchestrator completes scenario test phase and exits successfully
-    Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
-    And an issue 1021 exists in the mock issue tracker
-    And the claude-cli-stub is loaded with fixture "plan-agent.json"
+  adwTest runs only the unit-test phase. adwSdlc runs the scenario test phase, in its scenario
+  test-and-fix loop. With step definitions in the worktree, the phase runs the cli-tool fixture's
+  scenario command for the fixture's review-proof tag. That command keeps its sh code fence, so
+  the shell exits 127 and the tag fails. A failed blocker tag is an outcome the loop acts on, not
+  an error: the phase resolves and posts no comment.
+
+  Scenario: sdlc orchestrator's scenario test phase runs the fixture's scenario command over the worktree's step definitions, resolves with the review-proof tag failed, and posts no comment
+    Given an issue 1021 exists in the mock issue tracker
     And the worktree for adwId "surface-21" is initialised at branch "surface-21"
-    When the "test" orchestrator is invoked with adwId "surface-21" and issue 1021
-    Then the state file for adwId "surface-21" records workflowStage "awaiting_merge"
-    And the orchestrator subprocess exited 0
+    And the worktree for adwId "surface-21" has step definitions committed on its branch
+    When the "scenario test" phase of the "sdlc" orchestrator runs for adwId "surface-21"
+    Then the "scenario test" phase run succeeded
+    And the scenario proof records a blocker failure for the tag "@review-proof"
+    And the mock harness recorded zero comment posts on issue 1021

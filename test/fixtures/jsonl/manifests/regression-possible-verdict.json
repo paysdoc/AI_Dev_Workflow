@@ -3,15 +3,67 @@
   "edits": [
     {
       "path": ".adw-stub-payload.json",
-      "contents": "[{\"type\":\"text\",\"text\":\"Regression-possible stub. Change touches adws/ to trigger escalation path.\\n\"}]\n"
-    },
-    {
-      "path": "adws/smoke-stub.ts",
-      "contents": "// Smoke stub — touches adws/ to produce a regression_possible diff verdict.\nexport const smokeStub = true;\n"
-    },
-    {
-      "path": "README.md",
-      "contents": "# Chore Smoke Test Repo\n\nAdws-touching change for regression-possible-verdict smoke fixture.\n"
+      "contents": "[{\"type\":\"text\",\"text\":\"Chore smoke stub (regression_possible verdict): the prompt opened with no command this manifest answers.\\n\"}]\n"
     }
-  ]
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/chore": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The chore plan for issue 200 was written.\\n\"}]\n" },
+        { "path": "specs/issue-200-adw-chore-smoke-200-sdlc_planner-chore-smoke.md", "contents": "# Chore Plan: chore smoke\n\n## Steps\n1. Add adws/smoke-stub.ts\n2. Commit it\n" }
+      ]
+    },
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The chore was implemented: adws/smoke-stub.ts was added.\\n\"}]\n" },
+        { "path": "adws/smoke-stub.ts", "contents": "// The chore smoke scenario's change to adws/.\nexport const smokeStub = true;\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/diff_evaluator": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"verdict\\\":\\\"regression_possible\\\",\\\"reason\\\":\\\"The diff adds adws/smoke-stub.ts.\\\"}\"}]\n" }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The chore review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n" }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"Documentation written.\\napp_docs/feature-chore-smoke-200-chore-smoke.md\\n\"}]\n" },
+        { "path": "app_docs/feature-chore-smoke-200-chore-smoke.md", "contents": "# Chore: chore smoke\n\nThe escalated chore's document phase wrote this page.\n" }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"chore: #200 - Issue 200\\\",\\\"body\\\":\\\"Closes #200\\\\nImplements #200\\\\n\\\\nADW tracking ID: chore-smoke-200\\\"}\"}]\n" }
+      ]
+    }
+  }
 }

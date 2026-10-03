@@ -188,14 +188,14 @@ Feature: The init, merge, patch and cron surface rows run as real processes, thr
       | review |
       | init   |
 
-  @adw-966 @adw-p5u9xh-bug-build-the-hermet
-  Scenario Outline: As the only step of a scenario <where> the @regression hooks that is not tagged @subprocess, W9 is reported pending, as W1 and W10 are
+  @adw-966 @adw-p5u9xh-bug-build-the-hermet @adw-968
+  Scenario Outline: As the only step of a scenario <where> the @regression hooks that is not tagged @subprocess, W9 fails, as W1 and W10 do, and is never reported pending
     Given a throwaway feature whose only scenario runs <where> the @regression hooks, with the steps:
       """
       When the workflow is initialised with config "adwPlan-throwaway966-w9"
       """
     When the throwaway feature is run through Cucumber
-    Then the throwaway scenario is reported pending
+    Then the throwaway scenario fails
 
     Examples:
       | where   |

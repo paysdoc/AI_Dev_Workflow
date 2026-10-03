@@ -15,7 +15,7 @@ import * as path from 'path';
 import { AUTH_GATE_PATH, writeAuthGate } from '../../../adws/core/authGate.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 
-interface ChildRun {
+export interface ChildRun {
   readonly status: number | null;
   readonly envelopes: readonly Envelope[];
   readonly stderr: string;
@@ -78,7 +78,8 @@ function runCucumber(args: readonly string[]): ChildRun {
   return { status: result.status, envelopes, stderr: result.stderr ?? '' };
 }
 
-function requireRun(): ChildRun {
+/** The run the scenario's When step made, for the steps of other features that judge it. */
+export function requireRun(): ChildRun {
   assert.ok(state.run, 'Expected a child Cucumber run to have been made first');
   return state.run;
 }

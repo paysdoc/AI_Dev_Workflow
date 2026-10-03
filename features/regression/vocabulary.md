@@ -81,21 +81,15 @@ Scenarios in this repo can assert against the following observable surfaces:
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|
-| W1 | `the {string} orchestrator is invoked with adwId {string} and issue {int}` | Runs the named orchestrator as a child process through the hermetic subprocess harness (see "Smoke processes"), against the `acme/widgets` workspace the harness lays out under a temporary `TARGET_REPOS_DIR`, with `--issue-type`, `--target-repo` and `--clone-url`. The name is one of `sdlc`, `chore`, `plan`, `build`, `test`, `patch`, `merge`, `document`, `pr-review` or `promotion-sweep`; any other name (there is no `review` and no `init`) fails the step, listing them. Records the exit code and the output, then replays the child's GitHub writes against the mock. `promotion-sweep` has no workflow and no worktree of its own and acts on the workspace itself, so the step registers the workspace as the worktree of the adwId, which T18 and T19 read, and has the `gh` shadow land the pull requests the sweep merges on the workspace's default branch. Pending in a scenario with no subprocess harness, one that carries neither `@subprocess` nor `@webhook` | subprocess | exit code + state file + recorded requests |
-| W2 | `the plan phase is executed with config {string}` | Imports `executePlanPhase` from `adws/phases/planPhase`, builds mocked `WorkflowConfig`, calls it | phase-import | state mutation |
-| W3 | `the build phase is executed with config {string}` | Imports `executeBuildPhase`, builds mocked config, calls it | phase-import | state mutation |
-| W4 | `the review phase is executed with config {string}` | Imports `executeReviewPhase`, builds mocked config, calls it | phase-import | state mutation |
-| W5 | `the PR phase is executed with config {string}` | Imports `executePRPhase`, builds mocked config, calls it | phase-import | state mutation |
-| W6 | `the auto-merge phase is executed with config {string}` | Imports `executeAutoMergePhase`, builds mocked config, calls it | phase-import | recorded PR merge call |
-| W7 | `the document phase is executed with config {string}` | Imports `executeDocumentPhase`, builds mocked config, calls it | phase-import | recorded comment call |
-| W8 | `the install phase is executed with config {string}` | Imports `executeInstallPhase`, builds mocked config, calls it | phase-import | state mutation |
-| W9 | `the workflow is initialised with config {string}` | Runs the init driver (`features/regression/drivers/workflowInitDriver.ts`) as a child process the way W1 runs an orchestrator: `initializeWorkflow` for the orchestrator the label names (`<script stem>-<adwId>`, such as `adwPlan-surface-01`) and for the one issue the scenario seeded, then stops. Records the exit code and the output, then replays the child's GitHub writes. Pending in a scenario without `@subprocess` | subprocess | exit code + state file + output + recorded requests |
-| W10 | `the cron probe runs once` | Runs `adws/triggers/trigger_cron.ts --target-repo acme/widgets` as a child process through the hermetic subprocess harness, with the launch recorder intercepting every `bunx` launch, until its first `POLL:` line; waits for the launch it makes for a candidate and for the launches to settle, kills the process group and replays. Records no exit code: the harness killed the cron, so T5 fails after it. Pending in a scenario without `@subprocess` | subprocess | launch records + recorded requests |
-| W11 | `the webhook handler receives a {string} event for issue {int}` | POSTs a synthetic GitHub webhook payload to the orchestrator's webhook listener | subprocess | recorded requests + state |
+| W1 | `the {string} orchestrator is invoked with adwId {string} and issue {int}` | Runs the named orchestrator as a child process through the hermetic subprocess harness (see "Smoke processes"), against the `acme/widgets` workspace the harness lays out under a temporary `TARGET_REPOS_DIR`, with `--issue-type`, `--target-repo` and `--clone-url`. The name is one of `sdlc`, `chore`, `plan`, `build`, `test`, `patch`, `merge`, `document`, `pr-review` or `promotion-sweep`; any other name (there is no `review` and no `init`) fails the step, listing them. Records the exit code and the output, then replays the child's GitHub writes against the mock. `promotion-sweep` has no workflow and no worktree of its own and acts on the workspace itself, so the step registers the workspace as the worktree of the adwId, which T18 and T19 read, and has the `gh` shadow land the pull requests the sweep merges on the workspace's default branch. Fails, naming the hook it needs, in a scenario with no subprocess harness, one that carries neither `@subprocess` nor `@webhook` | subprocess | exit code + state file + recorded requests |
+| W9 | `the workflow is initialised with config {string}` | Runs the init driver (`features/regression/drivers/workflowInitDriver.ts`) as a child process the way W1 runs an orchestrator: `initializeWorkflow` for the orchestrator the label names (`<script stem>-<adwId>`, such as `adwPlan-surface-01`) and for the one issue the scenario seeded, then stops. Records the exit code and the output, then replays the child's GitHub writes. Fails in a scenario without the subprocess harness | subprocess | exit code + state file + output + recorded requests |
+| W10 | `the cron probe runs once` | Runs `adws/triggers/trigger_cron.ts --target-repo acme/widgets` as a child process through the hermetic subprocess harness, with the launch recorder intercepting every `bunx` launch, until its first `POLL:` line; waits for the launch it makes for a candidate and for the launches to settle, kills the process group and replays. Records no exit code: the harness killed the cron, so T5 fails after it. Fails in a scenario without the subprocess harness | subprocess | launch records + recorded requests |
 | W13 | `the pause-queue resume scan runs` | Invokes `resumeWorkflow` on the seeded pause-queue entry to attempt resumption | phase-import | recorded auth + comment calls |
 | W14 | `the cron poll batch runs` | Invokes `checkAndTrigger` one cycle (or the `ensureAppAuthForRepo` + `fetchOpenIssues` slice) to simulate a single cron tick | phase-import | recorded auth + issue-fetch calls |
 | W15 | `the framework upgrade commits the regen excluding {string}` | Drives the REAL `commitOps.commitChanges(realRun, …, { excludePaths: [<path>] })` over the temp worktree — the exact production call `adwUpgrade` makes — recording the produced commit; any throw is captured for the downstream assertions | phase-import | git artefact (recorded commit) |
 | W16 | `the git/gh guard is run across the repository` | Runs the repository's git/gh guard (`bunx tsx adws/checkGitGhGuard.ts`) as a subprocess from the ADW checkout root; records its exit status and combined stdout/stderr on the World | subprocess | exit code + log stream |
+
+W2–W8 and W11 are retired: no scenario ever ran them. Phases are driven by W-S1–W-S4 and webhooks by W-WH1–W-WH5 and W-CD1, and the numbers are not reused.
 
 ---
 
@@ -319,28 +313,34 @@ is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the gene
 
 These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
 or an orchestrator's lifecycle, of the production code runs against `mockForgeProviders` (an
-`acme/widgets` forge that records every comment it posts, every pull request it creates and every
-secret it sets as the HTTP calls would, answers `getDefaultBranch` with `main`, and refuses every
-port method the rows do not call), the fixture worktree G11 made, and the Claude CLI stub.
-`commentOnPullRequest` posts to GitHub's issue-comments endpoint for the pull request. The stub
-is delivered as `<worktree>/.adw-stub-manifest.json`, copied from the manifest G3 named, because the
-agent runner passes no `MOCK_*` variable to it; a manifest answers per slash command, and one that
-would write `.adw/state.json`, anything under `agents/` or anything beyond the worktree is refused.
-The phase runs under the name the production orchestrator passes to `runPhase`, so the stage
-artefacts are the production ones: `adwPlan` names no phase, and its plan phase writes no `plan_*`
-stage. The dependency-audit setup, which no orchestrator runs and which returns no `PhaseResult`,
-is driven through its `deps` seam (W-S3) instead. Every assertion targets a runtime artefact: the
-phase run's outcome, the top-level state file (`agents/<adwId>/state.json`), the requests the mock
-GitHub API recorded, the git-mock's invocation log, the commands W-S3 recorded, or the spawn-lock
+`acme/widgets` forge that records every comment it posts, every label it applies, every pull request
+it creates and every secret it sets as the HTTP calls would, answers `getDefaultBranch` with `main`,
+and refuses every port method the rows do not call), the fixture worktree G11 made, and the
+Claude CLI stub. `commentOnPullRequest` posts to GitHub's issue-comments endpoint for the pull
+request. The stub is delivered as `<worktree>/.adw-stub-manifest.json`, copied from the manifest G3
+named, because the agent runner passes no `MOCK_*` variable to it; a manifest answers per slash
+command, and one that would write `.adw/state.json`, anything under `agents/` or anything beyond
+the worktree is refused. The phase runs under the name the production orchestrator passes to
+`runPhase`, so the stage artefacts are the production ones: `adwPlan` names no phase, and its plan
+phase writes no `plan_*` stage. `adwTest` names its unit-test phase `test`; adwSdlc and adwChore
+name none of the phases these rows drive, so those runs write no stage and the top-level state
+keeps the `starting` W-S1 seeds. A phase no orchestrator runs is driven directly (W-S4), and the
+dependency-audit setup, which returns no `PhaseResult`, is driven through its `deps` seam (W-S3).
+Every assertion targets a runtime artefact: the phase run's outcome, the top-level state file
+(`agents/<adwId>/state.json`), the requests the mock GitHub API recorded, the scenario proof a
+phase produced, the git-mock's invocation log, the commands W-S3 recorded, or the spawn-lock
 artefact (`agents/spawn_locks/`). No step reads a source file, satisfying the Rot-Detection Rubric.
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|
 | G-S1 | `the worktree for adwId {string} has the plan for issue {int} committed on its branch` | Writes `specs/issue-<N>-adw-<adwId>-sdlc_planner-surface-plan.md` into the worktree G11 registered and commits it, so a build phase has the plan it reads | phase-import | worktree artefact |
 | G-S2 | `a pull request {int} for issue {int} is open on the branch {string} with a review comment to address` | Replaces the mock server's pull-request and comment maps with one open pull request `N` (title `Issue <issue>`, body `Implements #<issue>`, head the branch, base `main`) and one review comment on it from `reviewer`, so the PR-review phases read the pull request and the comment they address | mock-query | mock server state |
-| W-S1 | `the {string} phase of the {string} orchestrator runs for adwId {string}` | Builds the `WorkflowConfig` (the seeded issue, the worktree, the mock forge, the initial top-level state `starting`; `agents/<adwId>/` cleared first, since a state left behind skips a completed phase), delivers the stub, and runs `runPhase` over the phase function under the production phase name, with `process.exit` trapped and cost records kept rather than posted. Records whether it resolved, the error it threw, or the exit code it ended the process with | phase-import | phase run outcome |
+| G-S3 | `the worktree for adwId {string} has a scenario for issue {int} committed on its branch` | Writes `features/feature-<N>.feature`, tagged `@adw-<N>`, into the worktree G11 registered and commits it, so the alignment and plan-validation phases find the issue's scenarios | phase-import | worktree artefact |
+| G-S4 | `the worktree for adwId {string} has step definitions committed on its branch` | Writes `features/step_definitions/surface.steps.ts`, in the fixture's default step definition directory, into the worktree G11 registered and commits it, so the scenario proof finds step definitions and runs the fixture's scenario command for each tag | phase-import | worktree artefact |
+| W-S1 | `the {string} phase of the {string} orchestrator runs for adwId {string}` | Builds the `WorkflowConfig` (the seeded issue, the worktree, the mock forge, the initial top-level state `starting`; `agents/<adwId>/` cleared first, since a state left behind skips a completed phase), delivers the stub, and runs `runPhase` over the phase function under the production phase name, with `process.exit` trapped and cost records kept rather than posted. Records whether it resolved, the error it threw, or the exit code it ended the process with. The phase function is called as its orchestrator calls it: the review phase with the empty scenario-proof path passed when no proof preceded it, and the scenario fix phase with the proof of a failed run of the fixture's `@review-proof` blocker tag. The scenario proof the phase left on the workflow context is recorded on the World. The orchestrator/phase pairs it drives are `plan`/`plan`, `build`/`build`, `test`/`unit test` (phase name `test`), `chore`/`review`, `chore`/`diff evaluation`, `sdlc`/`alignment`, `sdlc`/`scenario test`, `sdlc`/`scenario fix` and `sdlc`/`review`; it refuses any other pair before it builds a config | phase-import | phase run outcome |
 | W-S2 | `the {string} orchestrator's lifecycle runs for adwId {string}` | Builds the same config and runs `runWithOrchestratorLifecycle` with a workflow that records that it ran and who the spawn-gate lock names while it does | phase-import | lifecycle outcome |
 | W-S3 | `the dependency-audit setup runs for adwId {string} on a host whose environment sets every secret it propagates` | Builds the same config under `init-orchestrator`, the id the deleted adwInit ran the setup under, and calls `executeDepauditSetup` with three `deps`: an `execWithRetry` that records each command and its cwd and runs nothing, a `getEnv` that answers every secret, and the mock forge's `codeHost`. Records what it returned, or what it threw | phase-import | dependency-audit outcome |
+| W-S4 | `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}` | As W-S1, for a phase no orchestrator in `adws/*.tsx` runs (`plan validation`), and refuses any other phase. It runs `runPhase` with no phase name under adwSdlc's identity | phase-import | phase run outcome |
 | T-S1 | `the {string} phase run succeeded` | Asserts the recorded outcome is for that phase and the phase run resolved | phase-import | phase run outcome |
 | T-S2 | `the {string} phase run failed` | Asserts the recorded outcome is for that phase, the run did not resolve and threw an error. An exit of the process, the pause or timeout path, is not a failure | phase-import | phase run outcome |
 | T-S3 | `the spawn-gate lock for issue {int} was held by the orchestrator while its lifecycle ran` | Asserts the lifecycle was for that issue, ran its workflow and returned true, and that the lock named this process while the workflow ran | phase-import | lifecycle outcome + spawn-lock artefact |
@@ -350,11 +350,16 @@ artefact (`agents/spawn_locks/`). No step reads a source file, satisfying the Ro
 | T-S7 | `the mock GitHub API recorded a comment on pull request {int} containing the text {string}` | Asserts a recorded POST to `/issues/N/comments` carries a body containing the text. Fails giving the number of comment posts recorded for that number | mock-query | recorded requests |
 | T-S8 | `the dependency-audit setup ran the command {string} in the worktree for adwId {string}` | Asserts the recorded setup was for that adwId, finished without an error and returned its result, and that it asked its `execWithRetry` for that command with the worktree G11 registered for the adwId as its cwd. Fails listing the recorded calls | phase-import | dependency-audit outcome |
 | T-S9 | `the mock GitHub API recorded the Actions secret {string} set on the repository {string}` | Asserts a recorded PUT to `/repos/<owner>/<repo>/actions/secrets/<name>`. Fails listing the recorded PUT URLs | mock-query | recorded requests |
+| T-S10 | `the {string} phase run failed with an error that names {string}` | Asserts what T-S2 asserts, and that the message of the error the run failed with contains the text | phase-import | phase run outcome |
+| T-S11 | `the scenario proof ran no tag` | Asserts the scenario proof recorded on the World holds no tag result, as when the proof finds no step definitions | phase-import | phase run outcome (scenario proof) |
+| T-S12 | `the scenario proof records a blocker failure for the tag {string}` | Asserts the recorded scenario proof holds a result for the tag that is a blocker, ran and failed, and that the proof records blocker failures | phase-import | phase run outcome (scenario proof) |
 
 These rows also reuse already-registered phrases, so they need no new rows: `the ADW codebase is
 checked out` (G18, Background), G3, G4, G5, G11, G-PQ14 (`another live process holds the spawn lock
 for issue {int} in the repository {string}`, whose process and lock the `@regression` After hook
-releases), T1, T2, T3, T6, T8 and T11.
+releases), T1, T2, T3, T6, T8, T11, T12 (`the mock GitHub API recorded an application of the {string} label
+on issue {int}`), T14 (`the mock harness recorded zero comment posts on issue {int}`) and T-PY3
+(`the scenario proof records no blocker failures`, which reads the same recorded proof).
 
 ---
 
@@ -436,12 +441,11 @@ carries no `pid`), G-WH3 (the webhook secret) and T14 (no comment posted).
 These rows run a real ADW process as a child of the Cucumber process, through the hermetic
 subprocess harness (`features/regression/support/subprocessHarness.ts`, `subprocessRun.ts` and
 `subprocessDrivers.ts`). W1 runs an orchestrator, W9 the workflow-init driver
-(`features/regression/drivers/workflowInitDriver.ts`) and W10 the cron trigger. Each of them is
-pending without the harness, so every other smoke and surface scenario stays pending, and a row opts
-in by carrying `@subprocess` next to `@regression`. A `@webhook` row is given the same harness, so the
-Givens it shares with the subprocess rows (G-SP2's claim and its cleanup, the throwaway workspace) work
-there; the harness is never keyed on `@smoke` or `@surface`, which would also run the orchestrators of
-the rows that stay pending.
+(`features/regression/drivers/workflowInitDriver.ts`) and W10 the cron trigger. Each of them fails
+without the harness, and a row opts in by carrying `@subprocess` next to `@regression`. A `@webhook`
+row is given the same harness, so the Givens it shares with the subprocess rows (G-SP2's claim and its
+cleanup, the throwaway workspace) work there. The harness is never keyed on `@smoke` or `@surface`,
+because the in-process surface rows need none.
 
 **What the `@regression and (@subprocess or @webhook)` Before hook sets up.** A temporary root under
 `os.tmpdir()` holding the child's `TARGET_REPOS_DIR` and `HOME`, the `gh` shadow's state and log, and
@@ -450,12 +454,13 @@ fixture committed on `main` under `TARGET_REPOS_DIR`, with an `origin` of
 `https://github.com/acme/widgets.git` (never contacted), a local `refs/remotes/origin/main`, and a
 committed `.adw-version` equal to the framework hash, which the upgrade gate would otherwise park the
 issue over. It is laid out the first time a step needs it. The hook also creates a launch recorder,
-and saves then removes `agents/.auth_gate` (a cron child would otherwise skip its poll and SIGTERM
-live orchestrators) and snapshots the cron registry entry and log of `acme/widgets`. Teardown is on
+saves then removes `agents/.auth_gate` (a cron child would otherwise skip its poll and SIGTERM live
+orchestrators), saves `agents/paused_queue.json`, which a paused run appends to, and snapshots the
+cron registry entry and log of `acme/widgets`. Teardown is on
 `World.cleanup`: it kills every process group the harness started, removes the `agents/<adwId>/` and
 `logs/<adwId>/` of every claimed adwId (only one made up for a scenario, `surface-…`,
 `throwaway<N>-…` or a smoke file's `<name>-smoke-<N>`, is accepted), releases the `acme/widgets` spawn lock of every claimed issue,
-restores the auth gate and the cron files byte for byte, disposes the launch recorder and removes the
+restores the auth gate, the pause queue and the cron files byte for byte, disposes the launch recorder and removes the
 temporary root.
 
 **The child's environment.** It starts from the Cucumber process's own and forces: a fake but
@@ -497,6 +502,22 @@ fast-forward, or a workspace that is not on the base branch, fails the call and 
 `<TARGET_REPOS_DIR>/.adw-stub-manifest.json`, above the workspace and every worktree a run creates,
 and under `os.tmpdir()`, so a search that starts in the ADW checkout finds none.
 
+**The full-pipeline smoke rows.** `adw_chore_diff_verdicts`, `adw_sdlc_happy_path` and
+`pause_resume_rate_limit` run W1 `chore` or `sdlc` end to end. Each manifest answers per slash
+command, and its top-level `onCommitCommand` stands in for `/commit`, so every agent whose phase
+commits must leave a change. `/chore` and `/feature` write the plan at
+`specs/issue-<N>-adw-<adwId>-sdlc_planner-<name>.md`, where `getPlanFilePath` finds it. The build
+agent's command and `/document` write a file; the build agent's command is `/implement`, or
+`/implement-tdd` once a feature tagged `@adw-<N>` is in the worktree, as in the SDLC row.
+`/scenario_writer` writes a feature tagged `@adw-<N>`, and the agents whose callers parse JSON answer
+with it. `/generate_step_definitions` writes no step definition: with one, the scenario proof would
+run the fixture's fenced scenario command, which exits 127. `/generate_branch_name` runs with the ADW
+checkout as its cwd, never finds the manifest, and falls back to `<type>-issue-<N>`. The fixture's
+`N/A` unit-test command yields no JUnit report, hence the `adw:unverified` label. The pause row
+answers every call with a `seven_day` limit and a reset in 2100. The plan phase's rejection is
+enqueued, because only `five_hour` is slept out in process (`adws/core/rateLimitWaitPolicy.ts`), so
+the run records `paused` and exits 0.
+
 **Timeouts.** An orchestrator is bounded at 120 s, the init driver at 30 s, and the cron at 60 s for
 its first `POLL:` line. A process that outlives its bound fails the step with the tail of its output,
 after its whole process group is killed. W10 kills the cron once it has polled and its launches have
@@ -537,5 +558,5 @@ states N.
 This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
 checked out` (G18, Background), G3 (its manifest is delivered as the marker above), G4 (the seeded
 issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (keeps the issues G4
-seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T14, and T18 and T19
-(the marker the sweep lands, read in the workspace W1 registered under the adwId).
+seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
+and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
