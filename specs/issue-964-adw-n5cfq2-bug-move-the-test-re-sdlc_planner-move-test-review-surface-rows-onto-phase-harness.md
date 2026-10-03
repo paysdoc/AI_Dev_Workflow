@@ -23,6 +23,7 @@ Taking the `pending` marker off would not help. Each fact below was checked agai
 3. **The rows' stub inputs are dead in-process.** G9 sets `MOCK_FIXTURE_PATH`, which `getSafeSubprocessEnv()` drops, and `adw-sdlc-happy.json` answers every agent with plan prose. The review, diff-evaluator, test, validation and alignment agents all extract JSON from their answer, so each would loop through `/correct_output` and fail.
 4. **Preconditions are missing, and no registered Given expresses them.**
    - *New:* the cli-tool fixture has no step definitions, so `runScenarioProof` skips the proof with `tagResults: []` (`adws/phases/scenarioProof.ts:185-202`). The fixture's echo scenario command never runs.
+   - *New:* given step definitions, the echo still never echoes. `parseMarkdownSections` keeps the sh code fence around the fixture's `## Run Scenarios by Tag` body (`adws/core/projectConfig.ts`), and `runScenariosByTag` hands that fenced text to a shell (`adws/agents/bddScenarioRunner.ts`). The shell runs the fence's backticks as a command substitution, then tries to run `1 scenario (1 passed)` as a command, and exits 127 with nothing on stdout. The proof records `@review-proof`, the fixture's one required blocker tag, as a failed blocker (`hasBlockerFailures: true`), and the scenario test phase still resolves without posting a comment.
    - The alignment and plan-validation phases need a plan and a `.feature` file tagged `@adw-<N>` (`findScenarioFiles`). Without the plan, alignment returns early and plan validation throws `Cannot read plan file`. Without the feature, both return early and post nothing (`alignmentPhase.ts:63-98`, `planValidationPhase.ts:52-65`).
    - A branch with no diff against `main` is ruled `safe` without asking the diff evaluator (`diffEvaluationPhase.ts:67-87`).
    - G13 `a per-issue feature file at {string} is seeded into the worktree for adwId {string} from fixture {string}` is registered, but it has no step definition and its fixture directory `test/fixtures/scenarios/promotion/` does not exist.
@@ -41,24 +42,25 @@ Make the eleven rows run and pass in-process, with no vacuous assertion and no m
 
 - **Harness:** orchestrator entries for `test`, `chore` and `sdlc`, each phase called as its orchestrator calls it. Also a way to drive a phase no orchestrator runs, `applyLabel` on the mock forge, the scenario proof recorded on the World, and the unit-report environment variable restored.
 - **Steps:**
-  - G-S2: seed the issue's scenarios and step definitions;
+  - G-S2: seed a scenario for the issue;
+  - G-S3: seed step definitions;
   - W-S3: drive a phase directly;
-  - T-S7: read the scenario proof;
-  - T-S8: name the cause of a phase failure.
+  - T-S7: name the cause of a phase failure;
+  - T-S8 and T-S9: read the scenario proof, which ran no tag or records a blocker failure for a tag.
 - **Fixtures:** seven per-command manifests that answer each agent with the JSON it expects.
 - **Rows:** the eleven rows rewritten in place and retitled where the orchestrator was wrong.
 - **Vocabulary:** the new phrases registered.
-- **Per-issue:** feature-960 §6, which asserts that every surface row except #963's six is pending, updated so it keeps passing (AC3).
+- **Per-issue:** feature-960 §6, which asserts that every surface row except #963's six is pending, updated so it keeps passing (AC3). feature-964, this issue's own scenarios, gets the After hook that runs the World's cleanup list.
 
 ## Solution Statement
 - **`mockForgeProviders`** gains `applyLabel`. It is recorded through `dispatchMockRequest` as `POST /repos/acme/widgets/issues/<n>/labels` with body `{"labels":[<name>]}`, the shape T12 reads. Nothing else is added; the review phase only calls `fetchLabels` and the code host once a PR exists, and no row has one.
 - **The phase table (`phaseConfig.ts`)** gains:
-  - `test`: `unitTest` under the phase name `'test'`, as `adwTest.tsx:43` passes it;
-  - `chore`: issue type `/chore`, with `review` and `diffEvaluation`;
-  - `sdlc`: `alignment`, `scenarioTest`, `scenarioFix` and `review`;
-  - a direct-phase table holding `planValidation`, driven under adwSdlc's identity.
+  - `test`: `unit test` under the phase name `'test'`, as `adwTest.tsx:43` passes it;
+  - `chore`: issue type `/chore`, with `review` and `diff evaluation`;
+  - `sdlc`: `alignment`, `scenario test`, `scenario fix` and `review`;
+  - a direct-phase table holding `plan validation`, driven under adwSdlc's identity.
 
-  Only `test` has a production phase name. Each function is called as its orchestrator calls it:
+  A phase key is the words a row's step names it by, like the existing `plan` and `build`. Only `test` has a production phase name. Each function is called as its orchestrator calls it:
   - the review phase with the empty scenario-proof path that production passes when no proof preceded it;
   - the scenario fix phase with the proof the scenario test phase leaves when the fixture's `@review-proof` blocker scenarios fail. That is the only kind of proof `runScenarioTestFixLoop` hands it.
 - **`phaseRun.ts`**:
@@ -66,24 +68,29 @@ Make the eleven rows run and pass in-process, with no vacuous assertion and no m
   - after the run it records the scenario proof the phase left on the workflow context (`config.ctx.scenarioProof`, which the review phase reads next) as `World.scenarioProofResult`;
   - before the run it registers a restore of `ADW_UNIT_TEST_REPORT_PATH` on the cleanup list.
 - **Steps (`surfaceSteps.ts`):**
-  - **G-S2** commits a `@adw-<N>` feature file and its step definitions into G11's worktree, the way G-S1 commits the plan. The alignment and plan-validation phases then find the issue's scenarios, and the scenario proof finds step definitions and runs the fixture's echo command.
+  - **G-S2** commits a feature file tagged `@adw-<N>` into G11's worktree, the way G-S1 commits the plan. The alignment and plan-validation phases then find the issue's scenarios.
+  - **G-S3** commits a step definition file into the fixture's default step definition directory. The scenario proof then finds step definitions and runs the fixture's scenario command for each tag of its review proof config.
   - **W-S3** drives a phase no orchestrator runs.
-  - **T-S7** reads the recorded proof: the tag ran, was not skipped, passed with exit code 0, and its captured output holds the expected text.
-  - **T-S8** asserts the text of the error a phase run failed with, so a failure from a harness fault cannot pass for the expected one.
+  - **T-S7** asserts the phase run failed, as T-S2 does, and the text of the error it failed with, so a failure from a harness fault cannot pass for the expected one.
+  - **T-S8** reads the recorded proof: it ran no tag.
+  - **T-S9** reads the recorded proof: it holds a result for the tag that ran, is a blocker and failed, and the proof records blocker failures.
 - **Manifests:** seven new `surface-*.json` manifests answer exactly one slash command each, through `byCommand`, with a short JSON answer (the stub truncates `result` to 500 characters, `claude-cli-stub.ts:219`). The scenario-fix manifest answers every agent with `{ "kind": "error" }`. They write only `.adw-stub-payload.json`.
 - **Rows:** rewritten in place and retitled: 06 to adwTest, 07, 08, 21, 22, 23 and 34 to adwSdlc, 09 to adwChore, 33 to "driven directly". The assertions follow the code:
   - the unit-test rows record `test_completed`. With no JUnit report from the fixture, they also label the issue `adw:unverified` and post the `unverified` comment;
   - a rejected review resolves the phase run and posts the review-failed comment;
-  - the scenario test phase posts no comment;
+  - the diff evaluation phase posts the verdict and the reason the diff evaluator gave;
+  - the scenario test phase posts no comment. Its proof records the fixture's `@review-proof` tag as a failed blocker, because the fixture's fenced scenario command exits 127, and the phase still resolves;
   - in the fix phase, the resolver's error is only logged; the commit agent's error fails the run.
-- **Per-issue:** feature-960 §6 lists all seventeen in-process rows, and is flagged `@adw-964` so this issue's test phase runs it.
+- **Per-issue:**
+  - feature-960 §6 lists all seventeen in-process rows, and is flagged `@adw-964` so this issue's test phase runs it.
+  - feature-964 reuses feature-963's per-issue phrases, whose child runs put their temporary directories on the World's cleanup list. feature-963's hooks are keyed on its own tag, so a hooks file keyed on `@adw-n5cfq2-bug-move-the-test-re` runs that list after each feature-964 scenario.
 
 ## Steps to Reproduce
 Run from the repository root. Never run two Cucumber processes from one checkout at once.
 
 1. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@surface" --format summary`. On `dev` the summary reads `34 scenarios`, with 6 passed and 28 pending. Cucumber exits 1. Each of rows 06, 07, 08, 09, 15, 20, 21, 22, 23, 33 and 34 stops pending at W1.
 2. `grep -n "runPhase(" adws/adwBuild.tsx adws/adwTest.tsx`: adwBuild runs install and build; adwTest runs only `executeUnitTestPhase` under `'test'`. `ls adws/adwReview.tsx` fails. `grep -rn "executePlanValidationPhase" adws/*.tsx adws/phases/*.ts` finds only its definition and re-export.
-3. `ls test/fixtures/cli-tool/features` fails: the fixture has no step definitions, so the scenario proof would skip without running the fixture's `echo "1 scenario (1 passed)"`.
+3. `ls test/fixtures/cli-tool/features` fails: the fixture has no step definitions, so the scenario proof would skip without running the fixture's `echo "1 scenario (1 passed)"`. Given step definitions it would still not echo: `sh -c "$(awk '/^## Run Scenarios by Tag/{f=1;next} /^## /{f=0} f' test/fixtures/cli-tool/.adw/commands.md)" </dev/null; echo "exit $?"` runs the section's fenced body as `runScenariosByTag` does, prints `1: command not found` on stderr, nothing on stdout, and `exit 127`.
 4. `grep -n "applyLabel" features/regression/support/mockForgeProviders.ts` shows `notSupported('applyLabel')`. With it, the unit-test phase's `unverified` comment (`unitTestPhase.ts:118-127`) is never posted.
 5. `grep -rn "seeded into the worktree" features --include=*.ts` finds no step definition for G13.
 
@@ -120,24 +127,27 @@ Use these files to fix the bug:
 - `features/regression/support/phaseConfig.ts`: the orchestrator/phase table and `buildPhaseConfig`. It gains the new orchestrators, the phase wrappers and the direct-phase table.
 - `features/regression/support/phaseRun.ts`: `runSurfacePhase`, `withExitTrap` and `deliverStubManifest`. It gains the shared runner, the direct runner, scenario-proof recording and the env restore.
 - `features/regression/support/mockForgeProviders.ts`: gains `applyLabel`.
-- `features/regression/support/fixtureWorktree.ts`: `commitFileOnBranch` and `realGit`, which G-S2 reuses. Unchanged.
+- `features/regression/support/fixtureWorktree.ts`: `commitFileOnBranch` and `realGit`, which G-S2 and G-S3 reuse. Unchanged.
 - `features/regression/support/claudeCliStub.ts`, `cleanup.ts`, `hooks.ts`: stub delivery and the cleanup list the `@regression` After hook runs. Unchanged.
-- `features/regression/step_definitions/surfaceSteps.ts`: W-S1, W-S2, G-S1 and T-S1…T-S6. It gains G-S2, W-S3, T-S7 and T-S8.
+- `features/regression/step_definitions/surfaceSteps.ts`: W-S1, W-S2, G-S1 and T-S1…T-S6. It gains G-S2, G-S3, W-S3 and T-S7…T-S9.
 - `features/regression/step_definitions/world.ts`: `PhaseOutcome` and `scenarioProofResult`. Unchanged.
 - `features/regression/step_definitions/givenSteps.ts`, `thenSteps.ts`: G4, G11, T1, T2, T3, T12 and T14, reused unchanged.
-- `features/regression/step_definitions/pythonFixtureE2ESteps.ts`: T-PY3 `the scenario proof records no blocker failures`, reused unchanged. It reads `World.scenarioProofResult`.
+- `features/regression/step_definitions/pythonFixtureE2ESteps.ts`: T-PY3 `the scenario proof records no blocker failures`, reused unchanged by feature-964's throwaway scenarios. It reads `World.scenarioProofResult`.
 - `features/regression/step_definitions/whenSteps.ts`: W1 stays pending, untouched; the other parked rows still use it.
 - `features/regression/surfaces/row-06-adwBuild-unitTestPhase-happy.feature`, `row-07-adwReview-reviewPhase-happy.feature`, `row-08-adwReview-reviewPhase-error-review-rejected.feature`, `row-09-adwReview-diffEvaluationPhase-happy.feature`, `row-15-adwChore-reviewPhase-happy.feature`, `row-20-adwTest-unitTestPhase-happy.feature`, `row-21-adwTest-scenarioTestPhase-happy.feature`, `row-22-adwTest-scenarioProof-happy.feature`, `row-23-adwTest-scenarioFixPhase-error.feature`, `row-33-adwReview-planValidationPhase-happy.feature`, `row-34-adwReview-alignmentPhase-happy.feature`: the eleven rows, rewritten in place.
 - `features/regression/surfaces/row-02-…`, `row-04-…`: the shape of an in-process row.
-- `features/regression/vocabulary.md`: the registry. It gains G-S2, W-S3, T-S7 and T-S8, and updates W-S1 and the "Surface phases and lifecycles" intro.
+- `features/regression/vocabulary.md`: the registry. It gains G-S2, G-S3, W-S3 and T-S7…T-S9, and updates W-S1 and the "Surface phases and lifecycles" intro.
 - `features/per-issue/feature-960.feature`: §6 lists the in-process rows and must keep passing.
 - `features/per-issue/step_definitions/feature-960.steps.ts`: the table-driven §6 step. Unchanged.
 - `features/per-issue/feature-963.feature`, `features/per-issue/step_definitions/feature-963*.ts`, `features/support/cucumberChildRun.ts`: the twice-in-a-row `@surface` child runs and the committed-manifest refusal sweep. They must keep passing with the eleven rows now running; `CHILD_TIMEOUT_MS` is 120 s.
+- `features/per-issue/feature-964.feature`: this issue's scenarios. They reuse feature-963's per-issue phrases (the twice-in-a-row `@surface` runs, the per-row table, the throwaway regression scenario and its verdicts, the manifest sweep) and pin each phase's behaviour in throwaway `@regression` scenarios built from the rows' phrases.
+- `features/per-issue/step_definitions/feature-963-state.ts`: its hooks run the World's cleanup list, keyed on feature-963's own tag. The shape of feature-964's hooks file.
+- `adws/core/projectConfig.ts`, `adws/agents/bddScenarioRunner.ts`: `parseMarkdownSections` keeps a section's code fence, and `runScenariosByTag` runs the text through a shell, which is why the fixture's scenario command exits 127.
 - `test/fixtures/jsonl/manifests/surface-plan-phase.json`, `surface-build-phase.json`: the manifest shape the new ones follow.
 - `test/mocks/manifestInterpreter.ts`, `manifestSchema.ts`, `manifestRefusalGuard.ts`, `claude-cli-stub.ts`: `byCommand` selection by the prompt's opening slash command, the `error` response, the refusal guard, and the 500-character `result` truncation.
 - `test/mocks/__tests__/manifestRefusalGuard.test.ts`: sweeps every committed manifest; the new ones must pass it.
 - `test/mocks/github-api-server.ts`: `dispatchMockRequest` and the existing `POST /repos/:owner/:repo/issues/:issueNumber/labels` route.
-- `test/fixtures/cli-tool/.adw/*`: the fixture's `## Run Scenarios by Tag` echo command, `## Start Dev Server: N/A`, `## Run Tests: N/A`, and `review_proof.md`'s single `@review-proof` blocker tag.
+- `test/fixtures/cli-tool/.adw/*`: the fixture's `## Run Scenarios by Tag` echo command inside its sh code fence, `## Start Dev Server: N/A`, `## Run Tests: N/A`, and `review_proof.md`'s single `@review-proof` blocker tag. Unchanged.
 - `adws/adwTest.tsx`, `adws/adwChore.tsx`, `adws/adwSdlc.tsx`, `adws/adwBuild.tsx`, `adws/phases/scenarioTestFixLoop.ts`: the production callers and phase names the rows mirror.
 - `adws/phases/unitTestPhase.ts`, `reviewPhase.ts`, `diffEvaluationPhase.ts`, `scenarioTestPhase.ts`, `scenarioProof.ts`, `scenarioFixPhase.ts`, `planValidationPhase.ts`, `alignmentPhase.ts`: the driven phases.
 - `adws/agents/testAgent.ts`, `testRetry.ts`, `reviewAgent.ts`, `diffEvaluatorAgent.ts`, `validationAgent.ts`, `alignmentAgent.ts`, `gitAgent.ts`, `commandAgent.ts`, `claudeAgent.ts`: each agent's slash command and the answer it parses. Also how a failed commit agent throws, and how the prompt opens with the command.
@@ -147,13 +157,15 @@ Use these files to fix the bug:
 - `vitest.config.ts`, `adws/core/environment.ts`: readers of `ADW_UNIT_TEST_REPORT_PATH`.
 
 ### New Files
+The manifest names follow the existing `surface-<phase>-phase[-<variant>].json` (`surface-plan-phase-error.json`).
 - `test/fixtures/jsonl/manifests/surface-unit-test-phase.json`: rows 06 and 20.
-- `test/fixtures/jsonl/manifests/surface-review-passed.json`: rows 07 and 15.
-- `test/fixtures/jsonl/manifests/surface-review-blockers.json`: row 08.
-- `test/fixtures/jsonl/manifests/surface-diff-evaluation.json`: row 09.
-- `test/fixtures/jsonl/manifests/surface-scenario-fix-error.json`: row 23.
+- `test/fixtures/jsonl/manifests/surface-review-phase.json`: rows 07 and 15.
+- `test/fixtures/jsonl/manifests/surface-review-phase-rejected.json`: row 08.
+- `test/fixtures/jsonl/manifests/surface-diff-evaluation-phase.json`: row 09.
+- `test/fixtures/jsonl/manifests/surface-scenario-fix-phase-error.json`: row 23.
 - `test/fixtures/jsonl/manifests/surface-plan-validation-phase.json`: row 33.
 - `test/fixtures/jsonl/manifests/surface-alignment-phase.json`: row 34.
+- `features/per-issue/step_definitions/feature-964-hooks.ts`: the After hook of feature-964's scenarios.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -172,22 +184,24 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Import, statically, `executeUnitTestPhase`, `executeReviewPhase`, `executeDiffEvaluationPhase`, `executeScenarioTestPhase`, `executeScenarioFixPhase`, `executeAlignmentPhase` and `executePlanValidationPhase` from their own modules under `adws/phases/`, and `import type { ScenarioProofResult }` from `adws/phases/scenarioProof.ts`. Static imports keep compile time out of each row's run time.
 - Add two `PhaseFn` wrappers that call a phase as its orchestrator calls it:
   - `reviewWithoutProof = (config) => executeReviewPhase(config, '')`. Comment: orchestrators pass the proof path of the scenario run before the review, and an empty one when no proof preceded it, as here.
-  - `fixFailedReviewProof = (config) => executeScenarioFixPhase(config, failedReviewProof(config.adwId))`. Here `failedReviewProof(adwId)` returns the `ScenarioProofResult` the scenario test phase leaves when the fixture's `@review-proof` blocker scenarios fail:
-    - `tagResults: [{ tag: '@review-proof', resolvedTag: '@review-proof', severity: 'blocker', optional: false, passed: false, output: '1 scenario (1 failed)', exitCode: 1, skipped: false }]`;
+  - `fixFailedReviewProof = (config) => executeScenarioFixPhase(config, failedReviewProof(config.adwId))`. Here `failedReviewProof(adwId)` returns the `ScenarioProofResult` the scenario test phase leaves over the fixture once step definitions exist (rows 21 and 22 pin it): the fenced scenario command exits 127 with nothing on stdout, so the fixture's `@review-proof` blocker tag fails:
+    - `tagResults: [{ tag: '@review-proof', resolvedTag: '@review-proof', severity: 'blocker', optional: false, passed: false, output: '', exitCode: 127, skipped: false }]`;
     - `hasBlockerFailures: true`;
     - `resultsFilePath` and `artifactsDir` under `join(AGENTS_STATE_DIR, adwId, 'scenario-test')`, where that phase writes them. Nothing reads or creates them.
 
     Comment: `runScenarioTestFixLoop` hands the fix phase only a proof with a failed blocker tag.
-- Extend `ORCHESTRATORS`:
-  - `test`: `{ id: OrchestratorId.Test, issueType: '/feature', phases: { unitTest: { fn: executeUnitTestPhase, phaseName: 'test' } } }`;
-  - `chore`: `{ id: OrchestratorId.Chore, issueType: '/chore', phases: { review: { fn: reviewWithoutProof }, diffEvaluation: { fn: executeDiffEvaluationPhase } } }`;
-  - `sdlc`: `{ id: OrchestratorId.Sdlc, issueType: '/feature', phases: { alignment: { fn: executeAlignmentPhase }, scenarioTest: { fn: executeScenarioTestPhase }, scenarioFix: { fn: fixFailedReviewProof }, review: { fn: reviewWithoutProof } } }`.
+- Extend `ORCHESTRATORS`. A phase key is the words a row names the phase by:
+  - `test`: `{ id: OrchestratorId.Test, issueType: '/feature', phases: { 'unit test': { fn: executeUnitTestPhase, phaseName: 'test' } } }`;
+  - `chore`: `{ id: OrchestratorId.Chore, issueType: '/chore', phases: { review: { fn: reviewWithoutProof }, 'diff evaluation': { fn: executeDiffEvaluationPhase } } }`;
+  - `sdlc`: `{ id: OrchestratorId.Sdlc, issueType: '/feature', phases: { alignment: { fn: executeAlignmentPhase }, 'scenario test': { fn: executeScenarioTestPhase }, 'scenario fix': { fn: fixFailedReviewProof }, review: { fn: reviewWithoutProof } } }`.
 
-  Only `test` has a `phaseName`: adwSdlc and adwChore pass none for these phases, so they write no stage.
+  Only `test` has a `phaseName`: adwSdlc and adwChore pass none for these phases, so they write no stage, and the top-level state keeps the `starting` that `buildPhaseConfig` seeds.
+
+  Every other pair stays unknown, so W-S1 refuses it before it builds a config. feature-964 §2 pins `unit test`/`build`, `scenario test`/`test`, `scenario fix`/`test`, `review`/`review`, `alignment`/`chore`, `diff evaluation`/`sdlc` and `plan validation`/`sdlc`.
 - Add the direct-phase table:
-  - `DIRECT_PHASES: Readonly<Record<string, PhaseDefinition>> = { planValidation: { fn: executePlanValidationPhase } }`;
+  - `DIRECT_PHASES: Readonly<Record<string, PhaseDefinition>> = { 'plan validation': { fn: executePlanValidationPhase } }`;
   - `export const DIRECT_PHASE_ORCHESTRATOR = 'sdlc'`;
-  - `export function directPhaseDefinition(phase)`. It asserts as `phaseDefinition` does, naming the known direct phases.
+  - `export function directPhaseDefinition(phase)`. It asserts as `phaseDefinition` does, naming the known direct phases, so W-S3 refuses a phase some orchestrator runs, such as `review` (feature-964 §2).
 
   Comment: no orchestrator in `adws/*.tsx` runs these. A row drives one with no phase name, under adwSdlc's identity, the pipeline plan validation was written for.
 - The file stays under 300 lines (about 235). If it would not, move the table, the wrappers and the lookups into `features/regression/support/surfacePhases.ts` and import them from `phaseConfig.ts` and `phaseRun.ts`.
@@ -205,22 +219,22 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Add `restoreUnitReportPathOnCleanup(world)`. It saves `process.env['ADW_UNIT_TEST_REPORT_PATH']` and pushes a cleanup entry that restores the saved value, or deletes the variable when it was unset. Comment: the unit-test phase points the JUnit report at its logs directory through `process.env`. In-process that outlives the phase and its temp directory, and `vitest.config.ts` reads it.
 - `runSurfaceLifecycle`, `withExitTrap`, `NonPostingCostTracker` and `deliverStubManifest` are unchanged.
 
-### 5. Steps in `surfaceSteps.ts`: G-S2, W-S3, T-S7 and T-S8
-- Extract `requireWorktree(world, adwId)` from G-S1's inline check (`No worktree is registered for adwId "<id>": G11 must initialise it first`). Use it in G-S1 and G-S2.
-- **G-S2** `the worktree for adwId {string} has the scenarios for issue {int} committed on its branch`. Two `commitFileOnBranch` calls in G11's worktree:
-  - `features/feature-<N>.feature`: the fixture's scenario directory is `features/`. Contents: `@adw-<N>`, then `Feature: Surface scenarios for issue <N>`, then one `Scenario: The surface fixture answers` with the steps `Given the surface fixture is running` and `Then the surface fixture answers`. Message: `scenarios: add the scenarios for issue <N>`.
-  - `features/step_definitions/feature-<N>.steps.ts`: the default step-definition directory, `.ts` for the fixture's empty BDD framework. Contents: `import { Given, Then } from '@cucumber/cucumber';` and one no-op definition for each of those two steps. Message: `step definitions: add the step definitions for issue <N>`. Nothing compiles or runs this file; the proof only checks that step definitions exist.
+### 5. Steps in `surfaceSteps.ts`: G-S2, G-S3, W-S3 and T-S7…T-S9
+- Extract `requireWorktree(world, adwId)` from G-S1's inline check (`No worktree is registered for adwId "<id>": G11 must initialise it first`). Use it in G-S1, G-S2 and G-S3.
+- **G-S2** `the worktree for adwId {string} has a scenario for issue {int} committed on its branch`. One `commitFileOnBranch` call in G11's worktree: `features/feature-<N>.feature`, since the fixture's `## Scenario Directory` is `features/` and it names no per-issue directory (`findScenarioFiles` searches the whole worktree, so the alignment and plan-validation phases find it). Contents: `@adw-<N>`, then `Feature: Surface scenarios for issue <N>`, then one `Scenario: The surface fixture answers` with the steps `Given the surface fixture is running` and `Then the surface fixture answers`. Message: `scenarios: add the scenarios for issue <N>`.
+- **G-S3** `the worktree for adwId {string} has step definitions committed on its branch`. One `commitFileOnBranch` call in G11's worktree: `features/step_definitions/surface.steps.ts`, in the default step-definition directory the fixture's `.adw/scenarios.md` leaves, `.ts` for its empty BDD framework. Contents: `import { Given, Then } from '@cucumber/cucumber';` and one no-op definition for each of G-S2's two steps. Message: `step definitions: add the surface step definitions`. Nothing compiles or runs this file; the proof only checks that step definitions exist.
 - **W-S3** `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}`: `this.phaseOutcome = await runDirectSurfacePhase(this, adwId, phase)`.
-- **T-S7** `the scenario proof ran the {string} scenarios, which passed with the output {string}`. With `this.scenarioProofResult`, assert:
-  - the proof exists;
-  - it holds a tag result whose `resolvedTag` equals the tag. When it does not, list the tags it holds, or say the proof ran no tag (it skips without step definitions);
-  - that result has `skipped === false`, `passed === true` and `exitCode === 0`;
-  - its `output` contains the text, which is captured stdout, a permitted log-stream assertion.
-- **T-S8** `the {string} phase run's error names {string}`:
+- **T-S7** `the {string} phase run failed with an error that names {string}`:
   - `requirePhaseOutcome(this, phase)`;
-  - the outcome did not resolve, has an `error` and no `exitCode`;
+  - the outcome did not resolve, has an `error` and no `exitCode`, as T-S2 asserts;
   - the error's message (`error instanceof Error ? error.message : String(error)`) contains the text. The failure message uses `describeEnd`.
-- No step reads a source file or returns `'pending'`. The file stays under 300 lines (about 170).
+- Extract `requireScenarioProof(world)`: asserts `this.scenarioProofResult` exists (`Expected a phase to have left a scenario proof first`) and returns it.
+- **T-S8** `the scenario proof ran no tag`: the proof's `tagResults` is empty. When it is not, list the tags it holds.
+- **T-S9** `the scenario proof records a blocker failure for the tag {string}`. With the proof, assert:
+  - it holds a tag result whose `resolvedTag` equals the tag. When it does not, list the tags it holds, or say the proof ran no tag (it skips without step definitions);
+  - that result has `severity === 'blocker'`, `skipped === false` and `passed === false`;
+  - the proof's `hasBlockerFailures` is true.
+- No step reads a source file or returns `'pending'`. The file stays under 300 lines (about 200).
 
 ### 6. The seven manifests
 Follow `surface-plan-phase.json`: `jsonlPath: ".adw-stub-payload.json"`, and a top-level edit writing `.adw-stub-payload.json` with `Surface <name> stub: the prompt opened with no command this manifest answers.`. Each `byCommand` entry is `{ "jsonlPath": ".adw-stub-payload.json", "edits": [{ "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"<answer>\"}]\n" }] }`, with `<answer>` JSON-escaped once more inside the text. No manifest writes anything else: nothing under `.adw/`, `agents/` or outside the worktree. Every answer stays well under the stub's 500-character `result` limit.
@@ -228,12 +242,14 @@ Follow `surface-plan-phase.json`: `jsonlPath: ".adw-stub-payload.json"`, and a t
 | File | Entry | Answer |
 |---|---|---|
 | `surface-unit-test-phase.json` | `/test` | `[{"test_name":"app_tests","passed":true,"execution_command":"N/A","test_purpose":"Runs the fixture's unit tests","testcase_count":1}]` |
-| `surface-review-passed.json` | `/review` | `{"success":true,"reviewSummary":"The surface review found no blockers.","reviewIssues":[],"screenshots":[]}` |
-| `surface-review-blockers.json` | `/review` | `{"success":false,"reviewSummary":"The surface review found one blocker.","reviewIssues":[{"reviewIssueNumber":1,"issueDescription":"The surface handler swallows its error","issueResolution":"Return the error to the caller","issueSeverity":"blocker"}],"screenshots":[]}` |
-| `surface-diff-evaluation.json` | `/diff_evaluator` | `{"verdict":"safe","reason":"The surface diff adds only a plan file."}` |
+| `surface-review-phase.json` | `/review` | `{"success":true,"reviewSummary":"The surface review found no blockers.","reviewIssues":[],"screenshots":[]}` |
+| `surface-review-phase-rejected.json` | `/review` | `{"success":false,"reviewSummary":"The surface review found one blocker.","reviewIssues":[{"reviewIssueNumber":1,"issueDescription":"The surface handler swallows its error","issueResolution":"Return the error to the caller","issueSeverity":"blocker"}],"screenshots":[]}` |
+| `surface-diff-evaluation-phase.json` | `/diff_evaluator` | `{"verdict":"safe","reason":"The surface diff adds only a plan file."}` |
 | `surface-plan-validation-phase.json` | `/validate_plan_scenarios` | `{"aligned":true,"mismatches":[],"summary":"The plan covers every scenario of the issue."}` |
 | `surface-alignment-phase.json` | `/align_plan_scenarios` | `{"aligned":true,"warnings":[],"changes":[],"summary":"The plan and the scenarios already agree."}` |
-| `surface-scenario-fix-error.json` | no `byCommand` | the top-level manifest adds `"response": { "kind": "error" }`, so every agent, `/resolve_failed_scenario` and `/commit` alike, gets the error result |
+| `surface-scenario-fix-phase-error.json` | no `byCommand` | the top-level manifest adds `"response": { "kind": "error" }`, so every agent, `/resolve_failed_scenario` and `/commit` alike, gets the error result |
+
+The diff evaluator answers `safe` on purpose. When the agent fails, the phase falls back to `regression_possible` with its own reason, and over a branch with no change it posts `safe` with "No changes detected in diff — nothing to regress." without asking the agent. Only the agent's own reason, "The surface diff adds only a plan file.", shows that its answer was asked for and used.
 
 ### 7. Rewrite the eleven rows in place
 Keep each file name, the `@regression @surface` tags and no `@adw-` tag. Drop G8 and G9 (`the mock GitHub API records all PR-list calls`, `the claude-cli-stub is loaded with fixture …`), W1, T5 and T9. No Feature description line may begin with a Gherkin keyword (`Given`, `When`, `Then`, `And`, `But`, `Scenario`, `Background`, `Rule`, `Example`). Write each file as follows.
@@ -251,7 +267,7 @@ Feature: adwTest — unitTestPhase — happy path
     Given an issue 1006 exists in the mock issue tracker
     And the worktree for adwId "surface-06" is initialised at branch "surface-06"
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-unit-test-phase.json"
-    When the "unitTest" phase of the "test" orchestrator runs for adwId "surface-06"
+    When the "unit test" phase of the "test" orchestrator runs for adwId "surface-06"
     Then the state file for adwId "surface-06" records workflowStage "test_completed"
     And the mock GitHub API recorded an application of the "adw:unverified" label on issue 1006
     And the mock GitHub API recorded a comment on issue 1006
@@ -268,7 +284,7 @@ Feature: adwSdlc — reviewPhase — happy path
   Scenario: sdlc orchestrator's review phase runs in-process over a passing review and posts the review-passed comment carrying the review's summary
     Given an issue 1007 exists in the mock issue tracker
     And the worktree for adwId "surface-07" is initialised at branch "surface-07"
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-passed.json"
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-phase.json"
     When the "review" phase of the "sdlc" orchestrator runs for adwId "surface-07"
     Then the "review" phase run succeeded
     And the mock GitHub API recorded a comment on issue 1007
@@ -289,7 +305,7 @@ Feature: adwSdlc — reviewPhase — error: review rejected
   Scenario: sdlc orchestrator's review phase resolves over a review with a blocker, posts the review-failed comment naming the blocker, and posts no review-passed comment
     Given an issue 1008 exists in the mock issue tracker
     And the worktree for adwId "surface-08" is initialised at branch "surface-08"
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-blockers.json"
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-phase-rejected.json"
     When the "review" phase of the "sdlc" orchestrator runs for adwId "surface-08"
     Then the "review" phase run succeeded
     And the mock GitHub API recorded a comment on issue 1008
@@ -311,9 +327,9 @@ Feature: adwChore — diffEvaluationPhase — happy path
     Given an issue 1009 exists in the mock issue tracker
     And the worktree for adwId "surface-09" is initialised at branch "surface-09"
     And the worktree for adwId "surface-09" has the plan for issue 1009 committed on its branch
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-diff-evaluation.json"
-    When the "diffEvaluation" phase of the "chore" orchestrator runs for adwId "surface-09"
-    Then the "diffEvaluation" phase run succeeded
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-diff-evaluation-phase.json"
+    When the "diff evaluation" phase of the "chore" orchestrator runs for adwId "surface-09"
+    Then the "diff evaluation" phase run succeeded
     And the mock GitHub API recorded a comment on issue 1009
     And the mock GitHub API recorded a comment containing the text "## Diff Evaluation"
     And the mock GitHub API recorded a comment containing the text "**Reason:** The surface diff adds only a plan file."
@@ -328,7 +344,7 @@ Feature: adwChore — reviewPhase — happy path
   Scenario: chore orchestrator's review phase runs in-process for a chore over a passing review and posts the review-passed comment
     Given an issue 1015 exists in the mock issue tracker
     And the worktree for adwId "surface-15" is initialised at branch "surface-15"
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-passed.json"
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-phase.json"
     When the "review" phase of the "chore" orchestrator runs for adwId "surface-15"
     Then the "review" phase run succeeded
     And the mock GitHub API recorded a comment on issue 1015
@@ -345,8 +361,8 @@ Feature: adwTest — unitTestPhase — happy path
     Given an issue 1020 exists in the mock issue tracker
     And the worktree for adwId "surface-20" is initialised at branch "surface-20"
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-unit-test-phase.json"
-    When the "unitTest" phase of the "test" orchestrator runs for adwId "surface-20"
-    Then the "unitTest" phase run succeeded
+    When the "unit test" phase of the "test" orchestrator runs for adwId "surface-20"
+    Then the "unit test" phase run succeeded
     And the state file for adwId "surface-20" records workflowStage "test_completed"
 ```
 
@@ -356,16 +372,18 @@ Feature: adwTest — unitTestPhase — happy path
 Feature: adwSdlc — scenarioTestPhase — happy path
 
   adwTest runs only the unit-test phase. adwSdlc runs the scenario test phase, in its scenario
-  test-and-fix loop. With the issue's scenarios and step definitions in the worktree, the phase
-  runs the cli-tool fixture's scenario command, which echoes a passing summary. It posts no comment.
+  test-and-fix loop. With step definitions in the worktree, the phase runs the cli-tool fixture's
+  scenario command for the fixture's review-proof tag. That command keeps its sh code fence, so
+  the shell exits 127 and the tag fails. A failed blocker tag is an outcome the loop acts on, not
+  an error: the phase resolves and posts no comment.
 
-  Scenario: sdlc orchestrator's scenario test phase runs the fixture's scenario command for the review-proof tag, succeeds and posts no comment
+  Scenario: sdlc orchestrator's scenario test phase runs the fixture's scenario command over the worktree's step definitions, resolves with the review-proof tag failed, and posts no comment
     Given an issue 1021 exists in the mock issue tracker
     And the worktree for adwId "surface-21" is initialised at branch "surface-21"
-    And the worktree for adwId "surface-21" has the scenarios for issue 1021 committed on its branch
-    When the "scenarioTest" phase of the "sdlc" orchestrator runs for adwId "surface-21"
-    Then the "scenarioTest" phase run succeeded
-    And the scenario proof ran the "@review-proof" scenarios, which passed with the output "1 scenario (1 passed)"
+    And the worktree for adwId "surface-21" has step definitions committed on its branch
+    When the "scenario test" phase of the "sdlc" orchestrator runs for adwId "surface-21"
+    Then the "scenario test" phase run succeeded
+    And the scenario proof records a blocker failure for the tag "@review-proof"
     And the mock harness recorded zero comment posts on issue 1021
 ```
 
@@ -375,16 +393,17 @@ Feature: adwSdlc — scenarioTestPhase — happy path
 Feature: adwSdlc — scenarioProof — happy path
 
   adwTest runs only the unit-test phase. adwSdlc runs the scenario proof, through its scenario test
-  phase. The proof runs the cli-tool fixture's scenario command once for each tag of the fixture's
-  review proof config, and finds the step definitions it needs in the worktree.
+  phase. Once it finds step definitions in the worktree, the proof runs the cli-tool fixture's
+  scenario command once for each tag of the fixture's review proof config. The command keeps its
+  sh code fence, so the shell exits 127, and the proof records the fixture's one required tag,
+  review-proof, as a blocker failure for the scenario test-and-fix loop to hand to the fix phase.
 
-  Scenario: sdlc orchestrator's scenario test phase proves the review-proof scenarios passed, with the fixture's echoed summary as their output, and records no blocker failures
+  Scenario: sdlc orchestrator's scenario test phase runs the scenario proof over the worktree's step definitions, and the proof records the fixture's review-proof tag as a blocker failure
     Given an issue 1022 exists in the mock issue tracker
     And the worktree for adwId "surface-22" is initialised at branch "surface-22"
-    And the worktree for adwId "surface-22" has the scenarios for issue 1022 committed on its branch
-    When the "scenarioTest" phase of the "sdlc" orchestrator runs for adwId "surface-22"
-    Then the scenario proof ran the "@review-proof" scenarios, which passed with the output "1 scenario (1 passed)"
-    And the scenario proof records no blocker failures
+    And the worktree for adwId "surface-22" has step definitions committed on its branch
+    When the "scenario test" phase of the "sdlc" orchestrator runs for adwId "surface-22"
+    Then the scenario proof records a blocker failure for the tag "@review-proof"
 ```
 
 `row-23-adwTest-scenarioFixPhase-error.feature`:
@@ -400,10 +419,9 @@ Feature: adwSdlc — scenarioFixPhase — error path
   Scenario: sdlc orchestrator's scenario fix phase fails at the commit when the stub answers every agent it starts with an error
     Given an issue 1023 exists in the mock issue tracker
     And the worktree for adwId "surface-23" is initialised at branch "surface-23"
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-scenario-fix-error.json"
-    When the "scenarioFix" phase of the "sdlc" orchestrator runs for adwId "surface-23"
-    Then the "scenarioFix" phase run failed
-    And the "scenarioFix" phase run's error names "Commit agent 'scenario-fix-agent'"
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-scenario-fix-phase-error.json"
+    When the "scenario fix" phase of the "sdlc" orchestrator runs for adwId "surface-23"
+    Then the "scenario fix" phase run failed with an error that names "Commit agent 'scenario-fix-agent'"
 ```
 
 `row-33-adwReview-planValidationPhase-happy.feature`:
@@ -413,16 +431,16 @@ Feature: planValidationPhase — happy path, driven directly
 
   No orchestrator in adws/*.tsx runs executePlanValidationPhase. There is no adwReview, and adwSdlc
   and the review orchestrators run the alignment phase in its place. This row drives the phase
-  directly, over a committed plan and the issue's committed scenarios.
+  directly, over a committed plan and a committed scenario for the issue.
 
-  Scenario: the plan validation phase, driven directly, finds the committed plan and scenarios aligned and posts its validating and validated comments
+  Scenario: the plan validation phase, driven directly, finds the committed plan and the issue's committed scenario aligned and posts its validating and validated comments
     Given an issue 1033 exists in the mock issue tracker
     And the worktree for adwId "surface-33" is initialised at branch "surface-33"
     And the worktree for adwId "surface-33" has the plan for issue 1033 committed on its branch
-    And the worktree for adwId "surface-33" has the scenarios for issue 1033 committed on its branch
+    And the worktree for adwId "surface-33" has a scenario for issue 1033 committed on its branch
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-plan-validation-phase.json"
-    When the "planValidation" phase, which no orchestrator runs, is driven directly for adwId "surface-33"
-    Then the "planValidation" phase run succeeded
+    When the "plan validation" phase, which no orchestrator runs, is driven directly for adwId "surface-33"
+    Then the "plan validation" phase run succeeded
     And the mock GitHub API recorded a comment on issue 1033
     And the mock GitHub API recorded a comment containing the text "## :mag: Validating Plan-Scenario Alignment"
     And the mock GitHub API recorded a comment containing the text "Implementation plan and BDD scenarios are aligned."
@@ -436,11 +454,11 @@ Feature: adwSdlc — alignmentPhase — happy path
   There is no adwReview orchestrator. adwSdlc runs the alignment phase, between the plan and the
   build, with no phase name.
 
-  Scenario: sdlc orchestrator's alignment phase aligns the committed plan with the issue's committed scenarios and posts its aligning and aligned comments
+  Scenario: sdlc orchestrator's alignment phase aligns the committed plan with the issue's committed scenario and posts its aligning and aligned comments
     Given an issue 1034 exists in the mock issue tracker
     And the worktree for adwId "surface-34" is initialised at branch "surface-34"
     And the worktree for adwId "surface-34" has the plan for issue 1034 committed on its branch
-    And the worktree for adwId "surface-34" has the scenarios for issue 1034 committed on its branch
+    And the worktree for adwId "surface-34" has a scenario for issue 1034 committed on its branch
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-alignment-phase.json"
     When the "alignment" phase of the "sdlc" orchestrator runs for adwId "surface-34"
     Then the "alignment" phase run succeeded
@@ -454,16 +472,18 @@ The two "Plan and Scenarios Aligned" comments share their heading, so rows 33 an
 ### 8. Register the phrases in `features/regression/vocabulary.md`
 In `## Given/When/Then — Surface phases and lifecycles`, keeping five columns:
 
-- **Intro.** The mock forge "records every comment it posts and every label it applies as an HTTP call would". `adwTest` names its unit-test phase `test`; adwSdlc and adwChore name none of the phases these rows drive, so those rows assert no stage. Assertions may also target the scenario proof a phase produced.
+- **Intro.** The mock forge "records every comment it posts and every label it applies as an HTTP call would". `adwTest` names its unit-test phase `test`; adwSdlc and adwChore name none of the phases these rows drive, so those runs write no stage and the top-level state keeps the `starting` W-S1 seeds. Assertions may also target the scenario proof a phase produced.
 - **W-S1 semantics.** Append:
   - the phase function is called as its orchestrator calls it: the review phase with the empty scenario-proof path passed when no proof preceded it, and the scenario fix phase with the proof of a failed run of the fixture's `@review-proof` blocker tag;
   - the scenario proof the phase left on the workflow context is recorded on the World;
-  - the pairs it drives: `plan`/`plan`, `build`/`build`, `test`/`unitTest` (`test`), `chore`/`review`, `chore`/`diffEvaluation`, `sdlc`/`alignment`, `sdlc`/`scenarioTest`, `sdlc`/`scenarioFix` and `sdlc`/`review`.
+  - the pairs it drives: `plan`/`plan`, `build`/`build`, `test`/`unit test` (`test`), `chore`/`review`, `chore`/`diff evaluation`, `sdlc`/`alignment`, `sdlc`/`scenario test`, `sdlc`/`scenario fix` and `sdlc`/`review`. It refuses any other pair before it builds a config.
 - **New rows:**
-  - **G-S2** `the worktree for adwId {string} has the scenarios for issue {int} committed on its branch`: writes and commits `features/feature-<N>.feature`, tagged `@adw-<N>`, and its step definitions `features/step_definitions/feature-<N>.steps.ts` in the worktree G11 registered. The alignment and plan-validation phases then find the issue's scenarios, and the scenario proof finds step definitions and runs the fixture's scenario command. Pattern phase-import; target worktree artefact.
-  - **W-S3** `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}`: as W-S1, for a phase no orchestrator in `adws/*.tsx` runs (`planValidation`). It runs `runPhase` with no phase name under adwSdlc's identity. Target: phase run outcome.
-  - **T-S7** `the scenario proof ran the {string} scenarios, which passed with the output {string}`: asserts the recorded scenario proof holds a result for the tag that was not skipped, passed with exit code 0, and whose captured output contains the text. Target: phase run outcome (scenario proof) + log stream.
-  - **T-S8** `the {string} phase run's error names {string}`: asserts the recorded outcome is for that phase, the run threw, and the error's message contains the text. Target: phase run outcome.
+  - **G-S2** `the worktree for adwId {string} has a scenario for issue {int} committed on its branch`: writes and commits `features/feature-<N>.feature`, tagged `@adw-<N>`, in the worktree G11 registered. The alignment and plan-validation phases then find the issue's scenarios. Pattern phase-import; target worktree artefact.
+  - **G-S3** `the worktree for adwId {string} has step definitions committed on its branch`: writes and commits `features/step_definitions/surface.steps.ts` in the worktree G11 registered, the fixture's default step definition directory. The scenario proof then finds step definitions and runs the fixture's scenario command for each tag. Pattern phase-import; target worktree artefact.
+  - **W-S3** `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}`: as W-S1, for a phase no orchestrator in `adws/*.tsx` runs (`plan validation`), and refuses any other phase. It runs `runPhase` with no phase name under adwSdlc's identity. Target: phase run outcome.
+  - **T-S7** `the {string} phase run failed with an error that names {string}`: asserts what T-S2 asserts, and that the error's message contains the text. Target: phase run outcome.
+  - **T-S8** `the scenario proof ran no tag`: asserts the scenario proof recorded on the World holds no tag result, as when the proof finds no step definitions. Target: phase run outcome (scenario proof).
+  - **T-S9** `the scenario proof records a blocker failure for the tag {string}`: asserts the recorded scenario proof holds a result for the tag that is a blocker, ran and failed, and that the proof records blocker failures. Target: phase run outcome (scenario proof).
 - **The reused-phrases paragraph** also names T12 (`the mock GitHub API recorded an application of the {string} label on issue {int}`), T14 (`the mock harness recorded zero comment posts on issue {int}`) and T-PY3 (`the scenario proof records no blocker failures`, which reads the same recorded proof).
 
 ### 9. Keep feature-960 §6 passing
@@ -473,7 +493,12 @@ In `## Given/When/Then — Surface phases and lifecycles`, keeping five columns:
   - list all seventeen in-process rows in its table, in row order: row-02, 03, 04, 05, 06, 07, 08, 09, 15, 20, 21, 22, 23, 31, 32, 33, 34, with the exact file names under `features/regression/surfaces/`.
 - `feature-960.steps.ts` needs no change. Its step asserts that each listed row passes exactly once and every other smoke and surface scenario stays pending.
 
-### 10. Run the validation commands
+### 10. The hooks of feature-964
+- `features/per-issue/feature-964.feature` holds this issue's scenarios. Every phrase it uses outside its throwaway scenarios is feature-963's, already defined; the throwaway scenarios use the rows' phrases and the new ones above.
+- Add `features/per-issue/step_definitions/feature-964-hooks.ts` with one `After({ tags: '@adw-n5cfq2-bug-move-the-test-re' }, async function (this: RegressionWorld) { await runCleanup(this); })`, importing `runCleanup` from `features/regression/support/cleanup.ts`, as `feature-963-state.ts` does for its own tag.
+- Comment: feature-963's child-run steps put their temporary directories on the World's cleanup list, and no `@regression` hook runs for this feature. The hook is keyed on the feature's own tag, never on `@adw-964`, which feature-960's §6 scenario also carries.
+
+### 11. Run the validation commands
 - Run every command in `Validation Commands`. Fix and re-run until all pass.
 
 ## Validation Commands
@@ -501,7 +526,7 @@ Run each command from the repository root. Never run two Cucumber processes from
 - `test -z "$(ls -d agents/surface-0[6-9] agents/surface-15 agents/surface-2[0-3] agents/surface-3[34] 2>/dev/null)"`: the rows left no top-level state or scenario proof in the checkout.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-960"`: exits 0. The amended §6 sees all seventeen in-process rows pass and every other smoke and surface scenario stay pending.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-963"`: exits 0. Its two `@surface` child runs now run the eleven rows too, and still leave no spawn lock and no git repository behind; the committed-manifest sweep refuses none of the new manifests.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-964"`: exits 0. These are this issue's own scenarios, including the per-row "under 5 seconds" check (AC1).
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-964"`: exits 0. These are this issue's own scenarios: the per-row "under 5 seconds" check (AC1), the W-S1 and W-S3 refusals, the throwaway scenarios that pin each phase's behaviour, and the committed-manifest sweep; feature-960's §6 runs too.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@pause-queue-reset-time or @pause-queue-ownership"`: exits 0 (AC3).
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" > /tmp/adw-964-regression.after 2>&1; tail -n 3 /tmp/adw-964-regression.after; ! tail -n 3 /tmp/adw-964-regression.after | grep -qE "failed|undefined|ambiguous"`: no scenario failed. Compared with `/tmp/adw-964-regression.before`, the only change is eleven scenarios moving from pending to passed. Cucumber still exits 1 on the remaining pending smoke and surface scenarios, as Divergence item 3 records.
 - `git status --porcelain`: shows only the files this plan names, and nothing under `agents/` or `logs/`.
@@ -517,9 +542,10 @@ Run each command from the repository root. Never run two Cucumber processes from
 - **Why adwSdlc for rows 07, 08, 21, 22, 23 and 34.** adwSdlc runs every one of those phases in production, so one table entry serves them all. adwPlanBuildTest, adwPlanBuildReview and adwPlanBuildTestReview each run only some of them. Row 15 stays adwChore and row 09 becomes adwChore, as the issue says. adwChore runs both phases with issue type `/chore`.
 - **Rows 06 and 20 both drive adwTest's `'test'` phase**, as the issue's table says. Row 06 asserts the comments and label; row 20 asserts the outcome and the stage. Both take the `warn` path, since nothing writes a JUnit report: the stub stands in for the test agent, and the fixture's `## Run Tests` is `N/A`. A stub that writes a report to `$ADW_UNIT_TEST_REPORT_PATH`, which `getSafeSubprocessEnv()` passes through, would let a row assert the `pass` path. That is a stub feature beyond this slice.
 - **Row 23 follows the code.** An agent error from `/resolve_failed_scenario` is logged and does not fail the phase (`scenarioFixPhase.ts:89-93`). The commit agent's error throws (`gitAgent.ts:167-172`). An error only for the resolver would leave the run succeeding and pushing. The row therefore asserts the failure and names its cause.
-- **The failing proof row 23 feeds the fix phase is built by the harness.** The fixture's scenario command only echoes a passing summary, so a real run cannot produce a failed blocker tag.
-- **Rows 21 and 22 depend on G-S2's step definitions.** Without them `runScenarioProof` skips, and "no blocker failures" would hold vacuously. T-S7 fails in that case and says the proof ran no tag.
-- **G13** is registered but has no step definition, and its fixture directory does not exist, so it cannot express "the issue's scenarios exist". G-S2 is the new, registered Given.
+- **The failing proof row 23 feeds the fix phase is built by the harness.** W-S1 drives one phase, so the row does not run the scenario test phase first. The harness hands the fix phase the proof that phase leaves over the fixture, which rows 21 and 22 pin: `@review-proof` failed with exit code 127 and no output. Any proof would do for the error path, since the commit agent fails either way.
+- **Rows 21 and 22 follow the code, not the old row's "happy" claim.** With G-S3's step definitions, the proof runs the fixture's `## Run Scenarios by Tag` text, which keeps its sh code fence; the shell exits 127, so the proof records `@review-proof` as a failed blocker and the phase still resolves without a comment. Without step definitions `runScenarioProof` skips, and T-S9 fails, saying the proof ran no tag. Fixing the fixture's fence is beyond this slice: the python-flat fixture carries the same fences, and every row G11 seeds, #963's among them, runs against the cli-tool fixture as committed.
+- **G-S2 and G-S3 are separate Givens.** The alignment and plan-validation rows need only a scenario for the issue; the scenario rows need only step definitions. feature-964 §3 seeds each alone.
+- **G13** is registered but has no step definition, and its fixture directory does not exist, so it cannot express "the issue's scenarios exist". G-S2 and G-S3 are the new, registered Givens.
 - **Old assertions dropped, and why.** `awaiting_merge` is written only at the end of adwSdlc and adwChore. T5 needs a subprocess. T9 holds vacuously for these phases. G8 and G9 configure nothing in-process.
-- **Timing.** Each row starts at most two stub processes. Scenario fix starts two, the scenario rows start none and run one `echo`, and the rest start one. The git-mock wrapper adds about 0.1 s per git call under the hooks. Each row should take a second or two, and a full `@surface` child run, the 120 s budget of feature-960 and feature-963, about 20–40 s.
+- **Timing.** Each row starts at most two stub processes. Scenario fix starts two, the scenario rows start none and run the fixture's fenced command once, and the rest start one. The git-mock wrapper adds about 0.1 s per git call under the hooks. Each row should take a second or two, and a full `@surface` child run, the 120 s budget of feature-960 and feature-963, about 20–40 s.
 - ADR-0037 Divergence item 3 stays open; the smoke tier and the other surface rows are later slices. The document phase refreshes `app_docs/feature-9gjajh-bdd-regression-suite.md`: its line that `mockForgeProviders` implements only `commentOnIssue` and `moveToStatus`, and the list of in-process rows.
