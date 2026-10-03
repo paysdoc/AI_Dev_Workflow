@@ -59,10 +59,14 @@ The cleanup and the records are owed as well:
 
 Run the four scenarios on the subprocess harness #966 built, and program the Claude CLI stub per slash command:
 
-- **Tags.** Add `@subprocess` next to `@regression @smoke` in the three smoke files, as #967 did for `cron_trigger_spawn` and `promotion_threshold_auto_ramp`.
-  - Drop G11 from them.
-  - Keep every scenario and its name.
-  - Rewrite the Thens to what the issue asks for.
+- **Tags.** The three smoke files carry `@subprocess` next to `@regression @smoke`, as #967 did for `cron_trigger_spawn` and `promotion_threshold_auto_ramp`. The scenario writer has already made this rewrite, and the build keeps it (task 9):
+  - G11 is dropped. So is G1: its `setState({})` changes nothing, and G4 already sets the `GH_HOST` and `GITHUB_API_URL` it sets. `cron_trigger_spawn` uses neither.
+  - Every scenario keeps its name.
+  - The Thens assert what the issue asks for. They also assert artefacts proving the stub's answers were parsed:
+    - the diff evaluator's reason in the `## Diff Evaluation` comment;
+    - no escalation comment on the safe path;
+    - the review-passed comment on the escalated path;
+    - the paused comment naming the `seven_day` limit.
 - **Manifests.** Rewrite the four manifests in place as `byCommand` manifests whose top level carries `"onCommitCommand": "stage-all-and-commit"`. W1's `deliverStubMarker` already copies G3's manifest to `<TARGET_REPOS_DIR>/.adw-stub-manifest.json`, which every agent running in the workspace or a worktree finds. Each entry answers what its caller parses, or writes the file its phase needs. The answers that already pass in the surface rows are reused verbatim:
   - `surface-chore-plan-phase.json`, `surface-plan-phase.json`, `surface-build-phase.json`
   - `surface-unit-test-phase.json`, `surface-diff-evaluation-phase.json`, `surface-review-phase.json`
@@ -86,6 +90,8 @@ No production code under `adws/` changes.
 ## Steps to Reproduce
 
 Run one at a time, never two Cucumber processes from the same checkout. The rows share `agents/`, `logs/` and spawn locks.
+
+Steps 1 and 2 reproduce on `dev`. On this branch the scenario writer has already rewritten the three smoke files: `@subprocess` added, G11 and G1 dropped, new Thens. So here step 1 reports the four scenarios **failed** on the old manifests instead of pending, and step 2 selects 0 scenarios.
 
 1. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary; echo "exit=$?"`
    - Expect: the four smoke scenarios above are reported pending, and `exit=1`.
@@ -133,7 +139,7 @@ Use these files to fix the bug:
   - no comments that restate code or cite issue numbers;
   - remove unused code and imports;
   - files under 300 lines.
-- `features/regression/smoke/adw_chore_diff_verdicts.feature`, `adw_sdlc_happy_path.feature`, `pause_resume_rate_limit.feature` — the four pending scenarios; rewritten in place.
+- `features/regression/smoke/adw_chore_diff_verdicts.feature`, `adw_sdlc_happy_path.feature`, `pause_resume_rate_limit.feature` — the four pending scenarios. The scenario writer has already rewritten their steps in place; the build only adds descriptions (task 9).
 - `features/regression/smoke/cron_trigger_spawn.feature`, `promotion_threshold_auto_ramp.feature` — the precedent for `@regression @smoke @subprocess` and the description style. Not edited.
 - `features/regression/surfaces/row-16-adwPatch-planPhase-happy.feature` — precedent: a full orchestrator run under W1 with a `byCommand` manifest and no G11. Not edited.
 - `test/fixtures/jsonl/manifests/safe-verdict.json`, `regression-possible-verdict.json`, `adw-sdlc-happy.json`, `rate-limit-pause-resume.json` — rewritten in place.
@@ -154,7 +160,30 @@ Use these files to fix the bug:
   - `deliverStubMarker`: the marker goes to `<TARGET_REPOS_DIR>/.adw-stub-manifest.json`.
   - 120 s orchestrator bound.
   - Hermetic env; `requireHarness`; the workspace `.gitignore` for the stub files.
-- `features/regression/step_definitions/givenSteps.ts`, `thenSteps.ts`, `subprocessSteps.ts` — the reused phrases. Not edited: G1, G3, G4, T1, T2, T3, T5, T7, T8, T9, T12.
+- `features/regression/step_definitions/givenSteps.ts`, `thenSteps.ts`, `subprocessSteps.ts`, `surfaceSteps.ts` — the reused phrases. Not edited: G3, G4, T1, T3, T5, T7, T8, T9, T12 and T-S6.
+  - T-S6 is `the mock harness recorded zero comment posts on issue {int} containing the text {string}`.
+  - Like T3, it reads the requests the harness replayed against the mock.
+- `features/regression/step_definitions/feature-910.steps.ts` — read only. It shows why the pause row asserts nothing on the queue file:
+  - Its `the pause queue entry for issue {int} records the limit type {string}` finds the entry through the pause-queue tier's seeded-entry map (`requireCurrentEntry` → `getSeededEntry`).
+  - No smoke Given fills that map.
+- **Per-issue scenarios tagged `@adw-968`.** These are the BDD scenarios this build must turn green. The scenario writer has already written or updated them; do not revert them.
+  - `features/per-issue/feature-968.feature` (new):
+    - the `@regression` run, in a child process, reports no pending, undefined or failed scenario, exits 0 and passes the four smoke scenarios;
+    - a dry run loads none of W2–W8 and W11, and exactly one each of W1, W9 and W10;
+    - the type-check passes.
+  - `features/per-issue/feature-960.feature`:
+    - §1 and §5: W1 and W10 as the only step, outside or inside the `@regression` hooks, now **fail**. They never pass and are never reported pending.
+    - §6: every smoke and surface scenario passes, and each listed row and smoke file holds at least one. The list now includes the three full-pipeline files.
+  - `features/per-issue/feature-966.feature`: the W9 outline. W9 fails without the harness.
+  - `features/per-issue/feature-963.feature`: the refusal guard refuses none of the committed manifests, the four rewritten ones included.
+  - `features/per-issue/feature-967.feature` §1:
+    - the eight smoke scenarios pass on two Cucumber runs in a row;
+    - the auth gate, the pause queue, the cron registry and the cron logs are as they were;
+    - the checkout holds no state, logs, spawn lock, branch or worktree for `chore-smoke-200`/200, `sdlc-smoke-100`/100 and `rate-limit-smoke-400`/400.
+- The per-issue steps these scenarios reuse, and where the missing ones go (task 15):
+  - `features/per-issue/step_definitions/feature-960.steps.ts`, `feature-961.steps.ts`, `feature-963.steps.ts`;
+  - `feature-966.steps.ts`, `feature-966-state.ts`, `feature-967.steps.ts`, `feature-967-state.ts`;
+  - `features/support/cucumberChildRun.ts`.
 - `features/regression/vocabulary.md` — retire W2–W8 and W11; reword W1, W9 and W10 and the "Smoke processes" section.
 - `.claude/skills/promote-regression-vocabulary/scripts/list-registered-phrases.ts` — parses `| id | \`phrase\` | …` rows. The retirement must leave the remaining rows in that shape.
 - `adws/adwChore.tsx` — the chore phase order and `postEscalationComment` (`## Chore Escalation: Regression Possible`). It writes `awaiting_merge` after `executePRPhase` and `preApprovePr`, and never merges. Read only.
@@ -176,7 +205,8 @@ Use these files to fix the bug:
   - `rateLimitWaitPolicy.ts` and `phaseRunner.ts`.
 
 ### New Files
-None.
+- `features/per-issue/feature-968.feature` — already written by the scenario writer.
+- `features/per-issue/step_definitions/feature-968.steps.ts` — the feature-968 steps that no other file defines (task 15).
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -184,8 +214,10 @@ IMPORTANT: Execute every step in order, top to bottom.
 ### 1. Record the baseline
 - Run the reproduction commands of "Steps to Reproduce", one at a time. Save the first to `/tmp/adw-968-regression.before`:
   `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary > /tmp/adw-968-regression.before 2>&1; echo "exit=$?"`
-- Confirm that the only non-passing scenarios are the four smoke scenarios. Note any other non-passing scenario as pre-existing and outside this plan.
-- Record the pause queue: `shasum agents/paused_queue.json 2>/dev/null || echo absent`, and keep the output for task 12.
+- Confirm that the only non-passing scenarios are the four smoke scenarios.
+  - On this branch they fail rather than pend. The scenario writer has already tagged them `@subprocess`, so they run on the harness with the old manifests.
+  - Note any other non-passing scenario as pre-existing and outside this plan.
+- Record the pause queue: `shasum agents/paused_queue.json 2>/dev/null || echo absent`, and keep the output for task 16.
 
 ### 2. Snapshot and restore the pause queue in the subprocess harness (`features/regression/support/subprocessHarness.ts`)
 - Import `PAUSE_QUEUE_PATH` from `'../../../adws/core/pauseQueue.ts'`.
@@ -219,7 +251,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 Replace the whole file with the manifest below. It runs W1 `chore` for issue 200 under adwId `chore-smoke-200`.
 - `/chore` writes the plan where `getPlanFilePath` finds it.
 - `/implement` makes the docs-only edit, which the top-level `onCommitCommand` commits when the build phase calls `/commit`.
-- `/diff_evaluator` answers `safe`.
+- `/diff_evaluator` answers `safe`. The safe scenario asserts its reason, `The diff changes README.md only.`, verbatim (task 9).
 - `/pull_request` answers the title/body JSON.
 - `/install`, `/generate_step_definitions` and `/test` answer what their callers accept, so no call goes through `/correct_output`.
 
@@ -291,7 +323,7 @@ Do not add `/generate_branch_name`. That agent runs with the ADW checkout as its
 Use the same manifest as task 5 with these differences. The scenario title says "adws-touching change", and the old manifest touched `adws/`.
 - Payload texts say "regression_possible" instead of "safe verdict".
 - `/implement` writes `adws/smoke-stub.ts` with `// The chore smoke scenario's change to adws/.\nexport const smokeStub = true;\n`, instead of the README edit. The payload reads "The chore was implemented: adws/smoke-stub.ts was added."
-- `/diff_evaluator` answers `{\"verdict\":\"regression_possible\",\"reason\":\"The diff adds adws/smoke-stub.ts.\"}`, escaped as in task 5.
+- `/diff_evaluator` answers `{\"verdict\":\"regression_possible\",\"reason\":\"The diff adds adws/smoke-stub.ts.\"}`, escaped as in task 5. The regression_possible scenario asserts the reason verbatim (task 9).
 - Add a `/review` entry that passes:
   - copy the payload shape of `surface-review-phase.json`;
   - `{"success":true,"reviewSummary":"The chore review found no blockers.","reviewIssues":[],"screenshots":[]}`;
@@ -360,12 +392,16 @@ Replace it with:
   - The capture's own epoch has already passed, and the stub's default is only now + 300 s.
   - A `seven_day` rejection is enqueued whatever the distance, so a far-future reset keeps the manifest valid indefinitely.
 
-### 9. Rewrite the three smoke features
-Keep each file, its Feature title, every scenario and every scenario name. Add `@subprocess` to the tag line. Remove G11. Add a short description under `Feature:` in the style of `cron_trigger_spawn.feature`. It says what the child runs and how the manifest programs it; no issue numbers.
+### 9. Keep the three smoke features as the scenario writer rewrote them, and add their descriptions
+The scenario writer has already rewritten the three files in place:
+- each keeps its file, its Feature title, every scenario and every scenario name;
+- the tag line is `@regression @smoke @subprocess`;
+- G11 and G1 are gone.
+
+The steps below are what the files hold. Do not change any step. The only edit is a short description under `Feature:`, in the style of `cron_trigger_spawn.feature`. It says what the child runs and how the manifest programs it; no issue numbers.
 
 - **`features/regression/smoke/adw_chore_diff_verdicts.feature`**
-  - Tag line: `@regression @smoke @subprocess`.
-  - Background: `Given the mock GitHub API is configured to accept issue comments` and `And an issue 200 exists in the mock issue tracker`. Drop G11.
+  - Background: `Given an issue 200 exists in the mock issue tracker`.
   - Description content:
     - The real chore orchestrator runs as a child process against the acme/widgets workspace, behind the gh shadow.
     - The stub answers each slash command from the scenario's manifest: the plan lands where `getPlanFilePath` finds it, and the build's edit is committed, so the diff evaluator judges a real diff.
@@ -378,20 +414,28 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
     When the "chore" orchestrator is invoked with adwId "chore-smoke-200" and issue 200
     Then the state file for adwId "chore-smoke-200" records workflowStage "awaiting_merge"
     And the orchestrator subprocess exited 0
+    And the mock GitHub API recorded a comment containing the text "The diff changes README.md only."
+    And the mock harness recorded zero comment posts on issue 200 containing the text "Chore Escalation: Regression Possible"
     And the mock GitHub API recorded a PR creation for issue 200
     And the mock harness recorded zero PR-merge calls
     ```
+    - The first T3 text is task 5's `/diff_evaluator` reason, verbatim. Keep the manifest's reason and this Then identical.
+    - `executeDiffEvaluationPhase` posts that reason in its `## Diff Evaluation` comment (`**Reason:** …`) only when the diff is non-empty and the verdict JSON parsed. Otherwise it posts the empty-diff or fail-safe text.
+    - So this Then proves the `/implement` edit was committed and the verdict was parsed.
   - Scenario `regression_possible diff verdict — adws-touching change escalates to review`:
     ```gherkin
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/regression-possible-verdict.json"
     When the "chore" orchestrator is invoked with adwId "chore-smoke-200" and issue 200
     Then the state file for adwId "chore-smoke-200" records workflowStage "awaiting_merge"
     And the orchestrator subprocess exited 0
-    And the mock GitHub API recorded a comment on issue 200
+    And the mock GitHub API recorded a comment containing the text "The diff adds adws/smoke-stub.ts."
     And the mock GitHub API recorded a comment containing the text "Chore Escalation: Regression Possible"
+    And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Review Passed"
+    And the mock GitHub API recorded a PR creation for issue 200
     ```
+    - The first T3 text is task 6's `/diff_evaluator` reason, verbatim.
+    - The review phase posts `review_passed` (`adws/phases/reviewPhase.ts`) when task 6's `/review` answer passes.
 - **`features/regression/smoke/adw_sdlc_happy_path.feature`**
-  - Tag line: `@regression @smoke @subprocess`.
   - Description content:
     - The real SDLC orchestrator runs every phase as a child process.
     - Each agent is answered by its own manifest entry.
@@ -402,36 +446,38 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
     ```gherkin
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 100 exists in the mock issue tracker
-    And the mock GitHub API is configured to accept issue comments
     When the "sdlc" orchestrator is invoked with adwId "sdlc-smoke-100" and issue 100
     Then the state file for adwId "sdlc-smoke-100" records workflowStage "awaiting_merge"
     And the orchestrator subprocess exited 0
     And the state file for adwId "sdlc-smoke-100" records no error
     And the mock GitHub API recorded a PR creation for issue 100
-    And the mock GitHub API recorded a comment on issue 100
     And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Review Passed"
     And the mock GitHub API recorded a comment containing the text "## :link: Pull Request Created"
     And the mock GitHub API recorded an application of the "adw:unverified" label on issue 100
     ```
 - **`features/regression/smoke/pause_resume_rate_limit.feature`**
-  - Tag line: `@regression @smoke @subprocess`.
   - Description content:
     - Every agent call is answered rate-limited for the seven-day window.
     - The branch-name fallback, the install phase and the scenario phase absorb it.
     - The plan agent's rejection reaches the phase runner, which hands any limit other than the five-hour window to the pause queue instead of sleeping in process.
-    - The run records `paused`, appends to the pause queue and exits 0.
+    - The run records `paused`, appends to the pause queue, posts the paused comment naming the limit, and exits 0.
     - The harness puts the checkout's queue file back afterwards.
     - Resuming is covered by `features/regression/pause-queue/`.
   - Scenario `orchestrator records paused stage on rate-limit detection`:
     ```gherkin
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/rate-limit-pause-resume.json"
     And an issue 400 exists in the mock issue tracker
-    And the mock GitHub API is configured to accept issue comments
     When the "sdlc" orchestrator is invoked with adwId "rate-limit-smoke-400" and issue 400
     Then the state file for adwId "rate-limit-smoke-400" records workflowStage "paused"
     And the orchestrator subprocess exited 0
+    And the mock GitHub API recorded a comment containing the text "`seven_day` rate limit detected"
     ```
-- Every phrase is already registered: G1, G3, G4, W1, T1, T2, T3, T5, T7, T8, T9 and T12. Add no new phrase.
+    - `handleRateLimitPause` posts the `paused` comment through the synchronous `gh` call before `process.exit(0)`.
+    - Its reason line comes from `describeRateLimitPauseReason`. For task 8's manifest it reads "`seven_day` rate limit detected — resets at 2100-01-01T00:00:00.000Z (UTC)".
+    - So this Then proves the stub's `seven_day` reached the pause, which T1 `paused` alone does not.
+    - The row asserts nothing on `agents/paused_queue.json`. The queue belongs to the harness, which snapshots and restores it (task 2).
+    - The T-PQ phrases find a queue entry through the pause-queue tier's seeded-entry map, which no smoke Given fills. For that reason alignment removed `And the pause queue entry for issue 400 records the limit type "seven_day"`; do not add it back.
+- Every phrase is already registered: G3, G4, W1, T1, T3, T5, T7, T8, T9, T12 and T-S6. Add no new phrase.
 
 ### 10. Run the four scenarios and make them pass by changing manifests only
 - Run each on its own, one after another:
@@ -471,7 +517,7 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
   - `/generate_branch_name` runs with the ADW checkout as its cwd and falls back to `<type>-issue-<N>`.
   - The fixture's `N/A` unit-test command yields no JUnit report, hence `adw:unverified`.
   - The pause row answers every call with a `seven_day` limit and a reset in 2100. The plan phase's rejection is enqueued, because only `five_hour` is slept out in process (`adws/core/rateLimitWaitPolicy.ts`). So the run records `paused` and exits 0.
-- **The section's closing "reuses already-registered phrases" list.** Add G1, T9 and T12.
+- **The section's closing "reuses already-registered phrases" list.** Add T9, T12 and T-S6. The smoke rows no longer use G1, so do not add it.
 - Check that nothing else names the retired rows: `grep -nE "\bW([2-8]|11)\b" features/regression/vocabulary.md` must list only the new retirement sentence.
 
 ### 12. Update ADR-0037 (`specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md`)
@@ -481,7 +527,7 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
   - Items 1 and 2 remain and keep their numbers, so the list is renumbered 1, 2.
   - In item 2, delete ", so both jobs are red until the pending scenarios of item 3 execute". The sentence then ends "…which a failed, pending or undefined scenario causes."
 - **Consequences.** Delete the bullet "* Bad, because the intended gain, wiring bugs failing the suite, is not delivered yet: the smoke and surface scenarios do not execute (see More Information)."
-- **Confirmation.** Replace the last sentence, "The hybrid execution model is not in force; see Divergence, item 3.", with a dated sentence. Use the date of the passing run of task 15. Its content:
+- **Confirmation.** Replace the last sentence, "The hybrid execution model is not in force; see Divergence, item 3.", with a dated sentence. Use the date of the passing run of task 16. Its content:
   - The hybrid execution model is in force.
   - The smoke scenarios run real processes:
     - `adwChore.tsx`, `adwSdlc.tsx`, the promotion sweep and the cron trigger as child processes behind the `gh` shadow and the Claude CLI stub;
@@ -502,16 +548,16 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
 - **Confirmation.** Replace the line "* `.github/workflows/regression.yml` runs the suite on the host and, on the daily schedule, in Docker. It is not a required check and is failing; see ADR-0037." with current facts:
   - It has a `host` and a `docker` job. The daily schedule runs both; a manual dispatch runs the one its `runtime` input names.
   - It is not a required check (ADR-0037, Divergence item 2).
-  - Dated with the passing run of task 15: the `@regression` run reports no pending, undefined or failed scenario and exits 0.
+  - Dated with the passing run of task 16: the `@regression` run reports no pending, undefined or failed scenario and exits 0.
 - Change nothing else in the ADR.
 
 ### 14. Update the living doc (`app_docs/feature-9gjajh-bdd-regression-suite.md`)
 - **Line 13.** "Run three smoke files for real (…; `adw_sdlc_happy_path`, `pause_resume_rate_limit` and `adw_chore_diff_verdicts` stay pending, they need the full agent pipeline):" becomes "Run all six smoke files for real:". Keep the three existing sub-bullets and add three:
   - **`adw_chore_diff_verdicts`** (`@subprocess`, two scenarios). W1 `chore` runs with `safe-verdict.json` or `regression-possible-verdict.json`.
-    - safe: T1 `awaiting_merge`, T5 0, the PR for issue 200, no merge.
-    - regression_possible: T1 `awaiting_merge`, T5 0, a comment on 200, and `Chore Escalation: Regression Possible`.
+    - safe: T1 `awaiting_merge`, T5 0, the diff evaluator's reason in the `## Diff Evaluation` comment, no escalation comment, the PR for issue 200, no merge.
+    - regression_possible: T1 `awaiting_merge`, T5 0, the diff evaluator's reason, `Chore Escalation: Regression Possible`, the review-passed comment, and the PR for issue 200.
   - **`adw_sdlc_happy_path`** (`@subprocess`). W1 `sdlc` runs with `adw-sdlc-happy.json`. It asserts T1 `awaiting_merge`, T5 0, T9, the PR, the review-passed and PR-created comments, and the `adw:unverified` label.
-  - **`pause_resume_rate_limit`** (`@subprocess`). W1 `sdlc` runs with `rate-limit-pause-resume.json`: `seven_day`, a reset in 2100, every call rejected. It asserts T1 `paused` and T5 0.
+  - **`pause_resume_rate_limit`** (`@subprocess`). W1 `sdlc` runs with `rate-limit-pause-resume.json`: `seven_day`, a reset in 2100, every call rejected. It asserts T1 `paused`, T5 0, and the paused comment naming the `seven_day` limit. It asserts nothing on the pause queue, which the harness restores.
 - **Line 27.** `whenSteps.ts (W1–W16 invocation vocabulary, …)` becomes "W1, W9, W10 and W16; W2–W8 and W11 are retired".
 - **Line 32.** Delete the closing clause "the remaining surface rows and the smoke scenarios not listed below stay pending (ADR-0037 Divergence item 3 stays open)". Keep, or make explicit, that W-S1 and W-S2 run in-process with `NonPostingCostTracker` recording cost instead of posting it.
 - **Line 33.**
@@ -536,10 +582,38 @@ Keep each file, its Feature title, every scenario and every scenario name. Add `
   - The stub truncates its result text to 500 characters, so a JSON answer must stay shorter than that.
 - Keep the doc's style: plain statements, no issue-number citations beyond those already used as identifiers, and no "stay pending" left anywhere: `grep -n "pending" app_docs/feature-9gjajh-bdd-regression-suite.md` should show only the strict-mode explanation and the feature-960 note.
 
-### 15. Run the validation commands
+### 15. Make the per-issue `@adw-968` scenarios pass
+The scenario writer tagged these `@adw-968` (see Relevant Files), so they are this build's BDD scenarios. Most of their phrases are already defined. Write only the missing ones, and delete what the rewrites left unused.
+
+- **`features/per-issue/step_definitions/feature-968.steps.ts`** (new). Reuse feature-961's child runs; do not start new ones.
+  - `that run reports no pending, no undefined and no failed scenario, and exits 0` and `that run passed each of these smoke scenarios:` (a `feature`/`scenario` table):
+    - they read the run made by feature-961's `Cucumber runs the scenarios tagged {string} in a child process`;
+    - export an accessor for that run from `feature-961.steps.ts` instead of duplicating its `runCucumber`.
+  - `the dry run loaded no step definition with any of these expressions:` and `the dry run loaded exactly one step definition with each of these expressions:` (an `expression` table):
+    - they read the `stepDefinition` envelopes of feature-961's `Cucumber dry-runs every feature its configuration loads`;
+    - they compare each row with the envelopes' `pattern.source`.
+  - The child `@regression` run must finish inside feature-961's 10-minute step bound (`STEP_TIMEOUT_MS`). `SPAWN_TIMEOUT_MS` kills `spawnSync` 15 s before that.
+- **`features/per-issue/step_definitions/feature-960.steps.ts`** (§6).
+  - Replace `every smoke and surface scenario is reported pending, except these surface rows and smoke files, which pass:` with `every smoke and surface scenario passes, and each of these surface rows and smoke files holds at least one of them:`.
+  - The new step asserts that the child run of `@smoke or @surface`:
+    - holds a scenario from each of the smoke and surface directories;
+    - passed every scenario;
+    - holds at least one scenario from each listed row or file.
+  - Delete `every smoke and surface scenario is reported pending`, and `assertAllReportedPending` if nothing else uses it. No feature uses them any more.
+  - `/^the throwaway scenario (passes|fails|is reported pending)$/` already covers §1, §5 and the feature-966 W9 outline. Their throwaway steps fail through `requireHarness` once task 3 removes the guards.
+- **feature-967 §1.** It ends with feature-966's `neither run added a branch or a worktree to the checkout for any of these workflows:`.
+  - That step reads a checkout listing. `feature-966-state.ts`'s Before hook captures the listing only under `@adw-p5u9xh-bug-build-the-hermet`, a tag §1 does not carry.
+  - Without a change, the step fails with "Expected the checkout to have been listed before the scenario".
+  - Capture the listing in `feature-967-state.ts`'s Before hook as well: `captureCheckout()` into feature-966's `stateOf(this).checkout`.
+  - Do not widen feature-966's hook tag: its After hook would then also run for feature-967.
+  - Delete `no other smoke scenario fails on either run` and the `named` bookkeeping that only it reads. No feature uses it any more, and §1 now names all eight smoke scenarios.
+  - §1's "the pause queue … as they were before the runs" holds, with the rate-limit row in both runs, because of the harness's restore (task 2).
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-968" --format summary; echo "exit=$?"`. Every scenario passes and `exit=0`.
+
+### 16. Run the validation commands
 - Run every command in "Validation Commands" in order, one at a time; never two Cucumber processes at once.
 - Compare the `@regression` summary with `/tmp/adw-968-regression.before`:
-  - the four smoke scenarios moved from pending to passed;
+  - the four smoke scenarios moved from failed (pending on `dev`) to passed;
   - every scenario that passed before still passes;
   - none is pending, undefined or failed;
   - the exit code is 0.
@@ -562,9 +636,10 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@smoke and not @subprocess and not @webhook" --format summary` — selects 0 scenarios. No smoke scenario is left outside the harness.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@smoke" --format summary; echo "exit=$?"` — 8 scenarios, 8 passed, `exit=0`.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@surface" --format summary; echo "exit=$?"` — 34 scenarios, 34 passed, `exit=0`.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary > /tmp/adw-968-regression.after 2>&1; echo "exit=$?"; tail -n 5 /tmp/adw-968-regression.after` — no pending, undefined or failed scenario, and `exit=0` (acceptance criteria 1 and 2). Diff the summary against `/tmp/adw-968-regression.before`: the only change is four pending → passed.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary > /tmp/adw-968-regression.after 2>&1; echo "exit=$?"; tail -n 5 /tmp/adw-968-regression.after` — no pending, undefined or failed scenario, and `exit=0` (acceptance criteria 1 and 2). Diff the summary against `/tmp/adw-968-regression.before`: the only change is four failed → passed.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-968" --format summary; echo "exit=$?"` — every `@adw-968` scenario passes, and `exit=0`. These are feature-968, feature-960 §1, §5 and §6, the feature-963 refusal guard, the feature-966 W9 outline and feature-967 §1.
 - `shasum agents/paused_queue.json 2>/dev/null || echo absent` — prints exactly what task 1 recorded. The harness restored the pause queue.
-- `git status --porcelain` — only the files this plan names are changed (plus the pre-existing README.md change). No `.adw-stub-*` file, `tsconfig.tsbuildinfo` or stray `agents/` artefact appears.
+- `git status --porcelain` — only the files this plan names are changed. That includes the per-issue features and smoke features the scenario writer changed, plus the pre-existing README.md change. No `.adw-stub-*` file, `tsconfig.tsbuildinfo` or stray `agents/` artefact appears.
 - `grep -nE '^[0-9]+\. \*\*' specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md` — exactly two lines, numbered `1.` and `2.`.
 - `grep -nE "Smoke and surface scenarios are pending|is not delivered yet|hybrid execution model is not in force|item 3" specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md` — prints nothing (acceptance criterion 4).
 - `grep -nE "still pending|is failing; see ADR-0037" specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md` — prints nothing.
@@ -580,14 +655,20 @@ Execute every command to validate the bug is fixed with zero regressions.
 - No new library is needed.
 - **ADR edits beyond `## Divergence`.** The write-an-adr skill allows only `## Divergence` to change in an accepted ADR. The issue explicitly orders the ADR-0037 Consequences and Confirmation edits and the ADR-0021 edits, so those are made, and nothing else in either ADR is touched.
 - **ADR-0037 items 4 and 6.** The issue asks for item 3 only, plus a renumbering. Items 4 and 6 are stale lines that conflict-resolution merges restored after their own pull requests had removed them; the evidence is in Root Cause Analysis, item 5. Leaving them, renumbered to 3 and 4, would re-assert two fixed bugs as open divergences. They are removed instead, and the pull request description should say so. If the owner wants them kept, restoring the two lines is the whole revert.
-- **Per-issue scenarios that describe the old pending guard.** These are `features/per-issue/feature-960.feature` (the "reported pending" rows for W1/W10, and §6, which lists the smoke scenarios that should still be pending) and `feature-966.feature` (the W9 outline). They are per-issue scenarios:
-  - They run only under their own `@adw-<N>` tags, never in the `@regression` run.
-  - They are swept 14 days after their pull requests merged.
-  - They no longer hold once W1, W9 and W10 fail without a harness, which acceptance criterion 3 requires. Do not edit them in this issue.
+- **Per-issue scenarios that described the old pending guard.** These are feature-960 §1 and §5 (W1 and W10), feature-960 §6 (the smoke scenarios that were still pending) and the feature-966 W9 outline.
+  - The scenario writer has already rewritten them to the behaviour acceptance criterion 3 requires:
+    - W1, W9 and W10 fail without a harness, and never pass or pend;
+    - every smoke and surface scenario passes.
+  - It also tagged them `@adw-968`, with the feature-963 refusal-guard scenario and feature-967 §1. So they run in this issue's scenario proof, never in the `@regression` run.
+  - Do not revert them. Task 15 supplies the step definitions they now need.
 - **`.adw/conditional_docs.md`.** Its condition text still mentions "W1/W10 staying pending" and lists three real-process smoke files. The document phase refreshes it; the plan does not edit `.adw/`.
 - **Run time.**
   - The three full-pipeline runs add roughly a minute or two to the `@regression` run.
   - Each child is bounded at 120 s, and the CI jobs at 30 minutes.
+  - The `@adw-968` scenarios run the suite in child Cucumber processes, each with its own bound:
+    - feature-968 runs `@regression` within 10 minutes;
+    - feature-960 §6 runs `@smoke or @surface` within `cucumberChildRun.ts`'s 600 s;
+    - feature-967 §1 runs the smoke tag twice within 15 minutes.
   - Never run two Cucumber processes from the same checkout: the rows share `agents/`, `logs/` and spawn locks.
 - **A cron on the developer's machine.** A real cron for another repository may read `agents/paused_queue.json` while the pause row runs. The entry belongs to `acme/widgets`, so that cron skips it ("none owned"). The harness restores the file at teardown.
 - **What the SDLC run leaves on the forge** (traced, for checking the Thens):
