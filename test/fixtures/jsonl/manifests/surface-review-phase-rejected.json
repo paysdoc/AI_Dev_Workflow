@@ -1,0 +1,20 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface review-phase-rejected stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"The surface review found one blocker.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"The surface handler swallows its error\\\",\\\"issueResolution\\\":\\\"Return the error to the caller\\\",\\\"issueSeverity\\\":\\\"blocker\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+        }
+      ]
+    }
+  }
+}

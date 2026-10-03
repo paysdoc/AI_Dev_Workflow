@@ -1,12 +1,15 @@
 @regression @surface
-Feature: adwReview — reviewPhase — happy path
+Feature: adwSdlc — reviewPhase — happy path
 
-  Scenario: review orchestrator completes review phase and posts a comment
-    Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
-    And an issue 1007 exists in the mock issue tracker
-    And the mock GitHub API records all PR-list calls
-    And the claude-cli-stub is loaded with fixture "review-agent.json"
+  There is no adwReview orchestrator. adwSdlc runs the review phase, with no phase name.
+
+  Scenario: sdlc orchestrator's review phase runs in-process over a passing review and posts the review-passed comment carrying the review's summary
+    Given an issue 1007 exists in the mock issue tracker
     And the worktree for adwId "surface-07" is initialised at branch "surface-07"
-    When the "review" orchestrator is invoked with adwId "surface-07" and issue 1007
-    Then the mock GitHub API recorded a comment on issue 1007
-    And the orchestrator subprocess exited 0
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-review-phase.json"
+    When the "review" phase of the "sdlc" orchestrator runs for adwId "surface-07"
+    Then the "review" phase run succeeded
+    And the mock GitHub API recorded a comment on issue 1007
+    And the mock GitHub API recorded a comment containing the text "## :mag: Review Running"
+    And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Review Passed"
+    And the mock GitHub API recorded a comment containing the text "The surface review found no blockers."

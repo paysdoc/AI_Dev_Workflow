@@ -319,28 +319,34 @@ is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the gene
 
 These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
 or an orchestrator's lifecycle, of the production code runs against `mockForgeProviders` (an
-`acme/widgets` forge that records every comment it posts, every pull request it creates and every
-secret it sets as the HTTP calls would, answers `getDefaultBranch` with `main`, and refuses every
-port method the rows do not call), the fixture worktree G11 made, and the Claude CLI stub.
-`commentOnPullRequest` posts to GitHub's issue-comments endpoint for the pull request. The stub
-is delivered as `<worktree>/.adw-stub-manifest.json`, copied from the manifest G3 named, because the
-agent runner passes no `MOCK_*` variable to it; a manifest answers per slash command, and one that
-would write `.adw/state.json`, anything under `agents/` or anything beyond the worktree is refused.
-The phase runs under the name the production orchestrator passes to `runPhase`, so the stage
-artefacts are the production ones: `adwPlan` names no phase, and its plan phase writes no `plan_*`
-stage. The dependency-audit setup, which no orchestrator runs and which returns no `PhaseResult`,
-is driven through its `deps` seam (W-S3) instead. Every assertion targets a runtime artefact: the
-phase run's outcome, the top-level state file (`agents/<adwId>/state.json`), the requests the mock
-GitHub API recorded, the git-mock's invocation log, the commands W-S3 recorded, or the spawn-lock
+`acme/widgets` forge that records every comment it posts, every label it applies, every pull request
+it creates and every secret it sets as the HTTP calls would, answers `getDefaultBranch` with `main`,
+and refuses every port method the rows do not call), the fixture worktree G11 made, and the
+Claude CLI stub. `commentOnPullRequest` posts to GitHub's issue-comments endpoint for the pull
+request. The stub is delivered as `<worktree>/.adw-stub-manifest.json`, copied from the manifest G3
+named, because the agent runner passes no `MOCK_*` variable to it; a manifest answers per slash
+command, and one that would write `.adw/state.json`, anything under `agents/` or anything beyond
+the worktree is refused. The phase runs under the name the production orchestrator passes to
+`runPhase`, so the stage artefacts are the production ones: `adwPlan` names no phase, and its plan
+phase writes no `plan_*` stage. `adwTest` names its unit-test phase `test`; adwSdlc and adwChore
+name none of the phases these rows drive, so those runs write no stage and the top-level state
+keeps the `starting` W-S1 seeds. A phase no orchestrator runs is driven directly (W-S4), and the
+dependency-audit setup, which returns no `PhaseResult`, is driven through its `deps` seam (W-S3).
+Every assertion targets a runtime artefact: the phase run's outcome, the top-level state file
+(`agents/<adwId>/state.json`), the requests the mock GitHub API recorded, the scenario proof a
+phase produced, the git-mock's invocation log, the commands W-S3 recorded, or the spawn-lock
 artefact (`agents/spawn_locks/`). No step reads a source file, satisfying the Rot-Detection Rubric.
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|
 | G-S1 | `the worktree for adwId {string} has the plan for issue {int} committed on its branch` | Writes `specs/issue-<N>-adw-<adwId>-sdlc_planner-surface-plan.md` into the worktree G11 registered and commits it, so a build phase has the plan it reads | phase-import | worktree artefact |
 | G-S2 | `a pull request {int} for issue {int} is open on the branch {string} with a review comment to address` | Replaces the mock server's pull-request and comment maps with one open pull request `N` (title `Issue <issue>`, body `Implements #<issue>`, head the branch, base `main`) and one review comment on it from `reviewer`, so the PR-review phases read the pull request and the comment they address | mock-query | mock server state |
-| W-S1 | `the {string} phase of the {string} orchestrator runs for adwId {string}` | Builds the `WorkflowConfig` (the seeded issue, the worktree, the mock forge, the initial top-level state `starting`; `agents/<adwId>/` cleared first, since a state left behind skips a completed phase), delivers the stub, and runs `runPhase` over the phase function under the production phase name, with `process.exit` trapped and cost records kept rather than posted. Records whether it resolved, the error it threw, or the exit code it ended the process with | phase-import | phase run outcome |
+| G-S3 | `the worktree for adwId {string} has a scenario for issue {int} committed on its branch` | Writes `features/feature-<N>.feature`, tagged `@adw-<N>`, into the worktree G11 registered and commits it, so the alignment and plan-validation phases find the issue's scenarios | phase-import | worktree artefact |
+| G-S4 | `the worktree for adwId {string} has step definitions committed on its branch` | Writes `features/step_definitions/surface.steps.ts`, in the fixture's default step definition directory, into the worktree G11 registered and commits it, so the scenario proof finds step definitions and runs the fixture's scenario command for each tag | phase-import | worktree artefact |
+| W-S1 | `the {string} phase of the {string} orchestrator runs for adwId {string}` | Builds the `WorkflowConfig` (the seeded issue, the worktree, the mock forge, the initial top-level state `starting`; `agents/<adwId>/` cleared first, since a state left behind skips a completed phase), delivers the stub, and runs `runPhase` over the phase function under the production phase name, with `process.exit` trapped and cost records kept rather than posted. Records whether it resolved, the error it threw, or the exit code it ended the process with. The phase function is called as its orchestrator calls it: the review phase with the empty scenario-proof path passed when no proof preceded it, and the scenario fix phase with the proof of a failed run of the fixture's `@review-proof` blocker tag. The scenario proof the phase left on the workflow context is recorded on the World. The orchestrator/phase pairs it drives are `plan`/`plan`, `build`/`build`, `test`/`unit test` (phase name `test`), `chore`/`review`, `chore`/`diff evaluation`, `sdlc`/`alignment`, `sdlc`/`scenario test`, `sdlc`/`scenario fix` and `sdlc`/`review`; it refuses any other pair before it builds a config | phase-import | phase run outcome |
 | W-S2 | `the {string} orchestrator's lifecycle runs for adwId {string}` | Builds the same config and runs `runWithOrchestratorLifecycle` with a workflow that records that it ran and who the spawn-gate lock names while it does | phase-import | lifecycle outcome |
 | W-S3 | `the dependency-audit setup runs for adwId {string} on a host whose environment sets every secret it propagates` | Builds the same config under `init-orchestrator`, the id the deleted adwInit ran the setup under, and calls `executeDepauditSetup` with three `deps`: an `execWithRetry` that records each command and its cwd and runs nothing, a `getEnv` that answers every secret, and the mock forge's `codeHost`. Records what it returned, or what it threw | phase-import | dependency-audit outcome |
+| W-S4 | `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}` | As W-S1, for a phase no orchestrator in `adws/*.tsx` runs (`plan validation`), and refuses any other phase. It runs `runPhase` with no phase name under adwSdlc's identity | phase-import | phase run outcome |
 | T-S1 | `the {string} phase run succeeded` | Asserts the recorded outcome is for that phase and the phase run resolved | phase-import | phase run outcome |
 | T-S2 | `the {string} phase run failed` | Asserts the recorded outcome is for that phase, the run did not resolve and threw an error. An exit of the process, the pause or timeout path, is not a failure | phase-import | phase run outcome |
 | T-S3 | `the spawn-gate lock for issue {int} was held by the orchestrator while its lifecycle ran` | Asserts the lifecycle was for that issue, ran its workflow and returned true, and that the lock named this process while the workflow ran | phase-import | lifecycle outcome + spawn-lock artefact |
@@ -350,11 +356,16 @@ artefact (`agents/spawn_locks/`). No step reads a source file, satisfying the Ro
 | T-S7 | `the mock GitHub API recorded a comment on pull request {int} containing the text {string}` | Asserts a recorded POST to `/issues/N/comments` carries a body containing the text. Fails giving the number of comment posts recorded for that number | mock-query | recorded requests |
 | T-S8 | `the dependency-audit setup ran the command {string} in the worktree for adwId {string}` | Asserts the recorded setup was for that adwId, finished without an error and returned its result, and that it asked its `execWithRetry` for that command with the worktree G11 registered for the adwId as its cwd. Fails listing the recorded calls | phase-import | dependency-audit outcome |
 | T-S9 | `the mock GitHub API recorded the Actions secret {string} set on the repository {string}` | Asserts a recorded PUT to `/repos/<owner>/<repo>/actions/secrets/<name>`. Fails listing the recorded PUT URLs | mock-query | recorded requests |
+| T-S10 | `the {string} phase run failed with an error that names {string}` | Asserts what T-S2 asserts, and that the message of the error the run failed with contains the text | phase-import | phase run outcome |
+| T-S11 | `the scenario proof ran no tag` | Asserts the scenario proof recorded on the World holds no tag result, as when the proof finds no step definitions | phase-import | phase run outcome (scenario proof) |
+| T-S12 | `the scenario proof records a blocker failure for the tag {string}` | Asserts the recorded scenario proof holds a result for the tag that is a blocker, ran and failed, and that the proof records blocker failures | phase-import | phase run outcome (scenario proof) |
 
 These rows also reuse already-registered phrases, so they need no new rows: `the ADW codebase is
 checked out` (G18, Background), G3, G4, G5, G11, G-PQ14 (`another live process holds the spawn lock
 for issue {int} in the repository {string}`, whose process and lock the `@regression` After hook
-releases), T1, T2, T3, T6, T8 and T11.
+releases), T1, T2, T3, T6, T8, T11, T12 (`the mock GitHub API recorded an application of the {string} label
+on issue {int}`), T14 (`the mock harness recorded zero comment posts on issue {int}`) and T-PY3
+(`the scenario proof records no blocker failures`, which reads the same recorded proof).
 
 ---
 

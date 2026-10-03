@@ -1,7 +1,7 @@
 /**
  * The forge a surface row's phase talks to, in-process. It implements only the port methods the
- * driven rows call: `commentOnIssue`, `moveToStatus` and, for the cancel directive's handler,
- * `fetchComments`, `getIssueTitle` and `deleteComment` of the issue tracker, and `getDefaultBranch`,
+ * driven rows call: `commentOnIssue`, `applyLabel`, `moveToStatus` and,
+ * for the cancel directive's handler, `fetchComments`, `getIssueTitle` and `deleteComment` of the issue tracker, and `getDefaultBranch`,
  * `createPullRequest`, `commentOnPullRequest` and `setSecret` of the code host. Any other method
  * throws, so a phase that starts needing one fails loudly instead of being answered with an
  * invented value.
@@ -92,7 +92,9 @@ function issueTrackerFor(repoId: RepoIdentifier): IssueTracker {
     moveToStatus: async () => true,
     fetchLabels: () => notSupported('fetchLabels'),
     addLabel: () => notSupported('addLabel'),
-    applyLabel: () => notSupported('applyLabel'),
+    applyLabel: (issueNumber, labelName) => {
+      dispatchOrThrow('applyLabel', 'POST', `${repoPath}/issues/${issueNumber}/labels`, { labels: [labelName] });
+    },
     ensureLabel: () => notSupported('ensureLabel'),
     createIssue: () => notSupported('createIssue'),
     updateIssueBody: () => notSupported('updateIssueBody'),

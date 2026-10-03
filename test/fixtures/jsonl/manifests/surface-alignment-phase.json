@@ -1,0 +1,20 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface alignment-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n"
+        }
+      ]
+    }
+  }
+}

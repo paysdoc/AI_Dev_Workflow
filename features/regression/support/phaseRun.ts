@@ -18,7 +18,7 @@ import { resolveWorkflowRepoId } from '../../../adws/phases/workflowRepoIdentity
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { DepauditOutcome, LifecycleOutcome, PhaseOutcome, RecordedExec, RegressionWorld } from '../step_definitions/world.ts';
 import { pointClaudeCodeAtStub } from './claudeCliStub.ts';
-import { buildConfigFor, buildPhaseConfig, phaseDefinition } from './phaseConfig.ts';
+import { DIRECT_PHASE_ORCHESTRATOR, buildConfigFor, buildPhaseConfig, directPhaseDefinition, phaseDefinition, type PhaseDefinition } from './phaseConfig.ts';
 
 export { SURFACE_REPO } from './mockForgeProviders.ts';
 export { buildPhaseConfig } from './phaseConfig.ts';
@@ -37,6 +37,19 @@ export function deliverStubManifest(world: RegressionWorld, worktreePath: string
   pointClaudeCodeAtStub(world);
   const manifestPath = world.harnessEnv['MOCK_MANIFEST_PATH'];
   if (manifestPath) copyFileSync(manifestPath, join(worktreePath, '.adw-stub-manifest.json'));
+}
+
+/**
+ * The unit-test phase points the JUnit report at its logs directory through `process.env`. In-process
+ * that outlives the phase and its temp directory, `vitest.config.ts` reads it, and every child
+ * process inherits it.
+ */
+function restoreUnitReportPathOnCleanup(world: Pick<RegressionWorld, 'cleanup'>): void {
+  const saved = process.env['ADW_UNIT_TEST_REPORT_PATH'];
+  world.cleanup.push(() => {
+    if (saved === undefined) delete process.env['ADW_UNIT_TEST_REPORT_PATH'];
+    else process.env['ADW_UNIT_TEST_REPORT_PATH'] = saved;
+  });
 }
 
 class PhaseExitSentinel extends Error {
@@ -69,13 +82,30 @@ export async function withExitTrap<T>(run: () => Promise<T>): Promise<Trapped<T>
   }
 }
 
-export async function runSurfacePhase(world: RegressionWorld, adwId: string, orchestrator: string, phase: string): Promise<PhaseOutcome> {
-  const { fn, phaseName } = phaseDefinition(orchestrator, phase);
+async function runDefinedPhase(
+  world: RegressionWorld,
+  adwId: string,
+  orchestrator: string,
+  phase: string,
+  { fn, phaseName }: PhaseDefinition,
+): Promise<PhaseOutcome> {
   const config = buildPhaseConfig(world, adwId, orchestrator);
   deliverStubManifest(world, config.worktreePath);
+  restoreUnitReportPathOnCleanup(world);
 
   const { resolved, error, exitCode } = await withExitTrap(() => runPhase(config, new NonPostingCostTracker(), fn, phaseName));
+  // The review phase reads the proof a scenario test phase leaves on the workflow context; the scenario-proof Then steps read it from the World.
+  world.scenarioProofResult = config.ctx.scenarioProof;
   return { adwId, orchestrator, phase, resolved, error, exitCode };
+}
+
+/** The definition is looked up first, so an unknown name fails before anything is written. */
+export async function runSurfacePhase(world: RegressionWorld, adwId: string, orchestrator: string, phase: string): Promise<PhaseOutcome> {
+  return runDefinedPhase(world, adwId, orchestrator, phase, phaseDefinition(orchestrator, phase));
+}
+
+export async function runDirectSurfacePhase(world: RegressionWorld, adwId: string, phase: string): Promise<PhaseOutcome> {
+  return runDefinedPhase(world, adwId, DIRECT_PHASE_ORCHESTRATOR, phase, directPhaseDefinition(phase));
 }
 
 export async function runSurfaceLifecycle(world: RegressionWorld, adwId: string, orchestrator: string): Promise<LifecycleOutcome> {
