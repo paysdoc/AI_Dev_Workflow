@@ -253,8 +253,8 @@ Feature: The cron, cancel and promotion smoke scenarios run a real process or th
 
   # ── §1 THE FOUR SMOKE SCENARIOS PASS, TWICE IN A ROW, AND LEAVE THE CHECKOUT AS THEY FOUND IT ──
 
-  @adw-967 @adw-ls9ywd-bug-run-the-cron-can
-  Scenario: While ADW's auth gate holds a record and another repository's workflow is paused, the four smoke scenarios pass on two Cucumber runs in a row without calling the developer's gh, and leave the auth gate, the pause queue, the cron registry and the checkout as they found them
+  @adw-967 @adw-ls9ywd-bug-run-the-cron-can @adw-968
+  Scenario: While ADW's auth gate holds a record and another repository's workflow is paused, the eight smoke scenarios pass on two Cucumber runs in a row without calling the developer's gh, and leave the auth gate, the pause queue, the cron registry and the checkout as they found them
     Given ADW's auth gate holds a record of an earlier authentication failure
     And ADW's pause queue holds a workflow paused for the repository "acme/elsewhere"
     And the developer's gh, first on the PATH, records every call it receives
@@ -265,15 +265,29 @@ Feature: The cron, cancel and promotion smoke scenarios run a real process or th
       | cancel_directive.feature              | a signed ## Cancel comment deletes the workflow's state, removes the issue's worktree and its branch, and deletes every comment on the issue, posting none |
       | promotion_threshold_auto_ramp.feature | young repo — borderline-score scenario (score=4) is tagged because N = 3 (bootstrap)                                                                      |
       | promotion_threshold_auto_ramp.feature | mature repo — same borderline-score scenario is NOT tagged because N rises to 5                                                                           |
-    And no other smoke scenario fails on either run
+      | adw_chore_diff_verdicts.feature       | safe diff verdict — docs-only change completes without escalation                                                                                         |
+      | adw_chore_diff_verdicts.feature       | regression_possible diff verdict — adws-touching change escalates to review                                                                               |
+      | adw_sdlc_happy_path.feature           | adwSdlc completes the full pipeline end-to-end                                                                                                            |
+      | pause_resume_rate_limit.feature       | orchestrator records paused stage on rate-limit detection                                                                                                 |
     And the developer's gh received no call
     And ADW's auth gate, the pause queue, the cron registry and the cron logs are as they were before the runs
     And the checkout holds no state and no logs for any of these adwIds:
       | adwId                         |
       | cancel-smoke-500              |
       | promotion-threshold-smoke-512 |
+      | chore-smoke-200               |
+      | sdlc-smoke-100                |
+      | rate-limit-smoke-400          |
     And the checkout holds no spawn lock for issue 300 in the repository "acme/widgets"
+    And the checkout holds no spawn lock for issue 200 in the repository "acme/widgets"
+    And the checkout holds no spawn lock for issue 100 in the repository "acme/widgets"
+    And the checkout holds no spawn lock for issue 400 in the repository "acme/widgets"
     And no cron trigger for the repository "acme/widgets" is still running
+    And neither run added a branch or a worktree to the checkout for any of these workflows:
+      | adwId                | issue |
+      | chore-smoke-200      | 200   |
+      | sdlc-smoke-100       | 100   |
+      | rate-limit-smoke-400 | 400   |
 
   # ── §2 THE MATURE PROMOTION ROW READS WHERE THE SWEEP'S MARKER LANDS ─────────────────────────
 

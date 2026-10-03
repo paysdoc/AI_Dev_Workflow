@@ -1,5 +1,5 @@
 /**
- * Step definitions for feature-967.feature: the four smoke scenarios run twice in a row in a child
+ * Step definitions for feature-967.feature: the eight smoke scenarios run twice in a row in a child
  * Cucumber process, and throwaway scenarios that show the rows' Thens cannot pass on what they were
  * not seeded with. The child runs are feature-963's helpers; the environment they take is the one
  * the feature-966 Given gives them. Every check reads what the runs left: the child runs' step
@@ -33,7 +33,6 @@ const SMOKE_DIRECTORY = 'features/regression/smoke/';
 const SMOKE_TAGS = '@regression and @smoke';
 /** The cron probe alone may wait 60 s for its first poll, and each of the two runs holds it. */
 const RUNS_TIMEOUT_MS = 15 * 60_000;
-const BROKEN: ReadonlySet<TestStepResultStatus> = new Set([TestStepResultStatus.FAILED, TestStepResultStatus.AMBIGUOUS, TestStepResultStatus.UNDEFINED]);
 
 function freshDirectory(world: RegressionWorld): string {
   const directory = mkdtempSync(join(tmpdir(), 'adw-967-run-'));
@@ -77,18 +76,6 @@ Then('each of these smoke scenarios passes on both runs:', function (this: Regre
   assert.strictEqual(state.smokeRuns.length, 2, 'Expected the smoke scenarios to have been run twice first');
   const rows = table.hashes().map(({ feature, scenario }): SmokeScenario => ({ feature, scenario }));
   rows.forEach((row) => state.smokeRuns.forEach((run, index) => assertPasses(run, row, index + 1)));
-  state.named = rows;
-});
-
-/** A step that is failed, ambiguous or undefined; a pending one is how the rows that need the whole pipeline stay out of the way. */
-Then('no other smoke scenario fails on either run', function (this: RegressionWorld) {
-  const { smokeRuns, named } = stateOf(this);
-  assert.ok(named.length > 0, 'Expected the smoke scenarios to have been judged by name first');
-  const isOther = (scenario: ScenarioOutcome): boolean => !named.some((row) => isSmokeScenario(scenario, row));
-  const broken = smokeRuns.flatMap((run, index) =>
-    run.scenarios.filter(isOther).filter((scenario) => scenario.steps.some((step) => BROKEN.has(step.status))).map((scenario) => `run ${index + 1}: ${describeScenario(scenario)}`),
-  );
-  assert.deepStrictEqual(broken, [], 'Expected no other smoke scenario to have a failed, ambiguous or undefined step');
 });
 
 Then('ADW\'s auth gate, the pause queue, the cron registry and the cron logs are as they were before the runs', function (this: RegressionWorld) {

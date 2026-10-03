@@ -3,16 +3,8 @@
   "edits": [
     {
       "path": ".adw-stub-payload.json",
-      "contents": "[{\"type\":\"text\",\"text\":\"# Implementation Plan\\n\\nStub plan response after simulated rate-limit recovery.\\n\"}]\n"
-    },
-    {
-      "path": "specs/plan.md",
-      "contents": "# Implementation Plan (After Rate-Limit Recovery)\n\nMinimal plan stub seeded by the rate-limit-pause-resume manifest.\n"
+      "contents": "[{\"type\":\"text\",\"text\":\"Rate-limit smoke stub: every call is answered rate-limited, so this payload is never streamed.\\n\"}]\n"
     }
   ],
-  "response": {
-    "kind": "rate-limited",
-    "rateLimitType": "five_hour",
-    "limitedInvocations": 1
-  }
+  "response": { "kind": "rate-limited", "rateLimitType": "seven_day", "resetsAt": 4102444800 }
 }

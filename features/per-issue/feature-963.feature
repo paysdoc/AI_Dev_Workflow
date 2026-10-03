@@ -132,7 +132,7 @@ Feature: The plan, build and lock surface rows run in-process in seconds, agains
       | specs/issue-7-plan.md       |
       | adws/agents/planAgent.ts    |
 
-  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966
+  @adw-963 @adw-g53ol8-bug-build-the-in-pro @adw-966 @adw-968
   Scenario: The refusal guard refuses none of the manifests committed under test/fixtures/jsonl/manifests
     When the stub's manifest interpreter applies every manifest committed under "test/fixtures/jsonl/manifests", each in a throwaway git worktree
     Then the refusal guard refused none of them

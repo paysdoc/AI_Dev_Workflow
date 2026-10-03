@@ -3,11 +3,54 @@
   "edits": [
     {
       "path": ".adw-stub-payload.json",
-      "contents": "[{\"type\":\"text\",\"text\":\"Docs-only change stub. Safe diff — README appendage only.\\n\"}]\n"
-    },
-    {
-      "path": "README.md",
-      "contents": "# Chore Smoke Test Repo\n\nDocs-only change for safe-verdict smoke fixture.\n"
+      "contents": "[{\"type\":\"text\",\"text\":\"Chore smoke stub (safe verdict): the prompt opened with no command this manifest answers.\\n\"}]\n"
     }
-  ]
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/chore": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The chore plan for issue 200 was written.\\n\"}]\n" },
+        { "path": "specs/issue-200-adw-chore-smoke-200-sdlc_planner-chore-smoke.md", "contents": "# Chore Plan: chore smoke\n\n## Steps\n1. Add a note to README.md\n2. Commit it\n" }
+      ]
+    },
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The chore was implemented: README.md gained a note.\\n\"}]\n" },
+        { "path": "README.md", "contents": "Fixture CLI tool for ADW behavioral testing.\n\nThe chore smoke scenario added this note.\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/diff_evaluator": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"verdict\\\":\\\"safe\\\",\\\"reason\\\":\\\"The diff changes README.md only.\\\"}\"}]\n" }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"chore: #200 - Issue 200\\\",\\\"body\\\":\\\"Closes #200\\\\nImplements #200\\\\n\\\\nADW tracking ID: chore-smoke-200\\\"}\"}]\n" }
+      ]
+    }
+  }
 }

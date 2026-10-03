@@ -16,6 +16,7 @@ import { runCleanup } from '../../regression/support/cleanup.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { CucumberRun } from '../../support/cucumberChildRun.ts';
 import { setChildEnvironment } from './feature-961.steps.ts';
+import { captureCheckout, stateOf as isolationOf } from './feature-966-state.ts';
 
 export const HOOK_TAG = '@adw-ls9ywd-bug-run-the-cron-can';
 
@@ -41,12 +42,10 @@ export interface ScenarioState {
   /** The shared files just before the first smoke run. */
   before: SharedFiles | null;
   smokeRuns: readonly CucumberRun[];
-  /** The scenarios the last Then judged by name, so "no other smoke scenario" knows which are the others. */
-  named: readonly SmokeScenario[];
 }
 
 function freshState(): ScenarioState {
-  return { saved: null, before: null, smokeRuns: [], named: [] };
+  return { saved: null, before: null, smokeRuns: [] };
 }
 
 const states = new WeakMap<RegressionWorld, ScenarioState>();
@@ -88,8 +87,10 @@ export function snapshotShared(): SharedFiles {
   };
 }
 
+// Feature-966's "neither run added a branch or a worktree" Then compares against the listing its own hook captures, and that hook is keyed on a tag this feature does not carry.
 Before({ tags: HOOK_TAG }, function (this: RegressionWorld) {
   stateOf(this).saved = { authGate: readIfExists(AUTH_GATE_FILE), pauseQueue: readIfExists(PAUSE_QUEUE_FILE) };
+  isolationOf(this).checkout = captureCheckout();
 });
 
 // The 963 helpers push their removals onto the World's cleanup list, and no @regression hook runs for this feature.

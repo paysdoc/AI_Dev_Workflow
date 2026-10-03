@@ -193,7 +193,7 @@ function millisecondsOf({ seconds, nanos }: Timestamp): number {
   return seconds * 1000 + nanos / 1e6;
 }
 
-function scenariosFrom(envelopes: readonly Envelope[]): ScenarioOutcome[] {
+export function scenariosFrom(envelopes: readonly Envelope[]): ScenarioOutcome[] {
   const index = indexOf(envelopes);
   return envelopes.flatMap(({ testCaseStarted }) => (testCaseStarted ? [scenarioOutcome(testCaseStarted, index)] : []));
 }
