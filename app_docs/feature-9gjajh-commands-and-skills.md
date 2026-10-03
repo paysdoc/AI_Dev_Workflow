@@ -8,8 +8,10 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 - Define the `prime` command: instructs the agent to read `git ls-files`, `README.md`, `adws/README.md`, and the `conditional_docs.md` guide to orient itself to the codebase before any task.
 - Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/patch`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
-- Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup).
-- Define per-phase agent commands (`/implement`, `/implement-tdd`, `/test`, `/review`, `/patch`, `/document`, `/scenario_writer`, `/generate_step_definitions`).
+- Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands including the `## Test Directory` and `## Test Framework` descriptor fields, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup). It also creates `.github/adw.yml` only when absent (heredoc byte-identical to `ADW_YML_TEMPLATE`) and writes the Comments entry into the target's coding guidelines.
+- Keep `/generate_step_definitions` and `/scenario_writer` descriptor-driven: both read `## BDD Framework` and `## Step Def Directory` from `.adw/scenarios.md`, name no framework or type-check command, and never install or configure a runner (Gherkin mandate). `/scenario_writer` carries the rule that feature files hold no commentary.
+- Follow the single unit-test switch: `/feature` and the `implement-tdd` skill read `unitTests` in `.github/adw.yml` (absent file or key means enabled). Nothing reads or writes a `## Unit Tests` section in `.adw/project.md`.
+- Define per-phase agent commands (`/implement`, `/implement-tdd`, `/test`, `/review` (includes a Step 4 step-definition independence check that reports each violating file as a `blocker` with `remediationStrategy: "patch"`), `/patch`, `/document`, `/scenario_writer`, `/generate_step_definitions`).
 - Define utility commands (`/commit`, `/pull_request`, `/classify_issue`, `/generate_branch_name`, `/find_issue_dependencies`, `/extract_dependencies`).
 - Define validation commands (`/validate_plan_scenarios`, `/resolve_plan_scenarios`, `/align_plan_scenarios`, `/validate_scenario_fidelity`, `/diff_evaluator`, `/resolve_failed_test`, `/resolve_failed_scenario`).
 - Define the `conditional_docs` guide, which maps task types to additional documentation files the agent should read before planning or building.
@@ -27,9 +29,30 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 Commands are stored as markdown files in `.claude/commands/`. Claude Code automatically makes them available as `/command-name` slash commands. No explicit registration is required. The `hashInputs:` frontmatter field on `adw_init.md` lists the files that feed the upgrade hash gate — changes to listed files increment the hash and trigger a framework upgrade in target repos.
 
+- `adws/__tests__/adwInitPrompt.test.ts` fails if `adw_init.md`'s `.github/adw.yml` heredoc drifts from `ADW_YML_TEMPLATE`, or its Comments entry drifts from ADW's own `.adw/coding_guidelines.md`.
+
 ## Gotchas
+
+- `adw_init.md` is a hash input: editing it starts an upgrade on every target repo. The generation prompts and `feature.md` are `target: false` and are not.
+- Prompt files are overwritten in worktrees by the runner's older copies if the runner is behind `dev`; check a PR diff for stray `.claude/` changes.
 
 - The `adw_init` command accepts `frameworkRepoRoot` as `$3`; when empty (default), the vocabulary template copy step is skipped.
 - Plan commands (`/feature`, `/bug`, etc.) require the agent to research the codebase before writing the plan — they are not fill-in-the-blank templates.
 - `conditional_docs.md` is a meta-document read by the agent to decide which other docs to read; it is not a slash command itself.
 - The `install.md` command handles dependency installation in target repos and is distinct from the framework's own `npm install`.
+
+## Decisions
+
+- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0033](../specs/adr/0033-depaudit-as-dependency-gate.md) — depaudit as the dependency gate for ADW-managed repositories
+- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot

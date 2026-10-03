@@ -31,6 +31,7 @@ export type SlashCommand =
   | '/test'
   | '/resolve_failed_test'
   | '/resolve_failed_scenario'
+  | '/resolve_conflict'
   | '/review'
   | '/patch'
   | '/refactor'
@@ -46,7 +47,8 @@ export type SlashCommand =
   | '/validate_scenario_fidelity'
   | '/install'
   | '/diff_evaluator'
-  | '/promote_regression_vocabulary';
+  | '/promote_regression_vocabulary'
+  | '/correct_output';
 
 export interface PullRequestWebhookPayload {
   action: 'opened' | 'closed' | 'reopened' | 'synchronize' | 'edited';

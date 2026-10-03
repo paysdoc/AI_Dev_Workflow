@@ -1,11 +1,13 @@
 @regression @surface
 Feature: adwBuild — buildPhase — happy path
 
-  Scenario: build orchestrator completes build phase and exits successfully
-    Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
-    And an issue 1004 exists in the mock issue tracker
-    And the claude-cli-stub is loaded with fixture "build-agent.json"
+  Scenario: build orchestrator's build phase runs in-process over a committed plan, records build_completed and posts its build stage comments
+    Given an issue 1004 exists in the mock issue tracker
     And the worktree for adwId "surface-04" is initialised at branch "surface-04"
-    When the "build" orchestrator is invoked with adwId "surface-04" and issue 1004
-    Then the state file for adwId "surface-04" records workflowStage "awaiting_merge"
-    And the orchestrator subprocess exited 0
+    And the worktree for adwId "surface-04" has the plan for issue 1004 committed on its branch
+    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-build-phase.json"
+    When the "build" phase of the "build" orchestrator runs for adwId "surface-04"
+    Then the state file for adwId "surface-04" records workflowStage "build_completed"
+    And the mock GitHub API recorded a comment on issue 1004
+    And the mock GitHub API recorded a comment containing the text "## :hammer_and_wrench: Running Build"
+    And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Build Completed"

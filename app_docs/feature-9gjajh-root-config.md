@@ -23,7 +23,7 @@ TypeScript configuration is in `tsconfig.json` at the root. ESLint configuration
 
 - `.github/adw.yml`: opt-in/opt-out ADW policy switches (e.g. `unitTests`, `hitl`). Lives outside `.adw/` so `/adw_init` regeneration never overwrites it.
 - `.github/dependabot.yml`: version-update config, restricted (via `allow: dependency-name`) to `@paysdoc/devplatform`, the published npm package providing ADW's git core and forge adapters. Runs weekly against `dev`, labels PRs `dependencies`, and uses `package-ecosystem: "bun"` (resolves from npm but also regenerates the repo's `bun.lock`, since there is no `package-lock.json`). Bump PRs are merged by hand — they carry no backing issue, so they sit outside the issue-keyed ADW pipeline; see `adws/README.md` ("Dependabot bump PRs (outside the pipeline)") for how ADW's triggers ignore them and the rules against labelling them `adw:*` or posting ADW directive comments on them.
-- `.github/workflows/`: CI workflows, including `git-cli-guard.yml` (guards direct git/gh CLI usage), `regression.yml`, and `envelope-conformance.yml` (installs a **pinned** Claude CLI version — the pin and its bump policy live in that workflow's `CLAUDE_CLI_VERSION` env block — asserts `claude --version` matches, runs `bun run jsonl:check` unconditionally, then `bun run jsonl:probe:check` only when an `ANTHROPIC_API_KEY` secret is configured, warning instead of failing when it is not).
+- `.github/workflows/`: CI workflows, including `git-cli-guard.yml` (guards direct git/gh CLI usage), `regression.yml`, and `envelope-conformance.yml` (installs a **pinned** Claude CLI version — the pin and its bump policy live in that workflow's `CLAUDE_CLI_VERSION` env block — asserts `claude --version` matches, runs `bun run jsonl:check`, then `bun run jsonl:probe:check`, which authenticates with the `ANTHROPIC_API_KEY` secret and fails the run with an error naming the secret when it is missing).
 
 ## Gotchas
 
@@ -31,3 +31,17 @@ TypeScript configuration is in `tsconfig.json` at the root. ESLint configuration
 - `fast-xml-parser` is pinned at `^5.9.0` as a runtime dependency; the JUnit entity-expansion fix requires a version-independent pin on the `entityExpansion` option (see memory note on issue #623).
 - Workers are not part of the root build; each worker must be built and deployed independently from its own subdirectory.
 - The `@cucumber/cucumber` dev dependency is the BDD runner for `features/regression/`; per-issue feature files under `features/per-issue/` are also run through this runner during scenario proof.
+
+## Decisions
+
+- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0009](../specs/adr/0009-bun-as-package-manager-node-as-runtime.md) — Bun is the package manager and launcher; Node is the runtime
+- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0019](../specs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
+- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
+- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code
+- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
+- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

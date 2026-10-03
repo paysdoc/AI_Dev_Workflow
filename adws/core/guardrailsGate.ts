@@ -3,17 +3,17 @@
  * guardrails `--settings` injection. Gated three ways, checked
  * in strict order so a mistaken deny rule can never wedge the queue: an
  * `ADW_TARGET_GUARDRAILS=off` kill switch, self-host runs (which keep the
- * framework's own project `settings.json`), the `.github/adw.yml` canary
- * key, and a startup probe that fails OPEN (no injection + one Slack alert)
- * rather than blocking.
+ * framework's own project `settings.json`), and a startup probe that fails
+ * OPEN (no injection + one Slack alert) rather than blocking.
+ *
+ * Guardrails are mandatory for every target repository: nothing in the
+ * repository itself takes part in the decision.
  */
 
-import { readAdwYmlConfig } from './adwYmlConfig';
 import { REPO_ROOT } from './environment';
 import { buildGuardrailsSettings, resolveHookLogDir, serializeGuardrailsSettings } from './guardrailsPayload';
 import { getGuardrailsProbeVerdict, type ProbeVerdict } from './guardrailsProbe';
 import { postSlack } from './slackNotifier';
-import type { AdwYmlConfig } from './adwYmlConfig';
 
 export type GuardrailsDecision =
   | { readonly inject: false }
@@ -21,14 +21,12 @@ export type GuardrailsDecision =
 
 export interface GuardrailsGateInput {
   readonly selfHost: boolean;
-  readonly worktreePath: string;
   readonly adwId: string;
 }
 
 export interface GuardrailsGateDeps {
   readonly probeGuardrails: () => Promise<ProbeVerdict>;
   readonly notifySlack: (text: string) => Promise<void>;
-  readonly readAdwYml: (worktreePath: string) => AdwYmlConfig;
   readonly getEnv: (name: string) => string | undefined;
 }
 
@@ -41,9 +39,8 @@ function buildProbeFailureAlert(verdict: ProbeVerdict): string {
  * Guard-clause chain, evaluated in order:
  *   1. Kill switch (`ADW_TARGET_GUARDRAILS=off`) — beats everything.
  *   2. Self-host — keeps the framework's own project settings.
- *   3. `.github/adw.yml` `guardrails` canary — omitted/false/absent withhold.
- *   4. Startup probe verdict — a failure fails OPEN (no inject + one alert).
- * Only once all four pass is the payload built and injection returned.
+ *   3. Startup probe verdict — a failure fails OPEN (no inject + one alert).
+ * Only once all three pass is the payload built and injection returned.
  */
 export async function resolveGuardrailsDecision(
   input: GuardrailsGateInput,
@@ -51,7 +48,6 @@ export async function resolveGuardrailsDecision(
 ): Promise<GuardrailsDecision> {
   if (deps.getEnv('ADW_TARGET_GUARDRAILS') === 'off') return { inject: false };
   if (input.selfHost) return { inject: false };
-  if (deps.readAdwYml(input.worktreePath).guardrails !== true) return { inject: false };
 
   const verdict = await deps.probeGuardrails();
   if (!verdict.ok) {
@@ -86,7 +82,6 @@ export function resetGuardrailsAlertMemo(): void {
 export const productionGuardrailsGateDeps: GuardrailsGateDeps = {
   probeGuardrails: getGuardrailsProbeVerdict,
   notifySlack: notifyProbeFailureOnce,
-  readAdwYml: readAdwYmlConfig,
   getEnv: (name: string) => process.env[name],
 };
 

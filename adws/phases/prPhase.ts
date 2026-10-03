@@ -13,7 +13,7 @@ import {
 } from '../agents';
 import { BoardStatus } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoContext } = config;
@@ -25,7 +25,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   // Safety net: commit any uncommitted changes before PR creation
   if (requireWorkflowGitContext(config).hasUncommittedChanges(worktreePath)) {
     log('Uncommitted changes detected, committing before PR creation...', 'info');
-    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, config.gitContext?.commandEnv(), { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, config.gitContext?.commandEnv(), workflowLaunchContext(config));
     log('Pre-PR commit completed', 'success');
   }
 
@@ -57,7 +57,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       repoName,
       resolvedDefaultBranch,
       requireWorkflowGitContext(config).commandEnv(),
-      { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+      workflowLaunchContext(config),
     );
 
     costUsd = result.totalCostUsd || 0;

@@ -32,7 +32,6 @@ export type WorkflowStage =
   | 'token_limit_recovery'
   | 'compaction_recovery'
   | 'test_compaction_recovery'
-  | 'review_compaction_recovery'
   | 'plan_validating'
   | 'plan_validated'
   | 'plan_resolving'

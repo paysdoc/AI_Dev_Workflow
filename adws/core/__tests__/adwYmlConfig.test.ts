@@ -1,11 +1,22 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+
+vi.mock('../utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils')>()),
+  log: vi.fn(),
+}));
+
+import { log } from '../utils';
 import { readAdwYmlConfig, parseAdwYml, ADW_YML_RELATIVE_PATH, ADW_YML_TEMPLATE, writeAdwYmlTemplateIfAbsent } from '../adwYmlConfig';
 
 describe('adwYmlConfig', () => {
   let tmpDir = '';
+
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
 
   afterEach(() => {
     if (tmpDir) {
@@ -14,201 +25,192 @@ describe('adwYmlConfig', () => {
     }
   });
 
+  function writeConfigFile(content: string): void {
+    tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
+    mkdirSync(join(tmpDir, '.github'));
+    writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), content, 'utf-8');
+  }
+
   describe('readAdwYmlConfig', () => {
-    it('returns { hitl: false, unitTests: true, guardrails: false } when .github/adw.yml is absent', () => {
+    it('returns { hitl: false, unitTests: true } when .github/adw.yml is absent', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } when file has hitl: false', () => {
+    it('returns { hitl: false, unitTests: true } when file has hitl: false', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       mkdirSync(join(tmpDir, '.github'));
       writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), 'hitl: false\n', 'utf-8');
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: true, unitTests: true, guardrails: false } when file has hitl: true', () => {
+    it('returns { hitl: true, unitTests: true } when file has hitl: true', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       mkdirSync(join(tmpDir, '.github'));
       writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), 'hitl: true\n', 'utf-8');
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: true, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } when file has no hitl key', () => {
+    it('returns { hitl: false, unitTests: true } when file has no hitl key', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       mkdirSync(join(tmpDir, '.github'));
       writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), 'other: value\n', 'utf-8');
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: false, guardrails: false } when file has unitTests: false', () => {
+    it('returns { hitl: false, unitTests: false } when file has unitTests: false', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       mkdirSync(join(tmpDir, '.github'));
       writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), 'unitTests: false\n', 'utf-8');
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: false });
     });
 
-    it('returns { hitl: true, unitTests: true, guardrails: false } when file has only hitl: true (no unitTests key)', () => {
+    it('returns { hitl: true, unitTests: true } when file has only hitl: true (no unitTests key)', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       mkdirSync(join(tmpDir, '.github'));
       writeFileSync(join(tmpDir, ADW_YML_RELATIVE_PATH), 'hitl: true\n', 'utf-8');
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: true, unitTests: true });
     });
   });
 
   describe('parseAdwYml', () => {
-    it('returns { hitl: false, unitTests: true, guardrails: false } for hitl: false', () => {
-      expect(parseAdwYml('hitl: false\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } for hitl: false', () => {
+      expect(parseAdwYml('hitl: false\n')).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: true, unitTests: true, guardrails: false } for hitl: true', () => {
-      expect(parseAdwYml('hitl: true\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+    it('returns { hitl: true, unitTests: true } for hitl: true', () => {
+      expect(parseAdwYml('hitl: true\n')).toEqual({ hitl: true, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } when no hitl key present', () => {
-      expect(parseAdwYml('other: value\nauthor: me\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } when no hitl key present', () => {
+      expect(parseAdwYml('other: value\nauthor: me\n')).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } for empty content', () => {
-      expect(parseAdwYml('')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } for empty content', () => {
+      expect(parseAdwYml('')).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } for malformed value (hitl: maybe)', () => {
-      expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } for malformed value (hitl: maybe)', () => {
+      expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } for malformed value (hitl: 1)', () => {
-      expect(parseAdwYml('hitl: 1\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } for malformed value (hitl: 1)', () => {
+      expect(parseAdwYml('hitl: 1\n')).toEqual({ hitl: false, unitTests: true });
     });
 
     it('handles quoted "true" (hitl: "true")', () => {
-      expect(parseAdwYml('hitl: "true"\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl: "true"\n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('handles quoted false (hitl: "false")', () => {
-      expect(parseAdwYml("hitl: 'false'\n")).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(parseAdwYml("hitl: 'false'\n")).toEqual({ hitl: false, unitTests: true });
     });
 
     it('handles uppercase (hitl: TRUE)', () => {
-      expect(parseAdwYml('hitl: TRUE\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl: TRUE\n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('handles inline comment (hitl: true # require review)', () => {
-      expect(parseAdwYml('hitl: true # require review\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl: true # require review\n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('handles surrounding whitespace in value', () => {
-      expect(parseAdwYml('hitl:   true  \n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl:   true  \n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('ignores blank lines and full-line comments', () => {
-      expect(parseAdwYml('# comment\n\nhitl: true\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('# comment\n\nhitl: true\n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('stops at first hitl: key and ignores subsequent lines', () => {
-      expect(parseAdwYml('hitl: true\nhitl: false\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl: true\nhitl: false\n')).toEqual({ hitl: true, unitTests: true });
     });
 
-    it('returns { hitl: false, unitTests: false, guardrails: false } for unitTests: false', () => {
-      expect(parseAdwYml('unitTests: false\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+    it('returns { hitl: false, unitTests: false } for unitTests: false', () => {
+      expect(parseAdwYml('unitTests: false\n')).toEqual({ hitl: false, unitTests: false });
     });
 
-    it('returns { hitl: false, unitTests: true, guardrails: false } for unitTests: true', () => {
-      expect(parseAdwYml('unitTests: true\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    it('returns { hitl: false, unitTests: true } for unitTests: true', () => {
+      expect(parseAdwYml('unitTests: true\n')).toEqual({ hitl: false, unitTests: true });
     });
 
     it('returns unitTests: true (default) when no unitTests key present', () => {
-      expect(parseAdwYml('hitl: true\n')).toEqual({ hitl: true, unitTests: true, guardrails: false });
+      expect(parseAdwYml('hitl: true\n')).toEqual({ hitl: true, unitTests: true });
     });
 
     it('returns unitTests: true (default) for empty content', () => {
-      expect(parseAdwYml('')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(parseAdwYml('')).toEqual({ hitl: false, unitTests: true });
     });
 
     it('returns unitTests: true (default + warn) for malformed unitTests: maybe', () => {
-      expect(parseAdwYml('unitTests: maybe\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(parseAdwYml('unitTests: maybe\n')).toEqual({ hitl: false, unitTests: true });
     });
 
     it('handles quoted "false" (unitTests: "false")', () => {
-      expect(parseAdwYml('unitTests: "false"\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(parseAdwYml('unitTests: "false"\n')).toEqual({ hitl: false, unitTests: false });
     });
 
     it('handles uppercase FALSE (unitTests: FALSE)', () => {
-      expect(parseAdwYml('unitTests: FALSE\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(parseAdwYml('unitTests: FALSE\n')).toEqual({ hitl: false, unitTests: false });
     });
 
     it('handles inline comment (unitTests: false # opt out)', () => {
-      expect(parseAdwYml('unitTests: false # opt out\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(parseAdwYml('unitTests: false # opt out\n')).toEqual({ hitl: false, unitTests: false });
     });
 
     it('handles combined keys — hitl: true then unitTests: false', () => {
-      expect(parseAdwYml('hitl: true\nunitTests: false\n')).toEqual({ hitl: true, unitTests: false, guardrails: false });
+      expect(parseAdwYml('hitl: true\nunitTests: false\n')).toEqual({ hitl: true, unitTests: false });
     });
 
     it('handles combined keys — unitTests: false then hitl: true', () => {
-      expect(parseAdwYml('unitTests: false\nhitl: true\n')).toEqual({ hitl: true, unitTests: false, guardrails: false });
+      expect(parseAdwYml('unitTests: false\nhitl: true\n')).toEqual({ hitl: true, unitTests: false });
     });
 
     it('first-occurrence-wins for unitTests (unitTests: false then unitTests: true → false)', () => {
-      expect(parseAdwYml('unitTests: false\nunitTests: true\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(parseAdwYml('unitTests: false\nunitTests: true\n')).toEqual({ hitl: false, unitTests: false });
     });
 
     it('malformed hitl does not block unitTests from being parsed', () => {
-      expect(parseAdwYml('hitl: maybe\nunitTests: false\n')).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(parseAdwYml('hitl: maybe\nunitTests: false\n')).toEqual({ hitl: false, unitTests: false });
+    });
+  });
+
+  describe('a guardrails key left in the file by the retired opt-in', () => {
+    it.each(['guardrails: true', 'guardrails: false', 'guardrails: maybe'])(
+      'is ignored without a log line, however often the file is read (%s)',
+      (leftover) => {
+        writeConfigFile(`${leftover}\nunitTests: false\nhitl: true\n`);
+
+        const reads = [readAdwYmlConfig(tmpDir), readAdwYmlConfig(tmpDir), readAdwYmlConfig(tmpDir)];
+
+        expect(reads).toEqual(Array(3).fill({ hitl: true, unitTests: false }));
+        expect(log).not.toHaveBeenCalled();
+      },
+    );
+
+    it('is not part of the configuration the reader returns, with the file absent or holding the key', () => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
+      expect(readAdwYmlConfig(tmpDir)).not.toHaveProperty('guardrails');
+
+      writeConfigFile('guardrails: true\n');
+      expect(readAdwYmlConfig(tmpDir)).not.toHaveProperty('guardrails');
     });
 
-    it('returns guardrails: true for guardrails: true', () => {
-      expect(parseAdwYml('guardrails: true\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
+    it('does not stop a malformed value of a known key from logging one warning', () => {
+      expect(parseAdwYml('unitTests: maybe\n')).toEqual({ hitl: false, unitTests: true });
 
-    it('returns guardrails: false for guardrails: false', () => {
-      expect(parseAdwYml('guardrails: false\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
-    });
-
-    it('returns guardrails: false (default) when no guardrails key present', () => {
-      expect(parseAdwYml('hitl: true\nunitTests: false\n')).toEqual({ hitl: true, unitTests: false, guardrails: false });
-    });
-
-    it('returns guardrails: false (default) for empty content', () => {
-      expect(parseAdwYml('')).toEqual({ hitl: false, unitTests: true, guardrails: false });
-    });
-
-    it('returns guardrails: false (default + warn) for malformed guardrails: maybe', () => {
-      expect(parseAdwYml('guardrails: maybe\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
-    });
-
-    it('handles quoted "true" (guardrails: "true")', () => {
-      expect(parseAdwYml('guardrails: "true"\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
-
-    it('handles uppercase (guardrails: TRUE)', () => {
-      expect(parseAdwYml('guardrails: TRUE\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
-
-    it('handles inline comment (guardrails: true # canary)', () => {
-      expect(parseAdwYml('guardrails: true # canary\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
-
-    it('strips a full-line comment before the guardrails key', () => {
-      expect(parseAdwYml('# comment\n\nguardrails: true\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
-
-    it('first-occurrence-wins for guardrails (true then false → true)', () => {
-      expect(parseAdwYml('guardrails: true\nguardrails: false\n')).toEqual({ hitl: false, unitTests: true, guardrails: true });
-    });
-
-    it('parses guardrails alongside hitl and unitTests, all three independently', () => {
-      expect(parseAdwYml('hitl: true\nunitTests: false\nguardrails: true\n')).toEqual({ hitl: true, unitTests: false, guardrails: true });
-    });
-
-    it('malformed guardrails does not block hitl/unitTests from being parsed', () => {
-      expect(parseAdwYml('guardrails: maybe\nhitl: true\nunitTests: false\n')).toEqual({ hitl: true, unitTests: false, guardrails: false });
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("'unitTests'"), 'warn');
     });
   });
 
   describe('ADW_YML_TEMPLATE', () => {
     it('parses to the defaults (all keys commented out)', () => {
-      expect(parseAdwYml(ADW_YML_TEMPLATE)).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(parseAdwYml(ADW_YML_TEMPLATE)).toEqual({ hitl: false, unitTests: true });
+    });
+
+    it('offers no guardrails key, set or commented out', () => {
+      expect(ADW_YML_TEMPLATE).not.toMatch(/^\s*#?\s*guardrails\s*:/im);
     });
   });
 
@@ -224,7 +226,7 @@ describe('adwYmlConfig', () => {
     it('readAdwYmlConfig returns defaults after creating the template', () => {
       tmpDir = mkdtempSync(join(tmpdir(), 'adw-yml-'));
       writeAdwYmlTemplateIfAbsent(tmpDir);
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: true });
     });
 
     it('returns { created: false } and leaves the file unchanged when it already exists', () => {
@@ -238,7 +240,7 @@ describe('adwYmlConfig', () => {
 
       const filePath = join(tmpDir, ADW_YML_RELATIVE_PATH);
       expect(readFileSync(filePath, 'utf-8')).toBe(customContent);
-      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: false, guardrails: false });
+      expect(readAdwYmlConfig(tmpDir)).toEqual({ hitl: false, unitTests: false });
     });
   });
 });

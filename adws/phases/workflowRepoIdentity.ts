@@ -9,6 +9,8 @@
 
 import { Platform, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { GitContext } from '@paysdoc/devplatform/git';
+import type { AgentLaunchContext } from '../agents/claudeAgent';
+import { isSelfHostLaunch } from '../core/selfHostLaunch';
 import type { WorkflowConfig } from './workflowInit';
 
 export function resolveWorkflowRepoId(config: Pick<WorkflowConfig, 'repoContext' | 'gitContext' | 'targetRepo'>): RepoIdentifier {
@@ -30,4 +32,13 @@ export function requireWorkflowGitContext(config: Pick<WorkflowConfig, 'gitConte
   throw new Error(
     'requireWorkflowGitContext: this WorkflowConfig carries no launch GitContext — initializeWorkflow and initializePRReviewWorkflow always set one',
   );
+}
+
+/**
+ * Self-host means a launch for the framework's own repository (see `isSelfHostLaunch`). A RepoContext is bound for
+ * self-host runs too, so it cannot stand in for it. A config without a GitContext (phase-test fixtures only) counts as
+ * self-host and never injects.
+ */
+export function workflowLaunchContext(config: Pick<WorkflowConfig, 'adwId' | 'gitContext'>): AgentLaunchContext {
+  return { selfHost: isSelfHostLaunch(config.gitContext), adwId: config.adwId, gitContext: config.gitContext };
 }

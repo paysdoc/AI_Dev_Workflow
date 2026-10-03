@@ -3,11 +3,13 @@
  * the mock GitHub / gh-shadow infrastructure, the saved-and-restored queue file, the seeded-
  * entry map, the pinned clock, the decider world) — see feature-902.steps.ts and
  * feature-902-queue.steps.ts for the Before/After hooks this file's scenarios run under
- * (widened to `(@adw-902 or @adw-907 or @adw-910 or @adw-911) and not @adw-908 and not
- * @adw-812`), and feature-910.steps.ts for the decider world (widened to `@adw-910 or
- * @adw-911`). This file owns only what neither of those already provides: the scanning-cron
- * descriptor parser, the cron-qualified scanner/decider steps, the remove-before-spawn seam,
- * the crash-on-first-launch fixture, the held spawn lock, and the real cron process (§4).
+ * (widened to `(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
+ * @pause-queue-ownership) and not @adw-908 and not @adw-812`), and feature-910.steps.ts for
+ * the decider world (widened to `@adw-910 or @adw-911 or @pause-queue-reset-time or
+ * @pause-queue-ownership`). This file owns only what neither of those already provides: the
+ * scanning-cron descriptor parser, the cron-qualified scanner/decider steps, the
+ * remove-before-spawn seam, the crash-on-first-launch fixture, the held spawn lock, and the
+ * real cron process (§4).
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
@@ -39,6 +41,7 @@ import {
 } from './realCronProcess.ts';
 
 import { readPauseQueue, type PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
+import type { RegressionWorld } from './world.ts';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../../../adws/triggers/spawnGate.ts';
 import type { ScanningCronIdentity } from '../../../adws/triggers/pauseQueueDecider.ts';
 import type { SpawnOrchestrator } from '../../../adws/triggers/pauseQueueResume.ts';
@@ -97,7 +100,7 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<void>
 const realCronWorld: RealCronWorld & { targetReposDir: string } = { ...createRealCronWorld(), targetReposDir: '' };
 let savedAuthGate: string | null = null;
 
-Before({ tags: '@adw-911' }, function () {
+Before({ tags: '@adw-911 or @pause-queue-ownership' }, function () {
   presentAtSpawn.clear();
   Object.assign(realCronWorld, createRealCronWorld());
   realCronWorld.targetReposDir = '';
@@ -105,12 +108,17 @@ Before({ tags: '@adw-911' }, function () {
   fs.rmSync(AUTH_GATE_PATH, { force: true });
 });
 
-After({ tags: '@adw-911' }, function () {
+/** Also called by the feature-959 hooks, whose rows reuse the held-lock phrase but run under their own harness. */
+export function releaseHeldSpawnLocks(): void {
   for (const held of heldLocks.values()) {
     try { held.proc.kill('SIGKILL'); } catch { /* already dead */ }
     try { releaseIssueSpawnLock(held.repoInfo, held.issueNumber); } catch { /* best effort */ }
   }
   heldLocks.clear();
+}
+
+After({ tags: '@adw-911 or @pause-queue-ownership' }, function () {
+  releaseHeldSpawnLocks();
 
   killRealCronWorld(realCronWorld);
   if (realCronWorld.targetReposDir) {
@@ -195,7 +203,7 @@ Given('the orchestrator of the paused workflow for issue {int} exits as soon as 
   fs.writeFileSync(seeded.scriptPath, source, 'utf-8');
 });
 
-Given('another live process holds the spawn lock for issue {int} in the repository {string}', function (issueNumber: number, repoFullName: string) {
+Given('another live process holds the spawn lock for issue {int} in the repository {string}', function (this: RegressionWorld, issueNumber: number, repoFullName: string) {
   const [owner, repo] = repoFullName.split('/');
   const repoInfo: RepoIdentifier = { owner, repo, platform: Platform.GitHub };
   const proc = realSpawn('sleep', ['60'], { stdio: 'ignore' });
@@ -203,6 +211,8 @@ Given('another live process holds the spawn lock for issue {int} in the reposito
   const acquired = acquireIssueSpawnLock(repoInfo, issueNumber, proc.pid);
   assert.ok(acquired, `Expected to acquire the spawn lock for ${repoFullName}#${issueNumber}`);
   heldLocks.set(`${repoFullName}#${issueNumber}`, { proc, repoInfo, issueNumber });
+  // Only feature-911's and feature-959's hooks release it otherwise, so under a @regression row the holder and its lock would outlive the scenario.
+  this.cleanup.push(releaseHeldSpawnLocks);
 });
 
 When('the process holding the spawn lock for issue {int} in the repository {string} exits', async function (issueNumber: number, repoFullName: string) {

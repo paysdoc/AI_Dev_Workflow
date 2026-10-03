@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments, getProcessStartTime } from '../core';
 import type { Issue, PullRequest, ReviewComment, RepoContext } from '@paysdoc/devplatform';
 import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus } from '@paysdoc/devplatform';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
@@ -49,6 +49,14 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   const logsDir = ensureLogsDirectory(resolvedAdwId);
   const issueNumber = pr.linkedIssueNumber ?? null;
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, OrchestratorId.PrReview);
+  // The issue's adwId is reused, so its state still records the finished run's owner: record this run, or the cron reads it as dead.
+  AgentStateManager.writeTopLevelState(resolvedAdwId, {
+    pid: process.pid,
+    // Always written, even as undefined: the shallow merge would otherwise pair this pid with the finished run's start time.
+    pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
+    // No heartbeat runs until the lifecycle lock is held; until then the finished run's value reads as hung.
+    lastSeenAt: new Date().toISOString(),
+  });
   log(`State: ${orchestratorStatePath}`, 'info');
   const initialState: Partial<AgentState> = {
     adwId: resolvedAdwId,
@@ -148,7 +156,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
-  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.base.gitContext };
+  const launchContext = workflowLaunchContext(config.base);
   const phaseStartTime = Date.now();
   let existingPlanContent = '';
   if (issueNumber) {
@@ -224,7 +232,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
-  const launchContext = { selfHost: !repoContext, adwId, gitContext: config.base.gitContext };
+  const launchContext = workflowLaunchContext(config.base);
   const phaseStartTime = Date.now();
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_implementing', ctx);
@@ -297,7 +305,7 @@ export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowCon
     postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
   }
   const issueType = inferIssueTypeFromBranch(prDetails.sourceBranch);
-  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv(), workflowLaunchContext(config.base));
 
   gitCtx.pushBranch(prDetails.sourceBranch, worktreePath);
   if (repoContext) {

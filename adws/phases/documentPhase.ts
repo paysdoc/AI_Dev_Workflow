@@ -13,13 +13,13 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 
 export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName, defaultBranch } = config;
   const phaseStartTime = Date.now();
   const gitCtx = requireWorkflowGitContext(config);
 
@@ -52,7 +52,8 @@ export async function executeDocumentPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
-    { selfHost: !repoContext, adwId, gitContext: gitCtx },
+    workflowLaunchContext(config),
+    defaultBranch,
   );
 
   costUsd = result.totalCostUsd || 0;
@@ -100,7 +101,7 @@ export async function executeDocumentPhase(
     }
   }
 
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), workflowLaunchContext(config));
 
   gitCtx.pushBranch(branchName, worktreePath);
 

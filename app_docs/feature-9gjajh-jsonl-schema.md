@@ -2,7 +2,7 @@
 
 ## Overview
 
-The JSONL schema module is ADW's only contract with the Claude CLI's `--output-format stream-json` envelope — Anthropic has declined to publish a stable schema for it (claude-code#53516). It provides a live probe that reconciles `adws/jsonl/schema.json` against the pinned CLI, a conformance checker that validates fixture files against that schema and through ADW's parsers, and a fixture updater for keeping test fixtures current. `.github/workflows/envelope-conformance.yml` runs the checker (and, once a secret is configured, the live probe's read-only `--check` mode) on every pull request.
+The JSONL schema module is ADW's only contract with the Claude CLI's `--output-format stream-json` envelope — Anthropic has declined to publish a stable schema for it (claude-code#53516). It provides a live probe that reconciles `adws/jsonl/schema.json` against the pinned CLI, a conformance checker that validates fixture files against that schema and through ADW's parsers, and a fixture updater for keeping test fixtures current. `.github/workflows/envelope-conformance.yml` runs the checker and the live probe's read-only `--check` mode on every pull request.
 
 ## Responsibilities
 
@@ -27,14 +27,23 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 ## Configuration
 
 - `CLAUDE_CODE_PATH` environment variable (or `claude` on PATH) determines which CLI binary the probe spawns, resolved through `resolveClaudeCodePath()`.
-- The probe spawns in a fresh temp directory (`getSafeSubprocessEnv()`'s allowed vars only) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
-- `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; `ANTHROPIC_API_KEY` is the CI secret that gates whether the live leg runs at all.
+- `bun run jsonl:probe` (refresh, writes `schema.json`) and `bun run jsonl:probe:check` (read-only, CI's live leg — exits non-zero only on an unobserved probe-owned type or a missing required field, never on an additive field) both require a working CLI session; in CI the session authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run with an error naming it.
+- The CI gate (`.github/workflows/envelope-conformance.yml`) runs `bun run jsonl:check` first, then the live step unconditionally. The `ANTHROPIC_API_KEY` secret reaches that one step only; the step prints an `::error` naming the secret and exits 1 when it is empty, and no condition or `continue-on-error` can skip it. The key check lives in the workflow, not in `schemaProbe.ts`, because the same probe runs locally on the operator's subscription login without a key. The contract is pinned by `adws/__tests__/envelopeConformanceWorkflow.test.ts`.
+- The probe spawns in a fresh temp directory (the shared Claude launch environment: the allowlisted vars plus the auto-memory switch) so the repo's own `.claude/settings.json` hooks, `CLAUDE.md` and project memory are never loaded into the probed turn.
 - Schema and fixtures paths default to sibling directories of the module files; every entry point accepts overrides for use from tests (a throwaway schema copy, a throwaway fixtures directory).
 
 ## Gotchas
 
 - A probe run during an active rate limit produces only a rejected `rate_limit_event` and an error result — no `assistant` or `result/success` line. Refresh mode fails with a message naming the unobserved probe-owned types and telling the operator to wait for the reset; `--check` reports the same types under `unobservedTypes`. Neither writes anything in that case.
 - `rate_limit_event` is documented by the Agent SDK as rate-limit information for claude.ai subscription users; an API-key probe in CI never observes it. That is exactly why it is capture-owned and hand-curated rather than probe-owned.
+- Dependabot-triggered runs read Dependabot secrets, not Actions secrets, so a bump PR fails the gate unless the secret is also set for Dependabot; the repository has no required status checks, so this does not block a manual merge. A key the API rejects still passes the live leg, because the check is presence-only.
 - The CLI reports an API error — including a rate limit — as `subtype: "success"` with `is_error: true`; the error surfaces in `api_error_status`/`terminal_reason`/`result`, not in a distinct error subtype. A genuinely different result shape, `error_during_execution`, carries `errors` and no `result` field at all.
 - The current CLI rejects `--output-format stream-json` in `--print` mode without `--verbose`; the probe's args always include both.
 - Running the conformance check requires `schema.json` to exist; it throws if the file is missing rather than falling back to a default schema. The same is true of the fixture updater.
+
+## Decisions
+
+- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue
+- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

@@ -30,3 +30,7 @@
 - Shebang lines (`#!/usr/bin/env ...`) are TypeScript trivia, so removing one passes the guard; keeping shebangs is a sweep-agent rule, not something this guard enforces.
 - `.tsx` files are parsed with `ts.ScriptKind.TS` (no JSX-specific handling) — fine today since no `.tsx` file in the repo contains JSX.
 - The guard's own source is itself held to the comment-discipline rule it enforces (`.adw/coding_guidelines.md`'s **Comments** entry): no banner dividers, no JSDoc restating a name, no issue-number citations.
+
+## Decisions
+
+- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot

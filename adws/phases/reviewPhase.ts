@@ -18,9 +18,10 @@ import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
 import type { CodeHost, IssueTracker, RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
+import { uploadProofArtifacts } from '../proof/proofUploader';
 
 export type { ReviewIssue };
 
@@ -78,6 +79,18 @@ function approvePullRequestAfterReviewPass(repoContext: RepoContext, issueNumber
   log(`PR #${prNumber} approved`, 'success');
 }
 
+// Self-host has no repoContext and posts no issue comment, so an upload would show the images nowhere.
+async function uploadReviewedProofScreenshots(config: WorkflowConfig): Promise<string[]> {
+  const artifactsDir = config.ctx.scenarioProof?.artifactsDir;
+  if (!config.repoContext || !artifactsDir) return [];
+  const uploaded = await uploadProofArtifacts({
+    artifactsDir,
+    repoInfo: config.repoContext.repoId,
+    adwId: config.adwId,
+  });
+  return uploaded.map(artifact => artifact.url);
+}
+
 /**
  * Returns immediately — retries are handled by the calling orchestrator via executeReviewPatchCycle.
  *
@@ -127,13 +140,17 @@ export async function executeReviewPhase(
     issue.body,
     scenarioProofPath || undefined,
     config.gitContext?.commandEnv(),
-    { selfHost: !repoContext, adwId, gitContext: config.gitContext },
+    workflowLaunchContext(config),
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
   const modelUsage = reviewAgentResult.modelUsage ?? emptyModelUsageMap();
   const reviewPassed = reviewAgentResult.passed;
   const reviewIssues = reviewAgentResult.reviewResult?.reviewIssues ?? [];
+
+  // Assigned on every attempt: the scenario tests re-run between attempts and empty the artifacts
+  // directory, so a list from an earlier attempt must not reach this attempt's comment.
+  ctx.screenshotUrls = await uploadReviewedProofScreenshots(config);
 
   if (reviewPassed) {
     log('Review passed!', 'success');
@@ -202,7 +219,6 @@ export async function executeReviewPatchCycle(
     logsDir,
     worktreePath,
     branchName,
-    repoContext,
   } = config;
 
   const gitCtx = requireWorkflowGitContext(config);
@@ -223,7 +239,7 @@ export async function executeReviewPatchCycle(
   );
 
   const subprocessEnv = gitCtx.commandEnv();
-  const launchContext = { selfHost: !repoContext, adwId, gitContext: gitCtx };
+  const launchContext = workflowLaunchContext(config);
 
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {

@@ -1,0 +1,25 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface build-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The plan was implemented.\\n\"}]\n"
+        },
+        {
+          "path": "src/surfaceBuild.ts",
+          "contents": "// Surface build-phase stub — gives the commit agent a real change to commit.\nexport function surfaceBuild(): string {\n  return 'built';\n}\n"
+        }
+      ]
+    }
+  }
+}

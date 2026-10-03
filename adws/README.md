@@ -33,7 +33,9 @@ Workflows can be:
 
 ```bash
 export GITHUB_REPO_URL="https://github.com/owner/repository"
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# Optional: leave ANTHROPIC_API_KEY unset to run every agent on your Claude subscription (log in once with `claude auth login`).
+# Setting it moves billing for every agent ADW starts from the subscription to the Anthropic API.
+# export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export CLAUDE_CODE_PATH="/path/to/claude"  # Optional, defaults to "claude"
 export GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Optional, only if using different account than 'gh auth login'
 ```
@@ -186,7 +188,7 @@ bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
 - ADW ID (optional, auto-generated if not provided)
 
 **What it does:**
-1. Analyzes git diff against main branch
+1. Analyzes git diff against the default branch
 2. Generates technical documentation in `app_docs/`
 3. Updates conditional docs registry
 4. Optionally includes screenshots from review phase
@@ -294,7 +296,7 @@ bunx tsx adws/adwChore.tsx <issueNumber> [adw-id]
 5. PR (creates pull request)
 6. Diff Evaluation (Haiku classifies diff as `safe` or `regression_possible`)
    - `safe` → auto-approve + auto-merge
-   - `regression_possible` → review → document → auto-merge
+   - `regression_possible` → review → document → auto-merge; a review that still has blockers after its retries stops at `review_failed` instead (no document, no PR, no approval)
 
 **Notes:**
 - No scenario writer or plan-scenario alignment on this path
@@ -450,7 +452,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
 
 #### Dependabot bump PRs (outside the pipeline)
 
-**What:** [`.github/dependabot.yml`](../.github/dependabot.yml) watches the npm registry for `@paysdoc/devplatform` only, weekly, against `dev`. PRs are labelled `dependencies` and come from branches like `dependabot/bun/paysdoc/devplatform-<version>`.
+**What:** [`.github/dependabot.yml`](../.github/dependabot.yml) watches the npm registry for `@paysdoc/devplatform` only, weekly, and opens its PRs against the branch its `target-branch` key names. PRs are labelled `dependencies` and come from branches like `dependabot/bun/paysdoc/devplatform-<version>`.
 
 **Merged by hand:** a human reviews the bump (check the library changelog, run `bun install`, `bun run test`, `bun run test:unit`, `bun run lint:git-guard`) and merges it. ADW never reviews or auto-merges these PRs.
 
@@ -548,7 +550,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
 
 ### Environment Issues
 ```bash
-# Check required variables
+# Check the environment (ANTHROPIC_API_KEY is optional; setting it moves billing from the Claude subscription to the API)
 env | grep -E "(GITHUB|ANTHROPIC|CLAUDE)"
 
 # Verify GitHub auth
@@ -792,7 +794,7 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Library Install Command` — How to install new libraries
   - `## Script Execution` — How to run project scripts
 
-- **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries
+- **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries; an entry may also carry a `Decisions:` block naming the records in `specs/adr/` that govern its module, mirrored by the doc's `## Decisions` section
 
 - **`.adw/scenarios.md`** — BDD scenario configuration (see [BDD Scenario Configuration](#bdd-scenario-configuration) below)
 

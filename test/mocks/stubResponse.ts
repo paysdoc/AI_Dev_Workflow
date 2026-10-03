@@ -1,5 +1,5 @@
 /**
- * Pure helpers behind the stub's on-demand rate-limited response. No I/O here —
+ * Pure helpers behind the stub's on-demand rate-limited and error responses. No I/O here —
  * the stub does its own file reads/writes around these.
  */
 
@@ -18,7 +18,11 @@ export interface RateLimitedResponseMode {
   limitedInvocations?: number;
 }
 
-export type ResponseMode = DefaultResponseMode | RateLimitedResponseMode;
+export interface ErrorResponseMode {
+  kind: 'error';
+}
+
+export type ResponseMode = DefaultResponseMode | RateLimitedResponseMode | ErrorResponseMode;
 
 const DEFAULT_RATE_LIMIT_TYPE = 'five_hour';
 const DEFAULT_RESET_OFFSET_SECONDS = 300;
@@ -37,6 +41,8 @@ export function resolveResponseMode(
   manifestResponse: ManifestResponse | undefined,
   env: Record<string, string | undefined>,
 ): ResponseMode {
+  if (manifestResponse?.kind === 'error') return { kind: 'error' };
+
   if (manifestResponse?.kind === 'rate-limited') {
     return {
       kind: 'rate-limited',
@@ -88,4 +94,13 @@ export function buildRateLimitedLines(
     JSON.stringify(templates.assistant),
     JSON.stringify(templates.result),
   ];
+}
+
+/**
+ * The result line of a run that failed: the success template marked `is_error`. The status stays
+ * null, as for a failure that never reached the API: a 401, 429, 529 or 5xx would be classified as
+ * an auth, rate-limit, overload or server-error signal and send the run down the pause path.
+ */
+export function buildErrorResultLine(resultTemplate: Record<string, unknown>, message: string): string {
+  return JSON.stringify({ ...resultTemplate, is_error: true, api_error_status: null, result: message });
 }

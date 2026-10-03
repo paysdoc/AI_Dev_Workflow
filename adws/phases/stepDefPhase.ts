@@ -7,12 +7,13 @@ import {
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runStepDefAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
+import { workflowLaunchContext } from './workflowRepoIdentity';
 
 /** This phase is non-fatal — errors are caught and logged, never thrown. */
 export async function executeStepDefPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
@@ -30,7 +31,7 @@ export async function executeStepDefPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
+    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext, workflowLaunchContext(config));
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

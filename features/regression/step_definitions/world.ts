@@ -1,6 +1,8 @@
 import { setWorldConstructor, World, IWorldOptions } from '@cucumber/cucumber';
 import type { MockContext, RecordedRequest, FixtureRepoContext } from '../../../test/mocks/types.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
+import type { SubprocessHarness } from '../support/subprocessHarness.ts';
+import type { DepauditSetupResult } from '../../../adws/phases/depauditSetup.ts';
 
 export interface GitInvocation {
   subcommand: string;
@@ -12,6 +14,45 @@ export interface GitGhGuardResult {
   exitCode: number;
   output: string;
 }
+
+/** What W-S1 records: how the phase run ended. A `process.exit` the run made is `exitCode`, not `error`. */
+export interface PhaseOutcome {
+  adwId: string;
+  orchestrator: string;
+  phase: string;
+  resolved: boolean;
+  error?: unknown;
+  exitCode?: number;
+}
+
+/** What W-S2 records: whether the workflow ran under the lifecycle, and who held the spawn lock while it did. */
+export interface LifecycleOutcome {
+  adwId: string;
+  orchestrator: string;
+  issueNumber: number;
+  /** What `runWithOrchestratorLifecycle` returned; absent when it threw or exited. */
+  returned?: boolean;
+  ran: boolean;
+  lockHolderPid: number | null;
+  error?: unknown;
+  exitCode?: number;
+}
+
+/** A command the dependency-audit setup asked to run, and where. W-S3 runs none of them. */
+export interface RecordedExec {
+  readonly command: string;
+  readonly cwd: string;
+}
+
+/** What W-S3 records: the commands the setup asked to run, and what it returned or threw. */
+export interface DepauditOutcome {
+  adwId: string;
+  execCalls: readonly RecordedExec[];
+  result?: DepauditSetupResult;
+  error?: unknown;
+}
+
+export type CleanupEntry = () => void | Promise<void>;
 
 export class RegressionWorld extends World {
   /** Set in the @regression Before hook. */
@@ -39,6 +80,27 @@ export class RegressionWorld extends World {
   capturedProofComment?: string;
 
   gitGhGuardResult?: GitGhGuardResult;
+
+  phaseOutcome?: PhaseOutcome;
+
+  lifecycleOutcome?: LifecycleOutcome;
+
+  /** Set in the `@regression and (@subprocess or @webhook)` Before hook; without it W1, W9 and W10 stay pending. */
+  subprocess: SubprocessHarness | null = null;
+
+  /** Standard output and standard error of the last process the subprocess harness ran. */
+  lastOutput: string = '';
+
+  /** The issues G4 seeded, which the cron probe claims and the init driver is run for. */
+  seededIssues: Set<number> = new Set();
+
+  /** The launch record T-SP4 matched, which T-SP5 reads. */
+  matchedLaunch: readonly string[] | null = null;
+
+  depauditOutcome?: DepauditOutcome;
+
+  /** Run last in, first out by the @regression After hook, each entry guarded, before the mock infrastructure is torn down. */
+  cleanup: CleanupEntry[] = [];
 
   constructor(options: IWorldOptions) {
     super(options);

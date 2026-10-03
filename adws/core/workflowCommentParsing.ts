@@ -48,7 +48,6 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':warning: Token Limit Recovery': 'token_limit_recovery',
   ':warning: Context Compaction Recovery': 'compaction_recovery',
   ':warning: Test Compaction Recovery': 'test_compaction_recovery',
-  ':warning: Review Compaction Recovery': 'review_compaction_recovery',
 };
 
 const ADW_COMMENT_PATTERN = /^## :[a-z_]+: /m;

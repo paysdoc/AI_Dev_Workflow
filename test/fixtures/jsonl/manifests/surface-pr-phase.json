@@ -1,0 +1,20 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Surface pr-phase stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "byCommand": {
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"feat: #1012 - Issue 1012\\\",\\\"body\\\":\\\"Closes #1012\\\\nImplements #1012\\\\n\\\\nADW tracking ID: surface-12\\\"}\"}]\n"
+        }
+      ]
+    }
+  }
+}

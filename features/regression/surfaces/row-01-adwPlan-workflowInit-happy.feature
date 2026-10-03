@@ -1,8 +1,10 @@
-@regression @surface
+@regression @surface @subprocess
 Feature: adwPlan — workflowInit — happy path
 
-  Scenario: workflow initialises and records initialized stage
+  Scenario: workflow init records the starting stage and posts the workflow-started comment
     Given an issue 1001 exists in the mock issue tracker
-    And the worktree for adwId "surface-01" is initialised at branch "surface-01"
     When the workflow is initialised with config "adwPlan-surface-01"
-    Then the state file for adwId "surface-01" records workflowStage "initialized"
+    Then the orchestrator subprocess exited 0
+    And the state file for adwId "surface-01" records workflowStage "starting"
+    And the mock GitHub API recorded a comment on issue 1001
+    And the mock GitHub API recorded a comment containing the text "## :rocket: ADW Workflow Started"

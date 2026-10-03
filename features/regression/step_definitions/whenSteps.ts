@@ -1,9 +1,10 @@
 import { When } from '@cucumber/cucumber';
-import { spawnSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import assert from 'assert';
+import { runCronProbe, runOrchestrator, runWorkflowInit } from '../support/subprocessDrivers.ts';
 import type { RegressionWorld } from './world.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -16,57 +17,13 @@ function buildSubprocessEnv(world: RegressionWorld): NodeJS.ProcessEnv {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function spawnOrchestrator(
-  world: RegressionWorld,
-  orchestratorFile: string,
-  adwId: string,
-  issueNumber: number,
-): void {
-  const result = spawnSync(
-    'bun',
-    [resolve(ROOT, `adws/${orchestratorFile}`), String(issueNumber), adwId],
-    {
-      env: buildSubprocessEnv(world),
-      encoding: 'utf-8',
-      timeout: 30_000,
-    },
-  );
-  world.lastExitCode = result.status ?? -1;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const ORCHESTRATOR_FILES: Record<string, string> = {
-  sdlc: 'adwSdlc.tsx',
-  plan: 'adwPlan.tsx',
-  build: 'adwBuild.tsx',
-  test: 'adwTest.tsx',
-  review: 'adwReview.tsx',
-  merge: 'adwMerge.tsx',
-  chore: 'adwChore.tsx',
-  patch: 'adwPatch.tsx',
-  upgrade: 'adwUpgrade.tsx',
-  'pr-review': 'adwPrReview.tsx',
-  document: 'adwDocument.tsx',
-};
-
+// Pending without the subprocess harness, so a scenario outside `@regression and (@subprocess or @webhook)` never passes by doing nothing.
 When(
   'the {string} orchestrator is invoked with adwId {string} and issue {int}',
-  function (this: RegressionWorld, _orchestratorName: string, _adwId: string, _issueNumber: number) {
-    // Per-issue (source-inspection) scenarios: mockContext is null → no-op.
-    if (this.mockContext === null) return;
-    return 'pending';
-    // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
-    // patch; remove the `return 'pending';` line above when the harness can drive a real
-    // orchestrator subprocess to completion under 30s with state-file artefact emission.
-    /*
-    const file = ORCHESTRATOR_FILES[_orchestratorName.toLowerCase()];
-    assert.ok(
-      file,
-      `Unknown orchestrator name: "${_orchestratorName}". Known names: ${Object.keys(ORCHESTRATOR_FILES).join(', ')}`,
-    );
-    spawnOrchestrator(this, file, _adwId, _issueNumber);
-    */
+  { timeout: 150_000 },
+  async function (this: RegressionWorld, orchestratorName: string, adwId: string, issueNumber: number) {
+    if (!this.subprocess) return 'pending';
+    await runOrchestrator(this, orchestratorName, adwId, issueNumber);
   },
 );
 
@@ -191,44 +148,23 @@ When(
   },
 );
 
+// Pending without the subprocess harness, for the reason W1 is.
 When(
   'the workflow is initialised with config {string}',
-  async function (this: RegressionWorld, _configLabel: string) {
-    return 'pending';
-    // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
-    // patch; remove the `return 'pending';` line above when the harness can drive phases
-    // against a fully-stubbed GitHub App + Claude pipeline.
-    /*
-    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
-
-    const { initializeWorkflow } = await import(resolve(ROOT, 'adws/phases/workflowInit.ts'));
-    const partialConfig = { mockGithubApiUrl: this.mockContext.serverUrl };
-    await initializeWorkflow(partialConfig as Parameters<typeof initializeWorkflow>[0]);
-    */
+  { timeout: 60_000 },
+  async function (this: RegressionWorld, configLabel: string) {
+    if (!this.subprocess) return 'pending';
+    await runWorkflowInit(this, configLabel);
   },
 );
 
+// Pending without the subprocess harness, for the reason W1 is. Records no exit code: the harness kills the cron.
 When(
   'the cron probe runs once',
-  function (this: RegressionWorld) {
-    // Per-issue (source-inspection) scenarios: mockContext is null → no-op.
-    if (this.mockContext === null) return;
-    return 'pending';
-    // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
-    // patch; remove the `return 'pending';` line above when the harness can drive a real
-    // orchestrator subprocess to completion under 30s with state-file artefact emission.
-    /*
-    const result = spawnSync(
-      'bun',
-      [resolve(ROOT, 'adws/adwSdlc.tsx'), '--cron'],
-      {
-        env: buildSubprocessEnv(this),
-        encoding: 'utf-8',
-        timeout: 30_000,
-      },
-    );
-    this.lastExitCode = result.status ?? -1;
-    */
+  { timeout: 90_000 },
+  async function (this: RegressionWorld) {
+    if (!this.subprocess) return 'pending';
+    await runCronProbe(this);
   },
 );
 

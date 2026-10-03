@@ -29,6 +29,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     copyInitCommandToWorktree: vi.fn(),
     verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
     copyStarterSettings: vi.fn().mockReturnValue({ action: 'copied', destPath: '/worktrees/adw-upgrade-a1b2c3d4e5f6/.claude/settings.json' }),
+    writeAdwYmlTemplate: vi.fn().mockReturnValue({ created: true }),
     writeAdwVersion: vi.fn(),
     commitChanges: vi.fn().mockReturnValue(true),
     pushBranch: vi.fn(),
@@ -394,7 +395,7 @@ describe('isPushRejectionError', () => {
 
 describe('parseAdwYml — malformed state flows through default path', () => {
   it('parseAdwYml returns { hitl: false } for malformed value', () => {
-    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
+    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true });
   });
 });
 
@@ -690,6 +691,63 @@ describe('executeUpgrade — starter guardrails settings copy (#763)', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.copyStarterSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeUpgrade — .github/adw.yml template write', () => {
+  const WORKTREE = '/worktrees/adw-upgrade-a1b2c3d4e5f6';
+
+  it('calls writeAdwYmlTemplate exactly once with the worktree path', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.writeAdwYmlTemplate).toHaveBeenCalledTimes(1);
+    expect(deps.writeAdwYmlTemplate).toHaveBeenCalledWith(WORKTREE);
+  });
+
+  it('calls writeAdwYmlTemplate before commitChanges so the file rides into the regen commit', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    const [writeOrder] = (deps.writeAdwYmlTemplate as ReturnType<typeof vi.fn>).mock.invocationCallOrder;
+    const [commitOrder] = (deps.commitChanges as ReturnType<typeof vi.fn>).mock.invocationCallOrder;
+    expect(writeOrder).toBeLessThan(commitOrder);
+  });
+
+  it('does not call writeAdwYmlTemplate when runInitCommand fails (llm_failed)', async () => {
+    const deps = makeDeps({
+      runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'Claude timeout' }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.writeAdwYmlTemplate).not.toHaveBeenCalled();
+  });
+
+  it('does not call writeAdwYmlTemplate when the verifyAdwRegen gate fails (regen_incomplete)', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.writeAdwYmlTemplate).not.toHaveBeenCalled();
+  });
+
+  it('logs that the file was created when the template was written', async () => {
+    const deps = makeDeps({ writeAdwYmlTemplate: vi.fn().mockReturnValue({ created: true }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.log).toHaveBeenCalledWith('adwUpgrade: .github/adw.yml created', 'info');
+  });
+
+  it('logs that an existing file was left untouched, and still proceeds to commit/push/PR', async () => {
+    const deps = makeDeps({ writeAdwYmlTemplate: vi.fn().mockReturnValue({ created: false }) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.log).toHaveBeenCalledWith('adwUpgrade: .github/adw.yml already present, left untouched', 'info');
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.commitChanges).toHaveBeenCalledTimes(1);
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
   });
 });
 

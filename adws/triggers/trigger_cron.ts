@@ -7,15 +7,16 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
-import type { BoundProviders } from '@paysdoc/devplatform';
+import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
 import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
 import { hasUnaddressedComments } from '../forge/prCommentDetector';
+import { provisionAdwLabels } from '../forge/adwLabelProvisioning';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -29,7 +30,7 @@ import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
-import { evaluateCandidate } from './takeoverHandler';
+import { evaluateCandidate, type CandidateDecision } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { resolvePrReviewSpawn } from './webhookHandlers';
@@ -253,6 +254,50 @@ export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger
 }
 
 /**
+ * One candidate whose takeover evaluation throws, for example a reset against a branch that was never
+ * pushed, must not abort the tick for every candidate after it. evaluateCandidate has already released
+ * its lock. Returns null for a failed evaluation, which is retried next cycle. Exported with an
+ * injectable evaluator so tests can drive the containment directly.
+ */
+export function evaluateCandidateForTick(
+  issueNumber: number,
+  boundary: LaunchBoundary,
+  evaluate: typeof evaluateCandidate = evaluateCandidate,
+): CandidateDecision | null {
+  try {
+    return evaluate({ issueNumber, boundary });
+  } catch (error) {
+    const detail = error instanceof Error && error.stack ? error.stack : String(error);
+    log(`Issue #${issueNumber}: takeover evaluation failed, retrying next cycle: ${detail}`, 'error');
+    return null;
+  }
+}
+
+/** Spawns the orchestrator for the existing adwId directly, skipping classification. */
+function takeOverExistingAdwId(
+  issueNumber: number,
+  decision: Extract<CandidateDecision, { kind: 'take_over_adwId' }>,
+  repoInfo: RepoIdentifier,
+  targetRepoArgs: string[],
+): void {
+  const { adwId, derivedStage } = decision;
+  log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}`, 'success');
+  try {
+    const state = AgentStateManager.readTopLevelState(adwId);
+    if (!state) {
+      // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
+      spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issueNumber), adwId, ...targetRepoArgs]);
+      return;
+    }
+    const { script, args } = resolveResumeSpawn(state);
+    log(`Issue #${issueNumber}: resume routing → ${script}`, 'info');
+    spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+  } finally {
+    releaseIssueSpawnLock(repoInfo, issueNumber);
+  }
+}
+
+/**
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
  */
@@ -266,7 +311,7 @@ async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
     const resolvedPath = resolveClaudeCodePath();
     const statusOutput = execSync(`${resolvedPath} auth status --json`, {
       timeout: 15_000,
-      env: { ...process.env },
+      env: buildClaudeLaunchEnv(),
     }).toString();
     const status = JSON.parse(statusOutput);
     loggedIn = status.loggedIn === true;
@@ -442,7 +487,8 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, boundary });
+    const takeoverDecision = evaluateCandidateForTick(issue.number, boundary);
+    if (takeoverDecision === null) continue;
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
@@ -466,19 +512,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
     processedSpawns.add(issue.number);
 
     if (takeoverDecision.kind === 'take_over_adwId') {
-      // Takeover: spawn the orchestrator for the existing adwId directly, skipping classification.
-      const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
-      log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
-      const takeoverState = AgentStateManager.readTopLevelState(takeoverAdwId);
-      if (takeoverState) {
-        const { script, args } = resolveResumeSpawn(takeoverState);
-        log(`Issue #${issue.number}: resume routing → ${script}`, 'info');
-        spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
-      } else {
-        // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
-        spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
-      }
-      releaseIssueSpawnLock(repoInfo, issue.number);
+      takeOverExistingAdwId(issue.number, takeoverDecision, repoInfo, targetRepoArgs);
       continue;
     }
 
@@ -549,6 +583,10 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   }
 
   log('CRON trigger (backlog sweeper) started');
+  // The webhook starts one cron per repository on its first event (ensureCronProcess), so this
+  // is where a repository gets its adw:* labels — outside the webhook's request path, since
+  // each label is a synchronous gh call.
+  if (cronBoundary) provisionAdwLabels(cronBoundary);
   // Warm the guardrails probe verdict before processing any issue, so a failed
   // probe's fail-open Slack alert (see guardrailsGate.ts) fires at startup rather
   // than being deferred until the first target-repo spawn happens to trigger it.

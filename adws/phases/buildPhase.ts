@@ -24,7 +24,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '@paysdoc/devplatform';
-import { requireWorkflowGitContext } from './workflowRepoIdentity';
+import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
 
 /**
  * Includes token limit recovery: when the agent approaches the token limit,
@@ -142,7 +142,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
       };
 
-      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), workflowLaunchContext(config), true);
 
       costUsd += buildResult.totalCostUsd || 0;
       if (buildResult.modelUsage) {
@@ -218,7 +218,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         // Batch boundary: commit if dirty, then evaluate the progress gate
         if (gitCtx.hasUncommittedChanges(worktreePath)) {
-          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
+          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), workflowLaunchContext(config));
         }
         const headTreeHash = gitCtx.getHeadTreeHash(worktreePath);
         const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
@@ -270,7 +270,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'build_committing', ctx);
     }
-    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: gitCtx });
+    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, workflowLaunchContext(config));
   } else {
     log('Skipping implementation commit (already completed)', 'info');
   }

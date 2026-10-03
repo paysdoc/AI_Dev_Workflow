@@ -23,21 +23,39 @@
  *   MOCK_RATE_LIMIT_TYPE       — echoed into rate_limit_info.rateLimitType. Defaults to
  *                                "five_hour".
  *
+ * Manifest per-command entries and responses (see manifestInterpreter.ts):
+ *   `byCommand` keys an entry on the slash command that opens the prompt, so the plan agent's
+ *   /feature, the build agent's /implement and the commit agent's /commit each get their own
+ *   edits, payload and response. A `response` of { "kind": "error" } streams one is_error result
+ *   and exits 1. A manifest that would write `.adw/state.json`, anything under `agents/` or
+ *   anything beyond the worktree is refused: the stub exits 1 naming the path and writes nothing.
+ *
+ * Manifest worktree actions (all opt-in; see manifestInterpreter.ts):
+ *   A manifest may also delete and stage paths, commit everything itself (`commitAll`), or set
+ *   `onCommitCommand` so that an invocation of the /commit slash command stages and commits every
+ *   change in the worktree, as `.claude/commands/commit.md` does, and answers with the subject.
+ *
  * Manifest marker-file fallback:
  *   Callers that spawn this stub through a production code path (e.g. a phase
  *   function invoked in-process) route the child's environment through
  *   getSafeSubprocessEnv()'s fixed allowlist, which does not include MOCK_*
  *   names — so MOCK_MANIFEST_PATH can't reach this process via env. cwd is NOT
  *   filtered (it's set explicitly by the spawn call), so as a fallback, when
- *   MOCK_MANIFEST_PATH is unset, this stub also checks for a manifest at
- *   <cwd>/.adw-stub-manifest.json.
+ *   MOCK_MANIFEST_PATH is unset, this stub searches its cwd and every directory
+ *   above it for .adw-stub-manifest.json, and the nearest one wins. A run whose
+ *   worktree lies at a path nobody knows in advance is programmed by a marker
+ *   placed above it. Every marker a harness places lives under os.tmpdir(), so
+ *   a search that starts in the ADW checkout finds none. The manifest's edits
+ *   still land in MOCK_WORKTREE_PATH, or the cwd, never beside the marker.
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, appendFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { applyManifest, type ManifestResponse } from './manifestInterpreter.ts';
-import { resolveResponseMode, shouldRateLimit, buildRateLimitedLines, type RateLimitedResponseMode, type RateLimitedTemplates } from './stubResponse.ts';
+import { resolveResponseMode, shouldRateLimit, buildRateLimitedLines, buildErrorResultLine, type RateLimitedResponseMode, type RateLimitedTemplates } from './stubResponse.ts';
+import { extractPrompt } from './stubArgs.ts';
+import { findStubManifestMarker } from './stubMarker.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, '../fixtures/jsonl');
@@ -46,26 +64,6 @@ const PAYLOAD_DIR = join(FIXTURE_DIR, 'payloads');
 const INVOCATION_COUNTER_PATH = resolve(process.cwd(), '.adw-stub-invocations');
 
 const STREAM_DELAY_MS = parseInt(process.env['MOCK_STREAM_DELAY_MS'] ?? '10', 10);
-
-const VALUE_FLAGS = new Set(['--output-format', '--model', '--effort']);
-
-/** Skips known flags and their values; returns the first non-flag argument. */
-function extractPrompt(argv: string[]): string {
-  const args = argv.slice(2);
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i] ?? '';
-    if (!arg.startsWith('-')) {
-      return arg;
-    }
-    if (VALUE_FLAGS.has(arg)) {
-      i += 2;
-    } else {
-      i += 1;
-    }
-  }
-  return '';
-}
 
 function selectPayloadPath(): string {
   const mockFixturePath = process.env['MOCK_FIXTURE_PATH'];
@@ -113,13 +111,12 @@ function recordInvocation(prompt: string): void {
 }
 
 /** Resolves the manifest path: MOCK_MANIFEST_PATH takes precedence; falls back
- *  to a cwd-relative marker file (see the "Manifest marker-file fallback" note
- *  above) for callers whose env can't carry MOCK_* names to this process. */
+ *  to the nearest marker file at or above the cwd (see the "Manifest marker-file
+ *  fallback" note above) for callers whose env can't carry MOCK_* names to this process. */
 function resolveManifestPath(): string | undefined {
   const fromEnv = process.env['MOCK_MANIFEST_PATH'];
   if (fromEnv) return fromEnv;
-  const marker = resolve(process.cwd(), '.adw-stub-manifest.json');
-  return existsSync(marker) ? marker : undefined;
+  return findStubManifestMarker(process.cwd());
 }
 
 /** Missing or corrupt counter file counts as 0 (first call rejected). */
@@ -171,18 +168,30 @@ async function handleRateLimitedMode(mode: RateLimitedResponseMode): Promise<voi
   process.exit(1);
 }
 
+const ERROR_RESULT_MESSAGE = 'The Claude CLI stub was asked to answer with an error.';
+
+/** Streams one is_error result and exits 1, as the real CLI does when a run fails. */
+async function streamErrorResponseAndExit(): Promise<never> {
+  const template = JSON.parse(readFileSync(join(ENVELOPE_DIR, 'result-message.jsonl'), 'utf-8')) as Record<string, unknown>;
+  await streamLine(buildErrorResultLine(template, ERROR_RESULT_MESSAGE));
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   try {
-    recordInvocation(extractPrompt(process.argv));
+    const prompt = extractPrompt(process.argv);
+    recordInvocation(prompt);
 
     const manifestPath = resolveManifestPath();
     let payloadPath: string;
     let manifestResponse: ManifestResponse | undefined;
+    let commitSubject: string | undefined;
     if (manifestPath) {
       const worktreePath = process.env['MOCK_WORKTREE_PATH'] ?? process.cwd();
-      const result = applyManifest(manifestPath, worktreePath);
+      const result = applyManifest(manifestPath, worktreePath, prompt);
       payloadPath = result.jsonlPath;
       manifestResponse = result.response;
+      commitSubject = result.commitSubject;
     } else {
       payloadPath = selectPayloadPath();
     }
@@ -191,11 +200,13 @@ async function main(): Promise<void> {
     if (mode.kind === 'rate-limited') {
       await handleRateLimitedMode(mode);
     }
+    if (mode.kind === 'error') {
+      await streamErrorResponseAndExit();
+    }
 
-    const payload = JSON.parse(readFileSync(payloadPath, 'utf-8')) as Array<{
-      type: string;
-      text?: string;
-    }>;
+    const payload: Array<{ type: string; text?: string }> = commitSubject !== undefined
+      ? [{ type: 'text', text: commitSubject }]
+      : JSON.parse(readFileSync(payloadPath, 'utf-8'));
 
     const envelopePath = join(ENVELOPE_DIR, 'assistant-message.jsonl');
     const envelope = JSON.parse(readFileSync(envelopePath, 'utf-8')) as {

@@ -1,5 +1,7 @@
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
+import { getModelForCommand, getEffortForCommand } from '../core/modelRouting';
+import { isSelfHostLaunch } from '../core/selfHostLaunch';
 import type { CodeHost } from '@paysdoc/devplatform';
 import { runClaudeAgentWithCommand } from '../agents';
 import type { GitContext } from '@paysdoc/devplatform/git';
@@ -52,15 +54,15 @@ async function resolveConflictsViaAgent(
     [adwId, specPath, baseBranch],
     'conflict-resolver',
     outputFile,
-    'sonnet',
-    undefined,
+    getModelForCommand('/resolve_conflict'),
+    getEffortForCommand('/resolve_conflict'),
     undefined,
     undefined,
     cwd,
     undefined,
     undefined,
     undefined,
-    { selfHost: ctx.selfHost, adwId, gitContext: ctx }
+    { selfHost: isSelfHostLaunch(ctx), adwId, gitContext: ctx }
   );
 
   if (result.success) {

@@ -60,10 +60,6 @@ Checked on 2026-09-29:
 
 Not checked: the App's permissions and installations on GitHub, and the host's environment file.
 
-## Divergence
-
-1. **Some pipeline commits carry the host identity.** Not every pipeline commit carries the App's identity. Of the non-merge commits on `origin/dev` since 2026-09-01, 108 are authored by `paysdoc-adw[bot]` and 53 by `Martin <martin@macmini.local>`; the latter carry agent prefixes such as `build-agent:` and `plan-orchestrator:` (for example 50e8a702, 2026-09-25). The cause was not determined. Ruling (owner, 2026-09-29): every pipeline commit must carry the App's identity. This is a bug.
-
 ## More Information
 
 The approval identity is used by the review phase and by the chore orchestrator; the merge flow is ADR-0028 ([0028-orchestrators-stop-at-awaiting-merge.md](0028-orchestrators-stop-at-awaiting-merge.md)) and ADR-0038 ([0038-stateless-merge-gate.md](0038-stateless-merge-gate.md)). Per-command credentials are ADR-0046 ([0046-gitcontext-as-sole-git-authority.md](0046-gitcontext-as-sole-git-authority.md)). The move of the token mint into the library is ADR-0051 ([0051-forge-agnostic-core-and-devplatform-dependency.md](0051-forge-agnostic-core-and-devplatform-dependency.md)).

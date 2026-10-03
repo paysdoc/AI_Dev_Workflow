@@ -18,12 +18,14 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 - `getDefaultBranch`: queries `gh repo view --json defaultBranchRef` for the repo's default branch.
 - `mergeLatestFromDefaultBranch`: fetches and merges `origin/<defaultBranch>` into the current branch; logs warnings on failure without throwing.
 - `fetchAndResetToRemote`: fetches `origin/<defaultBranch>` and hard-resets the worktree to it; throws on failure.
-- `deleteLocalBranch` / `deleteRemoteBranch`: delete branches, refusing to touch protected branches (`main`, `master`, `develop`).
+- `deleteLocalBranch` / `deleteRemoteBranch`: delete branches; the library's own fixed protected list sits underneath ADW's run-time check.
+- `isProtectedBranch(branch, defaultBranch)` (`branchOperations.ts`): pure `branch === defaultBranch`; no branch name is hard-coded.
+- `deleteRemoteBranchUnlessProtected(ports, branch, cwd?)`: resolves the default branch through `ports.getDefaultBranch()`, never deletes it, and deletes nothing when the lookup throws. Both of ADW's remote-branch deletions (the `issues.closed` cleanup in `webhookHandlers.ts`, and `cleanupSweepBase` in `perIssueSweepPersist.ts`) go through this check.
 - `commitChanges`: stages all changes and commits with a message; returns false when there is nothing to commit.
 - `getHeadTreeHash`: returns `HEAD^{tree}` hash for use by the progress gate.
 - `hasUncommittedChanges`: returns true when `git status --porcelain` is non-empty.
 - `pushBranch`: pushes the branch to `origin` using `--force-with-lease --force-if-includes`. First refreshes the remote-tracking ref via `git fetch origin "<branch>"` (fetch errors are tolerated for first-push case). On a genuine lease refusal (remote moved underneath ADW), throws a distinct actionable error rather than propagating a raw git error. All feature-branch push call sites (`prPhase`, `documentPhase`, `reviewPhase`, `scenarioFixPhase`, `prReviewPhase`) route through this single function.
-- `copyClaudeAssetsToWorktree`: copies all `.claude/commands/*.md` and `.claude/skills/` directories from the ADW framework repo into the worktree, applying gitignore entries for assets not marked `target: true`.
+- `copyClaudeAssetsToWorktree`: copies all `.claude/commands/*.md` and `.claude/skills/` directories from the ADW framework repo into the worktree, applying gitignore entries for assets not marked `target: true`. When the worktree belongs to the framework's own repository (target `owner/repo` equals the identity of the framework checkout's `origin`, via `readLocalRepoIdentity` and `sameRepoIdentity`), files the worktree's branch already tracks are left as the branch has them; files only the running checkout has are still copied. It takes an optional `frameworkRepoRoot` (default `REPO_ROOT`).
 - `ensureGitignoreEntry` / `ensureGitignoreEntries`: idempotently appends entries to the worktree's `.gitignore`.
 - `verifyAdwRegen`: checks that all six canonical `.adw/` config files exist and are non-empty, that `vocabulary.md` exists, and that `.adw/.regen-receipt` carries the expected framework hash.
 - `decideWorktreeReuse` (`worktreeReuseGate`): pure guard-clause function over a `WorktreeProbe` record of Class-A git-operability signals. Returns `{ reuse: true }` when all health conditions hold (no live owner, lock absent/orphaned, no interrupted op, HEAD on expected branch, registration healthy); returns `{ reuse: false, reason }` for any failure, with a typed `WorktreeResetReason`. No I/O — table-testable over `WorktreeProbe` permutations.
@@ -43,16 +45,24 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 
 ## Configuration
 
-The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file's location (`../../` from `adws/phases/`). Worktrees are created under `.worktrees/<branchName>` relative to the base repo root. `PROTECTED_BRANCHES` is a module-level constant.
+The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file's location (`../../` from `adws/phases/`). Worktrees are created under `.worktrees/<branchName>` relative to the base repo root. The protected branch is the repository's default branch, resolved at run time from the code host; there is no fixed list of names in ADW.
 
 ## Gotchas
 
 - `checkoutBranch` and `checkoutDefaultBranch` are deprecated and log a warning; they run `git pull --rebase` which crashes on divergent branches. Use `fetchAndResetToRemote` instead.
 - `killProcessesInDirectory` silently no-ops when `lsof` is unavailable or returns no results.
 - `createWorktree` prefers `origin/<baseBranch>` over the local `<baseBranch>` ref when the two diverge, logging a warning.
-- `copyClaudeAssetsToWorktree` overwrites existing files unconditionally; skills with `target: true` in their `SKILL.md` frontmatter are left committable (not gitignored), allowing the product repo to track them.
+- For external target repositories (or when the framework identity cannot be read) `copyClaudeAssetsToWorktree` overwrites existing files unconditionally; skills with `target: true` in their `SKILL.md` frontmatter are left committable (not gitignored), allowing the product repo to track them.
 - `removeWorktreesForIssue` matches worktrees using the regex `-issue-<N>-`, not an exact branch-name lookup, so multiple worktrees for the same issue are all removed.
 - `decideWorktreeReuse` checks `liveOwner` first (confirmed-dead precondition), then `indexLock === 'live_held'`, then interrupted ops, then HEAD, then registration. An orphaned or absent `index.lock` never blocks reuse. The guard order is deterministic — the first failing signal determines the typed reset reason.
 - `probeWorktree` returns a probe with `registration: 'missing'` and benign defaults when `resolveGitDir` returns `null` (e.g. directory absent from disk) so the gate resets without the shell throwing. All side effects (`fs.rmSync`, `execSync`) are isolated inside `buildDefaultProbeDeps`; the exported functions are testable via injected deps.
 - `pushBranch` uses `--force-if-includes` (git ≥ 2.30) alongside `--force-with-lease`. A bare `--force-with-lease` after a fetch would lease against the just-fetched tip and always succeed — `--force-if-includes` restores the safety check by requiring the fetched remote tip to be in the local reflog. If a rewrite happened in a different clone/worktree (tip absent from local reflog), the push refuses with the distinct lease error and manual intervention is required.
 - `adwUpgrade.tsx` has its own separate branch-push (claim-branch) with `non-fast-forward` "park as loser" semantics; it is intentionally NOT routed through `pushBranch`.
+
+## Decisions
+
+- [ADR-0002](../specs/adr/0002-worktree-per-issue.md) — One git worktree per issue
+- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories

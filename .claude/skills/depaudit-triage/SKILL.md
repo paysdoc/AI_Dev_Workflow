@@ -105,15 +105,19 @@ When the classification is a **major** bump the skill **does not apply** the maj
    Validate: must be a valid ISO 8601 date, not in the past, and ≤ today + 90 days. Store as `expires`. Re-prompt on invalid input.
 3. **Draft the issue**: Draft the issue using the stable format:
    - **Title**: `depaudit: major upgrade — <package> <from> → <to-range> (resolves <finding-id>)`
-   - **Body**: Human-readable summary (package, from version, to-range, finding-id, severity, source), a pointer to the originating finding, and the literal `/adw_sdlc` command on its own line so ADW immediately picks up the issue and runs the upgrade SDLC.
-4. **File the issue**: Run `gh issue create --title <title> --body <body>` against the **current repo** (no `--repo` flag — the default targets the current working directory's repo).
+   - **Body**: Human-readable summary (package, from version, to-range, finding-id, severity, source) and a pointer to the originating finding. The body carries no slash command: ADW routes the issue by the `adw:bug` label applied in step 4.
+4. **File the issue with its routing label**: Against the **current repo** (no `--repo` flag — the default targets the current working directory's repo), run two commands in order:
+   1. `gh label create 'adw:bug' --color d73a4a --description 'ADW bug workflow' --force`
+   2. `gh issue create --title <title> --body <body> --label adw:bug`
+
+   `adw:bug` sends the issue to ADW's full SDLC (`adws/adwSdlc.tsx`). The label goes in the create call, never afterwards: ADW reads labels from the `issues.opened` event, and an issue opened without a label gets an `adw:*` label inferred by the LLM, which a later label would conflict with.
 5. **Capture details**: Capture the returned issue number `#N` and URL from `gh`'s stdout.
 6. **Write the accept entry**: Write (or update) an accept entry in the correct config file based on `source`:
    - `source: "socket"` → `.depaudit.yml` under `supplyChainAccepts`
    - `source: "osv"` → `osv-scanner.toml` under `[[IgnoredVulns]]`
 
    Set: `package`, `version`, `alertType`/`id` from the finding identity; `reason: "pending major-bump issue #N"`; `expires` to the chosen date; `upstreamIssue` to the captured URL. For OSV/TOML entries (no native `upstreamIssue` field), embed the URL in `reason` as `pending major-bump issue #N — <url>` so the idempotency guard recognises the in-flight state. Respect `(package, version, finding-id)` identity — update existing entry rather than duplicate. Every entry must be schema-valid so `depaudit lint` passes.
-7. **Handle `gh` failure**: If `gh issue create` fails (non-zero exit) or `gh` is not on PATH, surface the stderr and do NOT write the accept entry — avoid orphaned entries referencing a non-existent issue. Move to the next finding.
+7. **Handle `gh` failure**: If `gh label create` or `gh issue create` fails (non-zero exit) or `gh` is not on PATH, surface the stderr and do NOT write the accept entry — avoid orphaned entries referencing a non-existent issue. Move to the next finding.
 8. **Advance**: Display `Major-bump issue filed: <url>. Accept entry written with <N>-day expiry.` Advance to the next finding. Do NOT run `depaudit scan` — the static snapshot is preserved.
 
 ### Action 2: accept+document
@@ -171,7 +175,7 @@ File an issue on the dependency's own upstream repository for transitive-fix cas
    - Prompt for `expires` (default 30 days, ≤ today + 90 days), validated the same way as `accept+document`.
 4. **Draft the issue**: The skill drafts a concise title and body for the upstream issue:
    - **title**: `depaudit: <package>@<version> — <finding-id>`
-   - **body**: Human-readable finding description, severity, source, the package and version affected on the downstream side, a pointer back to the originating finding, and a short request to the dependency's maintainers to address the issue. The body does NOT include `/adw_sdlc` — ADW SDLC integration is only for the current-repo major-bump path.
+   - **body**: Human-readable finding description, severity, source, the package and version affected on the downstream side, a pointer back to the originating finding, and a short request to the dependency's maintainers to address the issue. The upstream issue carries no `adw:*` label — ADW routing applies only to the current-repo major-bump path.
 5. **File the issue**: Run `gh issue create --repo <dep-owner>/<dep-repo> --title <title> --body <body>`. Auto-files unconditionally — do not check whether the upstream is ADW-registered. Per PRD: auto-filing is unconditional of whether the upstream is ADW-registered.
 6. **Capture the returned URL**: Capture the returned URL from `gh`'s stdout.
 7. **Write the accept entry**: Write (or update) an entry in the correct file (`.depaudit.yml` under `supplyChainAccepts`, or `osv-scanner.toml` under `[[IgnoredVulns]]`) with `upstreamIssue` set to the returned URL, `reason` set to the user-supplied reason, and `expires` set to the user-supplied or default expiry. Respect `(package, version, finding-id)` identity — update existing entry rather than duplicate. The accept entry must be schema-valid so `depaudit lint` passes.
@@ -198,7 +202,7 @@ After all findings are processed, display:
 - **File creation**: If `.depaudit.yml` does not exist, create it with `version: 1` and empty `supplyChainAccepts: []`. If `osv-scanner.toml` does not exist, create it with an empty `[[IgnoredVulns]]` section.
 - **Static snapshot**: Do not re-scan or re-read `findings.json` after accepting or skipping a finding. The triage session works from the snapshot read in Step 1.
 - **Upgrade policy**: minor and patch parent bumps are applied autonomously by Action 1 (`upgrade parent`); major bumps trigger the issue-filing flow — the skill does not apply them directly but files a tracked issue on the current repo and writes a short-lived accept entry.
-- **Major-bump auto-filing**: Action 1 (`upgrade parent`) auto-files a tracked issue on the current repo when only a major bump resolves the finding; it embeds `/adw_sdlc` in the body so ADW runs the upgrade SDLC, and writes a short-lived accept entry (default 30 days, user-adjustable up to the 90-day cap) pointing to the filed issue.
+- **Major-bump auto-filing**: Action 1 (`upgrade parent`) auto-files a tracked issue on the current repo when only a major bump resolves the finding; it applies the `adw:bug` label at creation so ADW runs the full SDLC on it, and writes a short-lived accept entry (default 30 days, user-adjustable up to the 90-day cap) pointing to the filed issue.
 - **Upstream-issue auto-filing**: Action 3 (`accept+file-upstream-issue`) runs `gh issue create --repo <dep-owner>/<dep-repo>` unconditionally (no ADW-registration check), captures the returned URL, and writes a schema-valid accept entry with `upstreamIssue` set.
 - **Lint safety**: Every entry written by the skill (Actions 1, 2, 3) is in canonical schema form — `(package, version, finding-id)` identity, `reason ≥20 chars`, `expires ≤ today + 90d` — so `depaudit lint` passes on the very next scan.
 - **Revert safety**: Action 1 prompts before the install command runs so the user can cancel a pending upgrade; on cancel the skill reverts the manifest edit. If the install fails the skill also reverts the manifest to its original contents so the workspace is left unchanged (no partial bump).

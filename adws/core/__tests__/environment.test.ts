@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../environment.ts';
+import { getSafeSubprocessEnv, buildClaudeLaunchEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../environment.ts';
 
 describe('getSafeSubprocessEnv', () => {
   let savedPat: string | undefined;
@@ -38,6 +38,64 @@ describe('getSafeSubprocessEnv', () => {
     process.env.GITHUB_PAT = 'ghp_canonical';
     const result = getSafeSubprocessEnv();
     expect(result.GITHUB_PAT).toBe('ghp_canonical');
+  });
+});
+
+describe('buildClaudeLaunchEnv', () => {
+  const touched = ['GH_TOKEN', 'ANTHROPIC_API_KEY', 'ADW_RECORDING_SENTINEL', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY'];
+  let saved: Record<string, string | undefined>;
+
+  beforeEach(() => {
+    saved = Object.fromEntries(touched.map((name) => [name, process.env[name]]));
+    touched.forEach((name) => delete process.env[name]);
+  });
+
+  afterEach(() => {
+    touched.forEach((name) => {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    });
+  });
+
+  it('disables auto-memory when no overlay is given', () => {
+    expect(buildClaudeLaunchEnv().CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+  });
+
+  it('disables auto-memory even when the process environment or the overlay turns it on', () => {
+    process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '0';
+
+    expect(buildClaudeLaunchEnv().CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+    expect(buildClaudeLaunchEnv({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0' }).CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+  });
+
+  it('lets overlay keys win over the allowlisted environment', () => {
+    process.env.GH_TOKEN = 'from-process';
+
+    expect(buildClaudeLaunchEnv({ GH_TOKEN: 'from-overlay' }).GH_TOKEN).toBe('from-overlay');
+    expect(buildClaudeLaunchEnv().GH_TOKEN).toBe('from-process');
+  });
+
+  it('leaves out a process variable that is not on the allowlist', () => {
+    process.env.ADW_RECORDING_SENTINEL = 'leak';
+
+    expect(buildClaudeLaunchEnv()).not.toHaveProperty('ADW_RECORDING_SENTINEL');
+  });
+
+  it('forwards ANTHROPIC_API_KEY when it is set, and omits it when it is not', () => {
+    expect(buildClaudeLaunchEnv()).not.toHaveProperty('ANTHROPIC_API_KEY');
+
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-forwarded';
+
+    expect(buildClaudeLaunchEnv().ANTHROPIC_API_KEY).toBe('sk-ant-forwarded');
+  });
+
+  it('does not mutate process.env', () => {
+    process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY = '0';
+    const before = { ...process.env };
+
+    buildClaudeLaunchEnv({ GH_TOKEN: 'overlay', EXTRA: 'value' });
+
+    expect(process.env).toEqual(before);
   });
 });
 

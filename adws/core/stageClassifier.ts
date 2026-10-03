@@ -7,7 +7,9 @@ import type { WorkflowStage } from '../types/workflowTypes';
  *
  * | Class         | Cron decision              | Takeover decision                          |
  * |---------------|----------------------------|--------------------------------------------|
- * | active        | exclude (in progress)      | SIGKILL-if-live → reset → reconcile → take |
+ * | active        | exclude while owner live;  | `starting`: defer if live, else reuse-or-  |
+ * |               | spawn once it is dead      | reset; others: SIGKILL-if-live → reset →   |
+ * |               |                            | reconcile → take                           |
  * | awaiting_merge| eligible → merge           | spawn_fresh                                |
  * | retriable     | eligible → spawn           | reset → reconcile → take (no kill)         |
  * | terminal      | exclude (inline checks)    | skip_terminal (release lock)               |
@@ -83,7 +85,6 @@ export function classifyStage(stage: WorkflowStage): StageClass {
     case 'token_limit_recovery':
     case 'compaction_recovery':
     case 'test_compaction_recovery':
-    case 'review_compaction_recovery':
     case 'plan_validating':
     case 'plan_validated':
     case 'plan_resolving':

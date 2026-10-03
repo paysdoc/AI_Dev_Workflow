@@ -2,7 +2,8 @@ export {
   validateSlug,
   generateBranchName,
   inferIssueTypeFromBranch,
-  PROTECTED_BRANCHES,
+  isProtectedBranch,
+  deleteRemoteBranchUnlessProtected,
 } from './branchOperations';
 
 export { deterministicBranchName, branchMatchesIssue } from './branchIdentity';

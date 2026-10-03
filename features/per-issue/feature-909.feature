@@ -279,7 +279,7 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     Then the schema probe requested "stream-json" output from the Claude CLI
     And the schema probe requested verbose output from the Claude CLI
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
+  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: Asked for its rate-limited response, the Claude CLI stub rejects the request with a rate_limit_event naming a future reset time, then a 429 result
     Given the Claude CLI stub is asked for its rate-limited response
     When the Claude CLI stub is run
@@ -287,13 +287,13 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     And the stub's rate_limit_event names a reset time that has not yet passed
     And the stub's output ends with a result whose api_error_status is 429 and whose is_error is true
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
+  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: The stub's rate-limited response passes the envelope conformance gate, like the real capture it stands in for
     Given a copy of the Claude CLI stub's rate-limited response
     When the envelope conformance gate checks that copy
     Then the envelope conformance gate passes
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
+  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario Outline: The real rate-limited capture and the stub's rate-limited response both end an agent run rate-limited and make the pause-queue probe report "limited"
     Given the Claude CLI answers the rate-limit probe with <reply>
     When the rate-limit probe runs
@@ -306,7 +306,7 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | the committed JSONL fixture captured from a real rate limit |
       | the Claude CLI stub's rate-limited response                 |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
+  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: Unless asked for its rate-limited response, the Claude CLI stub still answers cleanly and the pause-queue probe reports "clear"
     Given the Claude CLI answers the rate-limit probe with the Claude CLI stub's default response
     When the rate-limit probe runs

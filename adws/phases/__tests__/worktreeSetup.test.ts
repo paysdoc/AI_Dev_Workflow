@@ -13,26 +13,11 @@ import {
   copyStarterSettingsToWorktree,
 } from '../worktreeSetup.ts';
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
+import { gitignoreContains, initGitRepo } from './fixtures/worktreeSetupHarness.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
 const FRAMEWORK_REPO_ROOT = ADW_REPO_ROOT;
-
-function gitignoreContains(worktreePath: string, entry: string): boolean {
-  const gitignorePath = path.join(worktreePath, '.gitignore');
-  if (!fs.existsSync(gitignorePath)) return false;
-  const content = fs.readFileSync(gitignorePath, 'utf-8');
-  const lines = content.split('\n').map((l) => l.trim());
-  const bare = entry.replace(/\/$/, '');
-  return lines.includes(bare) || lines.includes(bare + '/');
-}
-
-function initGitRepo(dir: string): void {
-  execSync('git init', { cwd: dir, stdio: 'pipe' });
-  execSync('git config user.email "test@adw.local"', { cwd: dir, stdio: 'pipe' });
-  execSync('git config user.name "ADW Test"', { cwd: dir, stdio: 'pipe' });
-  execSync('git commit --allow-empty -m "init"', { cwd: dir, stdio: 'pipe' });
-}
 
 let tempDir: string;
 let ctx: GitContext;
