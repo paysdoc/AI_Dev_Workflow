@@ -1,6 +1,14 @@
 @regression @smoke @subprocess
 Feature: Chore Orchestrator — Diff Verdict Paths
 
+  The real chore orchestrator runs as a child process against the acme/widgets workspace, behind the
+  gh shadow. The Claude CLI stub answers each slash command from the scenario's manifest: the plan
+  lands where getPlanFilePath finds it and the build's edit is committed, so the diff evaluator
+  judges a real diff. A safe verdict goes straight to the pull request. A regression_possible
+  verdict posts the escalation comment, runs the review, which passes, and the document phase, then
+  opens the pull request. Either way the run pre-approves the pull request, leaves the merge to the
+  cron and records awaiting_merge.
+
   Background:
     Given an issue 200 exists in the mock issue tracker
 

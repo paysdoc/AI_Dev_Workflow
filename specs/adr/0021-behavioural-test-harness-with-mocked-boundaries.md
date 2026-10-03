@@ -58,7 +58,7 @@ For the GitHub routing, the harness sets `GH_HOST` and `MOCK_GITHUB_API_URL` (`t
 * Good, because envelope drift in the Claude CLI is caught in CI before it reaches a workflow.
 * Bad, because fixtures are hand-maintained payloads and must follow every change in agent output.
 * Bad, because building the harness did not make scenarios use it. A month later the BDD rewrite PRD found it "is barely used by the scenarios themselves".
-* Bad, because the harness cannot yet carry a whole orchestrator run. The #492 spec records that mocking "the orchestrator's full GitHub App auth + target-repo workspace + end-to-end Claude pipeline" was out of reach, and the steps that would do it are still pending; see [ADR-0037](0037-tiered-regression-suite-with-fixed-vocabulary.md).
+* Good, because the harness now carries a whole orchestrator run, which the #492 spec recorded as out of reach: mocking "the orchestrator's full GitHub App auth + target-repo workspace + end-to-end Claude pipeline". The subprocess harness of [ADR-0037](0037-tiered-regression-suite-with-fixed-vocabulary.md) runs `adwSdlc.tsx` and `adwChore.tsx` to completion as child processes, against a throwaway target workspace and with a fake `GITHUB_PAT`. The Claude CLI stub answers each slash command from a per-command manifest. A `gh` shadow stands in for GitHub, and its writes are replayed against the GitHub API mock after the child exits.
 
 ### Confirmation
 
@@ -67,7 +67,7 @@ Checked against the code on 2026-09-29:
 * The files named above exist. `features/regression/support/hooks.ts` calls `setupMockInfrastructure()` before scenarios.
 * `test/mocks/__tests__/` holds three Vitest files. `bunx vitest run` passed `manifestInterpreter.test.ts` (9 tests) and `test-harness.test.ts` (3 tests); `claude-cli-stub.test.ts` could not be loaded because `@paysdoc/devplatform` is not installed in this checkout.
 * CI gate: `.github/workflows/envelope-conformance.yml` runs `bun run jsonl:check` on every pull request and on pushes to `dev` and `main`, and a live probe when an API key is configured.
-* `.github/workflows/regression.yml` runs the suite on the host and, on the daily schedule, in Docker. It is not a required check and is failing; see ADR-0037.
+* `.github/workflows/regression.yml` has a `host` and a `docker` job. The daily schedule runs both; a manual dispatch runs the one its `runtime` input names. It is not a required check (ADR-0037, Divergence, item 2). A local run of the `@regression` suite on 2026-10-03 reported no pending, undefined or failed scenario and exited 0.
 * Not checked: whether the GitHub adapter in `@paysdoc/devplatform` honours `GH_HOST`. The package is not installed in this checkout.
 
 ## More Information
