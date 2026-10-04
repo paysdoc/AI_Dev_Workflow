@@ -4,14 +4,14 @@ import {
   log,
   AgentStateManager,
   MAX_TEST_RETRY_ATTEMPTS,
-  type LogLevel,
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
   computeTestVerdict,
   ADW_UNVERIFIED_LABEL,
 } from '../core';
-import { runStaticChecks, runShellCommand, CheckStatus, type CheckVerdict, type ProcessRunner } from '../core/checkRunner';
+import { runShellCommand, type ProcessRunner } from '../core/checkRunner';
+import type { FixRoundPort } from '../core/staticCheckFixLoop';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -21,10 +21,12 @@ import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
 import { BoardStatus } from '@paysdoc/devplatform';
 import { reportStackCoherence } from './stackCoherenceReporter';
+import { runStaticCheckGate } from './staticCheckGate';
 
 export interface UnitTestPhaseDeps {
   readonly runProcess: ProcessRunner;
   readonly runUnitTestsWithRetry: typeof runUnitTestsWithRetry;
+  readonly fixRounds: FixRoundPort;
 }
 
 interface TestRunOutcome {
@@ -32,28 +34,6 @@ interface TestRunOutcome {
   readonly modelUsage: ModelUsageMap;
   readonly totalRetries: number;
   readonly contextResetCount: number;
-}
-
-function recordLine(statePath: string, message: string, level: LogLevel): void {
-  log(message, level);
-  AgentStateManager.appendLog(statePath, message);
-}
-
-function describeFailedCheck(verdict: CheckVerdict): string {
-  return `${verdict.check} (exit ${verdict.exitCode ?? 'none'})`;
-}
-
-function logCheckVerdict(statePath: string, verdict: CheckVerdict): void {
-  if (verdict.status === CheckStatus.Skipped) {
-    recordLine(statePath, `Static check skipped (N/A): ${verdict.check}`, 'info');
-    return;
-  }
-  if (verdict.status === CheckStatus.Passed) {
-    recordLine(statePath, `Static check passed: ${verdict.check} — ${verdict.command}`, 'success');
-    return;
-  }
-  recordLine(statePath, `Static check failed: ${describeFailedCheck(verdict)} — ${verdict.command}`, 'error');
-  recordLine(statePath, verdict.output.trim() === '' ? '(no output)' : verdict.output.trimEnd(), 'error');
 }
 
 function endRunOnFailedGate(config: WorkflowConfig, errorMsg: string, costUsd: number): never {
@@ -74,20 +54,6 @@ function endRunOnFailedGate(config: WorkflowConfig, errorMsg: string, costUsd: n
     metadata: { totalCostUsd: costUsd, unitTestsPassed: false },
   });
   process.exit(1);
-}
-
-/** The error names the failed checks and their exit codes; their output stays in the run log. */
-async function runStaticCheckGate(config: WorkflowConfig, runProcess: ProcessRunner): Promise<void> {
-  const statePath = config.orchestratorStatePath;
-  log('Phase: Static Checks', 'info');
-  AgentStateManager.appendLog(statePath, 'Starting test phase: Static Checks');
-
-  const verdicts = await runStaticChecks(config.projectConfig.commands, config.worktreePath, runProcess);
-  verdicts.forEach(verdict => logCheckVerdict(statePath, verdict));
-
-  const failed = verdicts.filter(verdict => verdict.status === CheckStatus.Failed);
-  if (failed.length === 0) return;
-  endRunOnFailedGate(config, `Static checks failed: ${failed.map(describeFailedCheck).join(', ')}. No PR was created.`, 0);
 }
 
 function recordTestCompaction(config: WorkflowConfig, continuationNumber: number): void {
@@ -173,13 +139,15 @@ async function runUnitTestSuite(
 }
 
 function skipUnitTestRun(config: WorkflowConfig): TestRunOutcome {
-  recordLine(config.orchestratorStatePath, 'Unit tests disabled — skipping the test run', 'info');
+  log('Unit tests disabled — skipping the test run', 'info');
+  AgentStateManager.appendLog(config.orchestratorStatePath, 'Unit tests disabled — skipping the test run');
   return { costUsd: 0, modelUsage: emptyModelUsageMap(), totalRetries: 0, contextResetCount: 0 };
 }
 
 /**
- * The static checks always run first, and a red check ends the run. `unitTests: false` in
- * `.github/adw.yml` (opt-out, default enabled) skips only the unit-test run that follows them.
+ * The static checks always run first. A red check goes to the static-check fix loop, and a loop that stops
+ * making progress parks the workflow as `human_gated`. `unitTests: false` in `.github/adw.yml` (opt-out,
+ * default enabled) skips only the unit-test run that follows them.
  */
 export async function executeUnitTestPhase(config: WorkflowConfig, deps: Partial<UnitTestPhaseDeps> = {}): Promise<{
   costUsd: number;
@@ -197,11 +165,12 @@ export async function executeUnitTestPhase(config: WorkflowConfig, deps: Partial
 
   reportStackCoherence(config);
 
-  await runStaticCheckGate(config, deps.runProcess ?? runShellCommand);
+  const gate = await runStaticCheckGate(config, { runProcess: deps.runProcess ?? runShellCommand, fixRounds: deps.fixRounds });
 
   const testRun = adwYmlConfig.unitTests
     ? await runUnitTestSuite(config, deps.runUnitTestsWithRetry)
     : skipUnitTestRun(config);
+  const modelUsage = mergeModelUsageMaps(gate.modelUsage, testRun.modelUsage);
 
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,
@@ -211,12 +180,12 @@ export async function executeUnitTestPhase(config: WorkflowConfig, deps: Partial
     retryCount: testRun.totalRetries,
     contextResetCount: testRun.contextResetCount,
     durationMs: Date.now() - phaseStartTime,
-    modelUsage: testRun.modelUsage,
+    modelUsage,
   });
 
   return {
-    costUsd: testRun.costUsd,
-    modelUsage: testRun.modelUsage,
+    costUsd: gate.costUsd + testRun.costUsd,
+    modelUsage,
     unitTestsPassed: true,
     totalRetries: testRun.totalRetries,
     phaseCostRecords,

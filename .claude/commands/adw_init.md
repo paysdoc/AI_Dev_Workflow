@@ -73,6 +73,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
        - `vitest` in `package.json` devDependencies → `vitest`
        - `jest` in `package.json` devDependencies → `jest`
        - No test framework detected → leave empty
+     - `## Suppression Patterns` — The repository owner's own additions to ADW's table of suppression patterns, one pattern per line. ADW's framework table always applies as well, and a line starting with `!` is ignored:
+       - **If `.adw/commands.md` already has a `## Suppression Patterns` section, preserve it verbatim — never create, populate or reorder it.** Regenerating `.adw/` on a framework upgrade would otherwise drop the owner's additions.
+       - **If the section is absent**, leave it out.
    - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 8 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**

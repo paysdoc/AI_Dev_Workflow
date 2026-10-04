@@ -86,6 +86,18 @@ async function runCheck(spec: StaticCheckSpec, command: string, cwd: string, run
   return { check: spec.check, command, status, exitCode, output };
 }
 
+function renderVerdict(verdict: CheckVerdict): string {
+  return `[${verdict.check}] ${verdict.status} (exit ${verdict.exitCode ?? 'none'})\n${verdict.output}`;
+}
+
+/**
+ * One deterministic text for a whole run of the checks, in the order given. A fix loop compares two
+ * of them to tell progress from none, so nothing in it is trimmed or normalised.
+ */
+export function combinedCheckOutput(verdicts: readonly CheckVerdict[]): string {
+  return verdicts.map(renderVerdict).join('\n');
+}
+
 export async function runStaticChecks(
   commands: StaticCheckCommands,
   cwd: string,

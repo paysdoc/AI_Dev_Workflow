@@ -19,7 +19,7 @@ export interface StackCoherenceResult {
   warnings: StackCoherenceWarning[];
 }
 
-type StackLanguage = 'javascript' | 'python' | 'go' | 'rust' | 'ruby';
+export type StackLanguage = 'javascript' | 'python' | 'go' | 'rust' | 'ruby';
 
 // Ordered: specific tokens before generic to prevent prefix conflicts.
 const LANGUAGE_TOKENS: Array<[string, StackLanguage]> = [
@@ -61,6 +61,27 @@ function inferLanguage(text: string): StackLanguage | null {
   return null;
 }
 
+interface InferredSignal {
+  readonly name: string;
+  readonly value: string;
+  readonly lang: StackLanguage | null;
+}
+
+function inferSignals(input: StackCoherenceInput): InferredSignal[] {
+  const signals: Array<{ name: string; value: string }> = [
+    { name: 'testFramework', value: input.testFramework },
+    { name: 'bddFramework', value: input.bddFramework },
+    { name: 'runTests', value: input.runTests },
+    { name: 'runScenariosByTag', value: input.runScenariosByTag },
+  ];
+  return signals.map(s => ({ ...s, lang: inferLanguage(s.value) }));
+}
+
+/** The languages the four stack descriptors point to; empty when none of them names a stack ADW knows. */
+export function inferStackLanguages(input: StackCoherenceInput): ReadonlySet<StackLanguage> {
+  return new Set(inferSignals(input).map(s => s.lang).filter((l): l is StackLanguage => l !== null));
+}
+
 export function stackCoherenceCheck(input: StackCoherenceInput): StackCoherenceResult {
   const warnings: StackCoherenceWarning[] = [];
 
@@ -71,18 +92,8 @@ export function stackCoherenceCheck(input: StackCoherenceInput): StackCoherenceR
     });
   }
 
-  const signals: Array<{ name: string; value: string }> = [
-    { name: 'testFramework', value: input.testFramework },
-    { name: 'bddFramework', value: input.bddFramework },
-    { name: 'runTests', value: input.runTests },
-    { name: 'runScenariosByTag', value: input.runScenariosByTag },
-  ];
-
-  const inferred = signals.map(s => ({ ...s, lang: inferLanguage(s.value) }));
-  const knownLangs = new Set(inferred.map(s => s.lang).filter((l): l is StackLanguage => l !== null));
-
-  if (knownLangs.size > 1) {
-    const contributing = inferred
+  if (inferStackLanguages(input).size > 1) {
+    const contributing = inferSignals(input)
       .filter(s => s.lang !== null)
       .map(s => `${s.name} '${s.value}'→${s.lang}`)
       .join(', ');

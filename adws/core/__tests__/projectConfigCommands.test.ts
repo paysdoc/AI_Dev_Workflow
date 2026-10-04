@@ -71,3 +71,31 @@ describe('getDefaultCommandsConfig — testDirectory and testFramework', () => {
     expect(defaults.testFramework).toBe('');
   });
 });
+
+describe('parseCommandsMd — suppressionPatterns field', () => {
+  it('reads the trimmed body of "## Suppression Patterns"', () => {
+    const content = '## Run Tests\nbun run test\n\n## Suppression Patterns\n\n- `@acme-lint off`\n- widgets-lint: off\n\n';
+    const result = parseCommandsMd(content);
+    expect(result.suppressionPatterns).toBe('- `@acme-lint off`\n- widgets-lint: off');
+  });
+
+  it('keeps the other sections apart from the suppression patterns', () => {
+    const content = '## Suppression Patterns\n- widgets-lint: off\n\n## Test Framework\nvitest\n';
+    const result = parseCommandsMd(content);
+    expect(result.suppressionPatterns).toBe('- widgets-lint: off');
+    expect(result.testFramework).toBe('vitest');
+  });
+
+  it('defaults suppressionPatterns to "" when the section is absent', () => {
+    const result = parseCommandsMd('## Run Tests\nbun run test\n');
+    expect(result.suppressionPatterns).toBe('');
+  });
+
+  it('defaults suppressionPatterns to "" when content is empty', () => {
+    expect(parseCommandsMd('').suppressionPatterns).toBe('');
+  });
+
+  it('is "" in getDefaultCommandsConfig', () => {
+    expect(getDefaultCommandsConfig().suppressionPatterns).toBe('');
+  });
+});
