@@ -11,8 +11,8 @@ Issue #988 made type check, additional type checks, lint and build deterministic
 1. **Fix-round guard** (pure). It takes the unified diff of one fix round and the guard configuration, and returns `accepted`, or `rejected` with reasons. It rejects a round that:
    - adds a suppression comment: a pattern from a framework table keyed by language, plus the repository's own additions from a new `## Suppression Patterns` section of `.adw/commands.md`. Additions can only add patterns; an entry that tries to remove one is ignored. The language comes from the stack descriptors that `.adw/` already holds (`## Test Framework`, `## Run Tests`, `## BDD Framework`, `## Run Scenarios by Tag`), through the same inference `stackCoherenceCheck` uses;
    - creates, edits or deletes a protected path: lint, compiler or build configuration, `.adw/commands.md`, or the ADW-owned Playwright configuration in `features/`.
-2. **Static-check fix loop**: check runner → fix agent → guard → check runner, with no cap. Progress means the check runner's combined output changed between rounds. Identical output, or a rejected round, is no progress and ends the loop. A rejected round is reverted before the loop ends. When the loop stalls, the workflow parks as `human_gated` with a park comment. `## Retry` re-arms it to `phase_timeout`, and the resumed orchestrator re-runs the unit-test phase, which re-runs the checks and continues the loop.
-3. **Park comment builder** (pure). One function turns a park reason and its evidence into the comment text: what failed, a base-branch note where one applies, and what `## Retry` and `## Continue` each do for that park. It supports all five reasons of the PRD; only `fix_loop_stalled` is wired here.
+2. **Static-check fix loop**: check runner → fix agent → guard → check runner, with no cap. A round is one run of the fix agent, handed every failing check; the round's diff is what that run changed. Progress means the check runner's combined output changed between rounds. Identical output, or a rejected round, is no progress and ends the loop. A rejected round is reverted before the loop ends. When the loop stalls, the workflow parks as `human_gated` with a park comment. `## Retry` re-arms it to `phase_timeout`, and the resumed orchestrator re-runs the unit-test phase, which re-runs the checks and continues the loop.
+3. **Park comment builder** (pure). One function turns a park reason and its evidence into the comment text: what failed (each failing check or scenario by name, with a bounded excerpt of its output where the evidence carries one), a base-branch note where one applies, and what `## Retry` and `## Continue` each do for that park. It supports all five reasons of the PRD; only `fix_loop_stalled` is wired here.
 
 The fix prompt (`.claude/commands/resolve_failed_test.md`, the prompt that fixed static-check failures before #988 and that the loop's fix agent uses again) gains the rule that suppression is forbidden. The unit-test and scenario fix loops keep their caps and their code is not touched.
 
@@ -47,9 +47,9 @@ So that lint, type and build failures are fixed rather than abandoned after a fi
   - There is no round limit anywhere.
 - **Real fix-round port (`adws/phases/staticCheckFixRound.ts`).** `buildStaticCheckFixRoundPort(config, deps?)` uses only typed `GitContext` methods, so the git/gh guard stays green:
   - `fix`:
-    - records the round base (`headShort`);
+    - records the round base (`headShort(worktreePath)`);
     - publishes it (`pushBranch`), so the remote branch always equals the last kept state;
-    - runs `runResolveTestAgent` (`/resolve_failed_test`) once per failing check, with a `TestResult` built from the verdict, its output capped at `MAX_FIX_PROMPT_OUTPUT_CHARS`;
+    - runs `runResolveTestAgent` (`/resolve_failed_test`) once per round, with one `TestResult` that hands the agent every failing check of the round (name, command, exit code and output, each output capped at `MAX_FIX_PROMPT_OUTPUT_CHARS`), so the round's diff is what that one run changed;
     - commits everything the round changed (`commitChanges`, so new untracked files are inside the diff too);
     - returns `diff('--no-renames <base> HEAD')`.
     - If the agent throws (rate limit, timeout, auth), the partial round is discarded before the error is rethrown.
@@ -58,9 +58,9 @@ So that lint, type and build failures are fixed rather than abandoned after a fi
 - **Park comment builder (`adws/forge/parkComment.ts`, pure).**
   - `ParkReason` enum with the five PRD values. `ParkEvidence` is a discriminated union by reason.
   - `parkDirectives(evidence)` returns `{ retry, continue }`.
-  - `buildParkComment(adwId, evidence)` builds `## :raised_hand: ADW Parked — <title>`, what failed (check names, commands and exit codes; never raw output, as in #988's error comment), the base-branch note for `baseline_red`, `pre_existing_regression` and `base_server_down`, the two directive lines, the ADW ID line and `ADW_SIGNATURE`.
+  - `buildParkComment(adwId, evidence)` builds `## :raised_hand: ADW Parked — <title>`, what failed (check names, commands and exit codes, each with its output quoted as an excerpt cut at `MAX_PARK_OUTPUT_CHARS`; the server's output for `base_server_down`), the base-branch note for `baseline_red`, `pre_existing_regression` and `base_server_down`, the two directive lines, the ADW ID line and `ADW_SIGNATURE`. The full output stays in the execution log. #988's error comment, which carries names and exit codes only, is unchanged.
   - The heading is deliberately absent from `STAGE_HEADER_MAP`, so recovery never reads a park as a lifecycle stage.
-  - The comment never contains a line that on its own reads `## Retry`, `## Continue` or `## Cancel`, so ADW cannot trigger its own directives.
+  - The comment never contains a line that on its own reads `## Retry`, `## Continue` or `## Cancel`, so ADW cannot trigger its own directives. Quoted output is indented line by line, so not even a quoted line can.
 - **Park handler (`adws/phases/workflowPark.ts`).** `parkWorkflow(config, evidence): never`. It logs, appends to the execution log, writes the top-level `workflowStage: 'human_gated'`, posts the park comment (non-fatal on failure), and calls `process.exit(0)`. This is the same family as `handlePhaseTimeout`. The later baseline issues reuse it.
 - **Static-check gate (`adws/phases/staticCheckGate.ts`).** Move `runStaticCheckGate`, `logCheckVerdict` and `describeFailedCheck` out of `unitTestPhase.ts` into this module.
   - A green first run returns at once.
@@ -115,14 +115,15 @@ Use these files to implement the feature:
 - `templates/claude-settings-starter.json`, `.claude/settings.json` — Only force pushes are denied to agents. That is why `discard` verifies HEAD after resetting.
 - `adws/core/__tests__/checkRunner.test.ts`, `adws/core/__tests__/stackCoherenceCheck.test.ts`, `adws/core/__tests__/projectConfigCommands.test.ts`, `adws/core/__tests__/topLevelState.test.ts` — Test files to extend, and the precedent for unique adwIds plus cleanup of `agents/<adwId>`.
 - `adws/triggers/__tests__/retryHandler.test.ts` — Existing coverage of `## Retry` on `human_gated`.
-- `features/per-issue/feature-988.feature`, `features/per-issue/step_definitions/feature-988-*.ts`, `features/per-issue/step_definitions/feature-929-workflow.ts`, `features/per-issue/step_definitions/feature-929-compacting-cli.ts`, `features/per-issue/step_definitions/feature-796.steps.ts` — Harness prior art for the `@adw-989` step definitions: the commands-file writer, the recording process runner, `createWorkflow` (a throwaway git worktree with no `origin`), the throwaway Claude CLI, the recording providers and `commentsOn`.
+- `features/per-issue/feature-988.feature` — Two of its scenarios (issues 9882 and 9884) were rewritten for the fix loop and also tagged `@adw-989`: a red lint or build goes to the static-check fix agent and never to the test agent, a round that changes nothing parks the workflow as `human_gated`, and the park comment names the failing check. They belong to this issue's scenario set (task 16). Do not edit the file further.
+- `features/per-issue/step_definitions/feature-988-*.ts`, `features/per-issue/step_definitions/feature-929-workflow.ts`, `features/per-issue/step_definitions/feature-929-compacting-cli.ts`, `features/per-issue/step_definitions/feature-796.steps.ts` — The harness the `@adw-989` step definitions reuse: #988's shared phase steps, hooks, state, commands-file writer and recording process runner; `createWorkflow` (a throwaway git worktree with no `origin`) and `commitFile`; the throwaway Claude CLI; the recording providers and `commentsOn`.
 - `features/regression/support/phaseConfig.ts`, `test/fixtures/cli-tool/.adw/commands.md` — The in-process regression harness runs the real unit-test phase over a fixture whose checks are green. That is why the gate builds the guard and the git port only when a check is red. Read-only.
 - `app_docs/feature-9gjajh-test-and-scenario-phases.md` — Conditional doc that owns `unitTestPhase.ts` and `checkRunner.ts` (static-check gate condition).
 - `app_docs/feature-9gjajh-state-and-config.md` — Conditional doc that owns `projectConfig.ts` and `adws/core/index.ts`.
 - `app_docs/feature-9gjajh-commands-and-skills.md` — Conditional doc that owns `.claude/commands/adw_init.md` and the command prompts.
 - `app_docs/feature-9gjajh-scenario-and-stepdef-agents.md` — Conditional doc that owns `testAgent.ts`/`testRetry.ts` (the resolve agent).
 - `app_docs/feature-9gjajh-github-api.md` — Conditional doc that owns `adws/forge/**` (comment formatting).
-- `features/per-issue/feature-989.feature` — This issue's `@adw-989` scenarios, written by the scenario agent. Not present while this plan was written. Implement its step definitions (task 16) and do not edit the feature file.
+- `features/per-issue/feature-989.feature` — This issue's `@adw-989` scenarios: the guard, the loop through the real unit-test phase, `## Retry`, the unit-test loop's cap, and the park comment for every reason. Implement its step definitions together with those of the two `@adw-989` scenarios of `feature-988.feature` (task 16), and do not edit either feature file.
 
 ### New Files
 - `adws/core/unifiedDiff.ts` — Pure unified-diff parser (`parseUnifiedDiff`, `DiffFile`, `touchedPaths`).
@@ -153,13 +154,13 @@ Small, pure building blocks, each test-first:
 - The guard table and the guard (config merge, removal attempts ignored, per-file net counting of suppression patterns, protected paths).
 - The park comment builder for all five reasons.
 - The fix loop core over injected ports, with no cap.
-- The real fix-round port (resolve agent, commit, diff, push/keep, reset/discard with fail-closed verification, discard on interruption).
+- The real fix-round port (one resolve-agent run per round, commit, diff, push/keep, reset/discard with fail-closed verification, discard on interruption).
 - The park handler (`human_gated`, comment, `process.exit(0)`).
 
 ### Phase 3: Integration
 - Move the static-check gate into `staticCheckGate.ts`, wire the loop and the park, and thread `fixRounds` and the gate cost through `executeUnitTestPhase`. Rewrite the superseded phase tests, including a resume-after-`## Retry` case.
 - Add the no-suppression rule to the fix prompt. Make `adw_init` preserve `## Suppression Patterns`.
-- Add step definitions for `@adw-989`.
+- Add step definitions for the `@adw-989` scenarios of `feature-989.feature` and `feature-988.feature`.
 - Rewrite ADR-0059's `### Confirmation`, update ADR-0058's interim bullet, update the README.
 - Run all validation commands, including `@adw-989` and `@regression`.
 
@@ -181,8 +182,9 @@ Execute every step in order, top to bottom.
   - `godog`/`go test` → `{go}`;
   - `cargo test` → `{rust}` (not go);
   - `rspec` → `{ruby}`;
+  - `cucumber-rs` → `{rust}`, `cucumber-ruby` → `{ruby}`;
   - a mixed pytest + cucumber-js stack → `{python, javascript}`;
-  - all empty → empty set.
+  - an unknown stack (`ExUnit`, `cabbage`) and all empty → empty set.
 - In `adws/core/stackCoherenceCheck.ts`:
   - `export type StackLanguage`;
   - add `export function inferStackLanguages(input: StackCoherenceInput): ReadonlySet<StackLanguage>` over the same four signals, reusing the private `inferLanguage`;
@@ -225,10 +227,10 @@ Execute every step in order, top to bottom.
 - Create `adws/core/__tests__/fixRoundGuard.test.ts`. Build diffs with a small local helper (`addedLinesDiff(path, lines)`, `editedLineDiff(path, before, after)`, `touchedFileDiff(path, kind: 'added' | 'modified' | 'deleted')`). Cases:
   - **Every framework pattern per language**: `describe.each(Object.entries(FRAMEWORK_SUPPRESSION_PATTERNS))`, then for every entry, a config for that language alone plus a diff adding `entry.example` to `src/sample.txt`. Expect rejection with a `suppression` reason naming `src/sample.txt` and `entry.pattern` (source `framework`, that language).
   - **Language keying**: a `javascript` line (`// eslint-disable-next-line no-console`) under a `python`-only config is accepted, and a `python` line (`x = 1  # noqa: E501`) under a `javascript`-only config is accepted.
-  - **Net counting**: removing a suppression line is accepted. Editing a line in place that keeps its existing `// eslint-disable-line` (one removed, one added) is accepted. Adding a second suppression to a file that keeps its first is rejected.
+  - **Net counting**: removing a suppression line is accepted. Editing a line in place that keeps its existing `// eslint-disable-line` (one removed, one added) is accepted. Adding a second suppression to a file that keeps its first is rejected. A suppression that the diff shows only as a context line is not counted.
   - **Normalisation**: `#  TYPE:  ignore` and `// ESLINT-disable` are caught (case- and whitespace-insensitive).
   - **Repository additions honoured**: `buildFixRoundGuardConfig(['javascript'], '- `@acme-lint off`')` rejects a diff adding `// @acme-lint off`, with source `repository`. An addition with no detected language is still honoured.
-  - **Removal attempts have no effect**: `buildFixRoundGuardConfig(['javascript'], '- !eslint-disable')` still rejects `// eslint-disable-next-line`, and `ignoredAdditions` equals `['!eslint-disable']`. An addition equal to a framework pattern does not duplicate it.
+  - **Removal attempts have no effect**: `buildFixRoundGuardConfig(['javascript'], '- !eslint-disable')` still rejects `// eslint-disable-next-line`, and `ignoredAdditions` equals `['!eslint-disable']`. An addition equal to a framework pattern does not duplicate it. Entries that word a removal differently (`- -@ts-ignore`, `- allow: @ts-ignore`) are read as additions and leave `@ts-ignore` a framework pattern: a diff adding `// @ts-ignore` is still rejected with source `framework`.
   - **`parseSuppressionPatternAdditions`**: bullets (`-`, `*`, `+`), backticks, blank lines, HTML comments, a fenced-code marker line, and `N/A` (no additions) are handled. `!`-prefixed entries land in `ignored`.
   - **Every protected path**: for every rule in `PROTECTED_PATH_RULES`, its `example` is rejected when created, modified and deleted, with the rule's `category`. For basename-scoped rules, `packages/nested/<example basename>` is also rejected. `test/fixtures/x/.adw/commands.md` is NOT protected (repo-path scope), and `features/per-issue/feature-1.feature` is not protected.
   - **Clean diff passes**: an edit to `src/a.ts` with ordinary code is accepted, and an empty diff is accepted.
@@ -257,7 +259,7 @@ Execute every step in order, top to bottom.
   - `export interface FixRoundGuardConfig { readonly suppressionPatterns: readonly GuardPattern[]; readonly protectedPaths: readonly ProtectedPathRule[]; readonly ignoredAdditions: readonly string[] }`
   - `export function parseSuppressionPatternAdditions(section: string): { readonly added: readonly string[]; readonly ignored: readonly string[] }`:
     - strip HTML comments;
-    - per line: trim; skip blank lines and fence markers; strip one leading list marker (`-`, `*`, `+`) and surrounding backticks;
+    - per line: trim; skip blank lines and fence markers; strip one leading list marker (`-`, `*` or `+`, followed by whitespace) and surrounding backticks;
     - `N/A` → none;
     - a `!` prefix → `ignored`;
     - otherwise → `added`.
@@ -286,35 +288,36 @@ Execute every step in order, top to bottom.
 - Create `adws/forge/__tests__/parkComment.test.ts` with one sample evidence per reason. Cases:
   - **every reason**: the comment starts with `## :raised_hand: ADW Parked — `, carries `` **ADW ID:** `<adwId>` `` and ends with `ADW_SIGNATURE`;
   - **what failed**:
-    - `baseline_red` and `fix_loop_stalled` list each failing check as `` `<check>` — `<command>` (exit <code|none>) ``;
+    - `baseline_red` and `fix_loop_stalled` list each failing check as `` `<check>` — `<command>` (exit <code|none>) ``, followed by its output quoted as an indented block;
     - `pre_existing_regression` names the scenario;
-    - `base_server_down` names the start command;
-    - `missing_application_type` names what was found (or "no `## Application Type` section") and says to re-run `adw_init`;
+    - `base_server_down` says the dev server did not start and quotes the server's output;
+    - `missing_application_type` names the `## Application Type` section and the value found there (or says the section is missing), and says to re-run `adw_init`;
   - **base-branch note**: present and naming the base branch for `baseline_red`, `pre_existing_regression` and `base_server_down`; absent for `fix_loop_stalled` and `missing_application_type`;
   - **both directives**: for every reason, the comment contains `` `## Retry` — `` followed by `parkDirectives(evidence).retry`, and `` `## Continue` — `` followed by `parkDirectives(evidence).continue`. Assert the reason-specific meanings:
-    - `baseline_red`/`base_server_down`: Retry re-runs the baseline and parks again if it is still red; Continue waives the baseline and this run fixes everything;
-    - `pre_existing_regression`: Retry re-runs the scenario on the base branch; Continue waives it;
-    - `fix_loop_stalled`: Retry re-runs the static checks and continues the fix loop, parking again on no progress; Continue waives nothing and points to `## Retry`;
+    - `baseline_red`/`base_server_down`: Retry re-runs the baseline and parks the issue again if it is still red; Continue waives the baseline, so this run fixes the pre-existing failures too;
+    - `pre_existing_regression`: Retry re-runs the scenario on the base branch and parks again if it still fails there; Continue waives it, so this run fixes the pre-existing failure too;
+    - `fix_loop_stalled`: Retry re-runs the static checks and continues the static-check fix loop, parking again on no progress; Continue waives nothing and points to `## Retry`;
     - `missing_application_type`: Retry re-reads `## Application Type` after `adw_init` has been re-run; Continue waives nothing, because ADW never assumes a type;
   - **`fix_loop_stalled` variants**:
     - `identical_output` says the checks produced the same output as the round before and gives the round count;
-    - `rejected_round` says the round was rejected and reverted, lists every rejection line, and says that counts as no progress;
+    - `rejected_round` says the fix-round guard rejected the round's change and that it was reverted, lists every rejection line (each names its file), and says that counts as no progress;
   - **safety**: for every reason, `parseWorkflowStageFromComment(comment) === null` (never read as a lifecycle stage), and `extractAdwIdFromComment(comment) === adwId` (so `## Retry` finds the workflow). No line matches `RETRY_COMMENT_PATTERN`, `ACTIONABLE_COMMENT_PATTERN` or `CANCEL_COMMENT_PATTERN`, so ADW never triggers its own directives;
-  - **no raw output**: a check output passed in as part of a sample never appears (the evidence type carries no output at all).
+  - **bounded, directive-safe quoting**: each failing check's output, and the server's output for `base_server_down`, appears in the comment. An output longer than `MAX_PARK_OUTPUT_CHARS` is cut to that length plus a marker saying the full output is in the run's execution log. Every quoted line is indented, so a sample output holding a line `## Retry`, `## Continue` or `## Cancel` still leaves no line matching the directive patterns.
 - Create `adws/forge/parkComment.ts`:
   - `export enum ParkReason { BaselineRed = 'baseline_red', PreExistingRegression = 'pre_existing_regression', FixLoopStalled = 'fix_loop_stalled', MissingApplicationType = 'missing_application_type', BaseServerDown = 'base_server_down' }`
-  - `export interface ParkedCheck { readonly check: string; readonly command: string; readonly exitCode: number | null }`
+  - `export interface ParkedCheck { readonly check: string; readonly command: string; readonly exitCode: number | null; readonly output: string }`
   - `export type ParkEvidence` (discriminated by `reason`):
     - `BaselineRed { baseBranch; failedChecks }`
     - `PreExistingRegression { baseBranch; scenario }`
     - `FixLoopStalled { failedChecks; stall: FixLoopStall; rounds: number; rejections: readonly string[] }` (`FixLoopStall` from task 7, imported as a type-only enum from `../core/staticCheckFixLoop`; or define the stall union here if import order makes that simpler)
     - `MissingApplicationType { found: string | null }`
-    - `BaseServerDown { baseBranch; command }`
+    - `BaseServerDown { baseBranch; output }`
   - `export interface ParkDirectives { readonly retry: string; readonly continue: string }`
   - `export function parkDirectives(evidence: ParkEvidence): ParkDirectives` — an exhaustive `switch` with a `never` default, like `classifyStage`.
+  - `export const MAX_PARK_OUTPUT_CHARS = 2_000` (per quoted output; keeps a park comment with four failing checks far below GitHub's comment size limit).
   - `export function buildParkComment(adwId: string, evidence: ParkEvidence): string`:
     - a title per reason;
-    - `describeFailure(evidence)`;
+    - `describeFailure(evidence)`, quoting every output through one helper that cuts it at `MAX_PARK_OUTPUT_CHARS` and indents each line;
     - an optional base-branch note;
     - a line saying the workflow is parked as `human_gated` and that each check's full output is in the run's execution log (for check-based reasons);
     - the two directive bullets, each written inline as `` - `## Retry` — … `` so that no line reads as a bare directive;
@@ -338,7 +341,7 @@ Execute every step in order, top to bottom.
   - **no cap**: twelve rounds, each changing the output, then green. Result `green` with `rounds: 12`. Twelve is above `MAX_TEST_RETRY_ATTEMPTS`; no hidden limit.
   - **only the failing checks reach the fix agent**: passed and skipped verdicts are not passed to `fix`.
   - **cost**: `costUsd` and `modelUsage` are summed over rounds, on green and on stalled.
-  - **resume on `## Retry`**: a first run stalls on identical output. A second `runStaticCheckFixLoop` call (what the resumed orchestrator runs after `## Retry`) starts from a fresh check run and, as the scripted checks now change, continues to green. This documents that the loop keeps no state between runs.
+  - **resume on `## Retry`**: a first run stalls on identical output. A second `runStaticCheckFixLoop` call (what the resumed orchestrator runs after `## Retry`) starts from a fresh check run whose output is identical to the output the first run stalled on, and still starts a round (`fix` is called), because the loop keeps no state between runs. After that round the scripted checks turn green.
   - **errors propagate**: a `fix` that throws (e.g. a `RateLimitError`) rejects the loop with that same error.
   - **report**: the optional `report` callback receives `checks_ran`, `round_kept` and `round_rejected` events in order.
 - Create `adws/core/staticCheckFixLoop.ts`:
@@ -360,16 +363,16 @@ Execute every step in order, top to bottom.
 
 ### 8. Write the real fix-round port (test first)
 - Create `adws/phases/__tests__/staticCheckFixRound.test.ts`. Inject a fake `git` (records calls; `headShort` returns scripted values; `commitChanges` returns `true`/`false`; `diff` returns a scripted diff) and a fake `runResolveTestAgent` (records each `TestResult`, returns `{ success: true, output: '', totalCostUsd: 0.5, modelUsage: {…} }`). Config: a minimal `WorkflowConfig` cast (`issueNumber`, `adwId`, `issue.body`, `issueType`, `worktreePath`, `branchName`, `logsDir`, a temp-dir `orchestratorStatePath`). Cases:
-  - **`fix` order**: `headShort` → `pushBranch(branchName, worktreePath)` → the agent once per failed verdict, in check order → `commitChanges(<round message>, worktreePath)` → `diff('--no-renames <base> HEAD', worktreePath)`. It returns that diff and the summed cost and model usage.
-  - **the agent input**: `test_name` is the check slug (`type-check`, `additional-type-checks`, `lint`, `build`), `execution_command` is the verdict's command, `passed: false`, `test_purpose` names the check and says it passes on exit 0, and `error` is the output.
+  - **`fix` order**: `headShort(worktreePath)` → `pushBranch(branchName, worktreePath)` → the agent once for the round, handed every failed verdict in check order → `commitChanges(<round message>, worktreePath)` → `diff('--no-renames <base> HEAD', worktreePath)`. It returns that diff and the agent's cost and model usage. Two failing checks in one round still mean one agent call.
+  - **the agent input**: one `TestResult` per round. `test_name` is `static-checks-round-<n>`, `execution_command` lists each failing check's command, one per line, `passed: false`, `test_purpose` names the failing checks and says each passes on exit 0, and `error` holds one section per failing check, in check order, with its name, command, exit code and output.
   - **output cap**: an output longer than `MAX_FIX_PROMPT_OUTPUT_CHARS` is cut to that length plus a marker line telling the agent to run the command for the rest. A shorter output passes unchanged.
   - **commit message**: starts with `buildCommitPrefix('static-check-fix-agent', issueType)` and names the round and the failing checks.
   - **interrupted round**: an agent that throws → `fetchAndResetToRemote(branchName, worktreePath)` is called, then the original error is rethrown. A failing reset during that cleanup is logged and does not mask the original error.
   - **`keep`** → `pushBranch(branchName, worktreePath)`.
-  - **`discard`** → `fetchAndResetToRemote(branchName, worktreePath)`, then `headShort()` is compared with the round's base. If they differ (the agent pushed its own commit), it throws an error naming the branch and both commits.
+  - **`discard`** → `fetchAndResetToRemote(branchName, worktreePath)`, then `headShort(worktreePath)` is compared with the round's base. If they differ (the agent pushed its own commit), it throws an error naming the branch and both commits.
 - Create `adws/phases/staticCheckFixRound.ts`:
   - `export const MAX_FIX_PROMPT_OUTPUT_CHARS = 20_000` (keeps four checks' outputs well under Linux's 128 KiB single-argument limit).
-  - `export function toStaticCheckFailure(verdict: CheckVerdict): TestResult`.
+  - `export function toStaticCheckFailure(failed: readonly CheckVerdict[], round: number): TestResult` — the one input of a round's agent run.
   - `export interface StaticCheckFixRoundDeps { readonly git: Pick<GitContext, 'headShort' | 'pushBranch' | 'commitChanges' | 'diff' | 'fetchAndResetToRemote'>; readonly runResolveTestAgent: typeof runResolveTestAgent }`
   - `export function buildStaticCheckFixRoundPort(config: WorkflowConfig, deps: Partial<StaticCheckFixRoundDeps> = {}): FixRoundPort`:
     - default `git` = `requireWorkflowGitContext(config)`, resolved inside the function;
@@ -416,9 +419,9 @@ Execute every step in order, top to bottom.
 
   Replace the old red-check cases with these, run for both `unitTests: true` and `false`:
   - **a red check the loop fixes**: lint red then green after round 1 → the phase completes; `fix` was given the lint verdict; the test run starts only after the checks are green (`unitTests: true`); the phase cost includes the round's cost.
-  - **a stalled loop parks**: lint red with identical output after round 1 → `process.exit(0)`; the top-level state is `human_gated`; one comment on the issue headed `ADW Parked`, naming `lint` and its command and containing `` `## Retry` ``; `execution.log` holds the lint output; the test run never starts; `ctx.errorMessage` is not set; no `ADW Workflow Error` comment.
+  - **a stalled loop parks**: lint red with identical output after round 1 → `process.exit(0)`; the top-level state is `human_gated`; one comment on the issue headed `ADW Parked`, naming `lint` and its command, quoting the lint's output and containing `` `## Retry` ``; `execution.log` holds the lint output; the test run never starts; `ctx.errorMessage` is not set; no `ADW Workflow Error` comment.
   - **a rejected round parks**: the fake port returns a diff that adds `// @ts-ignore` → `discard` called, the comment lists the rejection, and the phase parks.
-  - **resume on `## Retry`**: park as above; assert `decideRetryAction(readTopLevelState(adwId).workflowStage)` is `rearm_phase_timeout`; then re-enter `executeUnitTestPhase` with the same fakes, now scripted to change output and turn green. The phase completes, as the resumed orchestrator's re-run does.
+  - **resume on `## Retry`**: park as above; assert `decideRetryAction(readTopLevelState(adwId).workflowStage)` is `rearm_phase_timeout`; then re-enter `executeUnitTestPhase` with the same fakes. Its first check run prints exactly what it printed when the loop stalled, and a new round still starts; after that round the checks turn green and the phase completes, as the resumed orchestrator's re-run does.
   - **guard configuration from the repository**: with `commands.suppressionPatterns = '- `@acme-off`'`, a round adding `// @acme-off` is rejected.
 - Create `adws/phases/staticCheckGate.ts`:
   - move `describeFailedCheck`, `logCheckVerdict` and the gate from `unitTestPhase.ts`, with their log lines unchanged;
@@ -435,7 +438,7 @@ Execute every step in order, top to bottom.
     - get the port lazily (`deps.fixRounds ?? buildStaticCheckFixRoundPort(config)`);
     - call `runStaticCheckFixLoop` with a `report` that logs the events: round start with the failing checks, every guard rejection via `describeGuardRejection`, kept rounds, and each later check run, with full output for failed checks;
     - green → log `Static checks green after N fix round(s)` and return the cost;
-    - stalled → `parkWorkflow(config, { reason: ParkReason.FixLoopStalled, failedChecks: failed.map(v => ({ check: v.check, command: v.command, exitCode: v.exitCode })), stall, rounds, rejections: rejections.map(describeGuardRejection) })`.
+    - stalled → `parkWorkflow(config, { reason: ParkReason.FixLoopStalled, failedChecks: failed.map(v => ({ check: v.check, command: v.command, exitCode: v.exitCode, output: v.output })), stall, rounds, rejections: rejections.map(describeGuardRejection) })`.
   - Avoid running the first check run twice: either let the loop own the first run (the gate checks the loop's `rounds === 0` green result), or hand the first verdicts to the loop. Choose one, keep it simple, and keep the "four checks ran" assertions of the existing tests true.
   - Import `checkRunner`, the guard, the loop and the stack inference directly from their module files, not from the `'../core'` barrel (several tests mock `../core` wholesale; #988 did the same).
 - In `adws/phases/unitTestPhase.ts`:
@@ -452,7 +455,7 @@ Execute every step in order, top to bottom.
 
 ### 12. Add the no-suppression rule to the fix prompt
 - In `.claude/commands/resolve_failed_test.md`:
-  - **Step 1** (Analyze): add that for a static check (type check, lint, build), `test_name` names the check, `execution_command` is its command from `.adw/commands.md`, and `error` holds its output, cut short when long; run the command to see all of it.
+  - **Step 1** (Analyze): add that a static-check round hands over every failing static check (type check, additional type checks, lint, build) at once: `execution_command` holds each failing check's command from `.adw/commands.md`, one per line, and `error` holds one section per failing check with its output, cut short when long. Run each command to see all of it, and fix every listed check.
   - **Step 4** (Fix the Issue): add a **Never silence a failure** rule. Fix the cause in the code, and do not:
     - add a comment that suppresses a check: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `biome-ignore`, `# noqa`, `# type: ignore`, `# pylint: disable`, `//nolint`, `#[allow(…)]`, `# rubocop:disable`, or the equivalent for any other tool;
     - edit lint, compiler or build configuration (`eslint.config.*`, `.eslintrc*`, `tsconfig*.json`, `package.json`, `pyproject.toml`, `setup.cfg`, `.golangci.*`, `Cargo.toml` and the like), `.adw/commands.md`, or the Playwright configuration in `features/`;
@@ -478,7 +481,7 @@ Execute every step in order, top to bottom.
     - no cap; no progress means `combinedCheckOutput` identical to the previous run, or a rejected round, which `adws/phases/staticCheckFixRound.ts` reverts by resetting to the round base on the remote, failing closed if it cannot.
     - Unit tests: `adws/core/__tests__/staticCheckFixLoop.test.ts` (fake check runner and fake fix agent with scripted diffs: identical output stops, rejected round is no progress, changed output continues, resume after `## Retry`) and `adws/phases/__tests__/staticCheckFixRound.test.ts`.
   - `adws/phases/staticCheckGate.ts` runs the loop in `executeUnitTestPhase`:
-    - a stalled loop parks the workflow as `human_gated` through `adws/phases/workflowPark.ts`, with the `fix_loop_stalled` comment of `adws/forge/parkComment.ts`, which names the failing checks and says what `## Retry` and `## Continue` do;
+    - a stalled loop parks the workflow as `human_gated` through `adws/phases/workflowPark.ts`, with the `fix_loop_stalled` comment of `adws/forge/parkComment.ts`, which names the failing checks, quotes their output and says what `## Retry` and `## Continue` do;
     - `## Retry` re-arms it to `phase_timeout` (`decideRetryAction`), and the resumed orchestrator re-runs the unit-test phase and the loop.
     - Unit tests: `adws/phases/__tests__/unitTestPhase.test.ts`, `adws/phases/__tests__/workflowPark.test.ts`, `adws/forge/__tests__/parkComment.test.ts`.
   - `.claude/commands/resolve_failed_test.md`, the fix prompt, forbids suppression: `grep -n "Never silence a failure" .claude/commands/resolve_failed_test.md` finds the rule.
@@ -502,19 +505,34 @@ Execute every step in order, top to bottom.
   - Change the `unitTestPhase.ts` description to "static-check gate with its fix loop (always), then the unit-test run (unless `unitTests: false`)".
 
 ### 16. Write the step definitions for `@adw-989`
-- If `features/per-issue/feature-989.feature` exists, write its step definitions in `features/per-issue/step_definitions/feature-989*.ts`:
-  - `Before`/`After` hooks tagged `@adw-989` that reset state and remove temp dirs and `agents/<adwId>`/`logs/<adwId>`;
-  - the Background step `the ADW codebase is checked out` comes from `features/regression/step_definitions/givenSteps.ts`; do not redefine it;
-  - reuse #988's commands-file helpers (`feature-988-commands.ts`) and recording process runner, #929's `createWorkflow` and throwaway CLI, and #796's recording providers and `commentsOn`.
-- Guidance by scenario kind:
-  - guard scenarios call `buildFixRoundGuardConfig` and `evaluateFixRound` directly on diffs built from the scenario's text;
-  - loop scenarios drive `runStaticCheckFixLoop`, or the real `executeUnitTestPhase`, with:
-    - a scripted fix-round port injected through the phase's `fixRounds` dependency (the #929 throwaway worktree has no `origin`, so the real port cannot push), or a local bare `origin` added to that worktree when a scenario needs the real port;
-    - real-shell check commands whose output changes per round (e.g. reading a counter file);
-  - park assertions read `AgentStateManager.readTopLevelState(adwId)` and `commentsOn(issueNumber)`;
-  - `## Retry` scenarios call `handleRetryDirective`/`decideRetryAction` with recording deps, then re-run the phase.
+- The `@adw-989` scenarios are all of `features/per-issue/feature-989.feature` plus the two re-tagged scenarios of `features/per-issue/feature-988.feature` (issues 9882 and 9884). Write their step definitions in `features/per-issue/step_definitions/feature-989*.ts`, with helpers split into `feature-989-*.ts` modules to stay under 300 lines. Do not edit either feature file.
+- Reuse, never redefine (Cucumber fails on an ambiguous step):
+  - the Background step `the ADW codebase is checked out` from `features/regression/step_definitions/givenSteps.ts`;
+  - #988's phase steps in `feature-988-phase.steps.ts`: `a workflow for issue {int} whose worktree's {string} configures these static checks, in this order:`, `the worktree's {string} holds:`, `the test agent writes a JUnit report in which every unit test passes`, `the workflow's unit-test phase runs`, `the unit-test phase completed`, `the unit-test phase ended the workflow with exit code {int}`, `the workflow's execution log holds {string}` and `the unit-test phase posted a comment headed {string} on issue {int}`;
+  - #988's commands-file helpers, recording process runner and shared state `s`; #929's `createWorkflow`, `commitFile`, throwaway CLI (`failingTestRuns` drives the unit-test cap scenario) and `commentsOn`; #796's recording providers. Export what the `@adw-989` steps need from #988's step files (e.g. the phase runner that traps `process.exit`) instead of copying it.
+- Hooks: #988's `Before`/`After` hooks are tagged `@adw-988`, so they do not run for `feature-989.feature`. The `@adw-989` hooks must also reset and clean up the shared state (reset `s` and `world796`, restore the throwaway CLI and `ADW_UNIT_TEST_REPORT_PATH`, remove the temp dirs and `agents/<adwId>`/`logs/<adwId>`), and must be idempotent, because the two re-tagged scenarios carry both tags and run both hook sets.
+- The fix-round port of the phase scenarios:
+  - extend the shared step `the workflow's unit-test phase runs` minimally so it passes `fixRounds` when an `@adw-989` step prepared one (a field of the shared state, unset by default, so the `@adw-988`-only scenarios run exactly as before);
+  - prepare the real `buildStaticCheckFixRoundPort(workflow.config, { runResolveTestAgent: scriptedAgent })`, so the real commit, diff, push and discard run. Scenarios 9895/9896 (the rejected change is not left in the worktree) and 9897 (a change committed before the round is not judged) depend on it;
+  - in the throwaway worktree, check out a branch named `config.branchName` and add a local bare repository as `origin`, so `pushBranch` and `fetchAndResetToRemote` work;
+  - commit the scenario's setup files (`.adw/commands.md`, `.github/adw.yml`, the `.adw/` stack descriptors) with `commitFile` before the phase runs. Otherwise the first round's `commitChanges` sweeps `.adw/commands.md` into the round, and the guard rejects it.
+- The scripted fix agent (`the static-check fix agent's rounds go as follows:`, `the static-check fix agent's rounds change nothing`): on its n-th call it records the `TestResult` it was handed and how many throwaway-CLI runs exist so far, applies round n's change to the worktree (`adds "<line>" to "<file>"`), and switches what each check with a column for that round prints afterwards. Keep that switch outside the worktree: before the setup commit, rewrite the check's command so it prints the content of, and exits with the code in, files in a temp directory that the agent rewrites. The switch is then never part of a round's diff. A check without a column keeps its output.
+- Counting and order:
+  - "the static-check fix agent was started N time(s)" counts the scripted agent's calls: one per round, however many checks fail;
+  - rounds are numbered by the agent's calls across the whole scenario, including across a park and a resume; the loop's own round counter starts again at 1 in a resumed run;
+  - "round N was handed the failing check X with the output Y" reads the section for X in the `TestResult` recorded for call N;
+  - "the test agent was not started" and "the test agent was started once, after the last static-check fix round" read the throwaway CLI's `/test` runs and compare them with the CLI-run counts the agent recorded;
+  - "the test agent was started as many times as the unit-test fix loop's cap allows" derives the count from `MAX_TEST_RETRY_ATTEMPTS` and what `runUnitTestsWithRetry` does when every run's report fails.
+- Park assertions: "parked as human_gated" reads `AgentStateManager.readTopLevelState(adwId).workflowStage`; "the unit-test phase did not complete" is the trapped `process.exit(0)`; the park comment is the comment headed `ADW Parked` in `commentsOn(issueNumber)` (`isHeaded`); "no park comment was posted" means there is none.
+- `## Retry` (issue 9898): the Given step runs the phase once and asserts the park. "`## Retry` is posted" calls `handleRetryDirective` (or `decideRetryAction` plus the top-level state write it implies) with recording deps. "The resumed workflow's unit-test phase runs" runs the phase again with the same port and agent script, so the lint's first output equals the one the loop stopped on. The fix-agent and CLI records span both runs.
+- Guard scenarios call `inferStackLanguages`, `buildFixRoundGuardConfig` and `evaluateFixRound` directly:
+  - build the `StackCoherenceInput` from the two named descriptors only, with `runTests` and `runScenariosByTag` empty, so no default command adds a language (the Elixir scenarios need an empty language set);
+  - "the repository's .adw/commands.md lists these entries as its own suppression patterns" becomes a `## Suppression Patterns` body with one `- <entry>` bullet per row;
+  - "adds the line …", "creates", "edits" and "deletes" become a modified-file diff with that added line, a new-file diff, a modified-file diff and a deleted-file diff; a doc-string diff is used as given;
+  - "rejects the fix round with a reason that names <path>" checks the `describeGuardRejection` lines.
+- Park-builder scenarios build `ParkEvidence` from the table and fill the fields the table leaves out (a check's command and exit code) with sample values. The directive assertions read `parkDirectives(evidence)` and find its lines in the comment. "ADW would take none of them … for a directive" checks `isRetryComment`, `isActionableComment` and `isCancelComment` on each comment.
 - Cucumber expressions treat `/` as alternation: use `{string}` for quoted paths or escape the slash.
-- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-989"` until green. Do not edit the feature file. If it is absent, skip this task.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-989"` and `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` until both are green.
 
 ### 17. Run the validation commands
 - Run every command in `Validation Commands` and fix any failure before finishing.
@@ -528,7 +546,7 @@ Execute every step in order, top to bottom.
 - `adws/core/__tests__/fixRoundGuard.test.ts`:
   - every framework pattern per language, by iterating `FRAMEWORK_SUPPRESSION_PATTERNS` and each entry's `example`;
   - language keying; net counting (removed, edited in place, added); case and whitespace insensitivity;
-  - repository additions honoured; `!` removal attempts ignored and reported; duplicates not doubled;
+  - repository additions honoured; `!` removal attempts ignored and reported; removals worded as `-@ts-ignore` or `allow: @ts-ignore` read as additions; duplicates not doubled;
   - `parseSuppressionPatternAdditions` formats;
   - every protected path, by iterating `PROTECTED_PATH_RULES` and their `example`s: created, modified, deleted, nested for basename rules; repo-path rules exact;
   - clean and empty diffs pass; several reasons together; `describeGuardRejection`.
@@ -536,9 +554,9 @@ Execute every step in order, top to bottom.
   - green first; changed output continues; stop on identical output;
   - rejected round is no progress (discarded, not kept, no check re-run);
   - no cap (12 rounds); only failing checks reach the agent;
-  - cost summed; resume on `## Retry` (a fresh run continues); errors propagate; report events.
+  - cost summed; resume on `## Retry` (a fresh run starts a round although its first output equals the stalled output); errors propagate; report events.
 - `adws/phases/__tests__/staticCheckFixRound.test.ts` (fake git, fake agent):
-  - order of operations; `TestResult` mapping; output cap; commit message;
+  - order of operations, with one agent run per round handed every failing check; `TestResult` mapping; output cap; commit message;
   - interrupted round discarded and error rethrown;
   - keep pushes; discard resets and fails closed when HEAD is not the base.
 - `adws/phases/__tests__/workflowPark.test.ts`:
@@ -548,12 +566,12 @@ Execute every step in order, top to bottom.
 - `adws/forge/__tests__/parkComment.test.ts`:
   - every reason: heading, failure description, base-branch note where applicable, both directive meanings, ADW ID, signature;
   - `fix_loop_stalled` identical-output and rejected-round variants;
-  - never a lifecycle stage; adwId extractable; no bare directive line; no raw output.
+  - never a lifecycle stage; adwId extractable; no bare directive line, even when a quoted output holds one; outputs quoted and cut at `MAX_PARK_OUTPUT_CHARS`.
 - `adws/phases/__tests__/unitTestPhase.test.ts` (rewritten red-check cases):
   - loop fixes → phase completes and tests run after;
-  - stalled → park (`human_gated`, comment, exit 0, no test run, no error comment);
+  - stalled → park (`human_gated`, comment quoting the output, exit 0, no test run, no error comment);
   - rejected round → park with reasons;
-  - resume after `## Retry` → continues to green;
+  - resume after `## Retry` → a new round starts on the unchanged output and continues to green;
   - repository addition applied; `unitTests: false` still gates.
   - The hard-failed unit-test run still exits 1.
 - `adws/core/__tests__/checkRunner.test.ts` (`combinedCheckOutput`), `adws/core/__tests__/stackCoherenceCheck.test.ts` (`inferStackLanguages`), `adws/core/__tests__/projectConfigCommands.test.ts` (`## Suppression Patterns`).
@@ -567,7 +585,9 @@ Execute every step in order, top to bottom.
 - **Rate limit, timeout or auth expiry during a round**: the port discards the partial round, then rethrows. `runPhase` waits and re-runs the phase (fresh checks, fresh loop), or the orchestrator pauses or times out as today.
 - **A round changes nothing**: `commitChanges` returns `false`, the diff is empty, the guard accepts, the checks re-run with identical output, and the workflow parks.
 - **Output oscillating between two states, or carrying timings**: never identical, so the loop runs on (accepted in ADR-0059; `## Cancel` is the escape hatch).
-- **Huge lint output**: capped at `MAX_FIX_PROMPT_OUTPUT_CHARS` per check in the prompt, with a marker; the full text stays in `execution.log`. The park comment never carries output.
+- **Huge lint output**: capped at `MAX_FIX_PROMPT_OUTPUT_CHARS` per check in the prompt, with a marker; the full text stays in `execution.log`. The park comment quotes at most `MAX_PARK_OUTPUT_CHARS` per output, with a marker pointing to `execution.log`.
+- **Several checks red at once**: one agent run per round handles all of them, so the round's diff is what that one run changed, and progress is judged on the combined output (a round that leaves one check's output as it was but changes another's is progress).
+- **Uncommitted changes at round start**: the round's `commitChanges` sweeps them into the round, where the guard judges them. The phases before the unit-test phase commit their work; the BDD harness must commit its setup files (task 16).
 - **Repository additions**: an `N/A` body or HTML comments mean no additions. `!eslint-disable` is ignored and logged. An addition identical to a framework pattern is not doubled. Additions apply even when no language is detected.
 - **No detected language**: only the protected paths and the repository additions apply (ADR-0059: "a language with no table entry gets the configuration-file guard and the reviewer only").
 - **Polyglot or incoherent stack**: the patterns of every detected language apply. That is a superset, never weaker.
@@ -581,13 +601,13 @@ Execute every step in order, top to bottom.
 ## Acceptance Criteria
 - `evaluateFixRound` rejects a fix round that adds any pattern of the framework table for the repository's language (every entry of every language, proven by iterating the table), or that creates, edits or deletes any protected path (every rule, proven by iterating the rules). The loop treats such a round as no progress: it discards the round, keeps nothing, does not re-run the checks, and parks.
 - A `## Suppression Patterns` addition in `.adw/commands.md` is honoured. An entry that tries to remove a framework pattern (`!pattern`) has no effect and is reported in `ignoredAdditions`.
-- The loop has no round limit. When an accepted round leaves `combinedCheckOutput` identical to the previous run, the workflow parks as `human_gated` (top-level `workflowStage`) with a comment that names each failing check (with command and exit code) and says what `## Retry` and `## Continue` do. `## Retry` re-arms it to `phase_timeout`, and re-entering the unit-test phase re-runs the checks and continues the loop.
+- The loop has no round limit. When an accepted round leaves `combinedCheckOutput` identical to the previous run, the workflow parks as `human_gated` (top-level `workflowStage`) with a comment that names each failing check (with command and exit code), quotes a bounded excerpt of its output, and says what `## Retry` and `## Continue` do. `## Retry` re-arms it to `phase_timeout`, and re-entering the unit-test phase re-runs the checks and continues the loop: it starts a new round even when the checks print what they printed when the loop stopped.
 - `buildParkComment` produces the comment for all five reasons, each with its failure description, a base-branch note where applicable, and both directive meanings. Only `fix_loop_stalled` is wired.
 - `.claude/commands/resolve_failed_test.md` forbids suppression comments, configuration edits and test weakening. The unit-test and scenario fix loops (`testRetry.ts`, `scenarioTestFixLoop.ts`) are unchanged and keep their caps.
 - The unit tests listed under *Testing Strategy* exist and pass, including the guard, loop and park-builder tests the issue names.
 - ADR-0059's `### Confirmation` names the implemented guard, loop, park, prompt rule and their tests. ADR-0058's interim bullet no longer says a red check ends the run.
 - `executeUnitTestPhase` still runs the static checks whatever `unitTests` says. A green first run behaves exactly as before, and the `@regression` suite passes.
-- Lint, both type checks, the unit suite, the build, the git/gh guard, the branch-name guard, the model-literal guard and the docs-index gate pass. The `@adw-989` scenarios pass.
+- Lint, both type checks, the unit suite, the build, the git/gh guard, the branch-name guard, the model-literal guard and the docs-index gate pass. The `@adw-989` scenarios pass, those of `feature-989.feature` and the two re-tagged scenarios of `feature-988.feature`, and the `@adw-988` scenarios still pass.
 
 ## Validation Commands
 Execute every command to validate the feature works correctly with zero regressions.
@@ -606,7 +626,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint:branch-names` — the edited prompts and new `adws/` code name no branch
 - `bun run lint:model-literals` — no model literal introduced
 - `bun run lint:docs-index` — the conditional-docs index stays healthy
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-989"` — this issue's scenarios pass
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-989"` — this issue's scenarios pass, including the two re-tagged scenarios of `feature-988.feature`
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-988"` — #988's scenarios still pass with the extended shared phase step
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — regression suite passes (green fixture checks never enter the loop; surface rows 06/20 and the smoke runs unchanged)
 
 ## Notes
@@ -616,16 +637,18 @@ Execute every command to validate the feature works correctly with zero regressi
   - pure core modules with side effects only in `staticCheckFixRound.ts`, `staticCheckGate.ts` and `workflowPark.ts`;
   - comments only for invariants, ordering and non-obvious reasons (no restating, no issue numbers, no banners); files under 300 lines.
 - **No new library.** If one were needed, `.adw/commands.md` says `bun add <package>`.
-- **Fix agent choice.** The loop reuses `/resolve_failed_test` through `runResolveTestAgent`, once per failing check per round. Reasons:
+- **Fix agent choice.** The loop reuses `/resolve_failed_test` through `runResolveTestAgent`, once per round, handed every failing check of that round. Reasons:
   - before #988 that prompt was what fixed static-check failures (`linting`, `typescript_check`, `app_build`), so "the fix prompt gains the rule" lands there;
   - ADR-0059 lets the prompt rule cover every fix round;
-  - no new slash command, model routing entry or agent runner is needed.
+  - no new slash command, model routing entry or agent runner is needed;
+  - the loop is check runner → fix agent → guard → check runner: one agent run per round means the guard judges exactly what that run changed, and one agent sees every failure at once.
   The unit-test loop's code and cap are untouched; it only reads the stricter prompt.
+- **Output in the park comment.** The park comment quotes a bounded excerpt of each failing output, because the PRD (user story 7) wants a stalled park to say what failed so that the operator knows what to do without reading logs, and the `@adw-989` scenarios require the quote. Lint or build output can carry absolute paths, so the excerpt is cut at `MAX_PARK_OUTPUT_CHARS` and the full output stays in `execution.log`. #988's error comment for the unit-test hard-fail path keeps names and exit codes only.
 - **Why push at round start and reset to the remote.** `GitContext` exposes no local `reset --hard <sha>`, `resetWorktree` runs `git clean -fdx` (it would delete `node_modules`), and the git/gh guard forbids `gitCtx.exec('git …')`. Pushing the round base, then `fetchAndResetToRemote(branchName)` on rejection, is the only exact revert built from typed methods. The HEAD check after the reset makes it fail closed if the agent pushed (agents may push; only force pushes are denied). As a side effect, every kept round is on the remote, so a reset-from-remote takeover after `## Retry` loses nothing. A target repository whose pre-commit hook rejects the round commit surfaces as a workflow error, as any commit failure does today.
 - **The park exits with `process.exit(0)`**, like `handlePhaseTimeout`. The spawn lock is reclaimed by liveness (`orchestratorLock.ts`). The phase's cost records are not posted to D1 on that path, as on the other abnormal exits. The cost of a fix loop that ends green is part of the phase's result and cost records.
 - **Directive wording for the reasons not wired here** (`baseline_red`, `pre_existing_regression`, `missing_application_type`, `base_server_down`) follows ADR-0060/ADR-0061 literally. The issues that wire them own their evidence fields and may refine the text without changing the builder's shape. For `fix_loop_stalled`, ADR-0059 gives only `## Retry` a meaning, so the comment says `## Continue` waives nothing there and points to `## Retry`. That is true whatever the generic `## Continue` handling does.
 - **`adw_init.md` is a `hashInputs` file.** Task 13 raises the framework hash, so `adwUpgrade` regenerates `.adw/` in registered target repositories. That is intended: without the preservation rule, an upgrade would drop a repository's `## Suppression Patterns`. The section is never created by `adw_init`, so existing repositories get no new content.
-- **`@adw-988` scenarios 6 and 8** (issues 9882/9884) assert the interim "red check ends the workflow with exit code 1 before any agent starts". ADR-0058 scoped that behaviour until this fix loop. After this change, a red check starts the fix agent instead, so those two per-issue scenarios no longer hold. Per-issue scenarios run only under their own tag, and no command here runs `@adw-988`. Do not edit another issue's frozen feature file; the per-issue sweep retires it. The #988 phase unit tests that asserted the same thing are rewritten in task 10.
+- **`@adw-988` scenarios 6 and 8** (issues 9882/9884) asserted the interim "red check ends the workflow with exit code 1 before any agent starts", which ADR-0058 scoped until this fix loop. They have been rewritten for the fix loop and also tagged `@adw-989`: a red lint (9882) or build (9884) now goes to the static-check fix agent, a round that changes nothing parks the workflow as `human_gated` with a park comment naming the check, the check's output is in the execution log, and the test agent never starts. They are part of this issue's scenario set (task 16) and run under both `@adw-989` and `@adw-988`. Do not edit `feature-988.feature` further. The #988 phase unit tests that asserted the old behaviour are rewritten in task 10.
 - **Docs.** The `/document` phase updates the module docs that own the touched files:
   - `app_docs/feature-9gjajh-test-and-scenario-phases.md` (gate, loop);
   - `…-state-and-config.md` (`suppressionPatterns`, barrel);
