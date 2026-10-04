@@ -1,4 +1,4 @@
-@adw-908 @adw-2fgeai-retry-resumes-a-work
+@adw-908 @adw-2fgeai-retry-resumes-a-work @promotion-suggested-2026-10-04
 Feature: The `## Retry` directive revives a workflow stranded in the paused stage: it drops the workflow's pause-queue entry, respawns the orchestrator its top-level state names with the handling cron's own --target-repo, and says so on the issue, while paused_auth, every running stage and the human-gated branches behave exactly as before
 
   Issue #908 is the directive slice of `specs/prd/rate-limit-indefinite-retry.md` (user stories

@@ -1,4 +1,4 @@
-@adw-937 @adw-axbb2a-bug-review-checks-st
+@adw-937 @adw-axbb2a-bug-review-checks-st @promotion-suggested-2026-10-04
 Feature: The review comment on the issue shows the screenshots of the proof the review judged, each embedded from the URL its upload returned, and a screenshot never decides or blocks the review
 
   Issue #937 resolves two `## Divergence` items in `specs/adr/`. Those items are the specification:

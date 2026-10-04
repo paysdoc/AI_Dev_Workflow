@@ -1,4 +1,4 @@
-@adw-930 @adw-e3523g-bug-the-plan-commit
+@adw-930 @adw-e3523g-bug-the-plan-commit @promotion-suggested-2026-10-04
 Feature: The plan commit carries only the plan file, a guard fails the plan phase when the planner touches .claude/ or .adw/, and worktree setup leaves the framework's own tracked prompt files as the branch has them
 
   ADR-0056. Twice a plan commit undid a prompt change made minutes earlier: ca72a4a7 undid

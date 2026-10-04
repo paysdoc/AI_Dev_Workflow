@@ -1,4 +1,4 @@
-@adw-959 @adw-r5ifl5-bug-an-orchestrator
+@adw-959 @adw-r5ifl5-bug-an-orchestrator @promotion-suggested-2026-10-04
 Feature: A workflow whose orchestrator died in starting or in any running stage is taken over by the cron's next poll under its adwId — a live orchestrator is never killed, reset or doubled, a spawn lock the cron itself left behind never holds a dead workflow hostage, and an orchestrator that dies during startup says why in its execution log
 
   Issue #959. On 2026-10-02 at 00:15:42 UTC the cron relaunched the workflow of #935 (adwId

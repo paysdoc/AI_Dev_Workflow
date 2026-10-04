@@ -1,4 +1,4 @@
-@adw-909 @adw-uk9ams-stream-json-envelope
+@adw-909 @adw-uk9ams-stream-json-envelope @promotion-suggested-2026-10-04
 Feature: The stream-json envelope conformance gate comes back to life — green on its own fixtures, one of them captured from a real rate limit; red when a field the pause path reads drifts — and the Claude CLI stub answers rate-limited on demand
 
   Issue #909 revives ADW's only contract with the Claude CLI's stream-json output. Anthropic has

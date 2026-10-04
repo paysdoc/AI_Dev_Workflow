@@ -1,4 +1,4 @@
-@adw-936 @adw-i9m7zh-bug-cost-records-hol
+@adw-936 @adw-i9m7zh-bug-cost-records-hol @promotion-suggested-2026-10-04
 Feature: Cost records hold the CLI's reported cost and the token estimates, and a release merge that touches a Worker deploys it
 
   Computed cost: local pricing tables, the source of truth. Reported cost: the CLI's own figure.
