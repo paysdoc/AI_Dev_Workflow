@@ -330,7 +330,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says that "## Retry" re-runs the baseline and parks the issue again if it is still red
     And the park comment says that "## Continue" waives the baseline, so that this run fixes the pre-existing failures too
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-991
   Scenario: The park comment for an application type ADW does not know names "## Application Type" and the value it found, says to re-run "adw_init", and says what "## Retry" and "## Continue" each do
     Given a park for the reason "missing_application_type" whose evidence is:
       | application type | desktop |

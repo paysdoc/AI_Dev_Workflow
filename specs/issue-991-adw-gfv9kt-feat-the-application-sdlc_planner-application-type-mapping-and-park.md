@@ -11,13 +11,13 @@ ADR-0061 makes `## Application Type` in `.adw/project.md` the only input that de
 1. **Application-type mapping** (pure, `adws/core/applicationType.ts`). It maps a type to `{ runnerMode, evidenceKinds, reviewGuidanceSection }`:
    - `cli` → the descriptor runner named in `.adw/scenarios.md`, no images;
    - `web` → the ADW-owned Playwright project in `features/` (built by the next issue), per-issue images;
-   - missing or unknown → unknown, which the caller turns into a park.
+   - missing or unknown → park: the mapping returns the `missing_application_type` park evidence with the value it found (`null` when missing), and the caller parks with it.
 
    The table is the only place a type name means anything. Consumers receive the resolved profile, never the type, so a third type is one new table entry (plus `adw_init` learning to detect it) and touches no phase.
 2. **No default in the config.** `projectConfig.applicationType` becomes what the section says, or `null` when it is absent. The `cli` fallback in `parseApplicationType` and `getDefaultProjectConfig` is removed.
 3. **Application-type gate** (`adws/phases/applicationTypeGate.ts`). `initializeWorkflow` (every issue orchestrator) and `initializePRReviewWorkflow` run it right after loading the project config:
    - a `cli` or `web` type proceeds, and its profile is put on `WorkflowConfig.applicationProfile` for the consumers the next issues add;
-   - a missing or unknown type parks the workflow as `human_gated` through #989's `parkWorkflow`, with the existing `missing_application_type` park comment: `## Application Type` is missing or names a type ADW does not know, re-run `adw_init`, and what `## Retry` and `## Continue` do.
+   - a missing or unknown type parks the workflow as `human_gated`: the gate hands the mapping's park evidence to #989's `parkWorkflow`, which posts the existing `missing_application_type` park comment: `## Application Type` is missing or names a type ADW does not know, re-run `adw_init`, and what `## Retry` and `## Continue` do.
 4. **`adw_init` writes the type.**
    - Step 1 detects `cli` or `web`.
    - Step 3 writes `## Application Type`. It preserves a valid value the owner set by hand, and leaves the section out when detection cannot decide; it never writes a default.
@@ -45,11 +45,12 @@ So that no repository is ever reviewed under a silent default, a web change is n
   - `ApplicationProfile` interface: `{ readonly runnerMode; readonly evidenceKinds: readonly EvidenceKind[]; readonly reviewGuidanceSection: string }`. `reviewGuidanceSection` is the title of the review prompt's guidance section for that type: `'CLI applications'` or `'Web applications'`. The reviewer issue adds those sections to `review.md`.
   - `ApplicationProfiles = Readonly<Record<string, ApplicationProfile>>`.
   - `APPLICATION_TYPE_PROFILES`, declared `as const satisfies ApplicationProfiles`, with exactly `cli` and `web`. `ApplicationType = keyof typeof APPLICATION_TYPE_PROFILES`.
-  - `resolveApplicationType(declared: string | null, profiles = APPLICATION_TYPE_PROFILES): ApplicationTypeResolution`, returning `{ kind: 'known'; profile } | { kind: 'unknown'; found: string | null }`:
+  - `resolveApplicationType(declared: string | null, profiles = APPLICATION_TYPE_PROFILES): ApplicationTypeResolution`, returning `{ kind: 'known'; profile } | { kind: 'park'; evidence }`. `evidence` is the `missing_application_type` member of `ParkEvidence`: `{ reason: ParkReason.MissingApplicationType; found: string | null }`. This is the issue's "missing or unknown → park": the mapping decides the park and its reason, and the caller only carries it out.
     - the lookup key is the trimmed, lowercased value;
     - `null` or blank is missing (`found: null`);
     - an unknown value keeps its original text in `found`, for the park comment;
-    - only own keys count (`Object.prototype.hasOwnProperty.call`; the lib is ES2020, so not `Object.hasOwn`), so `constructor` or `__proto__` resolve to unknown.
+    - only own keys count (`Object.prototype.hasOwnProperty.call`; the lib is ES2020, so not `Object.hasOwn`), so `constructor` or `__proto__` resolve to a park.
+  - `ParkReason` and the `ParkEvidence` type are imported from `adws/forge/parkComment.ts`, which is pure. A core module importing from `adws/forge/` has precedent (`adws/core/forgeWiring.ts`). The import adds no new cycle: `parkComment.ts` loads only `core/workflowCommentParsing` and `core/staticCheckFixLoop`, which the core barrel already loads.
   - `describeApplicationProfile(profile)`: a one-line description built only from the profile's fields, through `Record<RunnerMode, string>` and `Record<EvidenceKind, string>` tables. It feeds the run's log line.
 - **Config (`adws/core/projectConfig.ts`).**
   - `ProjectConfig.applicationType: string | null`: what the section says, with HTML comments stripped and trimmed, case kept; `null` when the section is absent or empty.
@@ -58,7 +59,7 @@ So that no repository is ever reviewed under a silent default, a web change is n
 - **Gate (`adws/phases/applicationTypeGate.ts`).**
   - Signature: `runApplicationTypeGate(config, projectConfig, deps): { projectConfig, applicationProfile }`. `config` is `Pick<WorkflowConfig, 'adwId' | 'issueNumber' | 'orchestratorStatePath' | 'repoContext' | 'worktreePath' | 'defaultBranch'>`. `deps` holds `loadProjectConfig`, `mergeLatestFromDefaultBranch`, `park` and optional `profiles`.
   - A known type logs `Application type <value>: <description>` to the console and `execution.log`, then returns.
-  - An unknown or missing type first merges the latest default branch into the worktree once, through the typed `GitContext.mergeLatestFromDefaultBranch`. It then reloads the project config and resolves again. It proceeds if the type is now known, and parks only if it is still unknown, with `{ reason: ParkReason.MissingApplicationType, found }`.
+  - An unknown or missing type first merges the latest default branch into the worktree once, through the typed `GitContext.mergeLatestFromDefaultBranch`. It then reloads the project config and resolves again. It proceeds if the type is now known, and parks only if the mapping still decides to park, with the mapping's evidence (`{ reason: ParkReason.MissingApplicationType, found }`).
   - Why the merge before parking: on the target-repo path `initializeWorkflow` reuses an existing worktree without merging the default branch (`ensureWorktree`; only the self-host path calls `mergeLatestFromDefaultBranch`). The same holds for a PR branch in `initializePRReviewWorkflow`. Without the merge, `## Retry` ("re-reads `## Application Type` after `adw_init` has been re-run") would re-read a stale worktree and park forever.
   - `buildApplicationTypeGateDeps(gitContext)` returns the real dependencies: `loadProjectConfig`, the git merge and `parkWorkflow`.
   - `requireApplicationProfile(config)` returns `config.applicationProfile`, or throws. It never defaults. It is the accessor the next issues' consumers use, mirroring `requireWorkflowGitContext`.
@@ -105,7 +106,8 @@ Use these files to implement the feature:
 - `adws/core/orchestratorNames.ts` — `deriveOrchestratorScript(OrchestratorId.PrReview)` → `adws/adwPrReview.tsx`.
 - `adws/core/resolveResumeSpawn.ts` — `## Retry` → `phase_timeout` → the cron resumes `state.orchestratorScript`. Not modified.
 - `adws/triggers/retryHandler.ts` — `decideRetryAction('human_gated')` → `rearm_phase_timeout`. How `## Retry` re-runs init and the gate. Not modified.
-- `adws/adwMerge.tsx`, `adws/adwUpgrade.tsx` — Neither calls `initializeWorkflow`, so the upgrade that re-runs `adw_init` can never park on the type. Not modified.
+- `adws/adwMerge.tsx`, `adws/adwUpgrade.tsx` — Neither calls `initializeWorkflow`, so the upgrade that re-runs `adw_init` can never park on the type. `executeUpgrade` commits whatever `/adw_init` wrote, with or without `## Application Type`. Not modified.
+- `adws/phases/worktreeSetup.ts` — `verifyAdwRegen` checks only that the required `.adw/` files (`REQUIRED_ADW_FILES`) exist and are non-empty, and that the regression vocabulary exists. An upgrade whose `/adw_init` leaves `## Application Type` out therefore still commits. Not modified: it must not start requiring the section.
 - `node_modules/@paysdoc/devplatform/dist/git/gitContext.d.ts` and `.../branchOps.js` — `mergeLatestFromDefaultBranch(defaultBranch, worktreePath)`: fetch and merge `origin/<default>`, warn-don't-throw on failure or conflict. `ensureWorktree` reuses an existing worktree as-is. Read-only.
 - `adws/checkGitGhGuard.ts` — Only typed `GitContext` methods may be used (no `git …` strings).
 - `.claude/commands/adw_init.md` — Step 1 (Analyze), step 3 (`.adw/project.md`), step 11 (Report). Steps 6 and 8 (review_proof, the Playwright branch) belong to the Playwright issue and are not touched here.
@@ -113,7 +115,14 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/scenarioTestPhase.test.ts` — Builds a `projectConfig` with `applicationType: 'cli'`. Still type-valid; must keep passing.
 - `test/fixtures/cli-tool/.adw/project.md` (`cli`), `test/fixtures/python-app/.adw/project.md` (`web`), `test/fixtures/python-flat/.adw/project.md` (`cli`) — Every fixture already declares a known type, so the regression harness (`features/regression/support/fixtureTargetRepo.ts`, `fixtureWorktree.ts`, `drivers/workflowInitDriver.ts`) proceeds. Read-only.
 - `features/per-issue/step_definitions/feature-959-pr-review.steps.ts`, `features/per-issue/step_definitions/feature-959-boundary.ts` — Run the real `initializePRReviewWorkflow`. The worktree they use must declare a known type, or that scenario now parks.
-- `features/per-issue/step_definitions/feature-929-workflow.ts`, `feature-796.steps.ts`, `feature-988-phase.steps.ts`, `feature-989-comments.ts`, `feature-989-park.steps.ts` — Harness the `@adw-991` step definitions reuse: throwaway worktrees, recording providers, `commentsOn`, `process.exit` trap, park-comment assertions.
+- `features/per-issue/step_definitions/feature-929-workflow.ts`, `feature-796.steps.ts`, `feature-988-world.ts`, `feature-988-phase.steps.ts`, `feature-989-comments.ts`, `feature-989-park.steps.ts`, `feature-989-phase.steps.ts`, `feature-989-git.ts` — Harness the `@adw-991` step definitions reuse:
+  - throwaway worktrees, recording providers and `commentsOn`;
+  - the shared world `s` with `beginScenario`/`endScenario`, and the `process.exit` trap;
+  - park-comment assertions;
+  - the steps `the workflow for issue {int} is parked as {string}`, `no park comment was posted on issue {int}` and `{string} is posted on issue {int}` (a real `handleRetryDirective`);
+  - `prepareBranchAndOrigin`, a local bare `origin`.
+- `features/per-issue/step_definitions/feature-931.steps.ts` — The upgrade harness: the real `executeUpgrade` over a throwaway target repository, with a stubbed `/adw_init` agent. The `@adw-991` upgrade scenarios reuse its steps. Its world is module-private, its hooks run only for `@adw-931`, and its stub writes fixed `.adw/` content; task 12 extends it.
+- `features/per-issue/feature-989.feature` — Carries one `@adw-991` scenario: the `missing_application_type` park comment. Its steps already exist in `feature-989-park.steps.ts`. Read-only.
 - `app_docs/feature-9gjajh-state-and-config.md` — Conditional doc owning `projectConfig.ts` and `adws/core/index.ts` (project config loading).
 - `app_docs/feature-9gjajh-workflow-lifecycle-phases.md` — Conditional doc owning `workflowInit.ts` (workflow initialization).
 - `app_docs/feature-9gjajh-pr-and-merge-phases.md` — Conditional doc owning `prReviewPhase.ts` (PR review phases).
@@ -148,7 +157,7 @@ Use these files to implement the feature:
 ### Phase 3: Integration
 - Wire the gate into `initializeWorkflow` and `initializePRReviewWorkflow` (the latter records `orchestratorScript` first), and add `WorkflowConfig.applicationProfile`. Update the two init unit tests.
 - `adw_init.md` detects, writes, preserves or leaves out `## Application Type`, with its drift test.
-- Keep the `@adw-959` PR-review scenario green. Write the `@adw-991` step definitions.
+- Keep the `@adw-959` PR-review scenario green. Write the `@adw-991` step definitions, extending #931's upgrade harness for the upgrade scenarios.
 - Rewrite ADR-0061's `### Confirmation`, update the README, run every validation command.
 
 ## Step by Step Tasks
@@ -159,14 +168,14 @@ Execute every step in order, top to bottom.
   - `resolveApplicationType('cli')` → `{ kind: 'known', profile }` with `runnerMode: RunnerMode.Descriptor`, `evidenceKinds: []`, `reviewGuidanceSection: 'CLI applications'`.
   - `resolveApplicationType('web')` → `runnerMode: RunnerMode.AdwPlaywright`, `evidenceKinds: [EvidenceKind.PerIssueImages]`, `reviewGuidanceSection: 'Web applications'`.
   - `' Web '`, `'CLI'`, `'web\n'` resolve to the same profiles (trimmed, case-insensitive).
-  - Missing: `null`, `''` and `'   '` → `{ kind: 'unknown', found: null }`.
-  - Unknown: `'desktop'`, `'api'`, `'web app'` → `{ kind: 'unknown', found }` with the original text (`'Desktop'` stays `'Desktop'`).
-  - Inherited keys: `'constructor'`, `'toString'`, `'hasOwnProperty'`, `'__proto__'` → unknown.
+  - Missing: `null`, `''` and `'   '` → `{ kind: 'park', evidence: { reason: ParkReason.MissingApplicationType, found: null } }`.
+  - Unknown: `'desktop'`, `'cli or web'`, `'api'`, `'web app'` → `{ kind: 'park', evidence: { reason: ParkReason.MissingApplicationType, found } }`, with `found` holding the original text (`'Desktop'` stays `'Desktop'`).
+  - Inherited keys: `'constructor'`, `'toString'`, `'hasOwnProperty'`, `'__proto__'` → park.
   - The table holds exactly `cli` and `web` (`Object.keys(APPLICATION_TYPE_PROFILES)`), the two types of ADR-0061.
   - Fake third type:
     - `const FAKE: ApplicationProfile = { runnerMode: RunnerMode.Descriptor, evidenceKinds: [EvidenceKind.PerIssueImages], reviewGuidanceSection: 'Desktop applications' }`;
     - `resolveApplicationType('desktop', { ...APPLICATION_TYPE_PROFILES, desktop: FAKE })` → `known` with `FAKE`;
-    - the same call with the default table → unknown;
+    - the same call with the default table → park;
     - `cli` and `web` still resolve under the extended table.
   - `describeApplicationProfile`:
     - `cli` names the runner from `.adw/scenarios.md` and no images;
@@ -176,7 +185,7 @@ Execute every step in order, top to bottom.
   - string enums `RunnerMode` and `EvidenceKind`;
   - the `readonly` interface `ApplicationProfile`, and `ApplicationProfiles`;
   - `APPLICATION_TYPE_PROFILES` (`as const satisfies ApplicationProfiles`) and `ApplicationType = keyof typeof APPLICATION_TYPE_PROFILES`;
-  - the `ApplicationTypeResolution` union with string-literal `kind` discriminants, as elsewhere in `adws/core`;
+  - the `ApplicationTypeResolution` union with string-literal `kind` discriminants (`'known'`, `'park'`), as elsewhere in `adws/core`. The park member carries the `missing_application_type` `ParkEvidence`; import `ParkReason` and `type ParkEvidence` from `../forge/parkComment`;
   - `resolveApplicationType` with guard clauses (blank → missing; own-key lookup through `Object.prototype.hasOwnProperty.call`);
   - `describeApplicationProfile` through two `Readonly<Record<…, string>>` tables.
 - One comment above the table, because the invariant is not visible in the code: the table is the only place a type name means anything, so a new type is an entry here plus detection in `adw_init` and touches no phase. No other comments beyond what guard clauses cannot say.
@@ -239,7 +248,7 @@ Execute every step in order, top to bottom.
     2. if known, log and return;
     3. otherwise log `## Application Type <missing | says "<value>"> in the worktree; merging the latest <defaultBranch> and reading it again`, merge, reload and resolve again;
     4. if known, log and return the reloaded config;
-    5. otherwise `return deps.park(config, { reason: ParkReason.MissingApplicationType, found })`.
+    5. otherwise `return deps.park(config, resolution.evidence)`, the mapping's park evidence unchanged.
 
     Extract `proceed(...)` and `recordLine(...)` helpers so the function stays flat. Comment the merge before the park, because the reason is not visible in the code: a reused target-repo or PR worktree is not merged with the default branch at init, and `## Retry` must see what `adw_init` wrote there.
   - `buildApplicationTypeGateDeps(gitContext: Pick<GitContext, 'mergeLatestFromDefaultBranch'>)` → `{ loadProjectConfig, mergeLatestFromDefaultBranch: (b, w) => gitContext.mergeLatestFromDefaultBranch(b, w), park: parkWorkflow }`.
@@ -301,7 +310,7 @@ Execute every step in order, top to bottom.
 ### 9. Rewrite ADR-0061's `### Confirmation`
 - In `specs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md`, replace the paragraph starting "Not yet implemented; carried by…" with "Partly implemented. Checked on <date> at `<short hash>`:" and these bullets:
   - The mapping: `adws/core/applicationType.ts` (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`).
-    - `cli` → the descriptor runner from `.adw/scenarios.md`, no images; `web` → the ADW Playwright project, per-issue images; a missing or unknown type resolves to unknown.
+    - `cli` → the descriptor runner from `.adw/scenarios.md`, no images; `web` → the ADW Playwright project, per-issue images; a missing or unknown type resolves to a `missing_application_type` park.
     - Unit tests in `adws/core/__tests__/applicationType.test.ts`: both types, missing, unknown, a fake third type through the mapping, and the rule that only the config parser and the gate name `applicationType`.
   - No default: `adws/core/projectConfig.ts` reads an absent or empty `## Application Type` as `null` (`parseApplicationType`, `getDefaultProjectConfig`). Tests in the `projectConfig` test files.
   - The park: `adws/phases/applicationTypeGate.ts` (`runApplicationTypeGate`), run by `initializeWorkflow` and `initializePRReviewWorkflow`.
@@ -309,6 +318,11 @@ Execute every step in order, top to bottom.
     - `cli` or `web` proceeds, with the profile on `WorkflowConfig.applicationProfile` (`requireApplicationProfile`).
     - Tests in `adws/phases/__tests__/applicationTypeGate.test.ts`, including a fake third type that reaches the gate without a gate change.
   - `adw_init`: `.claude/commands/adw_init.md` detects and writes `## Application Type`, preserves a hand-set value, and leaves the section out when it cannot decide. `adws/__tests__/adwInitPrompt.test.ts` asserts that the offered types equal the mapping's keys.
+  - Scenarios: `features/per-issue/feature-991.feature` (`@adw-991`) covers:
+    - the mapping, and the config's missing type;
+    - the park and its comment, and the run that proceeds;
+    - `## Retry` after the default branch gains the type;
+    - an upgrade that commits the type `/adw_init` wrote, and one that commits no default when `/adw_init` wrote none.
   - Still open, carried by the PRD's later modules:
     - the ADW Playwright project, and `adw_init`'s Gherkin-plus-Playwright inconsistency in step 8;
     - the scenario phase passing `ADW_APPLICATION_URL` and running the `web` mode;
@@ -339,20 +353,36 @@ Execute every step in order, top to bottom.
 - The regression harness needs no change: every fixture under `test/fixtures/` already declares a known type. Confirm with the `@regression` run in task 13.
 
 ### 12. Write the step definitions for `@adw-991`
-- The scenario agent writes `features/per-issue/feature-991.feature`. Implement every `@adw-991` step in `features/per-issue/step_definitions/feature-991*.ts`, splitting helpers into `feature-991-*.ts` modules under 300 lines. Do not edit the feature file.
+- The scenario agent wrote `features/per-issue/feature-991.feature`. Implement every `@adw-991` step in `features/per-issue/step_definitions/feature-991*.ts`, splitting helpers into `feature-991-*.ts` modules under 300 lines. Do not edit the feature file.
+- `features/per-issue/feature-989.feature` also carries one `@adw-991` scenario: the `missing_application_type` park comment. Its steps already exist in `feature-989-park.steps.ts`, so it needs nothing new.
 - Reuse, never redefine (Cucumber fails on ambiguous steps):
-  - the Background `the ADW codebase is checked out` (`features/regression/step_definitions/givenSteps.ts`);
-  - the park-comment helpers of `feature-989-comments.ts` / `feature-989-park.steps.ts` where a phrase already exists;
+  - the Background `the ADW codebase is checked out` (`features/regression/step_definitions/givenSteps.ts`) and `the ADW TypeScript type-check passes` (`features/regression/step_definitions/thenSteps.ts`);
+  - from `feature-989-phase.steps.ts`: `the workflow for issue {int} is parked as {string}`, `no park comment was posted on issue {int}`, and `{string} is posted on issue {int}`, which runs the real `handleRetryDirective` and asserts the re-arm to `phase_timeout`;
+  - the park-comment helpers of `feature-989-comments.ts` (`parkCommentsOn`, `requireParkCommentOn`);
   - #929's `createWorkflow`/`commitFile`/`commentsOn` and #796's recording providers;
-  - #988's `process.exit` trap.
+  - #988's `process.exit` trap;
+  - from `feature-931.steps.ts`: `a target repository never initialised by ADW`, `a target repository initialised by an older framework version`, `the framework upgrade regenerates the target repository's ADW configuration` and `the upgrade commits the regenerated configuration`.
 - Drive behaviour through the public seams:
-  - "parks" / "proceeds" scenarios: run `runApplicationTypeGate` with `buildApplicationTypeGateDeps` over a throwaway worktree whose `.adw/project.md` has, lacks, or misdeclares the section. Assert `AgentStateManager.readTopLevelState(adwId).workflowStage === 'human_gated'` and the `ADW Parked` comment in `commentsOn(issueNumber)`, or the returned profile.
-  - Mapping scenarios: call `resolveApplicationType` / `describeApplicationProfile`. A fake third type goes in through the `profiles` argument.
-  - `adw_init` scenarios are source-text checks over `.claude/commands/adw_init.md`, which is as far as prompt testing goes (PRD *Testing Decisions*).
-  - Config scenarios: call `parseApplicationType` / `loadProjectConfig`.
+  - Workflow scenarios ("the workflow for issue N starts"):
+    - build the workflow with `createWorkflow`, then write the scenario's `.adw/project.md` into the worktree and commit it;
+    - keep the workflow in the shared world `s.workflow` (`feature-988-world.ts`), so that the reused `feature-989-phase.steps.ts` steps find it. Register `beginScenario`/`endScenario` for `@adw-991`; both are safe to run twice;
+    - "starts" runs init's application-type step the way `initializeWorkflow` runs it: `runApplicationTypeGate(config, loadProjectConfig(worktreePath), buildApplicationTypeGateDeps(gitContext))`, with the workflow's real `GitContext`, the real `parkWorkflow`, and `process.exit` trapped;
+    - "the workflow's start did not complete" means the step ended through `process.exit(0)` and returned no profile. "Completed" means it returned a profile;
+    - assert the park through `AgentStateManager.readTopLevelState(adwId).workflowStage` and the `ADW Parked` comment in `commentsOn(issueNumber)`. "Is not parked" means the stage is not `human_gated`.
+  - The `## Retry` scenario:
+    - give the worktree a local bare `origin` (`prepareBranchAndOrigin`). Its `main` branch is the workflow's `defaultBranch`. Put the setup commit on that `main`, so that the later commit declaring `cli` merges cleanly into the workflow's branch;
+    - "the resumed workflow starts" runs the same application-type step again over the same worktree. The gate merges `origin/main`, finds `cli` and proceeds;
+    - "exactly one park comment" counts `parkCommentsOn(issueNumber)`.
+  - Mapping scenarios: call `resolveApplicationType` / `describeApplicationProfile`. "The mapping decides to park the issue for the reason {string}" asserts `kind === 'park'` and `evidence.reason`. "The park records that …" asserts `evidence.found`: `null`, or the value as written.
+  - Config scenarios: call `parseApplicationType` / `loadProjectConfig`. ADW's own repository is the framework checkout root.
+  - Upgrade scenarios, in `feature-991-upgrade.steps.ts`:
+    - extend `feature-931.steps.ts` as little as possible, keep it under 300 lines, and leave every `@adw-931` scenario as it is. Run its `Before`/`After` for `@adw-931 or @adw-991`. Export a setter that configures the stubbed `/adw_init` agent, as its existing Given does, together with the `.adw/project.md` the stub writes. Export its regen-commit file reader;
+    - the new phrases are the agent "writes a complete ADW configuration whose {string} declares the application type {string}" / "whose {string} has no {string} section", and "ADW reads the application type {string} from the regen commit's {string}" / "ADW reads no application type from the regen commit's {string}". The two reading steps go through `parseApplicationType`;
+    - `executeUpgrade` and `verifyAdwRegen` need no change.
+  - No scenario reads `.claude/commands/adw_init.md`. The scenario writer's rot-prevention rule forbids source-text scenarios, so only task 8's drift test checks the prompt's text.
 - Hooks: reset shared state and remove temp dirs plus `agents/<adwId>`/`logs/<adwId>` in `After`, and keep them idempotent.
 - Cucumber expressions treat `/` as alternation: use `{string}` for quoted paths.
-- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-991"` until green.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-991"` until green, then the same command with `--tags "@adw-931"`.
 
 ### 13. Run the validation commands
 - Run every command in `Validation Commands` and fix any failure before finishing.
@@ -362,7 +392,7 @@ Execute every step in order, top to bottom.
 - `adws/core/__tests__/applicationType.test.ts`:
   - `cli` and `web` profiles (runner mode, evidence kinds, guidance section);
   - trimmed, case-insensitive lookup;
-  - missing (`null`, blank) → `found: null`; unknown → `found` with the original text; inherited keys → unknown;
+  - missing (`null`, blank) → park with `found: null`; unknown → park with `found` as written; inherited keys → park; every park carries `ParkReason.MissingApplicationType`;
   - exactly two types in the table;
   - a fake third type resolves only through an extended table, and `cli`/`web` still resolve beside it;
   - `describeApplicationProfile` built from fields only;
@@ -390,15 +420,15 @@ Execute every step in order, top to bottom.
 
 ### Edge Cases
 - **Section absent, empty or comment-only** → `null` → missing → park with "is missing".
-- **Unknown value** (`desktop`, `api`, `web app`, `CLI tool`) → park; the comment quotes the value as written (case kept, newlines flattened by the builder).
+- **Unknown value** (`desktop`, `cli or web`, `api`, `web app`, `CLI tool`) → park; the comment quotes the value as written (case kept, newlines flattened by the builder).
 - **Case and spacing** (`Web`, ` cli `) → known; `found` is never lowercased.
-- **Inherited object keys** (`constructor`, `__proto__`, `toString`) → unknown, not a crash and not a function treated as a profile.
+- **Inherited object keys** (`constructor`, `__proto__`, `toString`) → park, not a crash and not a function treated as a profile.
 - **No `.adw/` directory at all** → default config with `applicationType: null` → park. An uninitialised repository is told to run `adw_init`, never run under defaults.
 - **Reused target-repo worktree, or a PR branch, created before the section existed** → the gate merges the latest default branch before parking. `## Retry` after a re-run `adw_init` (merged to the default branch) proceeds.
 - **The merge fails or conflicts** → `mergeLatestFromDefaultBranch` warns and never throws (devplatform). The gate re-reads whatever the worktree holds and parks if the type is still unknown. A conflicted merge left in place is the same exposure the self-host reuse path already has.
 - **Self-host** → ADW's `.adw/project.md` declares `cli`; the gate proceeds and never merges.
 - **Framework hash bump** → this issue edits `adw_init.md`, a `hashInputs` file. Every registered target repository's next issue first triggers `adwUpgrade`, which re-runs `adw_init` before a feature worktree exists. The type is then written, or left out when detection cannot decide. That is the ADR's remedy, not a migration: nothing converts or defaults.
-- **`adwUpgrade` and `adwMerge`** never call the init functions, so they never park on the type. The upgrade's regen verification must not require the section, because its absence is a legitimate outcome.
+- **`adwUpgrade` and `adwMerge`** never call the init functions, so they never park on the type. The upgrade's regen verification must not require the section, because its absence is a legitimate outcome. `verifyAdwRegen` checks only that the files exist and are non-empty, and the `@adw-991` upgrade scenarios hold it to that: with or without the section, the upgrade commits, and it adds no default.
 - **Hand-set value across upgrades** → step 3 preserves `cli`/`web` verbatim, so an owner's manual fix survives regeneration.
 - **PR-review park** → the top-level `orchestratorScript` already says `adws/adwPrReview.tsx`, so `## Retry` resumes the PR review. With no linked issue (`issueNumber` 0) the comment cannot be posted: the failure is logged and the state is still parked, as in `parkWorkflow`.
 - **A park is not a failure** → the board and labels stay as they are, no port is allocated, the exit status is 0, and the cron skips `human_gated` until `## Retry`.
@@ -415,7 +445,7 @@ Execute every step in order, top to bottom.
 - Unit tests prove that both types map correctly, that unknown and missing park, and that a fake third type reaches a consumer (the gate, `describeApplicationProfile`, `requireApplicationProfile`) through the mapping without a consumer change.
 - `adw_init.md` detects the type, writes `## Application Type` (`cli` or `web`) in a fresh repository of each type, preserves a hand-set valid value, and leaves the section out when it cannot decide. The drift test ties its offered types to the mapping.
 - ADR-0061's `### Confirmation` names the implemented mapping, config, gate, `adw_init` change and their tests, and lists what the later modules still carry.
-- Lint, both type checks, the unit suite, the build, the git/gh guard, the branch-name guard, the model-literal guard and the docs-index gate pass. The `@adw-991`, `@adw-989`, `@adw-959` and `@regression` scenarios pass.
+- Lint, both type checks, the unit suite, the build, the git/gh guard, the branch-name guard, the model-literal guard and the docs-index gate pass. The `@adw-991`, `@adw-989`, `@adw-959`, `@adw-931` and `@regression` scenarios pass.
 
 ## Validation Commands
 Execute every command to validate the feature works correctly with zero regressions.
@@ -437,6 +467,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-991"` — this issue's scenarios pass
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-989"` — the park-comment scenarios still pass (builder unchanged)
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-959"` — the scenarios that run the real `initializePRReviewWorkflow` still pass
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-931"` — the upgrade scenarios still pass with the harness that task 12 extends
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — regression suite passes (every fixture declares a known type; the subprocess harness's real `initializeWorkflow` proceeds)
 
 ## Notes
@@ -454,7 +485,11 @@ Execute every command to validate the feature works correctly with zero regressi
 - **`reviewGuidanceSection` values** (`'CLI applications'`, `'Web applications'`) are the titles the reviewer issue gives the per-type sections of `review.md`. That issue may retitle them, in this table only.
 - **Detection boundary.** A service with an HTTP API and no pages is `cli`. ADR-0061 ties the type to "the evidence a review needs", and such a review needs no images. An owner who disagrees sets the section by hand, and `adw_init` preserves it.
 - **`adw_init.md` is a `hashInputs` file.** Task 8 raises the framework hash. `adwUpgrade` then regenerates `.adw/` in every registered target repository, which writes the detected type there. This is intended: it is the ADR's "re-run `adw_init`", run by ADW itself, before any feature worktree of the next issue exists.
-- **Acceptance "adw_init writes the section in a fresh repository of each type"** is covered by the drift test and the `@adw-991` source-text scenarios, per the PRD ("Not unit-tested: `adw_init` and the prompts"). A manual spot check is worthwhile before closing: run `/adw_init` in a scratch copy of a CLI repository and of a web repository, and confirm `## Application Type` reads `cli` and `web`.
+- **Acceptance "adw_init writes the section in a fresh repository of each type"** is covered in two places:
+  - the drift test: the prompt offers exactly `cli` and `web`, and leaves the section out when it cannot decide;
+  - the `@adw-991` upgrade scenarios: the regen commit carries the type the stubbed `/adw_init` agent wrote, and holds no default when the agent wrote none.
+
+  The scenario writer's rot-prevention rule forbids source-text scenarios, so no scenario reads the prompt. A manual spot check is worthwhile before closing: run `/adw_init` in a scratch copy of a CLI repository and of a web repository, and confirm `## Application Type` reads `cli` and `web`.
 - **Do not change `adws/forge/parkComment.ts`.** Its `missing_application_type` title, description and directive meanings are already the ones ADR-0061 asks for, and `@adw-989`'s step definitions hard-code them.
 - **Docs.** The `/document` phase updates the owning module docs: `state-and-config` (mapping, config), `workflow-lifecycle-phases` (gate, init), `pr-and-merge-phases` (PR-review init), `commands-and-skills` (`adw_init.md`) and `root-config` (README). If a doc adds ADR-0061 to its `## Decisions`, the matching `Decisions:` block in `.adw/conditional_docs.md` must change in the same commit, or `bun run lint:docs-index` fails. `UBIQUITOUS_LANGUAGE.md` may gain **Application Type** and **Application Profile** entries then.
 - **Not in scope** (the PRD's later modules):
