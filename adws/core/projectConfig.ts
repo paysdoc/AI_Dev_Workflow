@@ -20,6 +20,8 @@ export interface CommandsConfig {
   runRegressionScenarios: string;
   testDirectory: string;
   testFramework: string;
+  /** The raw body of `## Suppression Patterns`: the repository's own additions to the fix-round guard's framework table. */
+  suppressionPatterns: string;
 }
 
 export interface ScenariosConfig {
@@ -115,6 +117,7 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'run regression scenarios': 'runRegressionScenarios',
   'test directory': 'testDirectory',
   'test framework': 'testFramework',
+  'suppression patterns': 'suppressionPatterns',
 };
 
 export function getDefaultCommandsConfig(): CommandsConfig {
@@ -134,6 +137,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     runRegressionScenarios: 'cucumber-js --tags "@regression"',
     testDirectory: 'src',
     testFramework: '',
+    suppressionPatterns: '',
   };
 }
 

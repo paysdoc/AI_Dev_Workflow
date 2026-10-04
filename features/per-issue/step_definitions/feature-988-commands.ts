@@ -16,6 +16,15 @@ export interface ConfiguredCheck {
   readonly check: StaticCheckName;
   /** The shell line written under the check's heading, or `N/A`. */
   readonly command: string;
+  /** The scenario's own wording of the command, from which a later step can read what the check prints and exits with. */
+  readonly described: string;
+}
+
+/** What a check that prints and exits does, as a scenario words it. */
+export interface CheckOutcome {
+  readonly text: string;
+  readonly toStandardError: boolean;
+  readonly exitCode: number;
 }
 
 const HEADINGS: Readonly<Record<StaticCheckName, string>> = {
@@ -36,17 +45,22 @@ function singleQuoted(text: string): string {
   return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
-function toShellLine(described: string): string {
-  if (described === NOT_APPLICABLE) return NOT_APPLICABLE;
+export function parseOutcome(described: string): CheckOutcome {
   const match = PRINTS_AND_EXITS.exec(described);
   assert.ok(match, `Unrecognised wording for a static check's command: ${described}`);
   const [, text, toStandardError, exitCode] = match;
+  return { text, toStandardError: toStandardError !== undefined, exitCode: Number(exitCode) };
+}
+
+function toShellLine(described: string): string {
+  if (described === NOT_APPLICABLE) return NOT_APPLICABLE;
+  const { text, toStandardError, exitCode } = parseOutcome(described);
   return `printf '%s\\n' ${singleQuoted(text)}${toStandardError ? ' >&2' : ''}; exit ${exitCode}`;
 }
 
 function toConfiguredCheck(row: { readonly check: string; readonly command: string }): ConfiguredCheck {
   assert.ok(isStaticCheckName(row.check), `Unknown static check "${row.check}"`);
-  return { check: row.check, command: toShellLine(row.command) };
+  return { check: row.check, command: toShellLine(row.command), described: row.command };
 }
 
 /** Commands are how a run is told apart from another, so two checks may not share one. */

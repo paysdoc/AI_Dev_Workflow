@@ -11,6 +11,7 @@ import { After, Before, type DataTable } from '@cucumber/cucumber';
 
 import { runShellCommand, type CheckVerdict, type ProcessRunner } from '../../../adws/core/checkRunner.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
+import type { FixRoundPort } from '../../../adws/core/staticCheckFixLoop.ts';
 
 import { world796, resetWorld } from './feature-796.steps.ts';
 import { emptyBehaviour, type CliBehaviour, type InstalledCli } from './feature-929-compacting-cli.ts';
@@ -38,7 +39,12 @@ export interface State988 {
   /** How many agent runs the throwaway CLI had recorded when each static check finished. */
   agentRunsAtCheckEnd: number[];
   phase: PhaseOutcome | null;
-  savedUnitReportPath: string | undefined;
+  /** The fix rounds the phase runs. Unset, the phase builds its own; a feature-989 step sets it to script the fix agent. */
+  fixRounds: FixRoundPort | null;
+  /** Runs just before the phase does, for a step that needs the worktree in a state of its own. */
+  beforePhase: (() => void) | null;
+  /** Null until saved, so that restoring twice (a scenario tagged for two features runs both hooks) restores once. */
+  savedUnitReportPath: { readonly value: string | undefined } | null;
 }
 
 function freshState(): State988 {
@@ -53,7 +59,9 @@ function freshState(): State988 {
     cli: null,
     agentRunsAtCheckEnd: [],
     phase: null,
-    savedUnitReportPath: undefined,
+    fixRounds: null,
+    beforePhase: null,
+    savedUnitReportPath: null,
   };
 }
 
@@ -87,8 +95,10 @@ export function recordingProcessRunner(onFinished: () => void = () => undefined)
 }
 
 function restoreUnitReportPath(): void {
-  if (s.savedUnitReportPath === undefined) delete process.env['ADW_UNIT_TEST_REPORT_PATH'];
-  else process.env['ADW_UNIT_TEST_REPORT_PATH'] = s.savedUnitReportPath;
+  const saved = s.savedUnitReportPath;
+  if (saved === null) return;
+  if (saved.value === undefined) delete process.env['ADW_UNIT_TEST_REPORT_PATH'];
+  else process.env['ADW_UNIT_TEST_REPORT_PATH'] = saved.value;
 }
 
 function removeWorkflowState(): void {
@@ -100,13 +110,14 @@ function removeWorkflowState(): void {
   }
 }
 
-Before({ tags: '@adw-988' }, function () {
+/** Both hooks are safe to run twice: a scenario tagged for feature-988 and feature-989 runs the hooks of each. */
+export function beginScenario(): void {
   resetWorld();
   resetState();
-  s.savedUnitReportPath = process.env['ADW_UNIT_TEST_REPORT_PATH'];
-});
+  s.savedUnitReportPath = { value: process.env['ADW_UNIT_TEST_REPORT_PATH'] };
+}
 
-After({ tags: '@adw-988' }, async function () {
+export async function endScenario(): Promise<void> {
   s.cli?.restore();
   restoreUnitReportPath();
 
@@ -116,4 +127,7 @@ After({ tags: '@adw-988' }, async function () {
   removeWorkflowState();
   resetWorld();
   resetState();
-});
+}
+
+Before({ tags: '@adw-988' }, beginScenario);
+After({ tags: '@adw-988' }, endScenario);

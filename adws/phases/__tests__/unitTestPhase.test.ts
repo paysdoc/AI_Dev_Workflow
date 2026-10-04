@@ -1,97 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import { describe, it, expect } from 'vitest';
+import type { ProcessRunner, StaticCheckCommands } from '../../core/checkRunner';
+import type { ModelUsageMap } from '../../cost';
 import { AgentStateManager } from '../../core/agentState';
-import { getDefaultProjectConfig } from '../../core/projectConfig';
-import type { ProcessOutcome, ProcessRunner, StaticCheckCommands } from '../../core/checkRunner';
-import type { TestRetryResult } from '../../agents/testRetry';
-import { executeUnitTestPhase, type UnitTestPhaseDeps } from '../unitTestPhase';
-import type { WorkflowConfig } from '../workflowInit';
+import { executeUnitTestPhase } from '../unitTestPhase';
+import {
+  ALL_CHECKS_RAN,
+  ExitSignal,
+  GREEN,
+  RED_BUILD,
+  RED_LINT,
+  executionLog,
+  makeConfig,
+  makeWorkflow,
+  parkComments,
+  recordingProcessRunner,
+  recordingTestRun,
+  scriptedFixRounds,
+  scriptedProcessRunner,
+  useUnitTestPhaseSandbox,
+} from './unitTestPhase.helpers';
 
-class ExitSignal extends Error {
-  constructor(readonly code: unknown) {
-    super(`process.exit(${String(code)})`);
-  }
-}
-
-const CHECK_COMMANDS: StaticCheckCommands = {
-  typeCheck: 'tc',
-  additionalTypeChecks: 'atc',
-  runLinter: 'lint',
-  runBuild: 'build',
-};
-
-const ALL_CHECKS_RAN = ['check:tc', 'check:atc', 'check:lint', 'check:build'];
-
-const PASSING_TEST_RUN: TestRetryResult = {
-  passed: true,
-  reportPresent: true,
-  hasFailures: false,
-  testcaseCount: 2,
-  costUsd: 0,
-  totalRetries: 0,
-  failedTests: [],
-  modelUsage: {},
-  contextResetCount: 0,
-};
-
-const tempDirs: string[] = [];
-let savedReportPath: string | undefined;
-
-function tempDir(prefix: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  tempDirs.push(dir);
-  return dir;
-}
-
-function makeConfig(unitTests: boolean, commands: StaticCheckCommands = CHECK_COMMANDS): WorkflowConfig {
-  const projectConfig = getDefaultProjectConfig();
-  return {
-    issueNumber: 42,
-    adwId: 'unit-test-phase',
-    issue: { number: 42, title: 'Unit-test phase', body: 'issue body' },
-    worktreePath: '/worktrees/unit-test-phase',
-    logsDir: tempDir('adw-unit-test-phase-logs-'),
-    orchestratorStatePath: tempDir('adw-unit-test-phase-state-'),
-    ctx: { issueNumber: 42, adwId: 'unit-test-phase' },
-    repoContext: undefined,
-    projectConfig: { ...projectConfig, commands: { ...projectConfig.commands, ...commands } },
-    adwYmlConfig: { hitl: false, unitTests },
-  } as unknown as WorkflowConfig;
-}
-
-function recordingProcessRunner(events: string[], outcomes: Readonly<Record<string, ProcessOutcome>> = {}): ProcessRunner {
-  return async (command) => {
-    events.push(`check:${command}`);
-    return outcomes[command] ?? { exitCode: 0, output: '' };
-  };
-}
-
-function recordingTestRun(events: string[], result: Partial<TestRetryResult> = {}): UnitTestPhaseDeps['runUnitTestsWithRetry'] {
-  return async () => {
-    events.push('tests');
-    return { ...PASSING_TEST_RUN, ...result };
-  };
-}
-
-function executionLog(config: WorkflowConfig): string {
-  return fs.readFileSync(path.join(config.orchestratorStatePath, 'execution.log'), 'utf-8');
-}
-
-beforeEach(() => {
-  savedReportPath = process.env.ADW_UNIT_TEST_REPORT_PATH;
-  vi.spyOn(process, 'exit').mockImplementation((code) => {
-    throw new ExitSignal(code);
-  });
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  if (savedReportPath === undefined) delete process.env.ADW_UNIT_TEST_REPORT_PATH;
-  else process.env.ADW_UNIT_TEST_REPORT_PATH = savedReportPath;
-  tempDirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, force: true }));
-});
+useUnitTestPhaseSandbox();
 
 describe('executeUnitTestPhase — static checks and the unit-test switch', () => {
   it('runs every static check and skips the test run when unitTests is false', async () => {
@@ -143,87 +72,116 @@ describe('executeUnitTestPhase — static checks and the unit-test switch', () =
     expect(events).toEqual([]);
     expect(result.unitTestsPassed).toBe(true);
   });
-});
 
-describe.each([true, false])('executeUnitTestPhase — a red static check, with unitTests %s', (unitTests) => {
-  const redLint = { lint: { exitCode: 1, output: 'lint error in src/a.ts' } };
-
-  it('ends the run with exit code 1 before the test run starts', async () => {
+  it('starts no fix round and needs no git context when every check is green on the first run', async () => {
     const events: string[] = [];
+    const rounds = scriptedFixRounds(events);
 
-    await expect(
-      executeUnitTestPhase(makeConfig(unitTests), {
-        runProcess: recordingProcessRunner(events, redLint),
-        runUnitTestsWithRetry: recordingTestRun(events),
-      }),
-    ).rejects.toBeInstanceOf(ExitSignal);
+    const result = await executeUnitTestPhase(makeConfig(true), {
+      runProcess: recordingProcessRunner(events),
+      runUnitTestsWithRetry: recordingTestRun(events),
+      fixRounds: rounds.port,
+    });
 
-    expect(process.exit).toHaveBeenCalledWith(1);
-    expect(events).not.toContain('tests');
+    expect(rounds.fixed).toEqual([]);
+    expect(result.costUsd).toBe(0);
   });
 
-  it('still runs every check, and puts the failing check’s output in the execution log', async () => {
-    const config = makeConfig(unitTests);
+  it('logs the output of a check that passed, as it logged it before', async () => {
+    const config = makeConfig(false);
+
+    await executeUnitTestPhase(config, { runProcess: recordingProcessRunner([]), runUnitTestsWithRetry: recordingTestRun([]) });
+
+    expect(executionLog(config)).toContain('Static check passed: lint — lint');
+  });
+});
+
+describe.each([true, false])('executeUnitTestPhase — a red static check the fix loop fixes, with unitTests %s', (unitTests) => {
+  it('hands the failing check to the fix loop, runs the checks again, and completes', async () => {
     const events: string[] = [];
+    const rounds = scriptedFixRounds(events, {});
+    const config = makeConfig(unitTests);
 
-    await expect(
-      executeUnitTestPhase(config, { runProcess: recordingProcessRunner(events, redLint), runUnitTestsWithRetry: recordingTestRun(events) }),
-    ).rejects.toBeInstanceOf(ExitSignal);
+    const result = await executeUnitTestPhase(config, {
+      runProcess: scriptedProcessRunner(events, { lint: [RED_LINT, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun(events),
+      fixRounds: rounds.port,
+    });
 
-    expect(events).toEqual(ALL_CHECKS_RAN);
+    expect(result.unitTestsPassed).toBe(true);
+    expect(rounds.fixed).toHaveLength(1);
+    expect(rounds.fixed[0].failed.map(verdict => [verdict.check, verdict.command, verdict.exitCode])).toEqual([['lint', 'lint', 1]]);
+    expect(rounds.kept).toEqual([1]);
+    expect(config.ctx.errorMessage).toBeUndefined();
+  });
+
+  it('runs the whole set of checks once, then the round, then the whole set again, and only then the test run', async () => {
+    const events: string[] = [];
+    const rounds = scriptedFixRounds(events, {});
+
+    await executeUnitTestPhase(makeConfig(unitTests), {
+      runProcess: scriptedProcessRunner(events, { lint: [RED_LINT, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun(events),
+      fixRounds: rounds.port,
+    });
+
+    expect(events).toEqual([...ALL_CHECKS_RAN, 'fix:1', 'keep:1', ...ALL_CHECKS_RAN, ...(unitTests ? ['tests'] : [])]);
+  });
+
+  it('logs the failing check’s output, and the round, in the execution log', async () => {
+    const config = makeConfig(unitTests);
+
+    await executeUnitTestPhase(config, {
+      runProcess: scriptedProcessRunner([], { lint: [RED_LINT, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun([]),
+      fixRounds: scriptedFixRounds([], {}).port,
+    });
+
     expect(executionLog(config)).toContain('lint error in src/a.ts');
+    expect(executionLog(config)).toContain('Static-check fix round 1');
+    expect(executionLog(config)).toContain('Static checks green after 1 fix round');
   });
 
-  it('names the failed check and its exit code in the error, but not its output', async () => {
-    const config = makeConfig(unitTests);
+  it('adds the cost and the model usage of the rounds to the cost of the phase', async () => {
+    const usage: ModelUsageMap = { 'model-a': { inputTokens: 10, outputTokens: 5, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 0.25 } };
+    const rounds = scriptedFixRounds([], { costUsd: 0.25, modelUsage: usage });
 
-    await expect(
-      executeUnitTestPhase(config, { runProcess: recordingProcessRunner([], redLint), runUnitTestsWithRetry: recordingTestRun([]) }),
-    ).rejects.toBeInstanceOf(ExitSignal);
+    const result = await executeUnitTestPhase(makeConfig(unitTests), {
+      runProcess: scriptedProcessRunner([], { lint: [RED_LINT, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun([], { costUsd: 1 }),
+      fixRounds: rounds.port,
+    });
 
-    expect(config.ctx.errorMessage).toContain('lint (exit 1)');
-    expect(config.ctx.errorMessage).not.toContain('lint error in src/a.ts');
+    expect(result.costUsd).toBeCloseTo(unitTests ? 1.25 : 0.25);
+    expect(result.modelUsage['model-a'].costUSD).toBeCloseTo(0.25);
+    expect(result.phaseCostRecords.length).toBeGreaterThan(0);
   });
 
-  it('records a failed execution state', async () => {
-    const config = makeConfig(unitTests);
+  it('hands one round every failing check at once', async () => {
+    const rounds = scriptedFixRounds([], {});
 
-    await expect(
-      executeUnitTestPhase(config, { runProcess: recordingProcessRunner([], redLint), runUnitTestsWithRetry: recordingTestRun([]) }),
-    ).rejects.toBeInstanceOf(ExitSignal);
+    await executeUnitTestPhase(makeConfig(unitTests), {
+      runProcess: scriptedProcessRunner([], { lint: [RED_LINT, GREEN], build: [RED_BUILD, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun([]),
+      fixRounds: rounds.port,
+    });
 
-    const state = AgentStateManager.readState(config.orchestratorStatePath);
-    expect(state?.execution?.status).toBe('failed');
-    expect(state?.execution?.errorMessage).toContain('lint (exit 1)');
-  });
-});
-
-describe('executeUnitTestPhase — several red static checks', () => {
-  it('names every failed check with its exit code, and logs every failing output', async () => {
-    const config = makeConfig(false);
-    const outcomes = {
-      lint: { exitCode: 1, output: 'lint output' },
-      build: { exitCode: 2, output: 'build output' },
-    };
-
-    await expect(
-      executeUnitTestPhase(config, { runProcess: recordingProcessRunner([], outcomes), runUnitTestsWithRetry: recordingTestRun([]) }),
-    ).rejects.toBeInstanceOf(ExitSignal);
-
-    expect(config.ctx.errorMessage).toBe('Static checks failed: lint (exit 1), build (exit 2). No PR was created.');
-    expect(executionLog(config)).toContain('lint output');
-    expect(executionLog(config)).toContain('build output');
+    expect(rounds.fixed).toHaveLength(1);
+    expect(rounds.fixed[0].failed.map(verdict => verdict.check)).toEqual(['lint', 'build']);
   });
 
-  it('reports a check that was killed, and so has no exit code, as failed', async () => {
-    const config = makeConfig(false);
-    const outcomes = { atc: { exitCode: null, output: 'Terminated' } };
+  it('carries on past any fixed number of rounds while the output keeps changing', async () => {
+    const rounds = scriptedFixRounds([], ...Array.from({ length: 9 }, () => ({})));
+    const changing = Array.from({ length: 9 }, (_unused, index) => ({ exitCode: 1, output: `${9 - index} problems` }));
 
-    await expect(
-      executeUnitTestPhase(config, { runProcess: recordingProcessRunner([], outcomes), runUnitTestsWithRetry: recordingTestRun([]) }),
-    ).rejects.toBeInstanceOf(ExitSignal);
+    const result = await executeUnitTestPhase(makeConfig(unitTests), {
+      runProcess: scriptedProcessRunner([], { lint: [...changing, GREEN] }),
+      runUnitTestsWithRetry: recordingTestRun([]),
+      fixRounds: rounds.port,
+    });
 
-    expect(config.ctx.errorMessage).toContain('additional type checks (exit none)');
+    expect(result.unitTestsPassed).toBe(true);
+    expect(rounds.fixed).toHaveLength(9);
   });
 });
 
@@ -241,5 +199,19 @@ describe('executeUnitTestPhase — a hard-failed unit-test run', () => {
     expect(process.exit).toHaveBeenCalledWith(1);
     expect(config.ctx.errorMessage).toMatch(/^Unit tests hard-failed/);
     expect(AgentStateManager.readState(config.orchestratorStatePath)?.execution?.status).toBe('failed');
+  });
+
+  it('is not a park: no park comment, and no human_gated stage', async () => {
+    const workflow = makeWorkflow(true);
+
+    await expect(
+      executeUnitTestPhase(workflow.config, {
+        runProcess: recordingProcessRunner([]),
+        runUnitTestsWithRetry: recordingTestRun([], { reportPresent: true, hasFailures: true, passed: false }),
+      }),
+    ).rejects.toBeInstanceOf(ExitSignal);
+
+    expect(parkComments(workflow)).toEqual([]);
+    expect(AgentStateManager.readTopLevelState(workflow.config.adwId)?.workflowStage).not.toBe('human_gated');
   });
 });

@@ -109,8 +109,8 @@ Feature: Static checks run as deterministic gates in the unit-test phase
     And the test agent was started once, after every static check had finished
     And the unit-test phase completed
 
-  @adw-988 @adw-84aif7-feat-static-checks-r
-  Scenario: With unit tests switched on, a lint that exits 1 fails the unit-test phase before any agent is started, with the lint's output in the execution log
+  @adw-988 @adw-84aif7-feat-static-checks-r @adw-989
+  Scenario: With unit tests switched on, a lint that exits 1 goes to the static-check fix agent and never to the test agent, with the lint's output in the execution log, and a round that leaves the lint's output unchanged parks the workflow
     Given a workflow for issue 9882 whose worktree's ".adw/commands.md" configures these static checks, in this order:
       | check                  | command                                                                    |
       | type check             | prints "src: 0 errors" and exits 0                                         |
@@ -122,11 +122,14 @@ Feature: Static checks run as deterministic gates in the unit-test phase
       unitTests: true
       """
     And the test agent writes a JUnit report in which every unit test passes
+    And the static-check fix agent's rounds change nothing
     When the workflow's unit-test phase runs
-    Then the unit-test phase ended the workflow with exit code 1
-    And no agent was started
+    Then the static-check fix agent was started 1 time
+    And the test agent was not started
+    And the unit-test phase did not complete
     And the workflow's execution log holds "src/utils.ts:1:10 'unused' is defined but never used"
-    And the unit-test phase posted a comment headed "ADW Workflow Error" on issue 9882
+    And the workflow for issue 9882 is parked as "human_gated"
+    And the park comment posted on issue 9882 names the failing check "lint"
 
   @adw-988 @adw-84aif7-feat-static-checks-r
   Scenario: With unitTests false in ".github/adw.yml", the unit-test phase still runs every configured static check, skips the test run, and completes
@@ -149,8 +152,8 @@ Feature: Static checks run as deterministic gates in the unit-test phase
     And no agent was started
     And the unit-test phase completed
 
-  @adw-988 @adw-84aif7-feat-static-checks-r
-  Scenario: With unitTests false in ".github/adw.yml", a build that exits 1 still fails the unit-test phase, with what the build wrote to standard error in the execution log
+  @adw-988 @adw-84aif7-feat-static-checks-r @adw-989
+  Scenario: With unitTests false in ".github/adw.yml", a build that exits 1 still blocks the unit-test phase: it goes to the static-check fix agent, what the build wrote to standard error is in the execution log, and a round that leaves the build's output unchanged parks the workflow
     Given a workflow for issue 9884 whose worktree's ".adw/commands.md" configures these static checks, in this order:
       | check                  | command                                                                       |
       | type check             | prints "src: 0 errors" and exits 0                                            |
@@ -161,8 +164,11 @@ Feature: Static checks run as deterministic gates in the unit-test phase
       """
       unitTests: false
       """
+    And the static-check fix agent's rounds change nothing
     When the workflow's unit-test phase runs
-    Then the unit-test phase ended the workflow with exit code 1
-    And no agent was started
+    Then the static-check fix agent was started 1 time
+    And the test agent was not started
+    And the unit-test phase did not complete
     And the workflow's execution log holds "error: Could not resolve './missing'"
-    And the unit-test phase posted a comment headed "ADW Workflow Error" on issue 9884
+    And the workflow for issue 9884 is parked as "human_gated"
+    And the park comment posted on issue 9884 names the failing check "build"

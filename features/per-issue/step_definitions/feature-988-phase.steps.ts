@@ -22,7 +22,7 @@ import { s, recordingProcessRunner, writeStaticChecks, type PhaseOutcome } from 
 
 const TARGET_REPOSITORY = 'adw-fixture/void-988';
 
-function requireWorkflow(): Workflow929 {
+export function requireWorkflow(): Workflow929 {
   assert.ok(s.workflow, 'Expected a workflow to have been set up first');
   return s.workflow;
 }
@@ -32,22 +32,23 @@ function requireCli(): InstalledCli {
   return s.cli;
 }
 
-function requirePhase(): PhaseOutcome {
+export function requirePhase(): PhaseOutcome {
   assert.ok(s.phase, 'Expected the unit-test phase to have run first');
   return s.phase;
 }
 
-function startedAgents(): string[] {
+/** The slash command of every run the throwaway CLI has served, in start order. */
+export function startedAgents(): string[] {
   return readRuns(requireCli().runLogPath).map(run => run.command);
 }
 
-function describeEnd(phase: PhaseOutcome): string {
+export function describeEnd(phase: PhaseOutcome): string {
   if (phase.exitCode !== null) return `it ended the workflow with exit code ${phase.exitCode}`;
   return phase.error === null ? 'it completed' : `it threw: ${String(phase.error)}`;
 }
 
 /** Runs the phase with `process.exit` trapped, so a phase that ends the workflow is recorded rather than ending this process. */
-async function runPhaseTrappingExit(workflow: Workflow929, cli: InstalledCli): Promise<PhaseOutcome> {
+export async function runPhaseTrappingExit(workflow: Workflow929, cli: InstalledCli): Promise<PhaseOutcome> {
   // Object reference avoids TypeScript's let-variable narrowing loss through closures.
   const trapped: { exitCode: number | null } = { exitCode: null };
   const realExit = process.exit;
@@ -57,7 +58,7 @@ async function runPhaseTrappingExit(workflow: Workflow929, cli: InstalledCli): P
   }) as typeof process.exit;
   const runProcess = recordingProcessRunner(() => s.agentRunsAtCheckEnd.push(readRuns(cli.runLogPath).length));
   try {
-    await executeUnitTestPhase(workflow.config, { runProcess });
+    await executeUnitTestPhase(workflow.config, { runProcess, fixRounds: s.fixRounds ?? undefined });
     return { completed: true, exitCode: null, error: null };
   } catch (error) {
     return { completed: false, exitCode: trapped.exitCode, error: trapped.exitCode === null ? error : null };
@@ -84,13 +85,17 @@ Given('the test agent writes a JUnit report in which every unit test passes', fu
   s.behaviour = { ...emptyBehaviour(), junitReportPath: path.join(requireWorkflow().logsDir, 'junit-unit.xml') };
 });
 
-When("the workflow's unit-test phase runs", async function () {
+/** One run of the phase. A scenario that runs it again (a resumed workflow) goes on with the same throwaway CLI and fix rounds. */
+export async function runWorkflowUnitTestPhase(): Promise<void> {
   const workflow = requireWorkflow();
+  s.beforePhase?.();
   workflow.config.projectConfig = loadProjectConfig(workflow.worktreePath);
   workflow.config.adwYmlConfig = readAdwYmlConfig(workflow.worktreePath);
-  s.cli = installCompactingCli(s.behaviour);
+  s.cli ??= installCompactingCli(s.behaviour);
   s.phase = await runPhaseTrappingExit(workflow, s.cli);
-});
+}
+
+When("the workflow's unit-test phase runs", runWorkflowUnitTestPhase);
 
 Then('the test agent was started once, after every static check had finished', function () {
   assert.ok(s.agentRunsAtCheckEnd.length > 0, 'Expected the static checks to have run');

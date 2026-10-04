@@ -174,6 +174,7 @@ export type AgentIdentifier =
   | 'dependency-extraction-agent'
   | 'review-patch'
   | 'scenario-fix'
+  | 'static-check-fix-agent'
   | 'refactor-agent';
 
 export type AgentExecutionStatus =

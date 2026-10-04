@@ -152,11 +152,26 @@
     - adws/phases/stepDefPhase.ts
     - adws/core/checkRunner.ts
     - adws/core/__tests__/checkRunner*.test.ts
-    - adws/phases/__tests__/unitTestPhase.test.ts
+    - adws/phases/__tests__/unitTestPhase*.test.ts
+    - adws/phases/staticCheckGate.ts
+    - adws/phases/staticCheckFixRound.ts
+    - adws/phases/workflowPark.ts
+    - adws/phases/__tests__/staticCheckFixRound*.test.ts
+    - adws/phases/__tests__/workflowPark.test.ts
+    - adws/core/staticCheckFixLoop.ts
+    - adws/core/fixRoundGuard.ts
+    - adws/core/fixRoundGuardTable.ts
+    - adws/core/unifiedDiff.ts
+    - adws/core/__tests__/fixRoundGuard*.test.ts
+    - adws/core/__tests__/staticCheckFixLoop*.test.ts
+    - adws/core/__tests__/unifiedDiff*.test.ts
   - Conditions:
     - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
     - When working on the static-check gate (`adws/core/checkRunner.ts`: `runStaticChecks`, `runShellCommand`, `CheckVerdict`) that runs type check, additional type checks, lint and build by exit code before the unit-test run
-    - When a red static check ends the unit-test phase, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
+    - When a red static check should be fixed by the static-check fix loop (`runStaticCheckFixLoop`, `staticCheckGate.ts`, `staticCheckFixRound.ts`) rather than end the run, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
+    - When working on the fix-round guard (`evaluateFixRound`, `buildFixRoundGuardConfig`, `FRAMEWORK_SUPPRESSION_PATTERNS`, `PROTECTED_PATH_RULES`, `parseUnifiedDiff`), the `## Suppression Patterns` section of `.adw/commands.md`, or a fix round rejected for adding a suppression comment or editing protected configuration
+    - When a static-check fix loop stops on identical output or a rejected round, parks as `human_gated` (`parkWorkflow`), or `## Retry` should resume it
+    - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`) and what `## Retry`/`## Continue` mean for each park reason
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
   - Decisions:
@@ -166,6 +181,8 @@
     - 0043
     - 0049
     - 0058
+    - 0059
+    - 0060
 
 - app_docs/feature-9gjajh-bdd-regression-suite.md
   - Owns:
