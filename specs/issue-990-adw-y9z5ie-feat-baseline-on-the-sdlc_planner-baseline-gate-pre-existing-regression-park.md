@@ -29,7 +29,7 @@ This issue implements the PRD's **Baseline gate** module, as decided in ADR-0060
    - With a waiver, nothing is re-run and everything goes to the fix agent.
    - There is no full regression run on the base branch.
 4. **Cleanup.** The base worktree is shared by the baseline and the re-runs of one process, and removed when that process exits: at a normal end, a park, an error or a pause, since every one of them ends in `process.exit`. Its `-issue-<N>-` name puts it in reach of `## Cancel`, the issue-close cleanup and the dev-server janitor when a process is killed. A stale one is replaced on the next run.
-5. **The dev-server lifecycle gains a start that reports failure** (`withHealthyDevServer`): the same retries and probe as `withDevServer`, but it never runs the work against a server that did not start, and it returns the last attempt's output. `withDevServer` and the scenario phase are unchanged; changing them is ADR-0062's issue.
+5. **The dev-server lifecycle gains a start that reports failure** (`withHealthyDevServer`): the same retries and probe as `withDevServer`, but it never runs the work against a server that did not start, it returns the last attempt's output, and it returns only once every server it started has stopped, so the base branch's server is gone before the plan phase runs. `withDevServer` and the scenario phase are unchanged; changing them is ADR-0062's issue.
 6. ADR-0060's `### Confirmation` names the implemented check.
 
 Value: work is never built on a red base. A broken `dev` is reported on the first issue that meets it, with a comment that says what failed and what each directive does. The fix agent only ever works on what the issue changed.
@@ -80,7 +80,8 @@ So that a failure the branch inherited is never charged to the issue, a broken `
     - uses the same `MAX_START_ATTEMPTS`/`probeHealth`/`killProcessGroup` loop as `withDevServer`;
     - each attempt writes to `outputPath`, truncated, so the file holds the last attempt's output;
     - returns `{ started: true, result }` after running `work`, or `{ started: false, output }` without running it;
-    - kills the process group in `finally`.
+    - kills the process group in `finally`;
+    - after every kill, waits until the process group has exited (at most `KILL_GRACE_MS` plus one `PROBE_INTERVAL_MS`, since the SIGKILL follows at `KILL_GRACE_MS`). `killProcessGroup` only signals. Waiting means it returns only once every server it started has stopped, so no phase after the baseline runs beside the base branch's server, and the run's port is free for the issue's own server.
   - `extractPort` and `isDevServerConfigured` move out of `scenarioTestPhase.ts` as exported `devServerPort(applicationUrl)` and `isDevServerConfigured(command)`, with unchanged behaviour.
   - `withDevServer` is not changed.
 - **Base worktree (`adws/phases/baseWorktree.ts`, typed `GitContext` methods only).**
@@ -167,7 +168,8 @@ Use these files to implement the feature:
 - `adws/phases/staticCheckGate.ts` — `recordLine`, `describeFailedCheck` and `logCheckVerdict` are private. Export `logCheckVerdict` with an optional label so the baseline logs its checks in the same format; the gate's own log lines stay unchanged. The gate's loop needs no change: with a passed baseline every red check was introduced, and with a waiver the loop fixes everything, as it already does.
 - `adws/phases/workflowPark.ts` — `parkWorkflow(config, evidence): never`. Also write `parkReason`.
 - `adws/phases/__tests__/workflowPark.test.ts` — Extend: `parkReason` is recorded.
-- `adws/forge/parkComment.ts` — `ParkReason`, `ParkEvidence` (`BaselineRed { baseBranch, failedChecks }`, `PreExistingRegression { baseBranch, scenario }`, `BaseServerDown { baseBranch, output }`), `parkDirectives`, `buildParkComment`. Used as is; do not change its texts (the `@adw-989` scenarios assert them).
+- `adws/forge/parkComment.ts` — `ParkReason`, `ParkEvidence` (`BaselineRed { baseBranch, failedChecks }`, `PreExistingRegression { baseBranch, scenario }`, `BaseServerDown { baseBranch, output }`), `parkDirectives`, `buildParkComment`. Used as is; do not change its texts (the `@adw-989` scenarios assert them, and four of them also carry `@adw-990`).
+- `features/per-issue/feature-989.feature` — Four of its park-comment scenarios also carry `@adw-990`: `baseline_red`, `pre_existing_regression`, `base_server_down`, and the one that checks that no park comment is taken for a directive. #989's step definitions already pass them. Keep them green, and do not edit them.
 - `adws/phases/workflowInit.ts` — `initializeWorkflow`'s `starting` top-level write. Add `parkReason: undefined`. `WorkflowConfig.defaultBranch`, `worktreePath`, `logsDir`, `applicationUrl` and `gitContext` feed the baseline. Already over 300 lines (pre-existing); add one property only.
 - `adws/phases/prReviewPhase.ts` — `initializePRReviewWorkflow`: `defaultBranch: pr.targetBranch` (the PR's base). Add `parkReason: undefined` to its pid write. Already over 300 lines (pre-existing); add one property only.
 - `adws/phases/workflowRepoIdentity.ts` — `requireWorkflowGitContext(config)`.
@@ -207,11 +209,11 @@ Use these files to implement the feature:
   - its dev server is `N/A`.
 
   It must stay green. Read-only.
-- `features/per-issue/step_definitions/feature-988-*.ts`, `feature-989-*.ts`, `feature-929-workflow.ts`, `feature-796.steps.ts` — The BDD harness to reuse:
-  - #988's phase runner that traps `process.exit`;
-  - #929's `createWorkflow`/`commitFile`;
-  - #796's recording providers and `commentsOn`;
-  - #989's park assertions.
+- `features/per-issue/step_definitions/feature-988-*.ts`, `feature-989-*.ts`, `feature-929-workflow.ts`, `feature-796.steps.ts` — The steps and helpers to reuse:
+  - #989's park assertions (`the workflow for issue {int} is parked as {string}`, `the park comment posted on issue {int} names the failing check {string}`, `no park comment was posted on issue {int}`). They read #988's world (`s.workflow`, through `requireWorkflow()`) and #796's recording tracker (`commentsOn`);
+  - #929's `commitFile`;
+  - #989's `retryDeps()`, the pattern for a directive handler's dependencies over the real top-level state.
+- `features/regression/support/subprocessRun.ts`, `subprocessHarness.ts`, `harnessOrchestrators.ts`, `forgeShadow.ts`, `claudeCliStub.ts`, `test/mocks/claude-cli-stub.ts`, `test/fixtures/jsonl/manifests/adw-sdlc-happy.json` — The subprocess harness the `@adw-990` scenarios run real orchestrator processes with (task 15). `harnessOrchestrators.ts` lists `adwSdlc`, `adwChore`, `adwTest` and `adwPrReview`, but not `adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildTestReview` or `adwPlanBuildDocument`.
 - `UBIQUITOUS_LANGUAGE.md` — The Retry Directive entry; the document phase may add **Baseline**, **Base Worktree**, **Waiver** and **Pre-existing Failure**.
 
 Conditional documentation, whose conditions this task matches:
@@ -265,7 +267,7 @@ Pure building blocks and the state shape, each test-first:
 - Call the gate from `runScenarioTestFixLoop` before the verdict and the fix phase.
 - Wire `handleContinueDirective` into the webhook and the cron.
 - Run `executeBaselinePhase` first in the nine orchestrators; extend the injectable phase sets and their tests.
-- Barrels, the `@adw-990` step definitions, ADR-0060's `### Confirmation`, the README.
+- Barrels, the `@adw-990` step definitions (real orchestrator processes, through the regression subprocess harness), ADR-0060's `### Confirmation`, the README.
 - Run every validation command, including `@adw-990`, `@adw-989`, `@adw-988` and `@regression`.
 
 ## Step by Step Tasks
@@ -345,9 +347,10 @@ Execute every step in order, top to bottom.
 - Run `bunx vitest run adws/phases/__tests__/workflowPark.test.ts adws/phases/__tests__/workflowInit.test.ts`.
 
 ### 4. Add a dev-server start that reports failure (test first)
-- Create `adws/core/__tests__/devServerLifecycle.healthy.test.ts`. Inject `{ spawn, probe, kill }` fakes, with no real processes and no real timers. Use a temp `outputPath`. Cases:
+- Create `adws/core/__tests__/devServerLifecycle.healthy.test.ts`. Inject `{ spawn, probe, kill, alive }` fakes, with no real processes, and no real timers (fake timers where a wait is under test). Use a temp `outputPath`. Cases:
   - **healthy on attempt 1** → `work` runs once, the result is `{ started: true, result }`, and `kill` is called for the pid after `work`.
-  - **healthy on attempt 3** → the first two attempts are killed before the next spawn, then `work` runs.
+  - **healthy on attempt 3** → the first two attempts are killed, and gone per `alive`, before the next spawn; then `work` runs.
+  - **stopped before it returns**: after each kill it polls `alive(pid)` until the group is gone, and only then spawns the next attempt or resolves. With `alive` reporting the group for two more polls, it resolves only after them. A group that never goes is given up on after `KILL_GRACE_MS + PROBE_INTERVAL_MS`, without an error.
   - **never healthy** after `MAX_START_ATTEMPTS`:
     - `work` never runs;
     - the result is `{ started: false, output }`, where `output` is the last attempt's output as written to `outputPath` (the fake spawn writes `attempt-<n>` through the fd it is given);
@@ -360,13 +363,15 @@ Execute every step in order, top to bottom.
   - `spawnServer(command, cwd, outputFd?: number)`: `stdio: outputFd === undefined ? 'ignore' : ['ignore', outputFd, outputFd]`. Default unchanged; the existing tests must pass untouched.
   - `export interface HealthyDevServerConfig extends DevServerConfig { readonly outputPath: string }`
   - `export type HealthyDevServerOutcome<T> = { readonly started: true; readonly result: T } | { readonly started: false; readonly output: string }`
-  - `export interface DevServerLifecycleDeps { readonly spawn: (command: string, cwd: string, outputFd: number) => ChildProcess; readonly probe: typeof probeHealth; readonly kill: typeof killProcessGroup }`
+  - `export interface DevServerLifecycleDeps { readonly spawn: (command: string, cwd: string, outputFd: number) => ChildProcess; readonly probe: typeof probeHealth; readonly kill: typeof killProcessGroup; readonly alive: (pid: number) => boolean }`. The default `alive` is true while `process.kill(-pid, 0)` succeeds.
   - `export async function withHealthyDevServer<T>(config, work, deps: Partial<DevServerLifecycleDeps> = {}): Promise<HealthyDevServerOutcome<T>>`. Each attempt:
     - opens `outputPath` with `'w'`, so only the last attempt's output remains;
     - spawns, closes the parent's fd, and probes;
-    - an unhealthy attempt is killed before the next.
+    - an unhealthy attempt is stopped before the next.
 
-    Extract `startOneAttempt`. Comment why it never runs `work` against a server that did not start: a verdict from such a run would be a server verdict, and the caller must act on the failure instead.
+    Extract `startOneAttempt`, and `stopServer`, which every kill goes through, the one in `finally` too: kill, then poll `alive` every `PROBE_INTERVAL_MS` until the group is gone, for at most `KILL_GRACE_MS + PROBE_INTERVAL_MS`. Two comments:
+    - why it never runs `work` against a server that did not start: a verdict from such a run would be a server verdict, and the caller must act on the failure instead;
+    - why `stopServer` waits: `killProcessGroup` only signals, and the next phase must neither run beside the server nor find the run's port taken.
   - Move `extractPort` → `export function devServerPort(applicationUrl: string): number` and `isDevServerConfigured` → `export function isDevServerConfigured(command: string): boolean` from `adws/phases/scenarioTestPhase.ts`. Import them there; the scenario phase's behaviour is unchanged.
   - Update the header comment, which still says "No production consumers are wired yet".
   - `withDevServer` is not touched.
@@ -588,7 +593,7 @@ Execute every step in order, top to bottom.
 - Injectable orchestrators (test first):
   - `adws/__tests__/adwChore.test.ts`, `adwPlanBuildReview.test.ts`, `adwPlanBuildTestReview.test.ts`: add `executeBaselinePhase: vi.fn(async () => ZERO_COST)` to `makePhases`. New cases:
     - the baseline ran first, before `executeInstallPhase` and `executePlanPhase` (call order through `mock.invocationCallOrder`);
-    - a baseline that parks (throws a sentinel standing in for `process.exit`) → neither the install nor the plan phase was called.
+    - a baseline that parks (throws a sentinel standing in for `process.exit`) → neither the install nor the plan phase was called. The body's `catch` hands the sentinel to the real `handleWorkflowError`, which these files do not mock. Mock it (`vi.mock('../workflowPhases', …)`, keeping the rest) so that the sentinel ends the run as a real exit would.
   - In `adws/adwChore.tsx`, `adws/adwPlanBuildReview.tsx` and `adws/adwPlanBuildTestReview.tsx`:
     - add `readonly executeBaselinePhase: typeof executeBaselinePhase` to the phase interface and to its default constant;
     - call `await runPhase(config, tracker, phases.executeBaselinePhase, 'baseline')` as the first line of the phase sequence.
@@ -614,28 +619,48 @@ Execute every step in order, top to bottom.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@smoke"`, then `--tags "@subprocess"`. If a smoke fails because of the baseline, fix the cause in the baseline code, not in the fixture or the scenario. Then check that no `.worktrees/base-issue-*` directory is left behind in the fixture workspace after a run.
 
 ### 15. Write the step definitions for `@adw-990`
-- The `@adw-990` scenarios are in `features/per-issue/feature-990.feature`, written by the scenario phase. Write their step definitions in `features/per-issue/step_definitions/feature-990*.ts`, with helpers split into `feature-990-*.ts` modules to stay under 300 lines. Do not edit the feature file.
+- `@adw-990` selects:
+  - every scenario of `features/per-issue/feature-990.feature`, which the scenario phase wrote;
+  - four park-comment scenarios of `features/per-issue/feature-989.feature`, which #989's step definitions already pass over `buildParkComment`. The `@adw-990` hooks run for them too.
+
+  Write the step definitions in `features/per-issue/step_definitions/feature-990*.ts`, with helpers split into `feature-990-*.ts` modules to stay under 300 lines. Do not edit either feature file.
 - Reuse, never redefine (Cucumber fails on an ambiguous step):
   - the Background `the ADW codebase is checked out`;
-  - #988's phase helpers, including the runner that traps `process.exit`;
-  - #929's `createWorkflow`/`commitFile`;
-  - #796's recording providers and `commentsOn`;
-  - #989's park-comment helpers (`feature-989-comments.ts`).
+  - #989's `the workflow for issue {int} is parked as {string}`, `the park comment posted on issue {int} names the failing check {string}` and `no park comment was posted on issue {int}`, with `feature-989-comments.ts`;
+  - #929's `commitFile`, and #989's `retryDeps()` pattern.
 
   Export what is needed instead of copying it.
-- A realistic base branch:
-  - a throwaway repository whose base branch is pushed to a local bare `origin`, so `fetchRemote` and `addDetachedWorktree('origin/<base>')` work with real git;
-  - the base branch's `.adw/commands.md` uses real commands (`sh -c 'echo …; exit 1'`) for a red check or a server that never starts, and `N/A` install where dependencies do not matter.
-- Drive the real modules:
-  - `executeBaselinePhase` for red/green/waived;
-  - `handleRetryDirective`/`handleContinueDirective` with real state, for the directives;
-  - `runScenarioTestFixLoop` or `createPreExistingRegressionGate` with a scripted scenario runner on the base checkout, for pre-existing versus introduced (assert on whether the fix phase or agent was started).
-- "Before any plan is written": assert the park and that no plan file or plan agent run exists. Use an orchestrator run, or the baseline phase as the first phase of an injectable orchestrator (`executeChore` / `executePlanBuildTestReview` with fake later phases).
+- Run each workflow as a real orchestrator process, through the regression subprocess harness (`subprocessRun.ts`, with its `gh` shadow, Claude CLI stub and git mock), set up the way its `@regression and (@subprocess or @webhook)` Before hook does. An in-process run cannot prove these scenarios:
+  - Every Examples row of the Scenario Outline must run the orchestrator it names, never a stand-in sequence or another orchestrator. Five of the eight (`adwSdlc`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildTest`, `adwPrReview`) have no exported body to call, so every row runs the orchestrator's script. `harnessOrchestrators.ts` does not list `adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildTestReview` or `adwPlanBuildDocument` yet; add them.
+  - An orchestrator body run in-process, with `process.exit` trapped by a throw, is not faithful. Its `catch` hands the trap's sentinel to `handleWorkflowError`, which writes `workflowStage: 'abandoned'`, posts an error comment and exits 1, so a park would read as abandoned. This rules out `executeChore`/`executePlanBuildTestReview` with fake later phases here.
+  - "the worktree of the base branch … has been removed" is a property of the process's exit: only a real exit fires the cleanup that `sharedBaseWorktree` registers. Assert it once the child has exited: the `.worktrees/base-issue-<N>-<adwId>` directory is gone, and `git worktree list` no longer lists it.
+  - "the workflow runs again" is a new process with the same adwId, as the takeover makes it. It checks the base out afresh, so it sees a commit pushed since the park.
+- Feed the reused #989 steps from the child. They read #988's world (`s.workflow`, through `requireWorkflow()`) and #796's recording tracker (`commentsOn`):
+  - point `s.workflow` at the child's adwId and issue (its top-level state is in the checkout's `agents/`);
+  - make the comments the `gh` shadow recorded visible to `commentsOn`.
+- The target repository:
+  - its default branch, as the `gh` shadow reports it, is `dev`, and `refs/remotes/origin/dev` exists in the workspace, since `fetch` is a no-op behind the git mock. "a commit pushed to "dev"" moves both `dev` and `refs/remotes/origin/dev`;
+  - the base branch's `.adw/commands.md` uses real commands (`sh -c 'echo …; exit 1'`) for a red check or a server that never starts, and `N/A` install where dependencies do not matter;
+  - "declares no dev server" writes `## Start Dev Server` as `N/A`, as `adw_init` does for a repository without one. A missing section would not do: the scenario phase and the base re-run read a missing section as `bun run dev`. "declares a dev server that …" writes a real command with `{PORT}`;
+  - "the target repository's scenarios have these outcomes":
+    - feature files on each branch, none on `dev` for "does not exist";
+    - a `## Run Scenarios by Tag` script that writes a JUnit report with the table's outcome for the checkout it runs in, and on a base checkout runs the scenario tagged `@adw-base-rerun`;
+    - the script logs every run, so "run on its own on the worktree of the base branch" and "no scenario was run on the base branch" can be read back.
+- Agents. A red baseline parks before any phase starts an agent, so the outline's rows need stub answers only for what `initializeWorkflow` asks. Given `--issue-type`, it asks nothing; `adwTest` ignores that flag, so its run may need the classifier's answer. A run past the baseline answers its agents from a stub manifest based on `test/fixtures/jsonl/manifests/adw-sdlc-happy.json`. In it:
+  - the scenario fix agent's entry makes the scenarios it is handed pass on the issue's branch, or changes nothing;
+  - the build agent's entry fails, for "the build phase of that workflow fails with the error …";
+  - what the scenario fix agent "was handed" is read from the prompt it was started with.
+- The directives: "the owner comments "## Retry"" → `handleRetryDirective`, and "## Continue" → `handleContinueDirective`. Each gets the issue's comments plus the directive, and recording dependencies over the real top-level state, as #989's `retryDeps()` does.
+- Read the rest back from the run:
+  - the child's `execution.log`: the checkout's branch, commit and path, and the base branch checks in order;
+  - its top-level state: the stage, `parkReason` and the `baseline` record;
+  - the base server's own log, set against the plan phase's start, for "had stopped before the plan phase ran".
+- The server-down scenario waits out the lifecycle's three 20 s probes. Give that run, and its When step, a timeout above `MAX_START_ATTEMPTS × PROBE_TIMEOUT_MS` (e.g. 120 s).
 - Hooks tagged `@adw-990`:
   - reset the shared state;
-  - call `sharedBaseWorktree(config).remove()` for every workflow the scenario created (the trapped `process.exit` never fires the exit cleanup in-process);
+  - as a safety net only, remove any `.worktrees/base-issue-*` a killed child left behind; no Then step may pass because of it;
   - remove temp dirs and `agents/<adwId>`/`logs/<adwId>`;
-  - be idempotent.
+  - be idempotent, and harmless for the four `feature-989.feature` scenarios, which run no workflow.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-990"` until green.
 
 ### 16. Rewrite ADR-0060's `### Confirmation`
@@ -660,7 +685,7 @@ Execute every step in order, top to bottom.
     - `adws/triggers/__tests__/continueHandler.test.ts`.
 
     They use a fake check runner, a fake scenario runner and a fake worktree: red parks, green records, the waiver is honoured, the single re-run classifies pre-existing.
-  - **Scenarios:** `features/per-issue/feature-990.feature`.
+  - **Scenarios:** `features/per-issue/feature-990.feature`, which runs real orchestrator processes, and the four `@adw-990` park-comment scenarios of `features/per-issue/feature-989.feature`.
 - Keep `### Confirmation` as an h3 in place. Do not edit the decision, the drivers, the consequences or the front matter.
 
 ### 17. Update the README
@@ -700,9 +725,10 @@ Execute every step in order, top to bottom.
   - `scenarioMatchesCase` (exact, rule, outline examples, no partial words);
   - `withRerunTag` (indentation, existing tags, untouched content, CRLF);
   - `describeFailingScenario`.
-- **`adws/core/__tests__/devServerLifecycle.healthy.test.ts`** (fake spawn, probe and kill):
+- **`adws/core/__tests__/devServerLifecycle.healthy.test.ts`** (fake spawn, probe, kill and liveness check):
   - healthy on attempt 1 or 3;
   - never healthy → no work, the last attempt's output, every attempt killed;
+  - every killed server has stopped before the next attempt starts and before it returns;
   - kill on throw; `{PORT}` and probe URL;
   - `devServerPort`, `isDevServerConfigured`.
   - The existing `devServerLifecycle.test.ts` passes untouched.
@@ -755,6 +781,7 @@ Execute every step in order, top to bottom.
 - **A base checkout without dependencies**: the install runs before the checks. A failing install parks as `baseline_red` naming `install dependencies`. A repository whose install is `N/A`, or with nothing to check, installs nothing.
 - **No `## Start Dev Server` section**: the parsed config defaults to `bun run dev`, but the baseline starts only a declared server. The scenario phase's own rule is unchanged, and the base re-run follows that rule so both runs see the same conditions.
 - **Base dev-server flake** (slow start, port in use): the lifecycle's three attempts with a 20 s probe each, then `base_server_down` with the last attempt's output. `## Retry` re-runs the baseline. The review counter is not touched (ADR-0062 does not apply).
+- **The base server and the plan phase**: the baseline returns only once the server it started has stopped, so the plan phase never runs beside it, and the issue's own server later finds the run's port free.
 - **Resume after a park or a pause**:
   - a park inside the baseline leaves the `baseline` phase `running`, so the resumed run re-runs it;
   - a completed baseline is skipped on resume;
