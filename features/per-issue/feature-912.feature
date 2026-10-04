@@ -1,4 +1,4 @@
-@adw-912 @adw-kdrab9-in-process-wait-and
+@adw-912 @adw-kdrab9-in-process-wait-and @promotion-suggested-2026-10-04
 Feature: A five-hour session limit with a known reset time is ridden out in-process — a pure wait policy decides, the phase runner announces each wait on the issue and sleeps through an injected clock until the reset time, re-running the phase without bound while the workflow stays running, heartbeating and lock-holding, and every other rejection still exits through the pause path
 
   Issue #912 is the wait-policy slice of `specs/prd/rate-limit-indefinite-retry.md` (section
