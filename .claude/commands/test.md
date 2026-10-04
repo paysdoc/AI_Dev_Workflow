@@ -1,17 +1,13 @@
 ---
 target: false
 ---
-# Application Validation Test Suite
+# Application Unit Tests
 
-Execute comprehensive validation tests for the application and ADW (AI Developer Workflow) scripts, returning results in a standardized JSON format for automated processing.
+Run the application's unit tests and return the result in a standardized JSON format for automated processing.
 
 ## Purpose
 
-Proactively identify and fix issues in the application before they impact users or developers. By running this comprehensive test suite, you can:
-- Detect syntax errors, type mismatches, and import failures
-- Identify broken tests or security vulnerabilities
-- Verify build processes and dependencies
-- Ensure the application is in a healthy state
+ADW derives the verdict of the unit tests from the JUnit report this command's test run emits, and runs every other check of the code itself, before this command starts. This command runs the unit tests and reports what happened. It checks nothing else.
 
 ## Variables
 
@@ -19,50 +15,24 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 
 ## Instructions
 
-- Read `.adw/commands.md` from the current working directory for all project-specific commands. If `.adw/commands.md` does not exist, use the default commands shown in each test step below.
-- Execute each test in the sequence provided below
+- Read `.adw/commands.md` from the current working directory for all project-specific commands. If `.adw/commands.md` does not exist, use the default command shown in the test step below.
+- Run only the test in the sequence provided below, and no other command that checks the code
 - Capture the result (passed/failed) and any error messages
-- CRITICAL: Return ONLY the JSON array with test results. No additional text, explanations, or markdown formatting — `JSON.parse()` runs directly on your output.
-- If a test passes, omit the error field
-- If a test fails, include the error message in the error field
-- Execute all tests even if some fail — do not stop on failure
+- CRITICAL: Return ONLY the JSON array with the test result. No additional text, explanations, or markdown formatting — `JSON.parse()` runs directly on your output.
+- If the test passes, omit the error field
+- If the test fails, include the error message in the error field
 - Error Handling:
-  - If a command returns non-zero exit code, mark as failed and continue to the next test
-  - Capture stderr output for error field
-  - Timeout commands after `TEST_COMMAND_TIMEOUT`
-- Test execution order is important - dependencies should be validated first
-- log the start, end and result of each test to the console for visibility
+  - If the command returns a non-zero exit code, mark the test as failed
+  - Capture stderr output for the error field
+  - Timeout the command after `TEST_COMMAND_TIMEOUT`
+- log the start, end and result of the test to the console for visibility
 - All file paths are relative to the project root
 
 ## Test Execution Sequence
 
-### Linting & Type Checks
-
-1. **Linting**
-   - Command: Read `## Run Linter` from `.adw/commands.md`. Default: `bun run lint`
-   - test_name: "linting"
-   - test_purpose: "Validates code quality for both application and ADW code, identifies unused imports, style violations, and potential bugs"
-
-2. **TypeScript Type Check**
-   - Command: Read `## Type Check` from `.adw/commands.md`. Default: `bunx tsc --noEmit`
-   - test_name: "typescript_check"
-   - test_purpose: "Validates TypeScript type correctness for the application without generating output files, catching type errors, missing imports, and incorrect function signatures"
-
-3. **ADW TypeScript Check**
-   - Command: Read `## Additional Type Checks` from `.adw/commands.md`. Default: `bunx tsc --noEmit -p adws/tsconfig.json`
-   - test_name: "adw_typescript_check"
-   - test_purpose: "Validates TypeScript type correctness for ADW scripts without generating output files"
-
-### Build
-
-4. **Build**
-   - Command: Read `## Run Build` from `.adw/commands.md`. Default: `bun run build`
-   - test_name: "app_build"
-   - test_purpose: "Validates the complete build process including bundling, asset optimization, and production compilation"
-
 ### Application Tests
 
-5. **Application Tests**
+1. **Application Tests**
    - Command: Read `## Run Tests` from `.adw/commands.md` and run it exactly as written. Default: `bun run test:unit`
    - test_name: "app_tests"
    - test_purpose: "Validates the full application unit-test suite as configured in .adw/commands.md"
@@ -71,9 +41,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 
 ## Report
 
-- Return results exclusively as a JSON array based on the `Output Structure` section below.
-- Sort the JSON array with failed tests (passed: false) at the top
-- Include all tests in the output, both passed and failed
+- Return the result exclusively as a JSON array based on the `Output Structure` section below.
 - The execution_command field should contain the exact command that can be run to reproduce the test
 - This allows subsequent agents to quickly identify and resolve errors
 
@@ -87,8 +55,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
     "execution_command": "string",
     "test_purpose": "string",
     "error": "optional string"
-  },
-  ...
+  }
 ]
 ```
 
@@ -97,17 +64,11 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 ```json
 [
   {
-    "test_name": "app_build",
+    "test_name": "app_tests",
     "passed": false,
-    "execution_command": "bun run build",
-    "test_purpose": "Validates the complete build process including bundling, asset optimization, and production compilation",
-    "error": "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
-  },
-  {
-    "test_name": "adw_tests",
-    "passed": true,
-    "execution_command": "bun run test -- --run adws/__tests__",
-    "test_purpose": "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
+    "execution_command": "bun run test:unit",
+    "test_purpose": "Validates the full application unit-test suite as configured in .adw/commands.md",
+    "error": "FAIL src/parser.test.ts > parseInput > rejects an empty string\nAssertionError: expected [Function] to throw an error"
   }
 ]
 ```

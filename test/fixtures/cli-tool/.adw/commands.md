@@ -10,17 +10,17 @@ bun
 bun install
 ```
 
-## Lint
+## Run Linter
 
-```sh
 echo "lint ok"
-```
 
 ## Type Check
 
-```sh
 echo "type check ok"
-```
+
+## Additional Type Checks
+
+N/A
 
 ## Run Tests
 
@@ -28,9 +28,7 @@ N/A
 
 ## Run Build
 
-```sh
 echo "build ok"
-```
 
 ## Start Dev Server
 

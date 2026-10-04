@@ -69,7 +69,14 @@ Chosen: "in the unit-test phase, run by TypeScript" and "guidance per applicatio
 
 ### Confirmation
 
-Not yet implemented. The PRD `specs/prd/review-proof-redesign.md` and the issues filed from it carry the work. Checked on 2026-10-02 at `origin/dev` (`fb379646` on 2026-10-04): `review.md` still has Strategy A and B; `adw_init.md` step 6 still writes `review_proof.md`; `projectConfig.ts` still parses `## Tags` and `## Supplementary Checks`; `adwPlanBuildReview.tsx` still calls `executeScenarioTestPhase` outside the fix loop.
+Partly implemented. Checked on 2026-10-04 in the working tree on top of `01c4bb99`:
+
+* `adws/core/checkRunner.ts` (`runStaticChecks`) runs `## Type Check`, `## Additional Type Checks`, `## Run Linter` and `## Run Build` from the parsed `.adw/commands.md`, in that order, and returns one verdict per check with its exit code and captured output. The exit code is the verdict, and `N/A` is reported as skipped. Unit tests: `adws/core/__tests__/checkRunner.test.ts` (fake process runner: verdict per exit code, `N/A` skipped, output captured, fixed order) and `adws/core/__tests__/checkRunner.integration.test.ts` (the default shell runner).
+* `adws/phases/unitTestPhase.ts` (`executeUnitTestPhase`) runs the check runner before the test run whatever `unitTests` says. A red check ends the run as a hard-failed unit-test run does, with the check's output in the execution log, until the fix loop of [ADR-0059](0059-fix-loops-no-progress-stop-and-suppression-guard.md) lands. `unitTests: false` skips only the test run. Unit tests: `adws/phases/__tests__/unitTestPhase.test.ts`.
+* `.claude/commands/test.md` runs only `## Run Tests`: `grep -nE "Run Linter|Type Check|Run Build|bun run lint|tsc --noEmit|bun run build" .claude/commands/test.md` returns nothing.
+* Outside `adws/core/projectConfig.ts`, the only TypeScript reader of `runLinter`, `typeCheck`, `additionalTypeChecks` and `runBuild` is `checkRunner.ts`.
+
+The PRD `specs/prd/review-proof-redesign.md` and the issues filed from it still carry the rest. Checked on 2026-10-02 at `origin/dev` (`fb379646` on 2026-10-04): `review.md` still has Strategy A and B; `adw_init.md` step 6 still writes `review_proof.md`; `projectConfig.ts` still parses `## Tags` and `## Supplementary Checks`; `adwPlanBuildReview.tsx` still calls `executeScenarioTestPhase` outside the fix loop.
 
 ## More Information
 

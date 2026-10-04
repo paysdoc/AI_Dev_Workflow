@@ -150,8 +150,14 @@
     - adws/phases/scenarioFixPhase.ts
     - adws/phases/unitTestPhase.ts
     - adws/phases/stepDefPhase.ts
+    - adws/core/checkRunner.ts
+    - adws/core/__tests__/checkRunner*.test.ts
+    - adws/phases/__tests__/unitTestPhase.test.ts
   - Conditions:
     - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
+    - When working on the static-check gate (`adws/core/checkRunner.ts`: `runStaticChecks`, `runShellCommand`, `CheckVerdict`) that runs type check, additional type checks, lint and build by exit code before the unit-test run
+    - When a red static check ends the unit-test phase, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
+    - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
   - Decisions:
     - 0014
@@ -159,6 +165,7 @@
     - 0031
     - 0043
     - 0049
+    - 0058
 
 - app_docs/feature-9gjajh-bdd-regression-suite.md
   - Owns:
