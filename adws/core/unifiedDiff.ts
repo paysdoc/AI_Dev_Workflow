@@ -123,18 +123,16 @@ function finish(file: FileUnderRead): DiffFile {
 
 /** Reads the output of `git diff` (best with `--no-renames`) into one entry per file, in order. */
 export function parseUnifiedDiff(diff: string): readonly DiffFile[] {
-  const files: DiffFile[] = [];
-  let current: FileUnderRead | null = null;
+  const files: FileUnderRead[] = [];
   for (const line of diff.split('\n')) {
     if (line.startsWith(FILE_HEADER)) {
-      if (current) files.push(finish(current));
-      current = openFile(line.slice(FILE_HEADER.length));
-    } else if (current) {
-      readLine(current, line);
+      files.push(openFile(line.slice(FILE_HEADER.length)));
+      continue;
     }
+    const current = files[files.length - 1];
+    if (current) readLine(current, line);
   }
-  if (current) files.push(finish(current));
-  return files;
+  return files.map(finish);
 }
 
 export function touchedPaths(file: DiffFile): readonly string[] {

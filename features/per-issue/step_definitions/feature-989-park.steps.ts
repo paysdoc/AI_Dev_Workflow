@@ -1,7 +1,8 @@
 /**
  * Park-comment scenarios of feature-989. Each calls the pure builder directly: a scenario's table of
  * evidence becomes a `ParkEvidence`, with sample values for the fields the table leaves out (a check's
- * command and exit code), and the assertions read what `parkDirectives` says each directive does.
+ * command and exit code). Each directive assertion reads what the comment says the directive does and
+ * compares it with the scenario's words, or with `DIRECTIVE_MEANINGS` where the scenario leaves them out.
  */
 
 import { Given, When, Then, Before, type DataTable } from '@cucumber/cucumber';
@@ -9,11 +10,29 @@ import assert from 'assert';
 
 import { FixLoopStall } from '../../../adws/core/staticCheckFixLoop.ts';
 import { isActionableComment, isCancelComment, isRetryComment } from '../../../adws/core/workflowCommentParsing.ts';
-import { ParkReason, buildParkComment, parkDirectives, type ParkEvidence, type ParkedCheck } from '../../../adws/forge/parkComment.ts';
+import { ParkReason, buildParkComment, type ParkEvidence, type ParkedCheck } from '../../../adws/forge/parkComment.ts';
 
-import { assertDirectiveSays } from './feature-989-comments.ts';
+import { assertDirectiveSays, directiveMeaning } from './feature-989-comments.ts';
 
 const ADW_ID = 'bdd989-park-comment';
+
+/**
+ * Written from the decision records, not read from the builder, so that a builder that gives a directive another
+ * meaning fails: a pre-existing regression takes a red baseline's meanings (ADR-0060), a stalled fix loop gives only
+ * `## Retry` a meaning (ADR-0059), and ADW never assumes an application type (ADR-0061).
+ */
+const DIRECTIVE_MEANINGS: Readonly<Partial<Record<ParkReason, Readonly<Record<string, string>>>>> = {
+  [ParkReason.PreExistingRegression]: {
+    '## Retry': 're-runs the scenario on the base branch and parks the issue again if it still fails there',
+  },
+  [ParkReason.FixLoopStalled]: {
+    '## Continue': 'waives nothing for this park: use `## Retry` to continue the fix loop',
+  },
+  [ParkReason.MissingApplicationType]: {
+    '## Retry': 're-reads `## Application Type` after `adw_init` has been re-run',
+    '## Continue': 'waives nothing, because ADW never assumes an application type',
+  },
+};
 
 interface ParkScenario {
   evidence: ParkEvidence | null;
@@ -125,10 +144,11 @@ Then('the park comment says that {string} lets this run fix the pre-existing fai
 });
 
 Then('the park comment says what {string} does for this park', function (directive: string) {
-  const { retry, continue: continues } = parkDirectives(requireEvidence());
-  const expected = directive === '## Retry' ? retry : directive === '## Continue' ? continues : assert.fail(`Not a directive this park explains: ${directive}`);
-  assert.ok(expected.trim() !== '', `Expected ${directive} to have a meaning for this park`);
-  assertDirectiveSays(requireComment(), directive, expected);
+  const { reason } = requireEvidence();
+  const expected = DIRECTIVE_MEANINGS[reason]?.[directive];
+  assert.ok(expected, `DIRECTIVE_MEANINGS holds no meaning of ${directive} for a ${reason} park`);
+  const meaning = directiveMeaning(requireComment(), directive);
+  assert.ok(meaning.includes(expected), `Expected the park comment to say that ${directive} ${expected}, but it says that ${directive} ${meaning}`);
 });
 
 Then('each of those park comments mentions {string} and {string}', function (first: string, second: string) {
