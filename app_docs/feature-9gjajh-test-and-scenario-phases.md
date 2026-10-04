@@ -2,7 +2,7 @@
 
 ## Overview
 
-The test and scenario phases validate the implementation against the project's static checks, test suite and BDD scenarios. The unit test phase first runs the static checks (type check, additional type checks, lint, build) through the check runner as deterministic exit-code gates, then the configured test command; the scenario phase generates BDD feature files; the scenario test phase executes tagged scenarios; the scenario test fix loop ties them together with retry and fidelity governance.
+The test and scenario phases validate the implementation against the project's static checks, test suite and BDD scenarios. The unit test phase first runs the static checks (type check, additional type checks, lint, build) through the check runner as deterministic exit-code gates and fixes a red check in a static-check fix loop with no cap (stopped on no progress, every round vetted by a suppression guard), then runs the configured test command; the scenario phase generates BDD feature files; the scenario test phase executes tagged scenarios; the scenario test fix loop ties them together with retry and fidelity governance.
 
 ## Responsibilities
 
@@ -11,19 +11,32 @@ The test and scenario phases validate the implementation against the project's s
 - `scenarioPhase.ts` — skips when `shouldExecuteStage('plan_validating', recoveryState)` returns false, indicating the phase already completed in a prior run
 - `checkRunner.ts` (`adws/core/`) — `runStaticChecks(commands, cwd, runProcess?)` runs `typeCheck`, `additionalTypeChecks`, `runLinter`, `runBuild` from the parsed `.adw/commands.md` in that fixed order and returns exactly four `CheckVerdict`s (`check`, `command`, `status`, `exitCode`, `output`). It is the only place a static check is executed; it knows nothing of agents, phases or GitHub
 - `checkRunner.ts` — verdict is the exit code alone: `0` is `passed`, anything else (including `null` from a signal or spawn failure) is `failed`; an `N/A` or blank command is `skipped` (never run, `exitCode: null`, empty output); a runner that throws yields a `failed` verdict carrying the error text. The default `runShellCommand` spawns with `shell: true`, stdin ignored, and captures stdout and stderr interleaved into one `output` string
-- `unitTestPhase.ts` — after the board move and `reportStackCoherence`, runs the static-check gate (`runStaticCheckGate`) whatever `unitTests` says; logs every verdict to the console and `execution.log` (full output for a failed check); on any red check ends the run through `endRunOnFailedGate` naming every failed check and exit code
+- `checkRunner.ts` — `combinedCheckOutput(verdicts)` serialises every verdict (check, status, exit code, output) in check order, with no normalisation. It is the fix loop's progress signal
+- `staticCheckGate.ts` (`adws/phases/`) — `runStaticCheckGate(config, deps)` runs the checks and logs every verdict (full output for a failed check) to the console and `execution.log`. A green first run returns at once. A red run builds the guard configuration and the real fix-round port lazily (so a green fixture never touches git), runs the loop, and returns its cost; a stalled loop calls `parkWorkflow` with `fix_loop_stalled` evidence
+- `unitTestPhase.ts` — after the board move and `reportStackCoherence`, runs the static-check gate whatever `unitTests` says (optional `fixRounds` dependency) and adds the gate's cost to its result
+- `staticCheckFixLoop.ts` (`adws/core/`) — `runStaticCheckFixLoop({ runChecks, fixRounds, guardConfig, report? })`: check runner → fix agent → guard → check runner, over an injected `FixRoundPort` (`fix`, `keep`, `discard`). It has no agent, git or forge imports. A round is one fix-agent run handed every failing verdict. Result is `green` or `stalled` (`FixLoopStall.IdenticalOutput` or `RejectedRound`), with rounds, cost and model usage summed
+- `staticCheckFixRound.ts` (`adws/phases/`) — `buildStaticCheckFixRoundPort` is the real port, using typed `GitContext` methods only. `fix` records the round base, pushes it, runs `runResolveTestAgent` (`/resolve_failed_test`) once with one `TestResult` covering every failing check (each output capped at `MAX_FIX_PROMPT_OUTPUT_CHARS`), commits everything, and returns `diff('--no-renames <base> HEAD')`; an agent error discards the partial round before rethrowing. `keep` pushes; `discard` runs `fetchAndResetToRemote` and then verifies HEAD equals the round base, failing closed otherwise
+- `fixRoundGuard.ts`, `fixRoundGuardTable.ts`, `unifiedDiff.ts` (`adws/core/`) — the pure guard. `parseUnifiedDiff` yields per-file paths and added/removed lines. `FRAMEWORK_SUPPRESSION_PATTERNS` is keyed by `StackLanguage` (`javascript`, `python`, `go`, `rust`, `ruby`); `PROTECTED_PATH_RULES` covers lint, compiler and build configuration (basename scope, any depth), `.adw/commands.md` and `features/playwright.config.*` (repo-path scope). `buildFixRoundGuardConfig(languages, section)` unions the framework patterns of the detected languages (`inferStackLanguages` in `stackCoherenceCheck.ts`) with the repository's `## Suppression Patterns` additions (`CommandsConfig.suppressionPatterns`). `evaluateFixRound(diff, config)` returns `accepted` or `rejected` with reasons; `describeGuardRejection` renders one line per reason
+- `parkComment.ts` (`adws/forge/`) — pure `buildParkComment(adwId, evidence)` and `parkDirectives(evidence)` for the five `ParkReason`s (`baseline_red`, `pre_existing_regression`, `fix_loop_stalled`, `missing_application_type`, `base_server_down`): what failed, a base-branch note where one applies, and what `## Retry` and `## Continue` each do. Only `fix_loop_stalled` is wired today
+- `workflowPark.ts` (`adws/phases/`) — `parkWorkflow(config, evidence): never` logs, writes top-level `workflowStage: 'human_gated'`, posts the park comment (non-fatal on failure) and `process.exit(0)`s
 - `unitTestPhase.ts` — only then, and only when `.github/adw.yml` `unitTests` is enabled (default), runs `runUnitTestsWithRetry` with `config.projectConfig.commands.runTests`; evaluates the JUnit report for `hard-fail` vs `warn` vs pass; applies `ADW_UNVERIFIED_LABEL` on warn
-- `unitTestPhase.ts` — posts stage comments via `postIssueStageComment`; terminates the process with `exit(1)` on a red check or a unit-test hard-fail; accepts an optional `deps` (`runProcess`, `runUnitTestsWithRetry`) so tests can inject fakes
+- `unitTestPhase.ts` — posts stage comments via `postIssueStageComment`; terminates the process with `exit(1)` on a unit-test hard-fail; accepts an optional `deps` (`runProcess`, `runUnitTestsWithRetry`, `fixRounds`) so tests can inject fakes
 - `.claude/commands/test.md` — the `/test` agent runs only `## Run Tests` and emits the `app_tests` JSON entry; it runs no lint, type check or build
 - `scenarioTestPhase.ts` — reads the project-configured `runScenariosByTag` command and skips when it is `'N/A'` or `scenariosMd` is empty; optionally wraps scenario execution in `withDevServer` when `startDevServer` is configured; calls `runScenarioProof` and returns a `ScenarioProofResult`
 - `scenarioTestFixLoop.ts` — drives the outer retry loop (bounded by `MAX_TEST_RETRY_ATTEMPTS`); on first green after resolve, runs a post-resolve fidelity check via `runScenarioFidelityAgent`; throws `ScenarioHermeticityError` when blocker scenarios still fail at budget exhaustion; throws `GoalFidelityError` when scenarios pass but are misaligned with the issue after resolution
 
 ## Contracts & Invariants
 
-- `unitTestPhase.ts` hard-fails by calling `process.exit(1)`, not by throwing; the process terminates when a static check is red or the unit-test verdict is `hard-fail`, both through `endRunOnFailedGate`
+- `unitTestPhase.ts` hard-fails by calling `process.exit(1)`, not by throwing, when the unit-test verdict is `hard-fail`. A red static check never hard-fails: it enters the fix loop, and a stalled loop parks with `process.exit(0)` in `human_gated`
+- The static-check fix loop has no round limit; only a round that makes no progress ends it. No progress is identical combined output to the previous run, or a round the guard rejects. A rejected round is reverted before the loop ends and the checks are not re-run
+- The loop keeps no state between runs: `## Retry` on a `human_gated` run re-arms it to `phase_timeout`, and the resumed phase re-runs the checks and starts a new round even when the output equals what stalled the previous run
+- The remote branch always equals the last kept state: each round publishes its base, and `keep` pushes. A reset loses no accepted fix
+- The guard rejects a suppression only when a pattern occurs more often in a file's added lines than its removed lines (case- and whitespace-insensitive literal match); it rejects any create, edit or delete of a protected path. Repository additions can only add patterns; a `!`-prefixed entry is ignored
+- The park comment never contains a line that on its own reads `## Retry`, `## Continue` or `## Cancel` (quoted output is indented), its heading is outside `STAGE_HEADER_MAP`, and it carries the ADW ID so `## Retry` finds the workflow
+- The unit-test and scenario fix loops keep their `MAX_TEST_RETRY_ATTEMPTS` cap and are untouched
 - Static checks always run before the test run; `unitTests: false` skips only the test run, never the checks
 - `runStaticChecks` always reports all four checks in fixed order; a failing check does not stop the ones after it
-- The GitHub error comment names failed checks and exit codes only; the full output stays in the console log and `execution.log`
+- The park comment quotes each failing check's output cut at `MAX_PARK_OUTPUT_CHARS`; the full output stays in the console log and `execution.log`
 - Outside `projectConfig.ts`, `checkRunner.ts` is the only TypeScript reader of `runLinter`, `typeCheck`, `additionalTypeChecks`, `runBuild`
 - `unitTestPhase.ts` always returns `unitTestsPassed: true` at the function level; callers that need the distinction must inspect `phaseCostRecords` status or intercept `process.exit`
 - `scenarioTestPhase.ts` returns `scenarioProof: undefined` when scenarios are not configured; callers must null-check before reading `scenarioProof.resultsFilePath`
@@ -38,6 +51,7 @@ The test and scenario phases validate the implementation against the project's s
 
 - `.github/adw.yml` `unitTests: false` — skips the unit-test run only (opt-out; absent key means enabled); static checks still run
 - `config.projectConfig.commands.typeCheck`, `additionalTypeChecks`, `runLinter`, `runBuild` — static-check commands; `N/A` skips a check
+- `.adw/commands.md` `## Suppression Patterns` — optional bulleted additions to the guard's framework patterns (`N/A` for none); `adw_init` preserves an existing section verbatim
 - `config.projectConfig.commands.runTests` — unit test command (default `bun run test:unit`)
 - `config.projectConfig.commands.runScenariosByTag` — BDD tag runner template
 - `config.projectConfig.commands.startDevServer` — dev server start command (optional)
@@ -45,6 +59,10 @@ The test and scenario phases validate the implementation against the project's s
 - `MAX_TEST_RETRY_ATTEMPTS` — upper bound for the scenario test/fix loop (default: 5)
 
 ## Gotchas
+
+- The fix prompt `.claude/commands/resolve_failed_test.md` forbids suppression comments, protected-config edits, weakened tests, commits and pushes; if the agent pushes its own commit anyway, `discard` fails closed because HEAD no longer equals the round base
+- `discard` uses `fetchAndResetToRemote`, not `resetWorktree` (which runs `git clean -fdx` and would delete `node_modules`)
+- Use only typed `GitContext` methods in the port; a `git `/`gh ` string literal trips the git/gh guard
 
 - Commands run verbatim: a command wrapped in a markdown code fence or carrying an HTML comment fails in the shell (e.g. exit 127) and the check is red, never a silent green
 - An absent `.adw/commands.md` section falls back to ADW's own defaults (`bun run lint`, `bunx tsc --noEmit`, …), which run in the target repo and may be red; `N/A` opts a check out
@@ -64,3 +82,5 @@ The test and scenario phases validate the implementation against the project's s
 - [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
 - [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
 - [ADR-0058](../specs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
+- [ADR-0059](../specs/adr/0059-fix-loops-no-progress-stop-and-suppression-guard.md) — Static-check fixes are retried until they stop making progress and may not suppress; test fix loops keep their caps
+- [ADR-0060](../specs/adr/0060-baseline-gate-on-the-base-branch.md) — A red base branch parks the issue before any work; pre-existing failures are not the fix agent's job
