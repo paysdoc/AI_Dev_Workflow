@@ -102,7 +102,15 @@ export function createWorkflow(issueNumber: number, repoStr: string): Workflow92
     targetRepo: undefined,
     repoContext,
     projectConfig: {
-      commands: { testFramework: 'vitest', runTests: 'bun run test:unit', runScenariosByTag: 'bunx cucumber-js --tags "@{tag}"' },
+      commands: {
+        testFramework: 'vitest',
+        runTests: 'bun run test:unit',
+        runScenariosByTag: 'bunx cucumber-js --tags "@{tag}"',
+        typeCheck: 'N/A',
+        additionalTypeChecks: 'N/A',
+        runLinter: 'N/A',
+        runBuild: 'N/A',
+      },
       scenarios: { bddFramework: 'cucumber-js' },
     },
     adwYmlConfig: { hitl: false, unitTests: false },

@@ -84,6 +84,9 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
+export type { CheckVerdict, ProcessOutcome, ProcessRunner, StaticCheckCommands } from './checkRunner';
+export { runStaticChecks, runShellCommand, isCheckConfigured, STATIC_CHECKS, StaticCheckName, CheckStatus } from './checkRunner';
+
 export type { DocSize, BloatFlag, RegrowthFlag, GuardFlags } from './docsGuards';
 export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, runDocsGuards } from './docsGuards';
 

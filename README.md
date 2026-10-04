@@ -8,7 +8,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Composable orchestrators** — run individual phases (`adwPlan`, `adwBuild`, `adwTest`, `adwDocument`, `adwPrReview`, `adwPatch`, `adwMerge`) or pre-wired combos (`adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildDocument`, `adwPlanBuildTestReview`).
 - **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` via LLM heuristic and routes it to the right orchestrator; `adw:*` GitHub labels provide a deterministic override that bypasses AI classification entirely; body/comment slash-commands are not processed.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
-- **Per-repo unit-test gate via `adw.yml`** — target repos can opt out of the unit-test phase by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
+- **Static-check gates and a per-repo unit-test switch** — the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`: each check's exit code is its verdict, `N/A` is skipped, and a red check ends the run with the check's output in the log. Target repos can opt out of the test run by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. That skips only the test run: the static checks still run, and `/test` runs only the unit-test command. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
@@ -562,6 +562,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
+│   │   ├── checkRunner.integration.test.ts
+│   │   ├── checkRunner.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── conditionalDocsRegistryMutations.test.ts
@@ -628,9 +630,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates)
 │   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
-│   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
+│   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test run switch)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
+│   ├── checkRunner.ts  # Static-check runner: runs type check, additional type checks, lint and build from .adw/commands.md in fixed order; exit code is the verdict, N/A skipped (runStaticChecks, runShellCommand)
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
 │   ├── config.ts
@@ -809,6 +812,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── startupFailureLog.test.ts
+│   │   ├── unitTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
 │   │   ├── workflowInit.test.ts
@@ -853,7 +857,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
-│   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
+│   ├── unitTestPhase.ts  # Unit test phase: static-check gate (always) then the unit-test run (unless `unitTests: false`)
 │   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch. buildDefaultUpgradeGateDeps(providers, ...) reads createIssue/applyLabel/updateIssueBody/findOpenUpgradeIssue/moveToStatus off the boundary's providers — no per-call createRepoContext (#796)
 │   ├── workflowCompletion.ts  # Workflow completion/error handling; describeRateLimitPauseReason names the limit type and reset time (UTC) on the paused comment when known
 │   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check). The launch boundary is the only source of forge providers: defaultBranch comes from boundary.providers.codeHost, and exported resolveWorkflowProviders(boundary, callerRepoId?) decides identity/provider reuse — a caller-supplied repoId that contradicts the boundary is refused (throws) rather than served a second, ad-hoc-minted provider set (#796)
