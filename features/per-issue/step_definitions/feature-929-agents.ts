@@ -5,6 +5,7 @@
  */
 
 import { AgentStateManager } from '../../../adws/core/index.ts';
+import { RunnerMode } from '../../../adws/core/applicationType.ts';
 import { getPlanFilePath, runPlanAgent } from '../../../adws/agents/planAgent.ts';
 import { runStepDefAgent } from '../../../adws/agents/stepDefAgent.ts';
 import { runReviewAgent, type ReviewIssue } from '../../../adws/agents/reviewAgent.ts';
@@ -83,7 +84,7 @@ const DRIVERS: Partial<Record<AgentName, Driver>> = {
   },
   'step-definition agent': workflow => {
     const { config } = workflow;
-    return runStepDefAgent(workflow.issueNumber, workflow.adwId, config.logsDir, statePathOf(workflow, 'step-def-agent'), config.worktreePath, config.issue.body, undefined, launchContextOf(workflow));
+    return runStepDefAgent(workflow.issueNumber, workflow.adwId, RunnerMode.Descriptor, config.logsDir, statePathOf(workflow, 'step-def-agent'), config.worktreePath, config.issue.body, undefined, launchContextOf(workflow));
   },
   'review agent': workflow => {
     const { config } = workflow;

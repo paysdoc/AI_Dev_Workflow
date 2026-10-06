@@ -11,6 +11,7 @@ import type { RepoContext } from '@paysdoc/devplatform';
 
 import { AgentStateManager, detectRecoveryState } from '../../../adws/core/index.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
+import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
 import { getDefaultProjectConfig, type ProjectConfig } from '../../../adws/core/projectConfig.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import { executeReviewPhase } from '../../../adws/phases/reviewPhase.ts';
@@ -120,6 +121,7 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
     repoContext,
     projectConfig: repositoryProjectConfig(proofRunDir),
     adwYmlConfig: { hitl: false, unitTests: false },
+    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
     topLevelStatePath: '',
     gitContext: undefined,
   } as unknown as WorkflowConfig;

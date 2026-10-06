@@ -10,7 +10,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **Static-check gates and a per-repo unit-test switch** — the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`: each check's exit code is its verdict, `N/A` is skipped, and a red check goes to a static-check fix loop with no cap (`adws/core/staticCheckFixLoop.ts`). Every round is judged by a pure fix-round guard (`adws/core/fixRoundGuard.ts`) that rejects and reverts suppression comments (a framework table by language, plus the repository's own `## Suppression Patterns` additions in `.adw/commands.md`) and edits to lint, compiler or build configuration, `.adw/commands.md` or `features/playwright.config.*`. The loop stops when a round makes no progress (identical check output, or a rejected round) and parks the workflow as `human_gated` with a park comment (`adws/forge/parkComment.ts`) that names the failing check and says what `## Retry` and `## Continue` do; `## Retry` continues the loop. Target repos can opt out of the test run by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. That skips only the test run: the static checks still run, and `/test` runs only the unit-test command. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
 - **Baseline gate on the base branch** — before any work, every orchestrator that runs gates (`executeBaselinePhase`, `adws/phases/baselinePhase.ts`) checks the base branch out in a separate worktree, installs its dependencies, runs the static checks there (`runBaselineChecks`, `adws/core/baselineGate.ts`) and starts the dev server its `.adw/commands.md` declares. A red base parks the workflow as `human_gated` with a park comment (`baseline_red`, or `base_server_down` when the server does not start); a green one is recorded in the top-level state. A `@regression` scenario that fails on the change is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`): one that fails there too parks the workflow (`pre_existing_regression`) instead of going to the fix agent, and one that passes there goes to the fix agent as before. No full regression run happens on the base branch. The base worktree is removed when the run ends.
-- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli` or `web`) is written by `adw_init` and has no default. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch.
+- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli` or `web`) is written by `adw_init` and has no default. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch. A `web` repository runs its Gherkin on ADW's own Playwright project: `features/` holds a self-contained Node project (`@playwright/test` and `playwright-bdd`) whose `playwright.config.ts` ADW owns and every upgrade overwrites from `templates/playwright/`; a `cli` repository keeps the runner `.adw/scenarios.md` names.
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
@@ -44,7 +44,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
 - **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
-- **Adaptable target repos** — `.adw/` config (`commands.md`, `project.md`, `providers.md`, `scenarios.md`, `review_proof.md`, `conditional_docs.md`, `coding_guidelines.md`) lets a target repo configure package manager, test/lint/dev commands, scenario layout, and review proof rules.
+- **Adaptable target repos** — `.adw/` config (`commands.md`, `project.md`, `providers.md`, `scenarios.md`, `conditional_docs.md`, `coding_guidelines.md`, and a `review_proof.md` that is read when present but no longer written by `adw_init`) lets a target repo configure package manager, test/lint/dev commands, scenario layout, and review proof rules.
 - **DDD ubiquitous language** — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.) are formalized in `UBIQUITOUS_LANGUAGE.md` and used consistently across code, docs, and agent prompts.
 - **Operator health check** — `adws/healthCheck.tsx` validates required environment variables, git repository configuration, and Claude Code CLI functionality, returning a structured `HealthCheckResult`.
 - **Issue comment reset** — `adws/adwClearComments.tsx` deletes all comments on a GitHub issue, for recovering an issue whose workflow state has gone wrong.
@@ -256,6 +256,8 @@ Required and optional environment variables (see `.env.sample` for full referenc
 During init, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
 
 `adw_init` detects the application type and writes `## Application Type` to `.adw/project.md`. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
+
+For a `web` repository, `adw_init` also installs ADW's Playwright project in `features/`, even when the application is not a Node application: `features/playwright.config.ts` from `templates/playwright/`, `features/package.json` (created only when absent), `features/.gitignore` (which keeps `node_modules/` and the generated tests out of git), `npm install` and the browser install. The configuration is byte-identical in every `web` repository and reads the repository's values only from `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; every upgrade overwrites it, and the upgrade installs the project itself after the `/adw_init` agent, so the regen commit carries `features/package-lock.json`. An existing e2e setup elsewhere in the repository (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left as it is, and ADW does not use it. `adw_init` no longer writes `.adw/review_proof.md`.
 
 ### 5. Run ADW
 
@@ -492,6 +494,10 @@ Docker execution is entirely optional — the test suite runs identically on the
 └── settings.json
 templates/              # ADW framework-level templates
 ├── claude-settings-starter.json  # Canonical deny-list source for the guardrails `--settings` injection; also copied into target repos by `/adw_init`
+├── playwright/         # Seed files for a web target repo's ADW-owned Playwright project
+│   ├── gitignore.template
+│   ├── package.json.template
+│   └── playwright.config.ts.template
 └── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
 adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
@@ -509,6 +515,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── depauditTriageSkill.test.ts
 │   ├── deployWorkersWorkflow.test.ts
 │   ├── envelopeConformanceWorkflow.test.ts
+│   ├── generateStepDefinitionsPrompt.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
@@ -563,6 +570,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   │   └── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   ├── adwLabels.test.ts
+│   │   ├── adwPlaywrightProject.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── applicationType.test.ts
@@ -624,6 +632,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── resolveResumeSpawn.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
+│   │   ├── scenarioRunner.test.ts
 │   │   ├── selfHostLaunch.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── sshCloneUrl.test.ts
@@ -650,6 +659,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   └── workspaceTrust.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwLabels.ts    # Pure ADW label vocabulary (constants, definitions, readers, predicates)
+│   ├── adwPlaywrightProject.ts  # ADW's Playwright project for `web` targets: its setup, install and run-by-tag commands (`ADW_PLAYWRIGHT_*`), the file table (`ADW_PLAYWRIGHT_PROJECT_FILES`: overwrite, create-if-absent, append-missing-lines) and `syncAdwPlaywrightProject`, which writes the files from `templates/playwright/`
 │   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test run switch)
 │   ├── agentState.ts
@@ -711,6 +721,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
+│   ├── scenarioRunner.ts  # Pure `resolveScenarioRunner(runnerMode, projectConfig)`: the run-by-tag command, step-definition directory and extensions, per-tag proof directory, install command and stack signals of each runner mode (`descriptor`: `.adw/` as written; `adw_playwright`: ADW's Playwright project)
 │   ├── selfHostLaunch.ts  # Memoised framework-identity check: a launch whose repo is the framework's own (even with `--target-repo` passed) counts as self-host for the guardrails gate
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── sshCloneUrl.ts  # Host-neutral HTTPS→SSH clone URL rewrite (convertToSshUrl) replacing the GitHub-only version; passes through anything not a two-segment HTTPS URL (#844)
@@ -852,11 +863,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
+│   │   ├── scenarioProjectSetup.test.ts
+│   │   ├── scenarioProofRun.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.helpers.ts
+│   │   ├── scenarioTestPhase.runner.test.ts
 │   │   ├── startupFailureLog.test.ts
+│   │   ├── stackCoherenceReporter.test.ts
+│   │   ├── stepDefPhase.test.ts
 │   │   ├── staticCheckFixRound.failure.test.ts
 │   │   ├── staticCheckFixRound.fix.test.ts
 │   │   ├── staticCheckFixRound.helpers.ts  # Shared helpers for the fix-round tests
@@ -866,6 +883,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── unitTestPhase.helpers.ts  # Shared helpers for the unit-test-phase tests
 │   │   ├── unitTestPhase.park.test.ts
 │   │   ├── unitTestPhase.test.ts
+│   │   ├── unitTestPhase.web.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
 │   │   ├── workflowInit.test.ts
@@ -911,6 +929,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
+│   ├── scenarioProjectSetup.ts  # `syncDeclaredScenarioProject`, the upgrade's `syncScenarioProject`: for a regenerated `.adw/project.md` whose type runs on ADW's Playwright project, writes the project's files and installs it (`npm install` and the browser) so the regen commit carries `features/package-lock.json`
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)

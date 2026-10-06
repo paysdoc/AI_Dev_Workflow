@@ -48,6 +48,7 @@ import {
   copyStarterSettingsToWorktree,
   type StarterSettingsResult,
 } from './phases/worktreeSetup';
+import { syncDeclaredScenarioProject, type ScenarioProjectSyncResult } from './phases/scenarioProjectSetup';
 
 export interface UpgradeRunResult {
   readonly outcome: 'completed' | 'failed' | 'escalated';
@@ -88,6 +89,8 @@ export interface UpgradeDeps {
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
   readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
+  /** Writes ADW's Playwright project from the framework's templates and installs it, for a repository whose regenerated `.adw/project.md` declares a type that runs on it. Throws when either fails. */
+  readonly syncScenarioProject: (worktreePath: string, frameworkRepoRoot: string) => Promise<ScenarioProjectSyncResult>;
   /** Copies the starter guardrails `settings.json` into the worktree, skipping if one already exists. */
   readonly copyStarterSettings: (worktreePath: string, frameworkRepoRoot: string) => StarterSettingsResult;
   /** Create-if-absent: an existing `.github/adw.yml` carries operator policy and is never overwritten. */
@@ -331,6 +334,18 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'regen_incomplete' };
   }
 
+  // After the agent, so the project's files and lockfile are the framework's whatever the agent did, and before the commit so they ride in it.
+  try {
+    const scenarioProject = await deps.syncScenarioProject(worktreePath, frameworkRepoRoot);
+    deps.log(`adwUpgrade: scenario project ${scenarioProject.kind}`, 'info');
+  } catch (error) {
+    deps.commentOnIssue(
+      issueNumber,
+      buildUpgradeFailureComment(String(error), adwId, issueNumber),
+    );
+    return { outcome: 'failed', reason: 'scenario_project_error' };
+  }
+
   // Copy the starter guardrails settings.json into the worktree (skip if the target
   // repo already has one) so it rides into the same regen commit as everything else.
   const starter = deps.copyStarterSettings(worktreePath, frameworkRepoRoot);
@@ -444,6 +459,7 @@ export function buildDefaultUpgradeDeps(providers: BoundProviders, gitCtx: GitCo
     runInitCommand: (params) => runInitCommandDefault({ ...params, gitContext: gitCtx }),
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
+    syncScenarioProject: (worktreePath, frameworkRepoRoot) => syncDeclaredScenarioProject(worktreePath, frameworkRepoRoot),
     copyStarterSettings: copyStarterSettingsToWorktree,
     writeAdwYmlTemplate: writeAdwYmlTemplateIfAbsent,
     writeAdwVersion,

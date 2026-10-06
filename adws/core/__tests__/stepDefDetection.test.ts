@@ -33,6 +33,10 @@ describe('stepDefExtensionsFor', () => {
     expect(stepDefExtensionsFor('cucumber-ruby')).toEqual(['.rb']);
   });
 
+  it('playwright-bdd → [.ts]', () => {
+    expect(stepDefExtensionsFor('playwright-bdd')).toEqual(['.ts']);
+  });
+
   it('empty string → default [.ts]', () => {
     expect(stepDefExtensionsFor('')).toEqual(['.ts']);
   });
@@ -58,6 +62,7 @@ describe('isGherkinFramework', () => {
   it('godog → true', () => expect(isGherkinFramework('godog')).toBe(true));
   it('cucumber-rs → true', () => expect(isGherkinFramework('cucumber-rs')).toBe(true));
   it('cucumber-ruby → true', () => expect(isGherkinFramework('cucumber-ruby')).toBe(true));
+  it('playwright-bdd → true', () => expect(isGherkinFramework('playwright-bdd')).toBe(true));
   it('empty string → true (default cucumber-js)', () => expect(isGherkinFramework('')).toBe(true));
   it('whitespace-only → true', () => expect(isGherkinFramework('   ')).toBe(true));
   it('case-insensitive: " Cucumber-JS " → true', () => expect(isGherkinFramework(' Cucumber-JS ')).toBe(true));

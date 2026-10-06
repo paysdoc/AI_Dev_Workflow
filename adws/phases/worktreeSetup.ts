@@ -4,13 +4,12 @@ import { log, REPO_ROOT, readLocalRepoIdentity, sameRepoIdentity, STARTER_SETTIN
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
-/** The six canonical .adw/ config files that /adw_init must produce. */
+/** The five canonical .adw/ config files that /adw_init must produce. */
 export const REQUIRED_ADW_FILES = [
   'commands.md',
   'project.md',
   'conditional_docs.md',
   'providers.md',
-  'review_proof.md',
   'scenarios.md',
 ] as const;
 
@@ -190,7 +189,7 @@ export function copyStarterSettingsToWorktree(worktreePath: string, frameworkRep
  * Verifies that `/adw_init` actually ran to completion before the version stamp is written.
  *
  * Gate logic (all conditions must hold):
- *   1. All six canonical `.adw/` config files exist and are non-empty.
+ *   1. All five canonical `.adw/` config files exist and are non-empty.
  *   2. `features/regression/vocabulary.md` exists.
  */
 export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: readonly string[] } {
