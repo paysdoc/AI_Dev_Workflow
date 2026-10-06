@@ -80,7 +80,7 @@ Partly implemented. Checked on 2026-10-06 in the working tree on top of `c3601f6
 
 Still open, carried by `specs/prd/review-proof-redesign.md`:
 
-* The proof assembler's evidence selection.
+* The proof assembler's evidence selection: implemented, see the Confirmation of [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md).
 * The review prompt's per-type guidance sections.
 
 Spike limits, so that nobody takes more from it than it showed: not tested against a real framework application, with parallel workers, with Scenario Outlines, or with long scenario names. Since then the real-application run above covers all four, on one framework (Next.js 16.4.0) and one dev server. Not run: another framework, a non-Node framework application, a root ESLint configuration stricter than Next's, a Playwright configuration with retries, or a large suite.

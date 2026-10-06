@@ -1,6 +1,7 @@
 import { RunnerMode } from './applicationType';
 import {
   ADW_PLAYWRIGHT_INSTALL_COMMAND,
+  ADW_PLAYWRIGHT_PROJECT_DIR,
   ADW_PLAYWRIGHT_RUN_BY_TAG,
   ADW_PLAYWRIGHT_STEP_DEF_DIR,
 } from './adwPlaywrightProject';
@@ -14,6 +15,8 @@ export interface ScenarioRunner {
   /** Relative to the worktree. */
   readonly stepDefDirectory: string;
   readonly stepDefExtensions: readonly string[];
+  /** Relative to the worktree: the directory whose `.feature` files the runner reads. */
+  readonly featureDirectory: string;
   readonly proofDirPerTag: boolean;
   /** Prepares a fresh worktree for the run; null when the repository's own install covers it. */
   readonly installCommand: string | null;
@@ -27,6 +30,7 @@ function descriptorRunner({ commands, scenarios }: ScenarioRunnerConfig): Scenar
     runByTagCommand: commands.runScenariosByTag,
     stepDefDirectory: scenarios.stepDefDirectory,
     stepDefExtensions: stepDefExtensionsFor(scenarios.bddFramework),
+    featureDirectory: scenarios.scenarioDirectory,
     proofDirPerTag: false,
     installCommand: null,
     stackSignals: { bddFramework: scenarios.bddFramework, runScenariosByTag: commands.runScenariosByTag },
@@ -38,6 +42,7 @@ function adwPlaywrightRunner(): ScenarioRunner {
     runByTagCommand: ADW_PLAYWRIGHT_RUN_BY_TAG,
     stepDefDirectory: ADW_PLAYWRIGHT_STEP_DEF_DIR,
     stepDefExtensions: ['.ts'],
+    featureDirectory: ADW_PLAYWRIGHT_PROJECT_DIR,
     // Playwright empties its output directory at the start of each run, so tags sharing one would delete each other's images.
     proofDirPerTag: true,
     installCommand: ADW_PLAYWRIGHT_INSTALL_COMMAND,

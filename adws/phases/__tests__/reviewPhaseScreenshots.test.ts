@@ -62,9 +62,14 @@ const blocker = {
 
 const failingReview = { ...passingReview, passed: false, blockerIssues: [blocker] };
 
+// The images the scenario proof selected, which are what the review phase uploads: the artifacts directory holds more.
+const perIssueImages = [
+  { absPath: '/tmp/artifacts/adw-42/login/step-1.png', relPath: 'adw-42/login/step-1.png', scenario: 'Login › The shopper signs in' },
+  { absPath: '/tmp/artifacts/adw-42/checkout/step-2.png', relPath: 'adw-42/checkout/step-2.png', scenario: 'Checkout › The shopper pays' },
+];
 const uploaded = [
-  { scenario: 'login', fileName: 'step-1.png', url: 'https://screenshots.paysdoc.nl/repo/proof/test-adw/login/step-1.png' },
-  { scenario: 'checkout', fileName: 'step-2.png', url: 'https://screenshots.paysdoc.nl/repo/proof/test-adw/checkout/step-2.png' },
+  { scenario: 'Login › The shopper signs in', fileName: 'step-1.png', url: 'https://screenshots.paysdoc.nl/repo/proof/test-adw/adw-42/login/step-1.png' },
+  { scenario: 'Checkout › The shopper pays', fileName: 'step-2.png', url: 'https://screenshots.paysdoc.nl/repo/proof/test-adw/adw-42/checkout/step-2.png' },
 ];
 const uploadedUrls = uploaded.map(artifact => artifact.url);
 
@@ -73,9 +78,10 @@ const repoId = { owner: 'test', repo: 'repo', platform: Platform.GitHub } as con
 interface MakeConfigOptions {
   withRepoContext?: boolean;
   withScenarioProof?: boolean;
+  selectedImages?: typeof perIssueImages;
 }
 
-function makeConfig({ withRepoContext = true, withScenarioProof = true }: MakeConfigOptions = {}): WorkflowConfig {
+function makeConfig({ withRepoContext = true, withScenarioProof = true, selectedImages = perIssueImages }: MakeConfigOptions = {}): WorkflowConfig {
   return {
     orchestratorStatePath: '/tmp/orch-state',
     issueNumber: 42,
@@ -96,6 +102,7 @@ function makeConfig({ withRepoContext = true, withScenarioProof = true }: MakeCo
           scenarioProof: {
             tagResults: [],
             hasBlockerFailures: false,
+            perIssueImages: selectedImages,
             resultsFilePath: '/tmp/proof.md',
             artifactsDir: '/tmp/artifacts',
           },
@@ -134,18 +141,28 @@ function commentAt(stage: string): PostedComment | undefined {
 }
 
 describe('executeReviewPhase — screenshots on the issue comment', () => {
-  it('uploads the images of the proof it judged and puts their URLs on the Review Passed comment', async () => {
+  it('uploads exactly the images the proof it judged selected and puts their URLs on the Review Passed comment', async () => {
     const config = makeConfig();
 
     await executeReviewPhase(config, '/tmp/proof.md');
 
     expect(mockUploadProofArtifacts).toHaveBeenCalledTimes(1);
     expect(mockUploadProofArtifacts).toHaveBeenCalledWith({
-      artifactsDir: '/tmp/artifacts',
+      images: perIssueImages,
       repoInfo: repoId,
       adwId: 'test-adw',
     });
     expect(commentAt('review_passed')?.screenshotUrls).toEqual(uploadedUrls);
+  });
+
+  it('uploads nothing and sets an empty list when the proof selected no image, as a cli repository\'s never does', async () => {
+    const config = makeConfig({ selectedImages: [] });
+
+    await executeReviewPhase(config, '/tmp/proof.md');
+
+    expect(mockUploadProofArtifacts).not.toHaveBeenCalled();
+    expect(config.ctx.screenshotUrls).toEqual([]);
+    expect(commentAt('review_passed')?.screenshotUrls).toEqual([]);
   });
 
   it('puts their URLs on the Review Failed comment of a failing review', async () => {
