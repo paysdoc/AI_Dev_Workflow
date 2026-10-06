@@ -21,6 +21,7 @@ import {
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   executeStepDefPhase,
+  executeBaselinePhase,
   executeInstallPhase,
   executeUnitTestPhase,
   executeScenarioTestPhase,
@@ -42,6 +43,9 @@ async function runPrReviewPhases(config: PRReviewWorkflowConfig, boundary: Launc
   const tracker = new CostTracker();
 
   try {
+    // Not 'baseline': the issue's adwId already records the SDLC run's baseline as completed, which would skip this one.
+    await runPhase(config.base, tracker, executeBaselinePhase, 'pr_review_baseline');
+
     await runPhase(config.base, tracker, executeInstallPhase, 'install');
 
     const planResult = await runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config), 'pr_review_plan');

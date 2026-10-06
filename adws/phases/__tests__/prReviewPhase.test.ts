@@ -100,6 +100,14 @@ describe('initializePRReviewWorkflow records the PR review as the issue\'s owner
     expect(state?.workflowStage).toBe('awaiting_merge');
   });
 
+  it('drops a park the issue\'s earlier run left, since a starting run is no longer parked', async () => {
+    AgentStateManager.writeTopLevelState(ADW_ID, { parkReason: 'pre_existing_regression' });
+
+    await initializePRReviewWorkflow(PR_NUMBER, ADW_ID, BOUNDARY);
+
+    expect(AgentStateManager.readTopLevelState(ADW_ID)).not.toHaveProperty('parkReason');
+  });
+
   it('never pairs this pid with the finished run\'s start time', async () => {
     vi.mocked(getProcessStartTime).mockReturnValue(null);
 

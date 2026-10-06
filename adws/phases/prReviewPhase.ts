@@ -54,6 +54,8 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     pid: process.pid,
     // Always written, even as undefined: the shallow merge would otherwise pair this pid with the finished run's start time.
     pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
+    // Written as undefined for the same reason: a starting run is no longer parked.
+    parkReason: undefined,
     // No heartbeat runs until the lifecycle lock is held; until then the finished run's value reads as hung.
     lastSeenAt: new Date().toISOString(),
   });

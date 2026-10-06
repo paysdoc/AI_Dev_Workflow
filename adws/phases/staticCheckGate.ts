@@ -30,16 +30,16 @@ function describeFailedCheck(verdict: CheckVerdict): string {
   return `${verdict.check} (exit ${verdict.exitCode ?? 'none'})`;
 }
 
-function logCheckVerdict(statePath: string, verdict: CheckVerdict): void {
+export function logCheckVerdict(statePath: string, verdict: CheckVerdict, label = 'Static check'): void {
   if (verdict.status === CheckStatus.Skipped) {
-    recordLine(statePath, `Static check skipped (N/A): ${verdict.check}`, 'info');
+    recordLine(statePath, `${label} skipped (N/A): ${verdict.check}`, 'info');
     return;
   }
   if (verdict.status === CheckStatus.Passed) {
-    recordLine(statePath, `Static check passed: ${verdict.check} — ${verdict.command}`, 'success');
+    recordLine(statePath, `${label} passed: ${verdict.check} — ${verdict.command}`, 'success');
     return;
   }
-  recordLine(statePath, `Static check failed: ${describeFailedCheck(verdict)} — ${verdict.command}`, 'error');
+  recordLine(statePath, `${label} failed: ${describeFailedCheck(verdict)} — ${verdict.command}`, 'error');
   recordLine(statePath, verdict.output.trim() === '' ? '(no output)' : verdict.output.trimEnd(), 'error');
 }
 

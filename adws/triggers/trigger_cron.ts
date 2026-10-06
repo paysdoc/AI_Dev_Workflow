@@ -14,7 +14,7 @@ import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { readLocalRepoIdentity } from '../core/localRepoIdentity';
-import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
+import { isActionableComment, isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
 import { hasUnaddressedComments } from '../forge/prCommentDetector';
 import { provisionAdwLabels } from '../forge/adwLabelProvisioning';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
@@ -27,6 +27,7 @@ import { isProcessLive } from '../core/processLiveness';
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
+import { handleContinueDirective, buildContinueHandlerDeps } from './continueHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
@@ -417,6 +418,9 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
       handleRetryDirective(issue.number, issue.comments, buildRetryHandlerDeps(boundary, targetRepoArgs));
       // No cancelledThisCycle add: the reset to awaiting_merge must be picked up
       // this cycle by filterEligibleIssues (the awaiting_merge hoist re-dispatches adwMerge).
+    } else if (latestComment && isActionableComment(latestComment.body)) {
+      // No cancelledThisCycle add, as for ## Retry: the re-armed phase_timeout must reach filterEligibleIssues this cycle.
+      handleContinueDirective(issue.number, issue.comments, buildContinueHandlerDeps());
     }
   }
 

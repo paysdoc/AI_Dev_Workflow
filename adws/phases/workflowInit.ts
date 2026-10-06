@@ -342,6 +342,8 @@ async function initializeWorkflowSteps(
     pid: process.pid,
     // Always written, even as undefined: the shallow merge would otherwise pair this pid with a previous run's start time.
     pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
+    // Written as undefined so the shallow merge drops a previous run's park: a starting run is no longer parked.
+    parkReason: undefined,
     // The heartbeat's first beat lands one interval after the lifecycle lock; until then a resumed run's old value reads as hung.
     lastSeenAt: new Date().toISOString(),
   });

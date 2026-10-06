@@ -459,6 +459,16 @@ describe('initializeWorkflow: the top-level starting state records its owner', (
     expect(Date.parse(state?.lastSeenAt ?? '')).toBeGreaterThanOrEqual(beforeInit);
   });
 
+  it('drops the park a previous run left, since a starting run is no longer parked', async () => {
+    AgentStateManager.writeTopLevelState(adwId, { adwId, workflowStage: 'phase_timeout', parkReason: 'baseline_red' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.workflowStage).toBe('starting');
+    expect(state).not.toHaveProperty('parkReason');
+  });
+
   it('still writes the orchestrator\'s own sub-state pid', async () => {
     vi.mocked(getProcessStartTime).mockReturnValue('start-token');
 
