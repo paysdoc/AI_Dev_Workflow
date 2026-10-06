@@ -202,6 +202,8 @@
     - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
     - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5, T-SP6/T-SP7), or the `<name>-smoke-<N>` adwId shape
     - When the Background phrase G18 `the ADW codebase is checked out` is undefined or ambiguous, or a `.feature` file sits outside the `cucumber.js` paths and never runs
+    - When working on the promoted envelope conformance scenario (`features/regression/envelope/feature-909.feature`, `@envelope-conformance`), its step definitions (`feature-909.steps.ts`, `feature-909-tooling.steps.ts`), the vocabulary phrases G-EC1–11, W-EC1–7, T-EC1–15, or detector parity between the real rate-limit capture and the Claude CLI stub
+    - When a promotion issue lists fewer step-def sources than the feature needs (sibling `feature-N-*.steps.ts` imports) and a Cucumber load fails with a dangling import
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server and its Actions-secrets route, Claude CLI stub, git remote mock and its `MOCK_GIT_LOG` invocation log, test harness) used by BDD step definitions
     - When working on the Claude CLI stub's on-demand rate-limited response (`test/mocks/stubResponse.ts`, the manifest `response` block, `MOCK_RESPONSE`/`MOCK_RATE_LIMIT_RESETS_AT`/`MOCK_RATE_LIMIT_TYPE`, the `.adw-stub-invocations` counter file)
@@ -1010,3 +1012,17 @@
     - When troubleshooting a comment de-bloat sweep batch's guard pass/fail, or why a file was reported `code-changed`/`absent-at-base`/`absent-in-working-tree`/`unsupported-file-kind`
   - Decisions:
     - 0054
+
+- app_docs/feature-gfv9kt-application-type-mapping.md
+  - Owns:
+    - adws/core/applicationType.ts
+    - adws/core/__tests__/applicationType.test.ts
+    - adws/phases/applicationTypeGate.ts
+    - adws/phases/__tests__/applicationTypeGate*.ts
+  - Conditions:
+    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, review guidance section)
+    - When working on the application-type gate (`runApplicationTypeGate`, `requireApplicationProfile`, `WorkflowConfig.applicationProfile`) run by `initializeWorkflow` and `initializePRReviewWorkflow`
+    - When adding a third application type, or a consumer that needs the evidence profile rather than the raw `## Application Type`
+    - When an issue parks with `missing_application_type`, `## Application Type` has no default (`parseApplicationType` returns `null`), or `adw_init` must detect, preserve or leave out the section
+  - Decisions:
+    - 0061

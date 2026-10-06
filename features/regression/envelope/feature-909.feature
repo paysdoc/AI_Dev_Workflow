@@ -1,4 +1,4 @@
-@adw-909 @adw-uk9ams-stream-json-envelope @promotion-suggested-2026-10-04
+@regression @envelope-conformance
 Feature: The stream-json envelope conformance gate comes back to life — green on its own fixtures, one of them captured from a real rate limit; red when a field the pause path reads drifts — and the Claude CLI stub answers rate-limited on demand
 
   Issue #909 revives ADW's only contract with the Claude CLI's stream-json output. Anthropic has
@@ -184,14 +184,12 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     • the probe and agent-run phrases are #902's;
     • the git/gh guard phrases are #844's.
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The envelope conformance gate exits 0 over every committed fixture when run through its package script entry point
     Given the ADW codebase is checked out
     When the envelope conformance gate is run through its package script entry point
     Then the envelope conformance gate exits 0
     And the envelope conformance gate reports no failing fixture
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario Outline: A field the pause path reads going missing from the real rate-limited capture fails the gate, naming that field
     Given a copy of the committed JSONL fixture captured from a real rate limit
     And in that copy the "<message>" message no longer carries the field "<field>"
@@ -206,7 +204,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | result           | is_error               |
       | result           | subtype                |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario Outline: Reverting the error fixture to a stale camelCase name fails the gate, naming the field the Claude CLI actually emits
     Given a copy of the committed JSONL error-result fixture
     And in that copy the "result" message carries "<field>" under its stale name "<stale>"
@@ -219,7 +216,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | is_error   | isError   |
       | session_id | sessionId |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The gate knows every field of the real capture's rate_limit_event and the error fields of its result
     Given a copy of the committed JSONL fixture captured from a real rate limit
     When the envelope conformance gate checks that copy
@@ -232,7 +228,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | terminal_reason  |
       | subtype          |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The api_retry system message as the Claude CLI documents it passes the gate
     Given a copy of the api_retry system message the Claude CLI documents:
       """
@@ -241,7 +236,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     When the envelope conformance gate checks that copy
     Then the envelope conformance gate passes
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario Outline: An api_retry system message missing a field the parser reads fails the gate, naming that field
     Given a copy of the api_retry system message the Claude CLI documents:
       """
@@ -258,7 +252,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | error_status |
       | attempt      |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The fixture updater the gate's report points to restores a missing result field under the Claude CLI's real name and keeps the fixture's payload
     Given a copy of the committed JSONL error-result fixture
     And in that copy the "result" message no longer carries the field "session_id"
@@ -267,7 +260,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     Then the envelope conformance gate passes
     And that copy's "result" message keeps its original "result" value
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The schema probe asks the Claude CLI for the verbose stream-json output the current CLI insists on, so it can re-probe the pinned version
     Given the Claude CLI answers the schema probe with:
       """
@@ -279,7 +271,6 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     Then the schema probe requested "stream-json" output from the Claude CLI
     And the schema probe requested verbose output from the Claude CLI
 
-  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: Asked for its rate-limited response, the Claude CLI stub rejects the request with a rate_limit_event naming a future reset time, then a 429 result
     Given the Claude CLI stub is asked for its rate-limited response
     When the Claude CLI stub is run
@@ -287,13 +278,11 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
     And the stub's rate_limit_event names a reset time that has not yet passed
     And the stub's output ends with a result whose api_error_status is 429 and whose is_error is true
 
-  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: The stub's rate-limited response passes the envelope conformance gate, like the real capture it stands in for
     Given a copy of the Claude CLI stub's rate-limited response
     When the envelope conformance gate checks that copy
     Then the envelope conformance gate passes
 
-  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario Outline: The real rate-limited capture and the stub's rate-limited response both end an agent run rate-limited and make the pause-queue probe report "limited"
     Given the Claude CLI answers the rate-limit probe with <reply>
     When the rate-limit probe runs
@@ -306,18 +295,15 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
       | the committed JSONL fixture captured from a real rate limit |
       | the Claude CLI stub's rate-limited response                 |
 
-  @adw-909 @adw-uk9ams-stream-json-envelope @adw-963 @adw-966
   Scenario: Unless asked for its rate-limited response, the Claude CLI stub still answers cleanly and the pause-queue probe reports "clear"
     Given the Claude CLI answers the rate-limit probe with the Claude CLI stub's default response
     When the rate-limit probe runs
     Then the rate-limit probe reports "clear"
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: TypeScript type-check passes with the revived conformance gate and the stub's rate-limited response
     Given the ADW codebase is checked out
     Then the ADW TypeScript type-check passes
 
-  @adw-909 @adw-uk9ams-stream-json-envelope
   Scenario: The git/gh guard passes across the repository with the conformance gate wired into CI
     Given the ADW codebase is checked out
     When the git/gh guard is run across the repository
