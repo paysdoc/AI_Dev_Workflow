@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, getDefaultScenariosConfig, loadProjectConfig } from '../projectConfig';
+import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, getDefaultScenariosConfig, loadProjectConfig, parseApplicationType, getDefaultProjectConfig } from '../projectConfig';
 import { resolve } from 'path';
 
 describe('parseCommandsMd — healthCheckPath field', () => {
@@ -199,5 +199,53 @@ describe('getDefaultScenariosConfig — stepDefDirectory and bddFramework', () =
 
   it('defaults bddFramework to empty string', () => {
     expect(getDefaultScenariosConfig().bddFramework).toBe('');
+  });
+});
+
+describe('parseApplicationType — the section says what it says, and nothing is assumed', () => {
+  it('reads an absent section as no type', () => {
+    expect(parseApplicationType('## Project Overview\nA tool\n')).toBeNull();
+  });
+
+  it('reads an empty project.md as no type', () => {
+    expect(parseApplicationType('')).toBeNull();
+  });
+
+  it('reads a heading with an empty body as no type', () => {
+    expect(parseApplicationType('## Application Type\n\n## Framework Notes\nBun\n')).toBeNull();
+  });
+
+  it('reads a body that holds only an HTML comment as no type', () => {
+    expect(parseApplicationType('## Application Type\n<!-- cli or web -->\n')).toBeNull();
+  });
+
+  it.each(['cli', 'web'])('reads %s as written', (type) => {
+    expect(parseApplicationType(`## Application Type\n${type}\n`)).toBe(type);
+  });
+
+  it('keeps the case of the value, since the mapping decides what is known', () => {
+    expect(parseApplicationType('## Application Type\nWeb\n')).toBe('Web');
+  });
+
+  it('passes a value ADW does not know through unchanged', () => {
+    expect(parseApplicationType('## Application Type\ndesktop\n')).toBe('desktop');
+  });
+
+  it('trims the blank lines and spaces around the value', () => {
+    expect(parseApplicationType('## Application Type\n\n   web  \n\n')).toBe('web');
+  });
+
+  it('strips an HTML comment that follows the value', () => {
+    expect(parseApplicationType('## Application Type\nweb\n<!-- set by adw_init -->\n')).toBe('web');
+  });
+
+  it('finds the heading whatever its case', () => {
+    expect(parseApplicationType('## APPLICATION TYPE\ncli\n')).toBe('cli');
+  });
+});
+
+describe('getDefaultProjectConfig — no application type', () => {
+  it('has none, so that a repository without ADW configuration is never taken for a cli', () => {
+    expect(getDefaultProjectConfig().applicationType).toBeNull();
   });
 });

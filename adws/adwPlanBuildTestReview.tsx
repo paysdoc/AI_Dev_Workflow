@@ -14,6 +14,7 @@ import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, O
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -40,6 +41,7 @@ import { executeSdlcReviewFailedHandoff } from './phases/sdlcReviewHandoff';
 
 /** Injectable so tests can drive the review loop and what follows it without starting agents. */
 export interface PlanBuildTestReviewPhases {
+  readonly executeBaselinePhase: typeof executeBaselinePhase;
   readonly executeInstallPhase: typeof executeInstallPhase;
   readonly executePlanPhase: typeof executePlanPhase;
   readonly executeScenarioPhase: typeof executeScenarioPhase;
@@ -56,6 +58,7 @@ export interface PlanBuildTestReviewPhases {
 }
 
 const PLAN_BUILD_TEST_REVIEW_PHASES: PlanBuildTestReviewPhases = {
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -76,6 +79,7 @@ async function runPlanBuildTestReviewPhases(
   tracker: CostTracker,
   phases: PlanBuildTestReviewPhases,
 ): Promise<void> {
+  await runPhase(config, tracker, phases.executeBaselinePhase, 'baseline');
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhasesParallel(config, tracker, [phases.executePlanPhase, phases.executeScenarioPhase]);
   await runPhase(config, tracker, phases.executeAlignmentPhase);

@@ -69,6 +69,7 @@ export {
   initializePRReviewWorkflow,
   executePlanPhase,
   executeBuildPhase,
+  executeBaselinePhase,
   executeUnitTestPhase,
   executePRPhase,
   executeReviewPhase,

@@ -215,9 +215,13 @@ function assertNothingUnsupported(unsupported: readonly string[]): void {
  * against the mock after the process has exited, so the existing Then steps see the child's writes.
  * `recordsExitCode` is false for a process the harness kills itself: its exit code says nothing.
  */
-export async function runThroughHarness(world: RegressionWorld, spec: RunSpec, { recordsExitCode }: { recordsExitCode: boolean }): Promise<ProcessResult> {
+export async function runThroughHarness(
+  world: RegressionWorld,
+  spec: RunSpec,
+  { recordsExitCode, defaultBranch }: { recordsExitCode: boolean; defaultBranch?: string },
+): Promise<ProcessResult> {
   const harness = requireHarness(world);
-  writeForgeState(harness.forgeStatePath, getMockServerState(), SURFACE_REPO);
+  writeForgeState(harness.forgeStatePath, getMockServerState(), SURFACE_REPO, defaultBranch);
   writeFileSync(harness.forgeLogPath, '', 'utf-8');
 
   const result = await runHarnessProcess(world, spec);

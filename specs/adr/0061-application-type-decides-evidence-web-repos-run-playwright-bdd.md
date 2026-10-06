@@ -64,7 +64,21 @@ For already-initialised repositories: no migration; a one-off conversion command
 
 ### Confirmation
 
-Not yet implemented; carried by `specs/prd/review-proof-redesign.md`. Checked on 2026-10-02 at `origin/dev`: `applicationType` still has no consumer; `adw_init.md` still writes no `## Application Type` and still has the Gherkin-plus-Playwright inconsistency; `scenarioTestPhase.ts` still passes only the two environment variables.
+Partly implemented. Checked on 2026-10-04 in the working tree on top of `d2dc05c3`:
+
+* The mapping: `adws/core/applicationType.ts` (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`). `cli` maps to the descriptor runner from `.adw/scenarios.md` and no images; `web` maps to the ADW Playwright project and per-issue images; a missing or unknown type resolves to a `missing_application_type` park. Consumers read the profile and never the type. Unit tests: `adws/core/__tests__/applicationType.test.ts` (both types, missing, unknown, a fake third type through the mapping, and the rule that only the config parser and the gate name `applicationType`).
+* No default: `adws/core/projectConfig.ts` reads an absent or empty `## Application Type` as `null` (`parseApplicationType`, `getDefaultProjectConfig`). Unit tests: the `projectConfig` test files.
+* The park: `adws/phases/applicationTypeGate.ts` (`runApplicationTypeGate`) runs in `initializeWorkflow` and `initializePRReviewWorkflow`. A missing or unknown type parks the workflow as `human_gated` with the `missing_application_type` comment of `adws/forge/parkComment.ts`, after merging the latest default branch once so that `## Retry` sees a re-run `adw_init`. `cli` or `web` proceeds, with the profile on `WorkflowConfig.applicationProfile` (`requireApplicationProfile`). `adwUpgrade`, which re-runs `adw_init`, never parks on the type. Unit tests: `adws/phases/__tests__/applicationTypeGate.test.ts` (including a fake third type that reaches the gate without a gate change), `adws/phases/__tests__/workflowInit.test.ts` and `adws/phases/__tests__/prReviewPhase.test.ts`.
+* `adw_init`: `.claude/commands/adw_init.md` detects and writes `## Application Type`, preserves a value the owner set by hand, and leaves the section out when it cannot decide. `adws/__tests__/adwInitPrompt.test.ts` asserts that the types the prompt offers equal the mapping's keys.
+* Scenarios: `features/per-issue/feature-991.feature` (`@adw-991`) covers the mapping and the config's missing type; the park and its comment, and the run that proceeds; `## Retry` after the default branch gains the type; an upgrade that commits the type `/adw_init` wrote, and one that commits no default when `/adw_init` wrote none.
+
+Still open, carried by `specs/prd/review-proof-redesign.md`:
+
+* The ADW Playwright project, and `adw_init`'s Gherkin-plus-Playwright inconsistency in step 8.
+* The scenario phase passing `ADW_APPLICATION_URL` and running the `web` mode: `scenarioTestPhase.ts` still passes only the two environment variables.
+* The step-definition generator's `web` mode.
+* The proof assembler's evidence selection.
+* The review prompt's per-type guidance sections.
 
 Spike limits, so that nobody takes more from it than it showed: not tested against a real framework application, with parallel workers, with Scenario Outlines, or with long scenario names.
 

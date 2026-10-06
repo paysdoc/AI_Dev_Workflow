@@ -11,15 +11,34 @@
 
 import { Given } from '@cucumber/cucumber';
 import assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
+import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { runWithOrchestratorLifecycle } from '../../../adws/phases/orchestratorLock.ts';
 import { initializePRReviewWorkflow } from '../../../adws/phases/prReviewPhase.ts';
+import { world796 } from './feature-796.steps.ts';
 import { requireFixture } from './feature-932-world.ts';
 import { useBenignGitContext } from './feature-959-boundary.ts';
 import { recordStage } from './feature-959-orchestrator.ts';
 import { killOrchestratorProcess, startOrchestratorProcess } from './feature-959-processes.ts';
 import { requireWorkflow, s } from './feature-959-world.ts';
+
+/**
+ * The benign git context only locates the PR's worktree, so it holds no ".adw/". The PR review reads the application
+ * type from there and parks a repository that declares none, so the type is declared in the directory the scenario
+ * removes afterwards.
+ */
+function declareApplicationType(boundary: LaunchBoundary, branch: string): void {
+  const worktreePath = boundary.gitContext.worktreePathFor(branch);
+  assert.ok(
+    world796().tempDirs.some((dir) => worktreePath.startsWith(`${dir}${path.sep}`)),
+    `Expected the PR's worktree "${worktreePath}" to lie under a directory this scenario removes afterwards`,
+  );
+  fs.mkdirSync(path.join(worktreePath, '.adw'), { recursive: true });
+  fs.writeFileSync(path.join(worktreePath, '.adw', 'project.md'), '## Application Type\n\ncli\n', 'utf-8');
+}
 
 Given('the SDLC run of workflow {string} has exited, leaving its pid in the state', async function (adwId: string) {
   requireWorkflow(adwId);
@@ -38,6 +57,8 @@ Given(
     const fixture = requireFixture();
     fixture.prByBranch.set(workflow.branchName, { number: prNumber, state: 'OPEN', sourceBranch: workflow.branchName, targetBranch: 'main', labels: [] });
     fixture.prLinkedIssue.set(prNumber, workflow.issueNumber);
+
+    declareApplicationType(boundary, workflow.branchName);
 
     // The seeded plan phase keeps the empty comment list from exiting, and the fixture's PR state defaults to OPEN.
     const config = await initializePRReviewWorkflow(prNumber, adwId, boundary);
