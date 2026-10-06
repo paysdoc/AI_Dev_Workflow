@@ -3,7 +3,7 @@
  * (probeStub, the mock GitHub / gh-shadow infrastructure, the shared world getters)
  * rather than re-initialising it — see feature-902.steps.ts and feature-902-queue.steps.ts
  * for the Before/After hooks this file's scenarios also run under (widened to
- * `@adw-902 or @adw-907`).
+ * `@rate-limit-detection`).
  */
 
 import { When, Then, Before, After } from '@cucumber/cucumber';
@@ -49,16 +49,14 @@ function writeThrowawayClaudeScript(result: ProbeExecResult): string {
 
 const world: {
   thrownAgentError: unknown;
-  savedClaudeCodePath: string | undefined;
 } = {
   thrownAgentError: null,
-  savedClaudeCodePath: undefined,
 };
 
 let capturedLogLines: string[] = [];
 let originalConsoleLog: typeof console.log | null = null;
 
-Before({ tags: '@adw-907' }, function () {
+Before({ tags: '@rate-limit-detection' }, function () {
   world.thrownAgentError = null;
   capturedLogLines = [];
   originalConsoleLog = console.log.bind(console);
@@ -68,18 +66,11 @@ Before({ tags: '@adw-907' }, function () {
   };
 });
 
-After({ tags: '@adw-907' }, function () {
+After({ tags: '@rate-limit-detection' }, function () {
   if (originalConsoleLog) {
     console.log = originalConsoleLog;
     originalConsoleLog = null;
   }
-  clearClaudeCodePathCache();
-  if (world.savedClaudeCodePath === undefined) {
-    delete process.env['CLAUDE_CODE_PATH'];
-  } else {
-    process.env['CLAUDE_CODE_PATH'] = world.savedClaudeCodePath;
-  }
-  world.savedClaudeCodePath = undefined;
   clearClaudeCodePathCache();
 });
 
@@ -88,7 +79,7 @@ When('an agent command runs against the same Claude CLI output', async function 
 
   // Point CLAUDE_CODE_PATH at the throwaway script AFTER the mock-infrastructure
   // hook has run (it points CLAUDE_CODE_PATH at the claude-cli-stub).
-  world.savedClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
+  const savedClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
   process.env['CLAUDE_CODE_PATH'] = scriptPath;
   clearClaudeCodePathCache();
 
@@ -103,9 +94,12 @@ When('an agent command runs against the same Claude CLI output', async function 
     );
   } catch (err) {
     world.thrownAgentError = err;
+  } finally {
+    // Put back before the step returns: the @regression teardown registers after this file, so its After runs before ours and a later write-back would clobber the value it restored.
+    if (savedClaudeCodePath === undefined) delete process.env['CLAUDE_CODE_PATH'];
+    else process.env['CLAUDE_CODE_PATH'] = savedClaudeCodePath;
+    clearClaudeCodePathCache();
   }
-
-  clearClaudeCodePathCache();
 });
 
 function requireRateLimitError(): RateLimitError {

@@ -5,7 +5,7 @@
  * re-initialising it — see feature-902.steps.ts and feature-902-queue.steps.ts for the
  * Before/After hooks this file's scenarios also run under (widened to
  * `(@pause-queue-probe or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
- * @pause-queue-ownership) and not @adw-908 and not @adw-812`).
+ * @pause-queue-ownership or @rate-limit-detection) and not @adw-908 and not @adw-812`).
  */
 
 import { Given, When, Then, Before, After } from '@cucumber/cucumber';
