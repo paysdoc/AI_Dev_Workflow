@@ -577,7 +577,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
-│   │   ├── fixRoundGuard.test.ts
+│   │   ├── fixRoundGuard.config.test.ts
+│   │   ├── fixRoundGuard.protectedPaths.test.ts
+│   │   ├── fixRoundGuard.suppression.test.ts
+│   │   ├── fixRoundGuard.table.test.ts
+│   │   ├── fixRoundGuard.verdict.test.ts
 │   │   ├── forgeWiring.test.ts
 │   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
@@ -615,14 +619,16 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
-│   │   ├── staticCheckFixLoop.test.ts
+│   │   ├── staticCheckFixLoop.guard.test.ts
+│   │   ├── staticCheckFixLoop.progress.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   ├── unaddressedComments.test.ts
-│   │   ├── unifiedDiff.test.ts
+│   │   ├── unifiedDiff.parse.test.ts
+│   │   ├── unifiedDiff.touchedPaths.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
 │   │   ├── upgradeFailureCap.test.ts
@@ -716,7 +722,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── hitlBoardNotifier.test.ts
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   ├── parkComment.test.ts
+│   │   ├── parkComment.content.test.ts
+│   │   ├── parkComment.quoting.test.ts
+│   │   ├── parkComment.structure.test.ts
 │   │   ├── prCommentDetector.test.ts
 │   │   ├── workflowCommentsBase.test.ts
 │   │   └── workflowCommentsIssue.test.ts
@@ -821,7 +829,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── startupFailureLog.test.ts
-│   │   ├── staticCheckFixRound.test.ts
+│   │   ├── staticCheckFixRound.failure.test.ts
+│   │   ├── staticCheckFixRound.fix.test.ts
+│   │   ├── staticCheckFixRound.keepDiscard.test.ts
 │   │   ├── unitTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
@@ -1159,6 +1169,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
+│   ├── rate-limit/     # Regression scenarios covering the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; gherkinTags.ts parses scenario tags for the harness
