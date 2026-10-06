@@ -42,7 +42,7 @@ Four small modules in `adws/proof/`, three of them pure, plus wiring:
 4. **`adws/proof/proofAssembler.ts`** (pure): the fixed tags, whether a tag runs, the tag outcomes, and the image selection. `assembleScenarioProof` returns `{ tagResults, hasBlockerFailures, perIssueImages, document }`.
 5. **`adws/proof/proofDocument.ts`** (pure): renders `scenario_proof.md`, including the two fixed lines, exported as `NO_PER_ISSUE_SCENARIOS` and `NO_SCENARIO_OPENED_A_PAGE` for the reviewer issue to quote.
 6. **`adws/phases/scenarioProof.ts`** becomes the I/O shell around the assembler. It indexes the feature files, runs `@regression`, runs `@adw-{N}` only when a scenario carries it, reads the reports, harvests the artifacts directory, assembles, writes `scenario_proof.md`, and returns `ScenarioProofResult` with the new `perIssueImages`.
-7. **Upload wiring**: `uploadProofArtifacts` uploads a given list of images and no longer reads a directory. The review phase and `publishPrProof` pass `scenarioProof.perIssueImages`.
+7. **Upload wiring**: `uploadProofArtifacts` uploads a given list of images and no longer reads a directory. The review phase and `publishPrProof` pass `scenarioProof.perIssueImages`. `publishPrProof` treats an uploader installed with `setProofUploaderForTesting` as configured, as the review phase's upload already does, so the scenarios' recording screenshot store also reaches the PR comment.
 
 ### Decisions this plan makes inside the ADRs (none changes them)
 
@@ -94,6 +94,8 @@ Use these files to implement the feature:
   - `features/regression/step_definitions/surfaceSteps.ts` holds T-S11/T-S12, which are unchanged.
 - `features/per-issue/step_definitions/feature-933-phases.ts` — hand-built `ScenarioProofResult`.
 - `features/per-issue/step_definitions/feature-992-junit.ts`, `feature-992-standin-source.ts` — prior art for reading `[[ATTACHMENT|...]]` and for a stand-in runner that writes attachments.
+- `features/per-issue/feature-994.feature` — this issue's scenarios (step 16).
+- `features/per-issue/step_definitions/feature-937-*.ts` — prior art for the recording issue tracker, the recording screenshot store installed with `setProofUploaderForTesting`, the stand-in review agent (`test/mocks/claude-cli-stub.ts`) and running the scenario test phase, then the review phase.
 - `test/fixtures/cli-tool/.adw/*`, `test/fixtures/python-app/.adw/*`, `test/fixtures/python-app/features/calculator.feature` — fixtures the regression rows run against (no `.feature` in `cli-tool`; `python-app` is `web` with `@regression` scenarios only).
 - Conditional docs that apply: `app_docs/feature-9gjajh-proof-and-scenario-proof.md` (owns `adws/proof/**`, `scenarioProof.ts`, `proofPublishPhase.ts`), `app_docs/feature-9gjajh-review-and-diff-phases.md` (`reviewPhase.ts`), `app_docs/feature-9gjajh-test-report-and-verdict.md` (`testReportParser.ts`, scenario proof pass/fail resolution), `app_docs/feature-gfv9kt-application-type-mapping.md` (a consumer of the evidence profile), `app_docs/feature-2u517h-adw-playwright-project.md` (the Playwright project and run-by-tag), `app_docs/feature-9gjajh-bdd-regression-suite.md` (surface harness, T-S11/T-S12, `World.scenarioProofResult`, rows 21–22).
 
@@ -115,7 +117,7 @@ Give the JUnit parser the attachment lines. Move `TagProofResult` and `ScenarioP
 Write the pure proof assembler: the fixed tags, `shouldRunTag`, the tag outcomes, the per-issue image selection gated on the profile's evidence kinds, and the proof document with its two fixed lines and the `## Evidence` section. Rewrite `runScenarioProof` as the I/O shell around it, including the no-step-definitions notice. Cover all of it with unit tests that feed inputs and assert the returned outcome, image list and document.
 
 ### Phase 3: Integration
-Pass the profile and feature directory from the scenario test phase. Make the uploader take the selected list. Wire the review phase (issue comment of each attempt) and `publishPrProof`/`executeProofPublishPhase` (PR comment) to `scenarioProof.perIssueImages`. Move the `'@regression'` literals to the fixed-tag constant. Update every hand-built `ScenarioProofResult`/`TestCaseResult`, the regression harness, surface rows 21–22 and the python E2E steps for the fixed tags. Implement the step definitions for the `@adw-994` scenarios if present. Rewrite ADR-0063's Confirmation. Run the validation commands.
+Pass the profile and feature directory from the scenario test phase. Make the uploader take the selected list. Wire the review phase (issue comment of each attempt) and `publishPrProof`/`executeProofPublishPhase` (PR comment) to `scenarioProof.perIssueImages`. Move the `'@regression'` literals to the fixed-tag constant. Update every hand-built `ScenarioProofResult`/`TestCaseResult`, the regression harness, surface rows 21–22 and the python E2E steps for the fixed tags. Implement the step definitions for the `@adw-994` scenarios. Rewrite ADR-0063's Confirmation. Run the validation commands.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -260,11 +262,13 @@ Left out, because no scenario in the feature files has their name: `<case>`, `<c
 ### 10. The uploader uploads the given images (`adws/proof/proofUploader.ts`)
 - `uploadProofArtifacts(deps)` iterates `deps.images` in order: key `proof/${adwId}/${image.relPath}`, body `fs.readFileSync(image.absPath)` inside the existing `try`, content type by extension, result `{ scenario: image.scenario, url, fileName: path.basename(image.relPath) }`. It never throws, uploads one at a time, and resolves the uploader as before.
 - Remove the harvest from the uploader: the `harvestOrNothing` and `leadingSegment` helpers and the `harvestProofArtifacts` import. Update the file's header comment: the shared upload half of the review phase and `publishPrProof`.
+- Add `export function isProofUploadConfigured(): boolean`: true when `isR2Configured()` is true or an uploader is installed with `setProofUploaderForTesting`, which the seam's comment already says "counts as configured". `publishPrProof` uses it as its gate (step 12). Export it from `adws/proof/index.ts`.
 - `adws/proof/__tests__/proofUploader.test.ts`, rewritten around a given list:
   - uploads exactly the given images, in the given order, under `proof/{adwId}/{relPath}` with the right content types and bytes;
   - returns `scenario` from the image and `fileName` from `relPath`;
   - an empty list uploads nothing;
   - an image whose upload throws, or whose file cannot be read, is left out with a `warn` and the rest upload;
+  - without R2 credentials (the existing `loadWithoutR2Credentials` helper), `isProofUploadConfigured()` is `false` with no installed uploader and `true` with one;
   - the sequential-upload and configured/installed-uploader tests stay.
   
   Drop the harvesting tests: missing directory, harvest throws, non-image skipped. Harvesting is still covered by `proofArtifactHarvester.test.ts`.
@@ -282,14 +286,15 @@ Left out, because no scenario in the feature files has their name: `<case>`, `<c
 ### 12. PR proof comment uses the selected images (`adws/proof/prProofPublisher.ts`, `adws/phases/proofPublishPhase.ts`)
 - `publishPrProof`:
   - skips with an `info` log when `scenarioProof` is absent (and, as before, when `prNumber <= 0`);
-  - uploads `scenarioProof.perIssueImages` when R2 is configured;
+  - uploads `scenarioProof.perIssueImages` when `isProofUploadConfigured()` is true, and passes that value to `formatPrProofComment` as `r2Configured`. Today's gate is `isR2Configured()`, which reads environment constants fixed at import. In a BDD run without R2 credentials it would leave unused the recording screenshot store that the `@adw-994` steps install with `setProofUploaderForTesting`, and the PR comment would show no image. An uploader injected through `deps.uploader` without credentials is still skipped, as today. When there are no credentials and no installed uploader, the comment keeps the "R2 is not configured" note. Update the gate's code comment to match;
   - formats and posts as before.
 - `formatPrProofComment`: group labels are now scenario names written by people, so HTML-escape `&`, `<` and `>` in the `<summary>` text of `formatScenarioGroup`.
 - `executeProofPublishPhase`: drop the `artifactsDir` argument.
 - `adws/proof/__tests__/prProofPublisher.publish.test.ts` (mock `../../core/environment` with R2 credentials and `../../core/logger`, as `proofUploader.test.ts` does; inject a recording uploader):
   - uploads exactly the proof's `perIssueImages` and posts one comment whose body embeds exactly their URLs, grouped by scenario, ending with `ADW_SIGNATURE`;
   - a proof with no selected image uploads nothing and posts the tally;
-  - no proof posts nothing.
+  - no proof posts nothing;
+  - without R2 credentials (a `vi.doMock` of `../../core/environment`, as `proofUploader.test.ts`'s `loadWithoutR2Credentials` does), an uploader installed with `setProofUploaderForTesting` receives exactly the selected images and the comment embeds them. With no uploader installed, nothing is uploaded and the comment carries the "R2 is not configured" note.
 - `adws/proof/__tests__/prProofPublisher.test.ts`: add a case for an escaped group label.
 
 ### 13. One home for the regression tag
@@ -321,8 +326,24 @@ Left out, because no scenario in the feature files has their name: `<case>`, `<c
 - `features/regression/step_definitions/feature-820.steps.ts`: `buildScenarioProof` takes the image list. The "one screenshot artifact" Given puts its `MyScenario/screenshot.png` in `perIssueImages` (`{ absPath, relPath: 'MyScenario/screenshot.png', scenario: 'MyScenario' }`); the other variant passes `[]`. `publishPrProof` drops `artifactsDir`. No feature file uses these steps today, but they must type-check and keep their meaning.
 
 ### 16. Step definitions for this issue's scenarios
-- If the scenario writer produced `features/per-issue/feature-994.feature` (`@adw-994`), implement its step definitions under `features/per-issue/step_definitions/` against the public interfaces built here: `runScenarioProof`, `executeScenarioTestPhase`, `assembleScenarioProof`, `executeReviewPhase` with `setProofUploaderForTesting`, `publishPrProof`, `formatReviewProofComment`.
-- Any stand-in runner a step writes must emit the report the ADW Playwright project emits: test-case names `<Feature> › [<Rule> ›] <Scenario>` or `… › <Outline> › Example #<n>`, `[[ATTACHMENT|<path relative to the report's directory>]]` lines in `<system-out>`, and images under `$ADW_PROOF_DIR`. Prior art: `features/per-issue/step_definitions/feature-992-standin-source.ts`, `feature-992-junit.ts`.
+- `features/per-issue/feature-994.feature` (`@adw-994`) holds twelve scenarios, three of them outlines:
+  - three drive the pure assembler ("the proof assembler assembles the proof of the scenario run"): exact selection; tags taken per scenario from the feature file, with Feature tags included and same-named scenarios of different features told apart; and outline rows selected by their Examples tags;
+  - four run the scenario test phase, then the review phase: `web`, `cli`, a re-test after a failed review, and a `web` run with no image. Two of them, the `web` and the `cli` one, then publish the proof on a pull request;
+  - four run the scenario test phase alone: a blocker failure for either fixed tag in either repository type; `.adw/review_proof.md` ignored; "no per-issue scenarios"; and a per-issue run that ends without a report;
+  - the last is the type check.
+- Implement their step definitions under `features/per-issue/step_definitions/` against the public interfaces built here: `assembleScenarioProof` (its inputs from `readJUnitReport`, `indexFeatureScenarios(readFeatureFiles(...))` and `harvestProofArtifacts`), `runScenarioProof`, `executeScenarioTestPhase`, `executeReviewPhase` with `setProofUploaderForTesting`, `publishPrProof` or `executeProofPublishPhase`, `formatReviewProofComment`. Prior art for the recording issue tracker and screenshot store, the stand-in review agent and "scenario tests, then review": `features/per-issue/step_definitions/feature-937-*.ts`.
+- Reuse the existing phrases instead of redefining them: `the ADW codebase is checked out` (G18), `the ADW TypeScript type-check passes` (T22), `the scenario proof records a blocker failure for the tag {string}` (T-S12, which matches on `resolvedTag`) and `the scenario proof records no blocker failures` (T-PY3). The last two read `World.scenarioProofResult`, so every When step that runs the scenario test phase sets it from `ctx.scenarioProof`.
+- Any stand-in runner a step writes must emit the report the ADW Playwright project emits:
+  - Test-case names are `<Feature> › [<Rule> ›] <Scenario>`. An outline row is `<Feature> › [<Rule> ›] <Outline> › <example title>`, with the example title from step 4. The products outline's name holds `<product>`, so its rows are `Product pages › The <product> page shows its price › The lamp page shows its price`, and so on.
+  - Build the names from the feature text the step wrote, not with `featureScenarioIndex.ts`, so the scenarios do not check the index against itself. The full name matters: the two "The page shows the saved products" scenarios differ only in their Feature segment, and a bare name would match both and be discarded. `feature-992-standin-source.ts` writes bare names, so its report writer cannot be reused unchanged.
+  - Names are XML-escaped (`<product>`).
+  - `[[ATTACHMENT|<path relative to the report's directory>]]` lines go in `<system-out>`, and the images under `$ADW_PROOF_DIR`.
+  - Each test case goes in the report of every fixed tag its scenario carries, as the runner's tag filter does.
+  
+  Prior art: `features/per-issue/step_definitions/feature-992-standin-source.ts`, `feature-992-junit.ts`.
+- In the `cli` workflows, the scenario directory in `.adw/scenarios.md` must hold the feature files the table names (for example `features/`). It is the descriptor runner's `featureDirectory`, and the per-issue tag runs only when a scenario there carries it.
+- "The review agent received, with the proof, …" reads the `scenario_proof.md` whose path the review phase gave the review agent (`$3`, the proof's `resultsFilePath`). Capture it when the review runs, because the next scenario run resets the proof directory. The image paths it received are the ones its `## Evidence` section lists.
+- The review phase and `publishPrProof` each upload the selected list. In the `web` scenario that publishes on a pull request, the store therefore receives each image twice under the same key. "received exactly these images, and nothing else" compares the distinct images received. "each embedded from a URL the screenshot store returned for it" accepts any URL the store returned for that image.
 - Register no new phrase in `features/regression/vocabulary.md`; per-issue steps do not need it.
 
 ### 17. Records
@@ -333,7 +354,7 @@ Left out, because no scenario in the feature files has their name: `<case>`, `<c
   - `uploadProofArtifacts` uploading only the given images, `uploadReviewedProofScreenshots` and `publishPrProof` passing `scenarioProof.perIssueImages`, and nothing uploaded in a `cli` repository;
   - the reviewer receiving the absolute image paths in `scenario_proof.md`'s `## Evidence` section;
   - the unit tests `adws/proof/__tests__/proofAssembler.test.ts`, `featureScenarioIndex.test.ts`, `prProofPublisher.publish.test.ts`, `proofUploader.test.ts`, `adws/phases/__tests__/scenarioProofRun.test.ts`, `reviewPhaseScreenshots.test.ts`, `adws/core/__tests__/testReportParser.test.ts`;
-  - the scenarios `features/per-issue/feature-994.feature`, if present;
+  - the scenarios `features/per-issue/feature-994.feature`;
   - one mechanical check, e.g. `grep -n "harvestProofArtifacts" adws/proof/proofUploader.ts adws/phases/reviewPhase.ts adws/proof/prProofPublisher.ts` returns nothing.
   
   Keep the decision text unchanged. Note what remains for the reviewer issue: the prompt opening the images.
@@ -368,8 +389,8 @@ The tests feed each module its inputs and assert the decision, list or document 
 - **`adws/phases/__tests__/scenarioProofRun.test.ts`** — the shell end to end with real commands: per-issue tag not run without a tagged feature file; a web run returns exactly the per-issue image and writes its absolute path into `scenario_proof.md`; cli selects nothing; the no-step-definitions proof; the existing environment and proof-directory tests.
 - **`adws/core/__tests__/scenarioRunner.test.ts`** — `featureDirectory` per runner mode.
 - **`adws/phases/__tests__/scenarioTestPhase.runner.test.ts`** — the phase hands `runScenarioProof` the profile and the runner's feature directory in both modes.
-- **`adws/proof/__tests__/proofUploader.test.ts`** — uploads exactly the given list; failures and unreadable files left out; sequential.
-- **`adws/proof/__tests__/prProofPublisher.publish.test.ts`** and **`prProofPublisher.test.ts`** — the PR comment embeds exactly the selected images; escaped group label.
+- **`adws/proof/__tests__/proofUploader.test.ts`** — uploads exactly the given list; failures and unreadable files left out; sequential; `isProofUploadConfigured()` is true with an installed uploader and no R2 credentials, false with neither.
+- **`adws/proof/__tests__/prProofPublisher.publish.test.ts`** and **`prProofPublisher.test.ts`** — the PR comment embeds exactly the selected images, also through an installed uploader without R2 credentials; escaped group label.
 - **`adws/phases/__tests__/reviewPhaseScreenshots.test.ts`** — the issue comment of every attempt carries exactly the URLs of the proof's selected images; empty selection uploads nothing.
 - **`adws/core/__tests__/applicationType.test.ts`** — unchanged; it must still pass, proving the new modules read the profile and never name `applicationType`.
 
@@ -390,7 +411,7 @@ The tests feed each module its inputs and assert the decision, list or document 
 - An unparseable feature file: the raw-text tag check decides whether the per-issue tag runs; the runner then reports the parse error.
 - The feature directory is missing: empty index; regression still runs; the per-issue tag is not run.
 - A review re-attempt after a re-test: `ctx.screenshotUrls` is replaced, so the comment shows only the latest run's selected images (existing behaviour, kept).
-- R2 not configured: nothing uploaded; the PR comment carries the existing note. A failing upload is left out, and the comment and verdict stand.
+- R2 not configured and no uploader installed: nothing uploaded; the PR comment carries the existing note. An uploader installed with `setProofUploaderForTesting` counts as configured for the PR comment, as it already does for the review phase. A failing upload is left out, and the comment and verdict stand.
 - Self-host (no `repoContext`): nothing uploaded, as today.
 
 ## Acceptance Criteria

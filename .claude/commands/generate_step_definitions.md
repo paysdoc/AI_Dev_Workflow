@@ -9,37 +9,6 @@ You are the Step Definition Generator Agent. Your job is to generate step defini
 
 - `$0` — Issue number
 - `$1` — ADW workflow ID
-- `$2` — Scenario runner mode chosen by ADW's application-type mapping: `adw_playwright` or `descriptor`. Empty means `descriptor`.
-
-## Runner mode
-
-`$2` says which runner the step definitions are written for.
-
-- `descriptor`, or empty: the runner `.adw/scenarios.md` names. The rest of this prompt applies exactly as written.
-- `adw_playwright`: ADW's Playwright project in `features/`. The scenarios run on the Playwright test runner through `playwright-bdd`, under a configuration ADW owns. In this mode:
-  - Write TypeScript step definitions under `features/steps/`, which the configuration loads as `features/steps/**/*.ts`. Do this whatever `## BDD Framework` and `## Step Def Directory` say, and whatever language the application is written in.
-  - Register steps with `createBdd()` from `playwright-bdd`:
-    ```ts
-    import { expect } from '@playwright/test';
-    import { createBdd } from 'playwright-bdd';
-
-    const { Given, When, Then } = createBdd();
-
-    Given('the home page is open', async ({ page }) => {
-      await page.goto('/');
-    });
-
-    Then('the page shows the heading {string}', async ({ page }, heading: string) => {
-      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
-    });
-    ```
-  - A step receives Playwright's fixtures as its first argument and the step's parameters after it.
-  - Take the `page` fixture in every step that looks at or acts on what a user sees. The configuration captures an end-state screenshot of every scenario that uses `page`, and that image is the review's visual evidence. A step about pure logic or an HTTP API may take `request` instead.
-  - Navigate with paths relative to the application. ADW starts the dev server and gives its address to the configuration as `baseURL` (`ADW_APPLICATION_URL`). Never hard-code a host or port, start a server, or add a `webServer` block.
-  - Use Cucumber-expression patterns (`{string}`, `{int}`) and `expect` from `@playwright/test`.
-  - Never edit `features/playwright.config.ts` or `features/.gitignore`; ADW owns them.
-  - Section 5's mock infrastructure belongs to the descriptor runner and does not apply here.
-- `## Vocabulary Registry` validation (Step 4a) applies in both modes.
 
 ## Polymorphism on `.adw/scenarios.md`
 
@@ -77,7 +46,7 @@ Read `.adw/scenarios.md` to determine:
 - `## Step Def Directory` — the directory where step-def files are written (default: `features/step_definitions`).
 - `## Vocabulary Registry` — optional vocabulary registry path.
 
-If `.adw/scenarios.md` does not exist, use the defaults above. In `adw_playwright` mode the step-definition directory is `features/steps`, whatever `## Step Def Directory` says.
+If `.adw/scenarios.md` does not exist, use the defaults above.
 
 When `## Vocabulary Registry` is set, load the referenced file and parse its phrase table (one phrase per line, or a markdown table — use the format present in the file).
 
@@ -88,8 +57,6 @@ Find all `.feature` files in the scenario directory that contain the tag `@adw-$
 ### 3. Read existing step definitions
 
 Read every existing step definition file the runner loads, whatever its extension: those in `## Step Def Directory` and those in any other step definition directory under the scenario directory, such as the ones beside the per-issue and regression scenarios. This is critical: a step pattern registered twice makes the runner throw an error.
-
-In `adw_playwright` mode the runner loads every `.ts` file under `features/steps/` and nothing else, so read those. A pattern registered twice makes `bddgen` fail.
 
 Extract and record every existing step pattern (Given/When/Then strings) so you can skip those when generating new ones.
 
@@ -149,7 +116,7 @@ For each scenario tagged `@adw-$0`, generate the step definitions using the conf
 - Import/register Given/When/Then via the framework's mechanism (see "Polymorphism on the BDD framework" above)
 - Match step text patterns exactly (use the framework's native pattern syntax — regex, string templates, or typed parameters as appropriate)
 - Implement the step body using the actual implementation code
-- Write files with the framework's conventional extension into `## Step Def Directory`. In `adw_playwright` mode, write `.ts` files into `features/steps/` in the idiom of the Runner mode section
+- Write files with the framework's conventional extension into `## Step Def Directory`
 - Use the framework's idiomatic assertion mechanism
 - Group related steps by feature or module — one file per feature area is preferred
 - Never duplicate a step pattern that any step definition file read in Step 3 already registers
@@ -158,8 +125,6 @@ For each scenario tagged `@adw-$0`, generate the step definitions using the conf
 ### 7. Verify
 
 After writing, run the static syntax or type check that is conventional for the configured framework's language on each generated file, if that language has one. Run only that language's check; never run another language's compiler or checker.
-
-In `adw_playwright` mode the check is `cd features && (test -d node_modules || npm ci) && npx bddgen`, the install-and-generate part of `## Run Scenarios by Tag`. `bddgen` loads the steps as the runner does and fails on an undefined or duplicate step, so it is the one exception to the rule against loading step files. Never run `npx bddgen` without the install guard in front of it: a worktree has no `features/node_modules`, and `npx` would resolve the name on the npm registry without asking. Do not run `npx playwright test`; the scenario phase does.
 
 Do NOT execute step definition files at runtime. Step definition files register their steps when they load, and the runner throws a registration error outside a running session. Never import, load or run a step definition file as a verification method; use a static syntax or type check only. This caution applies to every framework.
 
