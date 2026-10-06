@@ -560,3 +560,53 @@ checked out` (G18, Background), G3 (its manifest is delivered as the marker abov
 issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (keeps the issues G4
 seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
 and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
+
+---
+
+## Given/When/Then — Plan Commit Guard and Worktree Setup (@plan-commit-guard)
+
+These phrases drive three production entry points in-process (phase-import pattern): the plan phase
+(`executePlanPhase`), the commit agent (`runCommitAgent`) and worktree setup's copy of the
+framework's Claude assets (`copyClaudeAssetsToWorktree`). Their inputs are fixtures the steps build
+under `os.tmpdir()`: real git repositories with a real `GitContext`, a fixture framework checkout
+handed to worktree setup as its `frameworkRepoRoot`, and the Claude CLI stub
+(`test/mocks/claude-cli-stub.ts`) behind a wrapper whose manifest lives outside the worktree, so the
+stub's own files never ride in a commit that stages everything. The stub stages and commits every
+change whenever it is asked to commit, as `/commit` does, so only the plan phase's own code can keep
+the plan commit to the plan file. Every assertion targets a runtime artefact: the error the phase
+threw, or its absence; the commits the worktree branch gained since the When step recorded its head;
+the worktree's `git status`; git's ignored and untracked listings; and a worktree file compared with
+the blob its branch records. No step reads, greps or parses a source file, satisfying the
+Rot-Detection Rubric. The definitions live in `feature-930.steps.ts` and
+`feature-930-worktree-setup.steps.ts`, over the fixtures in `feature-930-fixtures.ts` and
+`feature-930-plan-fixture.ts`; their `Before`/`After` hooks are keyed on `@plan-commit-guard`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-PC1 | `a worktree for a workflow on issue {int} in the target repository {string}` | Makes a throwaway root under `os.tmpdir()` holding a real git repository, `worktree/`, on the branch `feature-issue-<N>-plan-commit` with one empty commit under a fixed test identity, and a real `GitContext` for the given `owner/repo` (not self-host, a literal token, the throwaway root as framework root and target-repos directory). Picks a fresh adwId, whose plan file is `specs/issue-<N>-adw-<adwId>-sdlc_planner-plan-only.md`. The After hook removes the root and the adwId's `agents/` and `logs/` directories | phase-import | worktree artefact (throwaway git repository) |
+| G-PC2 | `the worktree's branch tracks these files:` | Writes each `path` row as `<path> as the branch has it` and commits them all in one commit on the worktree's branch | phase-import | git artefact (commit on the worktree branch) |
+| G-PC3 | `the worktree has uncommitted changes to these files:` | Appends a line to each `path` row's file, leaving an unstaged change to a file the branch tracks | phase-import | worktree artefact (uncommitted change) |
+| G-PC4 | `the Claude CLI is a stand-in that stages every change in the worktree and commits it whenever it is asked to commit` | Points `CLAUDE_CODE_PATH` at a `/bin/sh` wrapper in the throwaway root that runs the Claude CLI stub with no stream delay and a manifest kept outside the worktree, named in the wrapper because the agent runner drops `MOCK_*` variables. The manifest carries the planner's payload (`test/fixtures/jsonl/payloads/plan-agent.json`), the edits, deletions and stagings the planner Givens add, and `onCommitCommand: stage-all-and-commit`, so every `/commit` stages every change in the worktree and commits it. Clears the CLI path cache; the After hook puts the previous value back unless the `@regression` After hook already has | phase-import | stub behaviour (SUT input) |
+| G-PC5 | `the planner writes the plan file and makes these changes in the worktree:` | Adds the plan file to the stand-in's edits, then one change per `change`/`path` row: `creates` writes a new file, `modifies` appends to the file, `modifies and stages` also stages it, `deletes` removes it. The stand-in makes them when the plan phase runs the planner | phase-import | stub behaviour (SUT input) |
+| G-PC6 | `worktree setup has left these changes in the worktree:` | Makes each `change`/`path` row's change in the worktree before the plan phase, as worktree setup's copy would: `creates` writes a new file, `modifies` appends a stale-copy line to a tracked one. Any other change fails the step | phase-import | worktree artefact (uncommitted change) |
+| G-PC7 | `the planner writes only the plan file` | Adds the plan file, and nothing else, to the stand-in's edits | phase-import | stub behaviour (SUT input) |
+| G-PC8 | `the planner writes the plan file, modifies {string} and commits everything itself` | Adds the plan file and a modification of the named path to the stand-in's edits, and has the stand-in stage and commit everything in the worktree during the planner's own run, before the plan phase commits anything | phase-import | stub behaviour (SUT input) |
+| G-PC9 | `a worktree of the framework's own repository whose branch carries a newer {string} than the framework checkout running the workflow` | Makes a throwaway root holding a worktree repository whose one commit carries the named path (`target: false` frontmatter, a body naming it the branch's newer copy), and a fixture framework checkout: a git repository on `main` with the `origin` `https://github.com/acme/framework.git`, holding older copies of `.claude/commands/scenario_writer.md` and `.claude/skills/tdd/SKILL.md`, plus `.claude/commands/feature.md` (`target: false`) and `.claude/commands/install.md` (`target: true`). The worktree's `GitContext` is for `acme/framework`, the framework's own repository. The After hook removes the root | phase-import | worktree artefact (throwaway git repositories) |
+| G-PC10 | `a worktree of a target repository that tracks nothing under {string}` | As G-PC9, but the worktree's one commit carries only `README.md` and its `GitContext` is for `acme/widgets`, a repository other than the framework's. The argument is not read: tracking only `README.md`, the worktree tracks nothing under the directory the scenario names | phase-import | worktree artefact (throwaway git repositories) |
+| W-PC1 | `the plan phase runs` | Writes the stand-in's manifest, records the branch head (`git rev-parse HEAD`) as the baseline for the commit Thens, and calls the real `executePlanPhase` in-process with a `WorkflowConfig` for the worktree, the adwId, the issue, `/feature`, the fixture `GitContext` and no repo context, so nothing is posted. Records the error it throws, if any | phase-import | phase outcome + git artefacts |
+| W-PC2 | `the {string} commits its work through the commit agent, as its phase does` | Writes the stand-in's manifest, records the branch head as the baseline, and calls the real `runCommitAgent` in-process under the given agent name, as that agent's phase calls it: `/feature`, the issue, the worktree as cwd and the fixture `GitContext`'s command environment. The stand-in answers the `/commit` | phase-import | git artefact (commit on the worktree branch) |
+| W-PC3 | `worktree setup copies the framework's Claude assets into the worktree` | Calls the real `copyClaudeAssetsToWorktree` in-process with the worktree, its `GitContext` and the fixture framework checkout as `frameworkRepoRoot`, so neither the real checkout nor its origin plays a part | phase-import | worktree + git artefacts |
+| T-PC1 | `the plan phase completes` | Asserts W-PC1 recorded no error; fails giving the error's message | phase-import | phase run outcome |
+| T-PC2 | `the commits added during the plan phase carry the plan file and no other path` | Asserts the branch gained at least one commit since the baseline (`git rev-list <baseline>..HEAD`) and that the paths those commits carry (`git show --name-only --no-renames`) are exactly the plan file | phase-import | git artefact (commits on the worktree branch) |
+| T-PC3 | `the worktree still has uncommitted changes to these files:` | Asserts each `path` row is among the worktree's staged, unstaged and untracked paths (`git status --porcelain --untracked-files=all`); fails listing them | phase-import | git artefact (worktree status) |
+| T-PC4 | `the plan phase fails with an error that names {string}` | Asserts W-PC1 recorded an error whose message contains the path | phase-import | phase run outcome (raised error) |
+| T-PC5 | `no commit added during the plan phase carries {string}` | Asserts none of the commits the branch gained since the baseline carries the path | phase-import | git artefact (commits on the worktree branch) |
+| T-PC6 | `the commit recorded on the worktree branch carries these files:` | Asserts the branch gained exactly one commit since the baseline and that it carries every `path` row | phase-import | git artefact (commit on the worktree branch) |
+| T-PC7 | `the worktree's {string} is the copy its branch carries` | Asserts the worktree's file at the path has the content the branch's HEAD records for it (`git show HEAD:<path>`). The file is what worktree setup left in the worktree, an artefact; no source file is read | phase-import | worktree artefact + git artefact (HEAD blob) |
+| T-PC8 | `the worktree has no uncommitted change to {string}` | Asserts `git status --porcelain -- <path>` in the worktree prints nothing | phase-import | git artefact (worktree status) |
+| T-PC9 | `git lists {string} among the worktree's ignored files` | Asserts the path is among `git ls-files --others --ignored --exclude-standard` in the worktree: the ignore entry worktree setup wrote covers it | phase-import | git artefact (ignored-file listing) |
+| T-PC10 | `git lists {string} among the worktree's untracked files that are not ignored` | Asserts the path is among `git ls-files --others --exclude-standard` in the worktree: worktree setup copied it and wrote no ignore entry for it | phase-import | git artefact (untracked-file listing) |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), `the ADW TypeScript type-check passes` (T22) and the git/gh guard
+pair W16/T34.
