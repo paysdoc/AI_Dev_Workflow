@@ -14,7 +14,7 @@ import assert from 'assert';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { handleIssueClosedEvent, type IssueClosedResult } from '../../../adws/triggers/webhookHandlers.ts';
 
-import { splitRepo, world796 } from './feature-796.steps.ts';
+import { splitRepo, world796 } from '../../regression/step_definitions/feature-796.steps.ts';
 import { ensureBoundary, targetReposDir } from './feature-933-boundary.steps.ts';
 import { trackAdwId } from './feature-933-fixture.ts';
 import { createRemote, ensureRemoteBranch, remoteBranches, type Remote } from './feature-933-remote.ts';

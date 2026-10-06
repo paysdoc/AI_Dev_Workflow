@@ -13,7 +13,7 @@ import { runShellCommand, type CheckVerdict, type ProcessRunner } from '../../..
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import type { FixRoundPort } from '../../../adws/core/staticCheckFixLoop.ts';
 
-import { world796, resetWorld } from './feature-796.steps.ts';
+import { world796, resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
 import { emptyBehaviour, type CliBehaviour, type InstalledCli } from './feature-929-compacting-cli.ts';
 import type { Workflow929 } from './feature-929-workflow.ts';
 import { COMMANDS_FILE, configuredChecksFrom, renderCommandsMd, type ConfiguredCheck } from './feature-988-commands.ts';

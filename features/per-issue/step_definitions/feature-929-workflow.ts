@@ -16,7 +16,7 @@ import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import { AgentStateManager, detectRecoveryState } from '../../../adws/core/index.ts';
 
-import { world796, splitRepo, buildRecordingBoundary } from './feature-796.steps.ts';
+import { world796, splitRepo, buildRecordingBoundary } from '../../regression/step_definitions/feature-796.steps.ts';
 
 export interface Workflow929 {
   config: WorkflowConfig;

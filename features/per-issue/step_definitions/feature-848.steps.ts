@@ -10,8 +10,8 @@ import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { world796, resetWorld } from './feature-796.steps.ts';
-import { resetFeature820State, currentWorkflowConfig } from './feature-820.steps.ts';
+import { world796, resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
+import { resetFeature820State, currentWorkflowConfig } from '../../regression/step_definitions/feature-820.steps.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 
 let capturedLog: string[] | null = null;

@@ -16,7 +16,7 @@ import { Given, Before, After } from '@cucumber/cucumber';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { world796, resetWorld, seededIssueNumbers } from './feature-796.steps.ts';
+import { world796, resetWorld, seededIssueNumbers } from '../../regression/step_definitions/feature-796.steps.ts';
 import type { IssueComment, RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
@@ -38,7 +38,7 @@ import {
   restoreFile,
   s,
   staleTimestamp,
-} from './feature-932-world.ts';
+} from '../../regression/step_definitions/feature-932-world.ts';
 
 Before({ tags: '@adw-932' }, function () {
   resetWorld();

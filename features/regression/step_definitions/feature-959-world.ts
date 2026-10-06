@@ -5,8 +5,8 @@ import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import type { RepoIdentity } from '../../../adws/types/agentTypes.ts';
 import type { OrchestratorProcess } from './feature-959-processes.ts';
 
-/** The flagged feature-908 and feature-912 rows also carry @adw-959 but run under their own harness. */
-export const OWN_ROWS = '@adw-959 and not @adw-908 and not @adw-912';
+/** Only feature-959 carries this tag; the flagged feature-908 and feature-912 rows run under their own harness. */
+export const OWN_ROWS = '@dead-orchestrator-takeover';
 
 /** The workflow a scenario seeds for one issue, and the process that stands in for its orchestrator. */
 export interface Workflow {
