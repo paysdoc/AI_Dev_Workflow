@@ -294,7 +294,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says that "## Retry" continues the static-check fix loop
     And the park comment says what "## Continue" does for this park
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990
   Scenario: The park comment for a red baseline names the failing check, says that it fails on the base branch, and says that "## Retry" re-runs the baseline while "## Continue" waives it
     Given a park for the reason "baseline_red" whose evidence is:
       | failing check | type check                                                                                                  |
@@ -307,7 +307,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says that "## Retry" re-runs the baseline and parks the issue again if it is still red
     And the park comment says that "## Continue" waives the baseline, so that this run fixes the pre-existing failures too
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990
   Scenario: The park comment for a regression scenario that also fails on the base branch names the scenario, says that it fails on the base branch, and says what "## Retry" does and that "## Continue" lets this run fix it
     Given a park for the reason "pre_existing_regression" whose evidence is:
       | failing scenario | The cron launches one orchestrator per eligible issue |
@@ -318,7 +318,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says what "## Retry" does for this park
     And the park comment says that "## Continue" lets this run fix the pre-existing failure too
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990
   Scenario: The park comment for a dev server that does not start on the base branch quotes the server's output, says that it fails on the base branch, and says that "## Retry" re-runs the baseline while "## Continue" waives it
     Given a park for the reason "base_server_down" whose evidence is:
       | server output | Error: listen EADDRINUSE: address already in use :::3000 |
@@ -341,7 +341,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says what "## Retry" does for this park
     And the park comment says what "## Continue" does for this park
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990
   Scenario: ADW would take none of the park comments for a directive, although each of them explains "## Retry" and "## Continue"
     When a park comment is built, with sample evidence, for each of these reasons:
       | reason                   |

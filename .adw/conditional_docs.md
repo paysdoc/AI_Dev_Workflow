@@ -162,6 +162,19 @@
     - adws/core/fixRoundGuard.ts
     - adws/core/fixRoundGuardTable.ts
     - adws/core/unifiedDiff.ts
+    - adws/core/baselineGate.ts
+    - adws/core/regressionTriage.ts
+    - adws/phases/baselinePhase.ts
+    - adws/phases/baseWorktree.ts
+    - adws/phases/baseScenarioRerun.ts
+    - adws/phases/preExistingRegressionGate.ts
+    - adws/triggers/continueHandler.ts
+    - adws/core/__tests__/baselineGate*.test.ts
+    - adws/core/__tests__/regressionTriage.test.ts
+    - adws/phases/__tests__/baselinePhase*.test.ts
+    - adws/phases/__tests__/baseWorktree.test.ts
+    - adws/phases/__tests__/baseScenarioRerun*.test.ts
+    - adws/phases/__tests__/preExistingRegressionGate.test.ts
     - adws/core/__tests__/fixRoundGuard*.test.ts
     - adws/core/__tests__/staticCheckFixLoop*.test.ts
     - adws/core/__tests__/unifiedDiff*.test.ts
@@ -173,6 +186,9 @@
     - When a static-check fix loop stops on identical output or a rejected round, parks as `human_gated` (`parkWorkflow`), or `## Retry` should resume it
     - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`) and what `## Retry`/`## Continue` mean for each park reason
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
+    - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
+    - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
+    - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
   - Decisions:
     - 0014

@@ -14,6 +14,7 @@ import { isActionableComment, isCancelComment, isRetryComment, truncateText } fr
 import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective, buildRetryHandlerDeps } from './retryHandler';
+import { handleContinueDirective, buildContinueHandlerDeps } from './continueHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent, resolvePrReviewSpawn, defaultPrClosedDeps } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
@@ -219,6 +220,11 @@ export function dispatchWebhookEvent(
       return;
     }
     if (!isActionableComment(commentBody)) { jsonResponse(res, 200, { status: 'ignored' }); return; }
+    const issueComments = commentBoundary.providers.issueTracker.fetchComments(issueNumber);
+    if (handleContinueDirective(issueNumber, issueComments, buildContinueHandlerDeps())) {
+      jsonResponse(res, 200, { status: 'continue_waived', issue: issueNumber });
+      return;
+    }
     if (!shouldTriggerIssueWorkflow(issueNumber)) {
       log(`Issue #${issueNumber} cooldown active, ignoring duplicate webhook`);
       jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });

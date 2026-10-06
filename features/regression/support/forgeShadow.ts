@@ -37,8 +37,8 @@ export function installGhShadow(rootDir: string): string {
 }
 
 /** The mock server's issues, pull requests and comments, as the shadow serves them for `repository`. */
-export function writeForgeState(statePath: string, mock: MockServerState, repository: RepoIdentifier): void {
-  const forge = forgeStateFrom(mock, { owner: repository.owner, repo: repository.repo, defaultBranch: DEFAULT_BRANCH });
+export function writeForgeState(statePath: string, mock: MockServerState, repository: RepoIdentifier, defaultBranch: string = DEFAULT_BRANCH): void {
+  const forge = forgeStateFrom(mock, { owner: repository.owner, repo: repository.repo, defaultBranch });
   writeFileSync(statePath, JSON.stringify(forge), 'utf-8');
 }
 

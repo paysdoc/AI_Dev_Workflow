@@ -15,6 +15,7 @@ import { extractPrNumber } from './adwBuildHelpers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
@@ -40,6 +41,7 @@ import { executeSdlcReviewFailedHandoff } from './phases/sdlcReviewHandoff';
 
 /** Injectable so tests can drive the review loop and what follows it without starting agents. */
 export interface ChorePhases {
+  readonly executeBaselinePhase: typeof executeBaselinePhase;
   readonly executeInstallPhase: typeof executeInstallPhase;
   readonly executePlanPhase: typeof executePlanPhase;
   readonly executeBuildPhase: typeof executeBuildPhase;
@@ -55,6 +57,7 @@ export interface ChorePhases {
 }
 
 const CHORE_PHASES: ChorePhases = {
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
@@ -172,6 +175,7 @@ async function runChorePhases(
   tracker: CostTracker,
   phases: ChorePhases,
 ): Promise<void> {
+  await runPhase(config, tracker, phases.executeBaselinePhase, 'baseline');
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhase(config, tracker, phases.executePlanPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);

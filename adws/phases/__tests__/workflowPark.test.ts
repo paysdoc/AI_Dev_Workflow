@@ -68,6 +68,14 @@ describe('parkWorkflow', () => {
     expect(AgentStateManager.readTopLevelState(adwId)?.workflowStage).toBe('human_gated');
   });
 
+  it('records the reason of the park next to the stage, so that a directive can tell which park it answers', () => {
+    park(makeConfig());
+    expect(AgentStateManager.readTopLevelState(adwId)).toMatchObject({ workflowStage: 'human_gated', parkReason: 'fix_loop_stalled' });
+
+    park(makeConfig(), { reason: ParkReason.BaselineRed, baseBranch: 'trunk', failedChecks: [] });
+    expect(AgentStateManager.readTopLevelState(adwId)).toMatchObject({ workflowStage: 'human_gated', parkReason: 'baseline_red' });
+  });
+
   it('keeps what the top-level state already holds', () => {
     AgentStateManager.writeTopLevelState(adwId, { adwId, issueNumber: 989, workflowStage: 'test_running' });
 

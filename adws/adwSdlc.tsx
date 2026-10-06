@@ -14,6 +14,7 @@ import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, O
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   if (!await runWithOrchestratorLifecycle(config, async () => {
     const tracker = new CostTracker();
     try {
+      await runPhase(config, tracker, executeBaselinePhase, 'baseline');
       await runPhase(config, tracker, executeInstallPhase);
       await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
       await runPhase(config, tracker, executeAlignmentPhase);
