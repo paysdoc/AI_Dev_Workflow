@@ -1,7 +1,7 @@
 /**
  * Cost-API scenarios of feature-936. For the first, the scenario's cost API is a local HTTP
  * server that records what is posted to it; the phase runner's `CostTracker` posts to it from a
- * child process (features/per-issue/support/feature-936-commit-driver.ts), because
+ * child process (features/regression/drivers/feature-936-commit-driver.ts), because
  * `COST_API_URL` is bound when adws/core/environment.ts is imported. For the second, the
  * Worker's own handlers answer from an in-memory database (feature-936-costApiWorker.ts).
  */
@@ -16,7 +16,7 @@ import { builtRecords } from './feature-936-costRecords.steps.ts';
 import { createWorkerCostApi, type BreakdownEntry, type IssueCosts, type WorkerCostApi } from './feature-936-costApiWorker.ts';
 import { assertUsd } from './feature-936-usd.ts';
 
-const COMMIT_DRIVER_PATH = 'features/per-issue/support/feature-936-commit-driver.ts';
+const COMMIT_DRIVER_PATH = 'features/regression/drivers/feature-936-commit-driver.ts';
 const COST_API_TOKEN = 'scenario-cost-api-token';
 const PROJECT = 'acme-widgets';
 
@@ -43,7 +43,7 @@ let workerApi: WorkerCostApi | undefined;
 let breakdown: readonly BreakdownEntry[] = [];
 let issueCosts: readonly IssueCosts[] = [];
 
-After({ tags: '@adw-936' }, async function () {
+After({ tags: '@cost-records' }, async function () {
   await recorder?.stop();
   recorder = undefined;
   workerApi = undefined;

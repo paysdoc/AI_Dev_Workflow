@@ -27,11 +27,11 @@ function scenario(): PlanScenario {
   return current;
 }
 
-Before({ tags: '@adw-930' }, function () {
+Before({ tags: '@plan-commit-guard' }, function () {
   current = null;
 });
 
-After({ tags: '@adw-930' }, function () {
+After({ tags: '@plan-commit-guard' }, function () {
   restoreClaudeCli();
   if (current) removeScenarioFiles(current);
   current = null;

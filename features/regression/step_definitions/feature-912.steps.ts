@@ -1,7 +1,7 @@
 /**
  * Novel step definitions for feature-912.feature. Every hook is scoped to
- * `@adw-912 and not @adw-910`: the four feature-910 pause-path rows that also carry
- * `@adw-912` run under feature-910's own `@adw-902 or @adw-907 or @adw-910` harness
+ * `@rate-limit-in-process-wait`, which only that feature carries, so the feature-910
+ * pause-path rows that guard the enqueue branch run under the pause-queue harness
  * (feature-902-queue.steps.ts), never this one.
  *
  * §1 drives the real, pure `decideRateLimitWait` directly. §2-§4 drive the real
@@ -156,14 +156,14 @@ function resetWorld(): void {
   policyWorld.decision = null;
 }
 
-Before({ tags: '@adw-912 and not @adw-910' }, async function (this: RegressionWorld) {
+Before({ tags: '@rate-limit-in-process-wait' }, async function (this: RegressionWorld) {
   this.mockContext = await setupMockInfrastructure();
   savedQueueRaw = fs.existsSync(PAUSE_QUEUE_PATH) ? fs.readFileSync(PAUSE_QUEUE_PATH, 'utf-8') : null;
   fs.rmSync(PAUSE_QUEUE_PATH, { force: true });
   resetWorld();
 });
 
-After({ tags: '@adw-912 and not @adw-910' }, async function (this: RegressionWorld) {
+After({ tags: '@rate-limit-in-process-wait' }, async function (this: RegressionWorld) {
   if (world.orchestrator?.heartbeat) {
     stopHeartbeat(world.orchestrator.heartbeat);
     world.orchestrator.heartbeat = null;
@@ -466,6 +466,8 @@ async function driveOrchestratedPhase(phase: string, anonymous: boolean): Promis
 
   if (world.diedDuringFirstWait) {
     await world.firstWaitBegun;
+    // The abandoned run never settles, so its finally would never restore the real exit.
+    process.exit = originalExit;
     runPromise.catch(() => { /* abandoned: this wait never resolves */ });
     if (o.heartbeat) { stopHeartbeat(o.heartbeat); o.heartbeat = null; }
     await simulateOrchestratorDeath(o);

@@ -4,7 +4,7 @@
  * build them, and the divergence check and the completion comment's cost section are read
  * off those records. The section is rendered by a child process, because
  * `SHOW_COST_IN_COMMENTS` is bound when adws/core/config.ts is imported (see
- * features/per-issue/support/feature-936-cost-section-driver.ts).
+ * features/regression/drivers/feature-936-cost-section-driver.ts).
  */
 
 import { Given, When, Then, Before, type DataTable } from '@cucumber/cucumber';
@@ -20,7 +20,7 @@ import {
 } from './feature-936-costRun.ts';
 import { assertUsd } from './feature-936-usd.ts';
 
-const DRIVER_PATH = 'features/per-issue/support/feature-936-cost-section-driver.ts';
+const DRIVER_PATH = 'features/regression/drivers/feature-936-cost-section-driver.ts';
 const ESTIMATE_VS_ACTUAL_HEADING = '**Estimate vs Actual Tokens**';
 
 interface CostRecordsState {
@@ -34,7 +34,7 @@ const INITIAL_STATE: CostRecordsState = { costCommentsEnabled: false, runs: [], 
 
 let state: CostRecordsState = INITIAL_STATE;
 
-Before({ tags: '@adw-936' }, function () {
+Before({ tags: '@cost-records' }, function () {
   state = INITIAL_STATE;
 });
 

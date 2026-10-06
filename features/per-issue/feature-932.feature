@@ -1,4 +1,4 @@
-@adw-932 @adw-xs9x3g-bug-adw-none-wins-on
+@adw-932 @adw-xs9x3g-bug-adw-none-wins-on @promotion-suggested-2026-10-04
 Feature: adw:none stops every spawn path, a repository's cron defines every ADW label on it, and a major-upgrade issue is routed by its label
 
   Issue #932 implements three owner rulings that ADR-0041 (items 1 and 2) and ADR-0033 (item 1)

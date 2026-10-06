@@ -32,6 +32,11 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - If the repo is empty or has no manifest files, check if `issueJson` contains a project description and use it to determine the project type
    - Scan the directory structure to identify source directories, test directories, and configuration files
    - Read `README.md` if it exists for additional context
+   - **Detect the application type.** It decides what evidence ADW's review needs, and ADW assumes no type, so decide only from what the project shows:
+     - `web`: the application serves pages that a person opens in a browser. Signals: a web framework or front-end build in the manifest (for example Next.js, Nuxt, Remix, SvelteKit, Astro, Angular, Vue, React with Vite; Django, Flask or FastAPI serving templates; Rails, Laravel, Phoenix), or routes and templates that render HTML.
+     - `cli`: the application has no browser user interface. Examples: a command-line tool (a `bin` entry, commander, yargs, oclif, click, typer, cobra, clap), a library, scripts or automation, or a service with an HTTP API and no pages.
+     - Test tooling alone (Playwright, Cypress, Cucumber) does not decide the type.
+     - Undecided: the signals conflict (for example a CLI and a separate browser UI, neither of them primary), or there is nothing to go on (an empty repository whose issue describes no application). Do not guess, and never fall back to `cli`.
 
 2. **Create `.adw/commands.md`**
    - Create the `.adw/` directory if it doesn't exist
@@ -85,6 +90,10 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Framework Notes` — Framework-specific instructions for the ADW
      - `## Library Install Command` — How to add new libraries
      - `## Script Execution` — How to run project scripts
+     - `## Application Type` — exactly one of `cli` or `web`, alone on its line:
+       - If the existing `.adw/project.md` has `## Application Type` holding `cli` or `web`, preserve it verbatim. The owner may have set it by hand, and an upgrade must not drop it.
+       - Otherwise write the type detected in step 1.
+       - If step 1 could not decide, leave the section out entirely: no default, no placeholder, no empty section. ADW then parks every issue with the `missing_application_type` comment until the section is added or `adw_init` is re-run.
    - Do not add a section that enables or disables unit tests. The only unit-test switch is `unitTests` in `.github/adw.yml` (step 9). If the existing `.adw/project.md` has such a section, leave it out.
 
 4. **Create `.adw/conditional_docs.md`**
@@ -267,6 +276,7 @@ EOF
 11. **Report**
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, `features/regression/vocabulary.md` when copied, `.github/adw.yml` when created, and the coding guidelines file when created)
    - Summarize the detected project type and key configuration choices
+   - Note the `## Application Type` written to `.adw/project.md`: the value, and whether it was detected or preserved; or `left out — detection could not decide (the next ADW run parks the issue with missing_application_type)`.
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
