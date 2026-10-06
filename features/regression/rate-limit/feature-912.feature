@@ -1,4 +1,4 @@
-@adw-912 @adw-kdrab9-in-process-wait-and @promotion-suggested-2026-10-04
+@regression @rate-limit-in-process-wait
 Feature: A five-hour session limit with a known reset time is ridden out in-process — a pure wait policy decides, the phase runner announces each wait on the issue and sleeps through an injected clock until the reset time, re-running the phase without bound while the workflow stays running, heartbeating and lock-holding, and every other rejection still exits through the pause path
 
   Issue #912 is the wait-policy slice of `specs/prd/rate-limit-indefinite-retry.md` (section
@@ -106,13 +106,13 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   Changes to feature-910. Its §1 rows and its end-to-end journey drive the real `runPhase` with a
   seven-day limit, a five-hour limit without a reset time, or no facts at all. Those are exactly
-  the rejections #912 still enqueues. The four rows are unchanged, and now also carry `@adw-912`
-  as the guard that the enqueue branch still records the limit facts. feature-910's description
-  records the amendment.
+  the rejections #912 still enqueues. The four rows are unchanged. They are the guard that the
+  enqueue branch still records the limit facts, and they run under feature-910's own harness,
+  never this file's hooks. feature-910's description records the amendment.
 
-  FLAGGED BY #959 (an orchestrator that dies in `starting` strands its issue). Three §3 rows also
-  carry `@adw-959`. #959 changes the takeover handler, the spawn lock and possibly the
-  hung-orchestrator detector, and these rows guard what must not move:
+  FLAGGED BY #959 (an orchestrator that dies in `starting` strands its issue). #959 changes the
+  takeover handler, the spawn lock and possibly the hung-orchestrator detector, and three §3 rows
+  guard what must not move:
     • the detector outline: a live orchestrator whose heartbeat is fresh is never reported;
     • the candidate row. This harness runs the orchestrator and the candidate in one process, so
       the spawn lock is recorded under the candidate's own pid while the orchestrator lives. #959
@@ -259,25 +259,25 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
           issue's wait comments.
         – "the wait comments … carry the attempt numbers 1 to N, in order": exactly N wait
           comments, and comment k names attempt k.
-    • HOOKS. Scope every hook to `@adw-912 and not @adw-910`. The four feature-910 rows that also
-      carry `@adw-912` run under #902's and #910's harness, and a second mock-infrastructure hook
-      would initialise it twice.
+    • HOOKS. Scope every hook to `@rate-limit-in-process-wait`, the tag only this feature carries.
+      The four feature-910 rows that guard the enqueue branch run under the pause-queue harness,
+      never these hooks.
         – `Before`: initialise `mockContext` with `setupMockInfrastructure()`, because T1 falls
           into a legacy source-inspection branch when it is null. Save and clear the pause queue.
         – `After`: stop any heartbeat and restore `process.exit`. Remove `agents/<adwId>` for
           every adwId used, and the spawn locks of every `acme/widgets` issue used. Restore the
           pause queue, and tear the mock infrastructure down.
-    • REUSED, NOT REDEFINED. T1 is defined in the regression suite's thenSteps.ts. T22 and the
-      git/gh guard pair are defined in feature-844.steps.ts. Redefining any of them is an
-      AmbiguousStepDefinition. (The guard pair is written `git\/gh` there, because "/" means
-      alternation in a cucumber expression.)
+    • REUSED, NOT REDEFINED. T1, T22 and the guard's Then (T34) are defined in the regression
+      suite's thenSteps.ts, and the guard's When (W16) in its whenSteps.ts. Redefining any of
+      them is an AmbiguousStepDefinition. (The guard pair is written `git\/gh` there, because "/"
+      means alternation in a cucumber expression.)
 
   Vocabulary note. These registered phrases from `features/regression/vocabulary.md` are reused:
     • G18 `the ADW codebase is checked out`
     • T1  `the state file for adwId {string} records workflowStage {string}`
     • T22 `the ADW TypeScript type-check passes`
-  The git/gh guard pair from feature-844 is reused as it is written, as #908 and #910 do. These
-  registered phrases are deliberately NOT reused:
+  The git/gh guard pair is reused as registered, W16 and T34. These registered phrases are
+  deliberately NOT reused:
     • G5 and T6 name a legacy lock path (`.adw/locks/issue-N.lock`). The spawn lock lives under
       `agents/spawn_locks/`, so T6 would pass vacuously;
     • G6 writes state under a temporary worktree's `.adw/state.json`. The phase runner writes the
@@ -285,21 +285,22 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     • T2, T3 and T14 read the mock GitHub API. The issue fixes the injected comment seam as the
       place where the wait comment is observed;
     • T5 reads a subprocess's exit code. Here the pause path's exit is trapped in process.
-  Apart from the guard pair, no unregistered phrase from another per-issue feature is reused.
+  No unregistered phrase from another per-issue feature is reused.
   Their step definitions are swept with their feature, and several are bound to that feature's
   own world. In particular, feature-910's "the cron host's clock reads {string}" pins the
-  scanner's clock, not the phase runner's. The registry has no phrase for the following, so
-  novel phrasing is introduced for them: the orchestrator's clock; the running orchestrator; the
+  scanner's clock, not the phase runner's. The registry had no phrase for the following, so
+  novel phrasing was introduced for them: the orchestrator's clock; the running orchestrator; the
   scripted phase outcomes; the phase runner's When; the death and candidate Givens; attempt
   counts; waits; wait comments; the exit; the stage, heartbeat, detector and candidate
-  assertions; the pause-queue entry by adwId; and every policy step.
+  assertions; the pause-queue entry by adwId; and every policy step. They are registered in
+  `features/regression/vocabulary.md` under `@rate-limit-in-process-wait` (G-RW1–G-RW10,
+  W-RW1–W-RW4, T-RW1–T-RW26).
 
   Background:
     Given the ADW codebase is checked out
 
   # ── §1 THE WAIT POLICY ─────────────────────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
   Scenario Outline: A five-hour limit with a known reset time is waited out in-process until exactly the reset time the CLI reported, wherever the clock stands before it
     Given rate-limit facts with a "five_hour" limit that resets at "<resets at>"
     When the rate-limit wait policy decides at "<now>"
@@ -311,7 +312,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
       | 2026-09-22T12:49:59Z | 2026-09-22T12:50:00Z |
       | 2026-09-22T12:50:00Z | 2026-09-22T17:50:00Z |
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
   Scenario Outline: Every other rejection is enqueued for the pause-queue scanner, carrying the reset time whenever the CLI reported one
     Given rate-limit facts with <facts>
     When the rate-limit wait policy decides at "2026-09-22T11:57:00Z"
@@ -329,7 +329,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §2 RIDING OUT THE LIMIT IN-PROCESS ─────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: Replaying #840 — three five-hour rejections in a row are each waited out in-process until the reset time the CLI reported, and the fourth run completes the phase without the workflow ever being paused
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 840 in the target repository "acme/widgets" is running under adwId "wait912-840"
@@ -351,7 +350,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the state file for adwId "wait912-840" records workflowStage "build_completed"
     And the pause queue does not hold adwId "wait912-840"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
   Scenario: Replaying #840 — before each wait, a comment ADW recognises as its own tells the issue, in UTC, until when the workflow waits and which attempt the limit rejected
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 840 in the target repository "acme/widgets" is running under adwId "wait912-840"
@@ -372,7 +370,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And every wait comment on issue 840 says the workflow is waiting for a rate limit to reset
     And every wait comment on issue 840 is recognised by ADW as its own comment
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: There is no retry budget — however many five-hour limits reject the phase in a row, each is waited out in-process, and the phase completes when a run finally succeeds
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 877 in the target repository "acme/widgets" is running under adwId "wait912-877"
@@ -392,7 +389,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §3 STILL A LIVE, RUNNING ORCHESTRATOR ──────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario Outline: While it waits, a workflow whose phase runs under its name stays in that phase's running stage and keeps its heartbeat, so the hung-orchestrator detector never mistakes it for a wedged process
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 871 in the target repository "acme/widgets" is running under adwId "wait912-871"
@@ -413,7 +409,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
       | build   |
       | stepDef |
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario: A phase run anonymously, as the orchestrators run most of their phases, keeps the stage the workflow already had throughout every wait — the wait never writes a stage of its own
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 872 in the target repository "acme/widgets" is running under adwId "wait912-872"
@@ -430,7 +425,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the state file for adwId "wait912-872" records workflowStage "starting"
     And the pause queue does not hold adwId "wait912-872"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario: The waiting orchestrator keeps the issue's spawn lock, so every candidate that arrives at the issue during a wait defers to it instead of starting a competing run
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 874 in the target repository "acme/widgets" is running under adwId "wait912-874"
@@ -445,7 +439,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
     And the "build" phase ran 3 times
     And the state file for adwId "wait912-874" records workflowStage "build_completed"
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-959 @adw-960
   Scenario: An orchestrator that dies while it waits leaves its workflow in the running stage, so the next candidate at the issue takes it over under its adwId instead of leaving it stranded or starting it afresh
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 876 in the target repository "acme/widgets" is running under adwId "wait912-876"
@@ -462,7 +455,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §4 EVERYTHING ELSE STILL EXITS ─────────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: A first rejection that is not a five-hour limit with a known reset time is never waited out — the orchestrator exits 0 through the pause path at once, posts no wait comment, and the queue entry keeps the facts the CLI reported
     Given the orchestrator's clock reads "2026-09-25T09:00:00Z"
     And an orchestrator for issue 875 in the target repository "acme/widgets" is running under adwId "wait912-875"
@@ -485,7 +477,6 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
       | a limit type ADW does not know        | monthly    | 2026-10-01T00:00:00Z | with a "monthly" limit that resets at "2026-10-01T00:00:00Z"   |
       | no facts: an overload or server error |            |                      | with no limit type and no reset time                           |
 
-  @adw-912 @adw-kdrab9-in-process-wait-and @adw-960
   Scenario Outline: After an in-process wait, a rejection that is not a five-hour limit with a known reset time is decided afresh — the orchestrator stops waiting and exits 0 through the pause path, whatever waits came before
     Given the orchestrator's clock reads "2026-09-22T11:57:00Z"
     And an orchestrator for issue 873 in the target repository "acme/widgets" is running under adwId "wait912-873"
@@ -512,11 +503,9 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
 
   # ── §5 BACKSTOPS ───────────────────────────────────────────────────────────────────────────────
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
   Scenario: TypeScript type-check passes with the wait policy in front of the pause path
     Then the ADW TypeScript type-check passes
 
-  @adw-912 @adw-kdrab9-in-process-wait-and
   Scenario: The git/gh guard stays green with the phase runner posting wait comments
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
