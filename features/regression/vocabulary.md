@@ -436,6 +436,70 @@ carries no `pid`), G-WH3 (the webhook secret) and T14 (no comment posted).
 
 ---
 
+## Given/When/Then — ADW Labels: Opt-Out, Routing and Provisioning (@label-routing)
+
+These phrases drive the trigger paths in-process (phase-import pattern) against a recording launch
+boundary. It is a real `LaunchBoundary` built by `buildLaunchBoundary` over throwaway directories.
+Its issue tracker, code host and board manager are recording fakes that answer from the issues a
+scenario seeds and log every call. The webhook rows call the real exported `dispatchWebhookEvent`
+with that boundary as the minted event boundary; the cron rows call the real exported
+`checkAndTrigger(boundary)`. Nothing they launch runs. A `bunx` shadow put first on `PATH` records
+each orchestrator launch's argv and exits at once. A recording wrapper around
+`test/mocks/claude-cli-stub.ts` goes on `CLAUDE_CODE_PATH` at dispatch time, after the `@regression`
+hooks have pointed it at the plain stub. Two rows start one real
+`adws/triggers/trigger_cron.ts --target-repo` process with a recording `gh` shadow first on its
+`PATH`. The fixture repositories (`adw-fixture/…-932`) do not exist, so a call that escapes the
+harness fails fast.
+
+Every assertion targets a runtime artefact: the launches the `bunx` shadow recorded, the Claude CLI
+invocations the wrapper recorded, the recording providers' call log, the `gh label create`
+invocations the `gh` shadow recorded, or the cron process's output. No step reads, greps or parses a
+source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-932.steps.ts` (hooks and Givens), `feature-932-drive.steps.ts` (the
+dispatches and the tick), `feature-932-observe.steps.ts` (the Thens and the real cron) and
+`feature-932-world.ts` (recorders and shared state). They build on the recording boundary of
+`feature-796.steps.ts` (G-LR1, T-LR6 to T-LR9) and the tracker Givens of `feature-820.steps.ts`
+(G-LR2, G-LR3, G-LR5). Around every scenario the `@label-routing` hooks reset the shared world and
+save, clear and restore `GITHUB_WEBHOOK_SECRET`, `agents/.auth_gate` and `agents/paused_queue.json`.
+Afterwards they kill the real cron and remove the cron registrations, spawn locks and
+`agents/<adwId>/` state the scenario created.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-LR1 | `a launch boundary for the repository {string} whose providers record every call` | Builds a real launch boundary (`buildLaunchBoundary`) for the named repository over throwaway framework and target-repos directories. Its issue tracker, code host and board manager are recording fakes that answer from what the scenario seeds and log every call they receive | phase-import | recording providers' call log |
+| G-LR2 | `issue {int} in the recording tracker carries the label {string}` | Seeds issue N with exactly that label. The recording tracker serves it to `fetchIssue`, `fetchLabels` and `listIssues`, and the W-LR webhook payloads carry it | mock-query | recording tracker state |
+| G-LR3 | `issue {int} in the recording tracker carries the labels {string} and {string}` | As G-LR2, with exactly those two labels | mock-query | recording tracker state |
+| G-LR4 | `issue {int} in the recording tracker carries the labels {string}, {string} and {string}` | As G-LR2, with exactly those three labels | mock-query | recording tracker state |
+| G-LR5 | `issue {int} in the recording tracker is titled {string}` | Seeds issue N's title, served by `fetchIssue` and `listIssues` and carried by the webhook payloads | mock-query | recording tracker state |
+| G-LR6 | `the body of issue {int} in the recording tracker reads:` | Seeds issue N's body from the doc string, served by `fetchIssue` and `listIssues` and carried by the webhook payloads. A `Blocked by #M` line makes N a dependent of M | mock-query | recording tracker state |
+| G-LR7 | `issue {int} in the recording tracker is in state {string}` | Seeds issue N's state, served by `getIssueState` and `fetchIssue`. `listIssues`, an open-issue listing, leaves out an issue in state `CLOSED` | mock-query | recording tracker state |
+| G-LR8 | `issue {int} has an earlier ADW workflow under adw id {string} recorded at workflowStage {string} running {string}` | Adds to issue N a comment that names the adwId as ADW's workflow comments do (`**ADW ID:**` and the adwId in backticks), with no stage heading. `fetchComments`, `fetchIssue` and `listIssues` all serve it. Also writes the adwId's top-level state file `agents/<adwId>/state.json`: the issue, the stage, the orchestrator script and the boundary's repository, with no phases, pid or branch name. The adwId is lowercase letters, digits and hyphens; its state and log directories are removed after the scenario | phase-import | recording tracker state + top-level state file artefact |
+| G-LR9 | `the forge refuses to create labels` | Makes the `gh` shadow that W-LR6 installs record every `gh label create` and exit 1 with an HTTP 403 message, as a forge that refuses label creation does | subprocess | `gh` shadow behaviour |
+| W-LR1 | `the webhook dispatches the opening of issue {int} from that boundary` | Dispatches an unsigned `issues` `opened` event through the real `dispatchWebhookEvent`, with the boundary as the minted event boundary. The event names the boundary's repository and carries the issue's seeded title, body and labels. The test process is first registered as the repository's running cron, so the webhook launches none, and the `bunx` and Claude CLI recorders go on `PATH` and `CLAUDE_CODE_PATH`. Fails unless the webhook answers `processing`. Then waits (bounded, 20 s) until the call log and the recorders have been quiet for 750 ms with no classification running | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR2 | `the webhook dispatches the opening of issue {int} from that boundary with no labels in the event` | As W-LR1, but the event's label list is empty while the tracker still holds the seeded labels: a label applied just after the issue was opened | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR3 | `the webhook dispatches a {string} comment on issue {int} from that boundary` | As W-LR1 for an `issue_comment` `created` event whose comment body is the given text | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR4 | `the webhook dispatches the closing of issue {int} from that boundary` | As W-LR1 for an `issues` `closed` event, which re-evaluates the seeded issues whose body names the closed issue as a blocker | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR5 | `the cron tick runs once from that boundary` | Dates every seeded issue's creation and last update a day back, past the cron's grace period. Puts the recorders in place, runs the real exported `checkAndTrigger(boundary)` once, and waits for the handling to settle as W-LR1 does. The tick's pause-queue scan sees an empty queue, which is saved and restored around the scenario | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR6 | `a cron trigger process is launched with --target-repo {string}` | Starts a real `bunx tsx adws/triggers/trigger_cron.ts --target-repo <repo>` process (`spawnRealCron`) with a throwaway `TARGET_REPOS_DIR` and a recording `gh` shadow first on its `PATH`. The shadow answers `gh auth token` with a fake token, records every `gh label create`, and exits 0 for everything else. Fails if the `bunx` recorder is on `PATH`, since it would swallow the launch. The process group is killed after the scenario | subprocess | recorded `gh` invocations + process output |
+| T-LR1 | `no ADW run was started for issue {int}` | Asserts the `bunx` recorder holds no launch whose argument after the orchestrator script is N. Read after a W-LR dispatch or tick has settled | mock-query | launch records |
+| T-LR2 | `exactly one ADW run was started for issue {int}` | Waits (bounded, 10 s) for a launch of issue N, then asserts the recorder holds exactly one | mock-query | launch records |
+| T-LR3 | `the ADW run started for issue {int} runs the orchestrator {string}` | Asserts issue N's recorded launch runs the named script, compared relative to the checkout root | mock-query | launch records |
+| T-LR4 | `the issue classifier was consulted for issue {int}` | Waits (bounded, 10 s) until the Claude CLI recorder holds an invocation whose prompt, its last argument, names `/classify_issue` and `#N:` | mock-query | recorded Claude CLI invocations |
+| T-LR5 | `the issue classifier was not consulted for issue {int}` | Asserts the Claude CLI recorder holds no such invocation | mock-query | recorded Claude CLI invocations |
+| T-LR6 | `the boundary's issue tracker recorded no comment` | Asserts the call log holds no `commentOnIssue` call | mock-query | recording providers' call log |
+| T-LR7 | `the boundary's issue tracker recorded a comment on issue {int}` | Asserts the call log holds a `commentOnIssue` call for issue N | mock-query | recording providers' call log |
+| T-LR8 | `the recorded comment on issue {int} contains {string}` | Asserts the body of issue N's recorded `commentOnIssue` call contains the text | mock-query | recording providers' call log |
+| T-LR9 | `the boundary's providers recorded no label applied to issue {int}` | Asserts the call log holds no `applyLabel` or `addLabel` call for issue N | mock-query | recording providers' call log |
+| T-LR10 | `the repository {string} has each of these labels:` | Waits (bounded, 20 s) until the `gh` shadow has recorded `gh label create '<label>' --repo <repo> … --force` for every row of the one-column `label` table | subprocess | recorded `gh` invocations |
+| T-LR11 | `the forge was asked to create each of these labels on the repository {string}:` | The same wait and record as T-LR10, whether or not the shadow refused the creations (G-LR9) | subprocess | recorded `gh` invocations |
+| T-LR12 | `the cron trigger process launched with --target-repo {string} completes its first poll tick` | Asserts the cron W-LR6 launched is the one for that repository. Waits (bounded) for its startup line `CRON trigger (backlog sweeper) started`, then for its first `POLL:` or `checkAndTrigger: tick failed` line | subprocess | log stream (process stdout) |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), T22, and the generic W16/T34.
+
+---
+
 ## Given/When/Then — Smoke processes (@subprocess)
 
 These rows run a real ADW process as a child of the Cucumber process, through the hermetic

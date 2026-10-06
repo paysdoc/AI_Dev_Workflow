@@ -18,7 +18,7 @@ import {
   requireBoundary,
   restoreEnv,
   waitFor,
-} from './feature-932-world.ts';
+} from '../../regression/step_definitions/feature-932-world.ts';
 import { spawnLockIdentities, useBenignGitContext } from './feature-959-boundary.ts';
 import { isOrchestratorProcessAlive } from './feature-959-processes.ts';
 import { requireWorkflow, s } from './feature-959-world.ts';

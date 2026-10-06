@@ -562,6 +562,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
+│   │   ├── checkRunner.combinedOutput.test.ts
 │   │   ├── checkRunner.integration.test.ts
 │   │   ├── checkRunner.test.ts
 │   │   ├── claudeStreamParser.test.ts
@@ -577,7 +578,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
-│   │   ├── fixRoundGuard.test.ts
+│   │   ├── fixRoundGuard.config.test.ts
+│   │   ├── fixRoundGuard.protectedPaths.test.ts
+│   │   ├── fixRoundGuard.suppression.test.ts
+│   │   ├── fixRoundGuard.table.test.ts
+│   │   ├── fixRoundGuard.verdict.test.ts
+│   │   ├── fixRoundGuardFixtures.ts  # Shared fixtures for the fix-round guard tests
 │   │   ├── forgeWiring.test.ts
 │   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
@@ -615,14 +621,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
-│   │   ├── staticCheckFixLoop.test.ts
+│   │   ├── staticCheckFixLoop.guard.test.ts
+│   │   ├── staticCheckFixLoop.progress.test.ts
+│   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the static-check fix-loop tests
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   ├── unaddressedComments.test.ts
-│   │   ├── unifiedDiff.test.ts
+│   │   ├── unifiedDiff.parse.test.ts
+│   │   ├── unifiedDiff.touchedPaths.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
 │   │   ├── upgradeFailureCap.test.ts
@@ -716,7 +725,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── hitlBoardNotifier.test.ts
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   ├── parkComment.test.ts
+│   │   ├── parkComment.content.test.ts
+│   │   ├── parkComment.helpers.ts  # Shared helpers for the park-comment tests
+│   │   ├── parkComment.quoting.test.ts
+│   │   ├── parkComment.structure.test.ts
 │   │   ├── prCommentDetector.test.ts
 │   │   ├── workflowCommentsBase.test.ts
 │   │   └── workflowCommentsIssue.test.ts
@@ -821,7 +833,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── startupFailureLog.test.ts
-│   │   ├── staticCheckFixRound.test.ts
+│   │   ├── staticCheckFixRound.failure.test.ts
+│   │   ├── staticCheckFixRound.fix.test.ts
+│   │   ├── staticCheckFixRound.helpers.ts  # Shared helpers for the static-check fix-round tests
+│   │   ├── staticCheckFixRound.keepDiscard.test.ts
+│   │   ├── unitTestPhase.guard.test.ts
+│   │   ├── unitTestPhase.helpers.ts  # Shared helpers for the unit-test phase tests
+│   │   ├── unitTestPhase.park.test.ts
 │   │   ├── unitTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
@@ -1157,6 +1175,7 @@ features/               # BDD feature files (Gherkin .feature)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── drivers/        # Scripts the subprocess harness runs as child processes (the workflow-init driver); outside the support and step-definition directories, which Cucumber imports
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
+│   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)

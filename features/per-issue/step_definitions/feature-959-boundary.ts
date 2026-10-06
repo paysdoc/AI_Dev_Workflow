@@ -10,8 +10,8 @@ import { tmpdir } from 'os';
 import type { IssueTracker, RepoIdentifier } from '@paysdoc/devplatform';
 import type { GitContext } from '@paysdoc/devplatform/git';
 
-import { world796 } from './feature-796.steps.ts';
-import { requireBoundary } from './feature-932-world.ts';
+import { world796 } from '../../regression/step_definitions/feature-796.steps.ts';
+import { requireBoundary } from '../../regression/step_definitions/feature-932-world.ts';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { readLocalRepoIdentity } from '../../../adws/core/localRepoIdentity.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';

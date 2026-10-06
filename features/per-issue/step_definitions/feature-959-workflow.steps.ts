@@ -12,10 +12,10 @@ import { Given, When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { Platform, type IssueComment, type RepoIdentifier } from '@paysdoc/devplatform';
 
-import { splitRepo } from './feature-796.steps.ts';
+import { splitRepo } from '../../regression/step_definitions/feature-796.steps.ts';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { acquireIssueSpawnLock, readSpawnLockRecord } from '../../../adws/triggers/spawnGate.ts';
-import { requireBoundary, requireFixture, staleTimestamp } from './feature-932-world.ts';
+import { requireBoundary, requireFixture, staleTimestamp } from '../../regression/step_definitions/feature-932-world.ts';
 import { fireOnceBetweenFilterAndDecision, useBenignGitContext } from './feature-959-boundary.ts';
 import { recordStage, recordStarting, takeSpawnLock, tenMinutesAgo, type StartupShape } from './feature-959-orchestrator.ts';
 import { killOrchestratorProcess, startOrchestratorProcess, type OrchestratorProcess } from './feature-959-processes.ts';

@@ -15,7 +15,7 @@ import assert from 'assert';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { runWithOrchestratorLifecycle } from '../../../adws/phases/orchestratorLock.ts';
 import { initializePRReviewWorkflow } from '../../../adws/phases/prReviewPhase.ts';
-import { requireFixture } from './feature-932-world.ts';
+import { requireFixture } from '../../regression/step_definitions/feature-932-world.ts';
 import { useBenignGitContext } from './feature-959-boundary.ts';
 import { recordStage } from './feature-959-orchestrator.ts';
 import { killOrchestratorProcess, startOrchestratorProcess } from './feature-959-processes.ts';
