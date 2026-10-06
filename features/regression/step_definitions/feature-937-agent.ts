@@ -63,8 +63,11 @@ export function activateStandInAgent(): void {
 export function deactivateStandInAgent(): void {
   if (!world.claudeCodePath) return;
   const { previous } = world.claudeCodePath;
-  if (previous === undefined) delete process.env['CLAUDE_CODE_PATH'];
-  else process.env['CLAUDE_CODE_PATH'] = previous;
+  // After hooks run in reverse registration order and the @regression teardown registers after this file, so it may already have restored the variable; writing back the value saved at activation would clobber that.
+  if (process.env['CLAUDE_CODE_PATH'] === CLAUDE_CLI_STUB_PATH) {
+    if (previous === undefined) delete process.env['CLAUDE_CODE_PATH'];
+    else process.env['CLAUDE_CODE_PATH'] = previous;
+  }
   world.claudeCodePath = null;
   clearClaudeCodePathCache();
 }

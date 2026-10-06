@@ -20,11 +20,11 @@ import {
 
 const RUN_TIMEOUT_MS = 60_000;
 
-Before({ tags: '@adw-937' }, function () {
+Before({ tags: '@review-comment-screenshots' }, function () {
   resetWorld();
 });
 
-After({ tags: '@adw-937' }, function () {
+After({ tags: '@review-comment-screenshots' }, function () {
   setProofUploaderForTesting(null);
   deactivateStandInAgent();
   removeScenarioArtefacts();
