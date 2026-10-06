@@ -17,7 +17,7 @@ import { runCleanup } from '../../regression/support/cleanup.ts';
 import { createSubprocessHarness } from '../../regression/support/subprocessHarness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
-import { resetWorld } from './feature-796.steps.ts';
+import { resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
 import type { ConfiguredCheck } from './feature-988-commands.ts';
 import { s as state988 } from './feature-988-world.ts';
 import { scratchPaths, type ScenarioOutcomes, type ScratchPaths } from './feature-990-scripts.ts';

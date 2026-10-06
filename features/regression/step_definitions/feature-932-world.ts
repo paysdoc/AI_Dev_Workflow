@@ -60,6 +60,10 @@ export function ghBinDir(): string {
   return path.join(s.dir, 'gh-bin');
 }
 
+export function claudeShadowPath(): string {
+  return path.join(s.dir, 'claude');
+}
+
 function writeExecutable(file: string, lines: string[]): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, lines.join('\n') + '\n');
@@ -77,7 +81,7 @@ export function installBunxShadow(): void {
 
 /** Records the invocation, runs the stub, then marks the invocation finished so a slow classification is never mistaken for silence. */
 export function installClaudeShadow(): string {
-  const shadow = path.join(s.dir, 'claude');
+  const shadow = claudeShadowPath();
   writeExecutable(shadow, [
     '#!/bin/sh',
     recordArgvLine('claude'),

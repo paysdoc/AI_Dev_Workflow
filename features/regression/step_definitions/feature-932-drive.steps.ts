@@ -3,11 +3,12 @@ import * as path from 'path';
 import assert from 'assert';
 import type * as http from 'http';
 
-import { seededIssueNumbers } from '../../regression/step_definitions/feature-796.steps.ts';
+import { seededIssueNumbers } from './feature-796.steps.ts';
+import { clearClaudeCodePathCache } from '../../../adws/core/environment.ts';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { writeCronPid } from '../../../adws/triggers/cronProcessGuard.ts';
 import { dispatchWebhookEvent } from '../../../adws/triggers/trigger_webhook.ts';
-import { bunxBinDir, repoKeyOf, requireBoundary, requireFixture, s, settle, staleTimestamp } from '../../regression/step_definitions/feature-932-world.ts';
+import { bunxBinDir, claudeShadowPath, repoKeyOf, requireBoundary, requireFixture, s, settle, staleTimestamp } from './feature-932-world.ts';
 
 function seedListingTimestamps(): void {
   const fixture = requireFixture();
@@ -20,6 +21,12 @@ function seedListingTimestamps(): void {
 /** Every launch goes through `bunx`; shadowing it for the whole scenario keeps any orchestrator from starting. */
 function shadowBunx(): void {
   process.env['PATH'] = `${bunxBinDir()}${path.delimiter}${s.savedPath ?? ''}`;
+}
+
+/** The `@regression` Before runs after this feature's and points CLAUDE_CODE_PATH at the plain stub, so the recorder goes on only at dispatch. */
+function shadowClaude(): void {
+  process.env['CLAUDE_CODE_PATH'] = claudeShadowPath();
+  clearClaudeCodePathCache();
 }
 
 function repositoryPayload(boundary: LaunchBoundary): Record<string, unknown> {
@@ -46,6 +53,7 @@ async function dispatchWebhook(event: string, payload: Record<string, unknown>):
   writeCronPid(repoKey, process.pid);
   s.registeredCronRepoKeys.add(repoKey);
   shadowBunx();
+  shadowClaude();
 
   const response: { body?: Record<string, unknown> } = {};
   const req = { headers: { 'x-github-event': event } } as unknown as http.IncomingMessage;
@@ -97,6 +105,7 @@ When('the cron tick runs once from that boundary', async function () {
   const boundary = requireBoundary();
   seedListingTimestamps();
   shadowBunx();
+  shadowClaude();
   // Imported here, not at load: importing the cron module resolves the checkout's own repository.
   const { checkAndTrigger } = await import('../../../adws/triggers/trigger_cron.ts');
   await checkAndTrigger(boundary);

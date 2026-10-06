@@ -19,8 +19,8 @@ import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../te
 import { AUTH_GATE_PATH } from '../../../adws/core/authGate.ts';
 import { resetLogAdwId } from '../../../adws/core/logger.ts';
 import { PAUSE_QUEUE_PATH } from '../../../adws/core/pauseQueue.ts';
-import { world796, resetWorld } from './feature-796.steps.ts';
-import { installBunxShadow, readIfExists, resetLocalState, restoreFile, s as world932 } from './feature-932-world.ts';
+import { world796, resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
+import { installBunxShadow, readIfExists, resetLocalState, restoreFile, s as world932 } from '../../regression/step_definitions/feature-932-world.ts';
 import { removeSpawnLocks } from './feature-959-boundary.ts';
 import { killOrchestratorProcess } from './feature-959-processes.ts';
 import { OWN_ROWS, removeScenarioArtefacts, resetState, s } from './feature-959-world.ts';
