@@ -30,11 +30,11 @@ function scenario(): SetupScenario {
   return current;
 }
 
-Before({ tags: '@adw-930' }, function () {
+Before({ tags: '@plan-commit-guard' }, function () {
   current = null;
 });
 
-After({ tags: '@adw-930' }, function () {
+After({ tags: '@plan-commit-guard' }, function () {
   if (current) fs.rmSync(current.root, { recursive: true, force: true });
   current = null;
 });

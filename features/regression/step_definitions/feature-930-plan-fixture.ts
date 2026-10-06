@@ -81,7 +81,7 @@ export function flushManifest(sc: PlanScenario): void {
 }
 
 let savedClaudeCodePath: string | undefined;
-let claudeCliReplaced = false;
+let standInPath: string | null = null;
 
 /** `CLAUDE_CODE_PATH` must name an executable, and the agent runner filters MOCK_* out of the child's environment, so the manifest's location travels in this wrapper. */
 export function installClaudeCliStandIn(sc: PlanScenario): void {
@@ -95,15 +95,18 @@ export function installClaudeCliStandIn(sc: PlanScenario): void {
   savedClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
   process.env['CLAUDE_CODE_PATH'] = scriptPath;
   clearClaudeCodePathCache();
-  claudeCliReplaced = true;
+  standInPath = scriptPath;
 }
 
 export function restoreClaudeCli(): void {
-  if (!claudeCliReplaced) return;
-  if (savedClaudeCodePath === undefined) delete process.env['CLAUDE_CODE_PATH'];
-  else process.env['CLAUDE_CODE_PATH'] = savedClaudeCodePath;
+  if (standInPath === null) return;
+  // After hooks run in reverse registration order and the @regression teardown registers after this file, so the teardown has usually restored the variable by now; writing back the value saved at install time would clobber that.
+  if (process.env['CLAUDE_CODE_PATH'] === standInPath) {
+    if (savedClaudeCodePath === undefined) delete process.env['CLAUDE_CODE_PATH'];
+    else process.env['CLAUDE_CODE_PATH'] = savedClaudeCodePath;
+  }
   clearClaudeCodePathCache();
-  claudeCliReplaced = false;
+  standInPath = null;
 }
 
 export function buildIssue(sc: PlanScenario) {

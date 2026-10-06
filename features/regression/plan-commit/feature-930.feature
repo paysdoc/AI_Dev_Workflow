@@ -1,4 +1,4 @@
-@adw-930 @adw-e3523g-bug-the-plan-commit @promotion-suggested-2026-10-04
+@regression @plan-commit-guard
 Feature: The plan commit carries only the plan file, a guard fails the plan phase when the planner touches .claude/ or .adw/, and worktree setup leaves the framework's own tracked prompt files as the branch has them
 
   ADR-0056. Twice a plan commit undid a prompt change made minutes earlier: ca72a4a7 undid
@@ -23,7 +23,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
   Background:
     Given the ADW codebase is checked out
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario: The plan commit carries the plan file and leaves every other change in the worktree uncommitted
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -47,7 +46,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | docs/plan-notes.md |
       | src/widget.ts      |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario: Changes that worktree setup left under .claude/ before the plan phase neither fail the phase nor ride in the plan commit
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -67,7 +65,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | .claude/commands/install.md |
       | .claude/skills/tdd/SKILL.md |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario Outline: A planner that <change> <path> fails the plan phase, and no commit added during the phase carries the path
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -91,7 +88,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | modifies and stages | .adw/commands.md                    |
       | creates             | .adw/plan_notes.md                  |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario: A planner that commits its own change under .claude/ still fails the plan phase
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -102,7 +98,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
     When the plan phase runs
     Then the plan phase fails with an error that names ".claude/commands/scenario_writer.md"
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit @adw-963
   Scenario Outline: In the <phase>, the commit agent still commits every change in the worktree, including those under .claude/ and .adw/
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -134,7 +129,6 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | PR phase              | pre-pr-commit          |
       | PR review workflow    | pr-review-orchestrator |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario Outline: Worktree setup leaves the framework's own tracked <asset> file as the branch has it when the checkout running the workflow holds an older copy
     Given a worktree of the framework's own repository whose branch carries a newer "<path>" than the framework checkout running the workflow
     When worktree setup copies the framework's Claude assets into the worktree
@@ -146,18 +140,15 @@ Feature: The plan commit carries only the plan file, a guard fails the plan phas
       | command | .claude/commands/scenario_writer.md |
       | skill   | .claude/skills/tdd/SKILL.md         |
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario: Worktree setup still copies the framework's Claude assets into a target repository that tracks none of them
     Given a worktree of a target repository that tracks nothing under ".claude/"
     When worktree setup copies the framework's Claude assets into the worktree
     Then git lists ".claude/commands/feature.md" among the worktree's ignored files
     And git lists ".claude/commands/install.md" among the worktree's untracked files that are not ignored
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario: The ADW TypeScript type-check passes with the plan-commit guard in place
     Then the ADW TypeScript type-check passes
 
-  @adw-930 @adw-e3523g-bug-the-plan-commit
   Scenario: The git/gh guard stays green over the plan phase's git calls
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
