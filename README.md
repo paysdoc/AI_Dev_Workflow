@@ -1259,6 +1259,7 @@ package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
 known_issues.md         # Production incidents, recurring failure patterns, and resolution status
+junit-report.xml        # Tracked JUnit report written by test runs
 README.md               # This file
 UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```

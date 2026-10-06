@@ -13,7 +13,7 @@ ADR-0062 decided that a dev server that will not start on the issue branch is a 
 3. **A failed start becomes a review blocker carrying that output**, routed into the review patch loop. The patch agent and the build agent fix it, the fix is committed and pushed, and the next scenario run is a new start attempt.
 4. **The counter.** Each failed start uses one review attempt. At the cap the issue goes to `review_failed` (ADR-0048), exactly as a review whose blockers outlast the budget does. When the server starts again after a failed start, the failed-review count resets to zero.
 5. **One owner for the counter.** One review-retry loop (`runReviewRetryLoop`, new `adws/phases/reviewRetryLoop.ts`) replaces the five copies of the loop in `adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`, `adwChore` and `adwPrReview`. ADR-0062 names the risk: "the review attempt counter gains a second writer, which the orchestrators must keep consistent". The counting rules are a pure module (new `adws/core/devServerFailure.ts`).
-6. **The baseline is unaffected.** On the base branch (ADR-0060) a start failure still parks as `base_server_down` and never touches the review counter.
+6. **The baseline is unaffected.** On the base branch (ADR-0060) a start failure still parks the issue (`human_gated`, park reason `base_server_down`) before the plan phase, with the server's output in the park comment, and never touches the review counter.
 
 Value: the fix goes, with the evidence, to the builder who broke the start. A scenario verdict can no longer be a server verdict in disguise.
 
@@ -196,6 +196,20 @@ Use these files to implement the feature:
 - `features/per-issue/step_definitions/feature-927-phases.ts`: `buildFakePhases` fakes `runScenarioTestFixLoop` and `executeScenarioTestPhase`; they must return `devServer`.
 - `features/per-issue/step_definitions/feature-992-phase.steps.ts`: runs the real `executeScenarioTestPhase` and writes `.adw/commands.md` into the worktree before loading the config (`prepareWorkflow`), so reading the declared server from the worktree keeps its scenarios green. Read-only.
 - `features/regression/smoke/adw_chore_diff_verdicts.feature`: asserts the text "Chore Escalation: Regression Possible", which must not change. Read-only.
+- `features/per-issue/feature-993.feature`: this issue's scenarios, mapped to this plan under *BDD Scenarios* in the Testing Strategy. Read-only.
+- `features/per-issue/feature-992.feature`: the scenario agent also tagged its scenario "In a "web" repository the scenario test phase starts the dev server and runs "npx bddgen" …" with `@adw-993`. That scenario runs the real scenario phase on feature-992's own steps and hooks. Read-only.
+- The step-definition harness that the `@adw-993` workflow scenarios build on (task 13):
+  - `features/per-issue/step_definitions/feature-990.steps.ts`: the Givens they reuse (the static checks; a dev server declared on the default branch that starts, or that prints to standard error and exits 1) and `When the workflow runs`;
+  - `feature-990-run.ts`: `describeWorkflow`, `runWorkflow`, `RUN_TIMEOUT_MS` and `STEP_TIMEOUT_MS`;
+  - `feature-990-world.ts`: the shared state, and the hooks, which run only for `@adw-990 and not @adw-989`;
+  - `feature-990-target.ts`: the target repository's `.adw/commands.md` (`serverLine`) and scenario files;
+  - `feature-990-scripts.ts`: the dev-server, scenario-runner and Claude-recorder programs;
+  - `feature-990-manifest.ts`: the Claude CLI stub's answer to each command;
+  - `feature-990-read.ts`: `agentStarts`, `scenarioRuns`, `serverEvents` and `topLevelState`;
+  - `feature-990-baseline.steps.ts`, `feature-990-park.steps.ts`, `feature-990-scenarios.steps.ts` and `feature-990-pr-review.ts`: "the plan phase did not run", "the park comment posted on issue {int} quotes {string}", "the scenario fix agent was not started", and the pull request that `adwPrReview` reviews;
+  - `features/regression/step_definitions/givenSteps.ts` and `thenSteps.ts`: "the ADW codebase is checked out", "the state file for adwId {string} records workflowStage {string}" and "the ADW TypeScript type-check passes";
+  - `features/per-issue/step_definitions/feature-992-standins.ts`, `feature-992-standin-source.ts` and `feature-992-worktree.ts`: the `npm`/`npx` stand-ins and ADW's Playwright project, on which a `web` repository's scenarios run;
+  - `features/per-issue/step_definitions/feature-991-project-md.ts`: `.adw/project.md` and its `## Application Type`. The `cli-tool` fixture behind feature-990's target declares `cli`.
 - `app_docs/feature-9gjajh-dev-server-and-ports.md` (conditional doc: dev-server lifecycle). It still describes `withDevServer`; the document phase updates it.
 - `app_docs/feature-9gjajh-test-and-scenario-phases.md` (conditional doc: scenario test phase, fix loop, baseline).
 - `app_docs/feature-9gjajh-review-and-diff-phases.md` (conditional doc: review phase and patch helpers).
@@ -215,6 +229,7 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/reviewRetryLoop.counter.test.ts`: the loop over scripted scenario outcomes. The reset rule, a healthy server that never resets, no server, the attempt shown on the comment, `maxAttempts` 0.
 - `adws/phases/__tests__/scenarioTestPhase.server.test.ts`: the scenario phase over a fake lifecycle.
 - `adws/__tests__/adwPlanBuildTest.test.ts`: the review-less orchestrator stops at `review_failed` on a failed start.
+- `features/per-issue/step_definitions/feature-993*.ts`: the steps of the `@adw-993` workflow scenarios and their helpers (task 13).
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -224,7 +239,7 @@ Build the pure module (`devServerFailure.ts`): the start outcome and the countin
 Make the scenario phase start only the declared server, through `withHealthyDevServer`, and report the start outcome. Make the scenario fix loop hand a failed start straight back. Build `runReviewRetryLoop`: a failed start becomes a blocker with the output, it goes through `executeReviewPatchCycle`, a new start attempt follows, and the counter has a cap and a reset.
 
 ### Phase 3: Integration
-Replace the five inline review loops with `runReviewRetryLoop`. Escalate a chore whose server did not start. Stop `adwPlanBuildTest` at `review_failed`. Update every test double of the scenario phase, the barrels, ADR-0062's `### Confirmation`, the README and `adws/README.md`. Run the full validation.
+Replace the five inline review loops with `runReviewRetryLoop`. Escalate a chore whose server did not start. Stop `adwPlanBuildTest` at `review_failed`. Update every test double of the scenario phase. Write the step definitions of the `@adw-993` scenarios. Update the barrels, ADR-0062's `### Confirmation`, the README and `adws/README.md`. Run the full validation.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -325,6 +340,7 @@ Execute every step in order, top to bottom.
 - Create `adws/phases/__tests__/reviewRetryLoop.counter.test.ts`, the loop over scripted `ScenarioOutcome`s:
   - **a healthy server never resets**: reviews fail on `Started` outcomes, and the loop stops after 3 reviews;
   - **no server declared**: on `NotStarted` it behaves exactly like the old loop (3 reviews, 2 patches, `reviewRetries` 3, and a pass after a patch returns at once);
+  - **one budget for both**: a review fails on a `Started` outcome, then two `Failed` outcomes follow. The result is one review agent run, two patches (the review's blocker, then the server blocker), `reviewPassed: false` and `reviewRetries: 3`;
   - `ctx.reviewAttempt`/`ctx.maxReviewAttempts` are 1/3 on the first review, and 1/3 again on the first review after a reset;
   - `maxAttempts` 0: no review, no patch, `reviewPassed: false`.
 
@@ -379,12 +395,35 @@ Execute every step in order, top to bottom.
 
 ### 12. Keep the per-issue fake phases honest
 - In `features/per-issue/step_definitions/feature-927-phases.ts`, `buildFakePhases`' `runScenarioTestFixLoop` and `executeScenarioTestPhase` fakes also return `devServer: { status: DevServerStartStatus.NotStarted }`. Import the enum from `adws/core/devServerFailure.ts`, with the `.ts` extension, as the file's other imports do.
-- No `.feature` file is edited.
+- No `.feature` file is edited. The scenario agent has already given `@adw-993` to the feature-992 scenario that runs the real scenario phase under a declared dev server. That tag stays.
 
-### 13. Correct the base re-run comment
+### 13. Step definitions for the `@adw-993` scenarios
+- The workflow scenarios of `feature-993.feature` (all but the type check) run real orchestrator processes through feature-990's subprocess harness.
+  - Reuse the steps listed under Relevant Files as they are. A second definition of a reused phrase makes every step that uses it ambiguous.
+  - Write the new steps and their helpers in `features/per-issue/step_definitions/feature-993*.ts`, each file under 300 lines.
+- `a workflow of the {string} orchestrator for issue {int} under adwId {string} in that repository` uses the scenario's adwId. feature-990's `describeWorkflow` derives `throwaway<issue>-bdd990` instead.
+- **Hooks.** feature-990's hooks run only for `@adw-990 and not @adw-989`. The `@adw-993` workflow scenarios need the same set-up and tear-down. Leave out `@adw-992`, because the feature-992 scenario keeps its own hooks.
+- **Timeouts.**
+  - A failed start takes `MAX_START_ATTEMPTS × PROBE_TIMEOUT_MS`, 60 s, because the probe waits out its timeout even after the server has exited.
+  - The scenario with three failed starts spends 180 s probing. That is more than `RUN_TIMEOUT_MS` (170 s) and the `STEP_TIMEOUT_MS` (180 s) of the shared `When the workflow runs`.
+  - Raise both in `feature-990-run.ts`. The lifecycle's constants do not change.
+- **The dev server on the issue's branch.**
+  - `.adw/commands.md` is the same on both branches, and nothing edits it (the server blocker's resolution forbids that). The server program therefore decides from the checkout it runs in whether to start, or to print the scenario's error to standard error and exit 1. A marker that the stubbed build agent or review patch agent writes can carry that decision.
+  - The program records every start attempt with its working directory. The Thens then count the attempts on the issue's branch and order them against the agent starts.
+- **The build agent runs again after every review patch** (`applyPatchBlocker` → `runBuildAgent`, which runs `/implement-tdd` once the worktree holds the issue's feature file). The stub's build answer must therefore not undo the review patch agent's change.
+- **`web`.**
+  - The default branch's `.adw/project.md` declares `web`. The scenario phase therefore runs `ADW_PLAYWRIGHT_RUN_BY_TAG` from `features/`, not feature-990's scenario runner: `npm ci` unless `node_modules` exists, then `npx bddgen` and `npx playwright test --grep`.
+  - Put feature-992's `npm` and `npx` stand-ins first on the orchestrator's `PATH`. The stand-in `playwright test` passes the issue's scenarios only when `ADW_APPLICATION_URL` answers.
+- **Agents and comments, as the Thens name them.**
+  - "The review agent" is `/review`.
+  - "The review patch agent" is `/patch`, the agent that `executeReviewPatchCycle` starts first for each blocker.
+  - "Handed a blocker that quotes {string} {int} time(s)" counts the `/patch` starts whose prompt holds the text.
+  - Each failed start posts a `review_failed` comment, and the handoff posts one more, so "the "review_failed" comment" is one of several. When the server never starts, every one of them lists the server blocker with its output.
+
+### 14. Correct the base re-run comment
 - In `adws/phases/baseScenarioRerun.ts`, the comment above `runLocated`'s server branch says the change's own server "is stopped by a timer". The scenario phase now stops it and waits for it, but the wait gives up after `KILL_GRACE_MS + PROBE_INTERVAL_MS`. Reword it so that it still explains why the base run waits for the port. The code does not change.
 
-### 14. Record the implemented check in ADR-0062
+### 15. Record the implemented check in ADR-0062
 - Replace the `### Confirmation` paragraph of `specs/adr/0062-dev-server-start-failure-is-a-failed-review.md` with "Implemented. Checked on <date> in the working tree on top of `<commit>`:" and bullets in ADR-0060's style. The bullets name:
   - the lifecycle: `withDevServer` is gone; `withHealthyDevServer` never runs work against a server that did not start;
   - the scenario phase: `executeScenarioTestPhase` starts the server `readDeclaredDevServer` reads, the way the baseline does, and on a failed start runs no scenario and returns `DevServerStart` `failed` with the output;
@@ -396,10 +435,10 @@ Execute every step in order, top to bottom.
     - `adwPlanBuildTest` stops at `review_failed`;
   - the baseline, which still parks as `base_server_down` with the counter untouched;
   - the unit tests (the files of tasks 2–11);
-  - the scenarios under `@adw-993`.
+  - the scenarios under `@adw-993` (task 13).
 - Leave the frontmatter, the decision and `specs/adr/README.md` as they are; the supersession of ADR-0031 is already recorded.
 
-### 15. Update the READMEs
+### 16. Update the READMEs
 - `README.md`:
   - in the **Multi-agent passive review with blocking gate** bullet, or a new bullet beside it, state the rule. A dev server that does not start on the issue branch is a failed review: no scenario runs, the builder gets a blocker with the server's output through the review patch loop, each failed start uses one review attempt up to `review_failed`, and a start after a failed start resets the count. The baseline still parks;
   - add `devServerFailure.ts`, `declaredDevServer.ts` and `reviewRetryLoop.ts` to the trees;
@@ -409,7 +448,7 @@ Execute every step in order, top to bottom.
   - the scenario-phase paragraph at line 891 adds that a server that does not start is a failed review and no scenario runs;
   - the `phases` list gains `reviewRetryLoop.ts` and `declaredDevServer.ts`.
 
-### 16. Run the validation commands
+### 17. Run the validation commands
 - Run every command under `Validation Commands`, in order, and fix every failure before finishing.
 
 ## Testing Strategy
@@ -440,6 +479,7 @@ The PRD's testing decision for this module: "a failed start becomes a blocker wi
   - the `review_failed` comment carries the output.
 - `adws/phases/__tests__/reviewRetryLoop.counter.test.ts`:
   - a server that starts every time never resets, so the cap is reached;
+  - failed reviews and failed starts count against one budget;
   - no server: the old loop exactly;
   - the attempt number on the context;
   - `maxAttempts` 0.
@@ -448,6 +488,24 @@ The PRD's testing decision for this module: "a failed start becomes a blocker wi
 - `adws/__tests__/adwPlanBuildTest.test.ts`: a failed start stops at `review_failed` without a PR; a healthy run is unchanged.
 - `adws/core/__tests__/devServerLifecycle.test.ts`: without the `withDevServer` block; `devServerLifecycle.healthy.test.ts` unchanged.
 - The baseline tests (`baselinePhase*.test.ts`, `baseScenarioRerun*.test.ts`) unchanged and green, since the baseline's behaviour does not change.
+
+### BDD Scenarios
+`NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-993"` runs them, over the step definitions of task 13. Their words map to this plan as follows:
+- "a start" is the lifecycle's up to `MAX_START_ATTEMPTS` tries of the declared start command;
+- "the review agent" is `/review`;
+- "the review patch agent" is the `/patch` agent of `executeReviewPatchCycle`.
+
+| Scenario in `feature-993.feature` | What it checks in this plan |
+| --- | --- |
+| Outline over `adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview` and `adwPrReview`: the build breaks the server, and the review patch fixes it | A failed start runs no scenario and starts no scenario fix agent. The server blocker, with the output, goes to the review patch agent once. The start after the patch answers, the scenarios pass, and the one review passes. The run ends at `awaiting_merge`. This covers the scenario phase, the fix loop's hand-back, `runReviewRetryLoop` and the four orchestrators. |
+| The server never starts (`adwSdlc`) | Increment and cap: 3 failed starts, with a patch between each and none after the last. No scenario and no review run. The run ends at `review_failed`, and the `review_failed` comment quotes the output. |
+| The server starts again after one failed start, and the review fails every time (`adwSdlc`) | The reset: after it, the review gets all 3 attempts (its blocker is patched twice) before `review_failed`. A start that does not follow a failed start does not reset; if it did, this loop would never stop. |
+| A failed review, then the patch breaks the server (`adwSdlc`) | One budget: 1 review and 2 failed starts reach the cap. The server blocker is patched once. |
+| The base branch's server does not start (`adwSdlc`) | The baseline is unchanged: `human_gated` before the plan phase, and the park comment quotes the output. |
+| The type check passes | `bunx tsc --noEmit`. |
+
+- `feature-992.feature`'s scenario "In a "web" repository the scenario test phase starts the dev server …" also carries `@adw-993`. It runs the real scenario phase and checks three things about the server declared in the worktree's `.adw/commands.md`: it starts, it answers throughout the Playwright run, and it is stopped by the end of the phase. That exercises `readDeclaredDevServer` and `withHealthyDevServer`.
+- No scenario drives `adwChore` or `adwPlanBuildTest`. Their failed-start handling is covered by the orchestrator unit tests of tasks 10 and 11.
 
 ### Edge Cases
 - **No `## Start Dev Server`, `N/A`, or an empty section.** No server is started, the scenarios run, and no review attempt is used. This holds although `parseCommandsMd` fills the parsed config with `bun run dev`.
@@ -466,7 +524,7 @@ The PRD's testing decision for this module: "a failed start becomes a blocker wi
 - **`adwPrReview`.** Its failed outcome goes through `completePRReviewWorkflow` to `review_failed`.
 - **A stale proof or stale screenshots** from an earlier attempt are cleared on a failed start, so neither the comment nor the PR shows evidence from a run that did not happen.
 - **A patch that deletes the `## Start Dev Server` declaration.** No server is started on the next run, so a `web` repository's scenarios fail on connection errors and reach the reviewer, who sees the diff. The blocker's resolution forbids the edit. No code guards review patches here (out of scope).
-- **The baseline.** A base-branch start failure still parks as `base_server_down`, with the review counter untouched. The base re-run still reports `not run` when the base server does not start.
+- **The baseline.** A base-branch start failure still parks the issue as `human_gated` (`base_server_down`) before the plan phase, with the review counter untouched. The base re-run still reports `not run` when the base server does not start.
 - **Resume after `## Retry`.** A new process starts with the count at 0.
 
 ## Acceptance Criteria
@@ -479,7 +537,7 @@ The PRD's testing decision for this module: "a failed start becomes a blocker wi
 - After a successful start that follows a failed start, the counter is zero (`ReviewAttempts.failed === 0`, and the next review shows "Attempt: 1/m"). A server that keeps starting never resets the counter.
 - `adws/core/devServerLifecycle.ts` no longer has `withDevServer` or any path that runs work against a server that did not start.
 - The scenario phase starts only the server the repository declares, the one the baseline starts.
-- The baseline is unchanged: a base-branch start failure parks as `base_server_down`, and its tests pass unchanged.
+- The baseline is unchanged: a base-branch start failure parks the issue as `human_gated` (`base_server_down`) before the plan phase, with the output in the park comment, and its tests pass unchanged.
 - Unit tests with a fake lifecycle cover: blocker with output, increment, reset, cap (`reviewRetryLoop.test.ts`), plus the pure counter, the scenario phase over the fake lifecycle, the fix loop's hand-back and the orchestrators' `review_failed` stop.
 - The `### Confirmation` section of ADR-0062 names the implemented check: the modules, functions, orchestrators, unit tests and scenarios.
 - Every validation command passes.
@@ -497,7 +555,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint:git-guard`: no raw `git`/`gh` in the new code.
 - `bun run lint:branch-names`: no branch name written into `adws/`.
 - `bun run lint:docs-index`: the docs-index gate stays green.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-993"`: this issue's scenarios.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-993"`: this issue's scenarios, and the feature-992 scenario tagged `@adw-993`. The workflow scenarios wait out the real 20-second probes of every failed start (task 13), so the run takes several minutes.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-990 or @adw-992 or @adw-927"`, which re-runs three earlier issues' scenarios:
   - `@adw-990`: the baseline still parks on a base-branch start failure;
   - `@adw-992`: the real scenario phase still starts a declared dev server and stops it by the end of the phase. Its fresh-repository scenario installs from the npm registry and downloads Chromium, so it needs network access;
@@ -524,5 +582,6 @@ Execute every command to validate the feature works correctly with zero regressi
   - a guard on review patches;
   - switching `baseScenarioRerun`'s `isDevServerConfigured(project.commands.startDevServer)` to the declared reader.
 - **No new library** is needed.
-- `features/per-issue/feature-993.feature` is written by the scenario agent. The validation runs it by `@adw-993`. Aligning this plan with it is the alignment phase's job.
+- `features/per-issue/feature-993.feature` was written by the scenario agent, which also gave `@adw-993` to one feature-992 scenario. *BDD Scenarios* under Testing Strategy maps each scenario to this plan, and task 13 makes them runnable.
+- `findScenarioFiles` matches `@adw-993` as a substring, so the build agent's list of scenario files also names `features/per-issue/feature-990.feature`. That match is only the table value `@adw-9934`: none of feature-990's scenarios belongs to this issue.
 - **The document phase** updates `app_docs/feature-9gjajh-dev-server-and-ports.md` and `app_docs/feature-9gjajh-test-and-scenario-phases.md`, which still describe `withDevServer` and its "always calls `work()`" rule, along with the orchestrator and review module docs.
