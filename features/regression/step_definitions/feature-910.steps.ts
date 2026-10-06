@@ -4,7 +4,7 @@
  * shared "the pause-queue scanner runs N probe cycle(s)" step) rather than
  * re-initialising it — see feature-902.steps.ts and feature-902-queue.steps.ts for the
  * Before/After hooks this file's scenarios also run under (widened to
- * `(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
+ * `(@pause-queue-probe or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
  * @pause-queue-ownership or @rate-limit-detection) and not @adw-908 and not @adw-812`).
  */
 

@@ -309,6 +309,37 @@ No step reads a source file, satisfying the Rot-Detection Rubric.
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
 is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the generic W16/T34 above.
 
+## Given/When/Then — Pause-Queue Rate-Limit Probe (@pause-queue-probe)
+
+These phrases drive the pause queue's rate-limit probe in-process (phase-import): the real
+`probeRateLimit` (`adws/triggers/rateLimitProbe.ts`), called with the pause-queue harness's injected
+exec seam (`probeStub.exec` in `feature-902.steps.ts`) in place of a spawned Claude CLI. The seam
+records the arguments of every call. Every assertion targets a runtime artefact: the invocation the
+probe made at that seam, which is what the system asked of its dependency. No step reads, greps or
+parses a source file, satisfying the Rot-Detection Rubric. Both definitions live in
+`feature-902.steps.ts`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| T-PP1 | `the rate-limit probe requested {string} output from the Claude CLI` | Reads the arguments the probe passed on its last call to the injected exec seam; asserts `--output-format` is among them and is followed by the given format. Fails when the probe never called the seam | phase-import | recorded probe invocation (argv) |
+| T-PP2 | `the rate-limit probe requested verbose output from the Claude CLI` | Asserts the arguments the probe passed on its last call to the injected exec seam include `--verbose`. Fails when the probe never called the seam | phase-import | recorded probe invocation (argv) |
+
+The rest of `features/regression/pause-queue/feature-902.feature` reuses already-registered phrases,
+so they need no new rows:
+
+- generic: G1, G18, G20, T2, T3, T14 and T22;
+- `@pause-queue-reset-time`: G-PQ8, G-PQ10, W-PQ5, T-PQ7–T-PQ11 and T-PQ18, which the
+  `@pause-queue-ownership` section registers again under its own numbers;
+- `@envelope-conformance`: W-EC6, W-EC7, T-EC14 and T-EC15.
+
+The probe and pause-queue phrases are defined in the pause-queue harness (`feature-902.steps.ts`,
+`feature-902-queue.steps.ts`). The harness's hooks reset the probe stub, set up the mock GitHub API and
+the `gh` shadow, and save, clear and restore `agents/paused_queue.json`. They run only for scenarios
+that carry `@pause-queue-probe`, `@pause-queue-reset-time` or `@pause-queue-ownership`, or one of the
+per-issue tags `@adw-907`, `@adw-910` or `@adw-911` while per-issue rows still carry them. A new
+scenario that reuses these phrases must carry one of those tags, or reset the probe stub itself as the
+`@envelope-conformance` hook does.
+
 ---
 
 ## Given/When/Then — Rate-Limit In-Process Wait (@rate-limit-in-process-wait)
