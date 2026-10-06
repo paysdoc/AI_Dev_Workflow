@@ -1,4 +1,4 @@
-@adw-902 @adw-0uxemg-pause-queue-probe-mi
+@adw-902 @adw-0uxemg-pause-queue-probe-mi @promotion-suggested-2026-10-06
 Feature: The pause-queue probe recognises a session limit the way the agents do — from the same stream parser, with a text fallback that knows the session-limit wording — so a workflow paused on a multi-hour limit stays queued and resumes when the limit clears
 
   Issue #902 is a production stranding, not a refactor. On 2026-09-24 six adwChore workflows
