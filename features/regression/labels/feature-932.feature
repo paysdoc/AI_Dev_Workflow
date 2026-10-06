@@ -1,4 +1,4 @@
-@adw-932 @adw-xs9x3g-bug-adw-none-wins-on @promotion-suggested-2026-10-04
+@regression @label-routing
 Feature: adw:none stops every spawn path, a repository's cron defines every ADW label on it, and a major-upgrade issue is routed by its label
 
   Issue #932 implements three owner rulings that ADR-0041 (items 1 and 2) and ADR-0033 (item 1)
@@ -149,7 +149,7 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
   ── HOW THESE ROWS RUN (notes for the step definitions) ────────────────────────────────────
     • THE HARNESS IS feature-796's RECORDING BOUNDARY, the one feature-848 also reuses. `a launch
       boundary for the repository … whose providers record every call` and the call-log
-      assertions come from `features/per-issue/step_definitions/feature-796.steps.ts`. The
+      assertions come from `features/regression/step_definitions/feature-796.steps.ts`. The
       `issue … in the recording tracker carries the label(s) …` and `… is titled …` Givens come
       from `feature-820.steps.ts`. Reuse them; redefining one is an AmbiguousStepDefinition. The
       `@adw-796` and `@adw-820` hooks do not fire for these rows, so this feature's step
@@ -171,7 +171,7 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
       repo-relative, because `spawnDetached` and the merge hoist absolutise `adws/…` against
       REPO_ROOT.
     • NEVER CALL THE REAL CLAUDE CLI. Several RED rows reach `/classify_issue` today. For every
-      `@adw-932` row, point `CLAUDE_CODE_PATH` at a recording wrapper around
+      `@label-routing` row, point `CLAUDE_CODE_PATH` at a recording wrapper around
       `test/mocks/claude-cli-stub.ts`: save and restore the variable and call
       `clearClaudeCodePathCache()`, as feature-820's steps do. The wrapper logs its argv (the
       prompt is the last argument) to a path fixed in the wrapper itself, because the agent's
@@ -227,11 +227,11 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
       --repo R … --force` for every row; "was asked to create" means the same record, refused or
       not; "completes its first poll tick" waits, bounded, for the cron's `POLL:` or
       `checkAndTrigger: tick failed` line, as W-PQ5 does. Kill the cron with `killRealCronWorld` in
-      an `@adw-932` `After` hook. Write the two `--target-repo` phrases as literal text, as W-PQ5's
-      definition does: cucumber's snippet generator reads their first dash as a `{float}`.
+      a `@label-routing` `After` hook. Write the two `--target-repo` phrases as literal text, as
+      W-PQ5's definition does: cucumber's snippet generator reads their first dash as a `{float}`.
     • THE FIXTURE REPOSITORIES DO NOT EXIST. No `adw-fixture/…-932` name is a real repository, so a
       RED run that escapes the harness fails fast instead of acting on one.
-    • Scope every hook to `@adw-932`.
+    • Scope every hook to `@label-routing`.
 
   Vocabulary note. These registered phrases from `features/regression/vocabulary.md` are reused:
     • G18 `the ADW codebase is checked out`
@@ -254,10 +254,10 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     • the registry's W11 (`the webhook handler receives a {string} event for issue {int}`), which is
       pending in `whenSteps.ts`, and W14 (`the cron poll batch runs`), which has no definition;
     • the registry's W-PQ5 (`a cron trigger process launched with --target-repo {string} completes
-      its first probing poll tick`). Its world and its cleanup hook belong to `@adw-911`, so an
-      `@adw-932` row would leave its cron running; it also sets `PROBE_INTERVAL_CYCLES` and replays
-      pause-queue comments, which §3 does not need. §3's launch and poll-tick phrases follow its
-      wording.
+      its first probing poll tick`). Its world and its cleanup hook belong to
+      `@pause-queue-ownership`, so a `@label-routing` row would leave its cron running; it also
+      sets `PROBE_INTERVAL_CYCLES` and replays pause-queue comments, which §3 does not need. §3's
+      launch and poll-tick phrases follow its wording.
   The registry has no phrase for any of the following, so novel phrasing is introduced for them:
     • dispatching an opening (with or without its labels in the event), a comment or a closing
       through the webhook from the recording boundary, and running one cron tick from it;
@@ -272,7 +272,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
 
   # ── §1 adw:none STARTS NO RUN, ON ANY PATH ─────────────────────────────────────────────────
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: An issue opened with adw:none starts no run, gets no comment and has no label written back
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9301 in the recording tracker carries the label "adw:none"
@@ -281,7 +280,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And the boundary's issue tracker recorded no comment
     And the boundary's providers recorded no label applied to issue 9301
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: adw:none outranks two conflicting classification labels on an opened issue, so no cleanup comment is posted
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9302 in the recording tracker carries the labels "adw:none", "adw:bug" and "adw:feature"
@@ -289,7 +287,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then no ADW run was started for issue 9302
     And the boundary's issue tracker recorded no comment
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: An issue labelled adw:none just after it was opened starts no run, although its opening event carried no label
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9328 in the recording tracker carries the label "adw:none"
@@ -298,7 +295,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And the issue classifier was not consulted for issue 9328
     And the boundary's providers recorded no label applied to issue 9328
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: An issue opened with a single classification label still starts the orchestrator its label names
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9303 in the recording tracker carries the label "adw:chore"
@@ -306,7 +302,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then exactly one ADW run was started for issue 9303
     And the ADW run started for issue 9303 runs the orchestrator "adws/adwChore.tsx"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A ## Continue comment on an issue carrying adw:none starts no run and spends no classification
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9304 in the recording tracker carries the label "adw:none"
@@ -314,14 +309,12 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then no ADW run was started for issue 9304
     And the issue classifier was not consulted for issue 9304
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A ## Continue comment on an issue carrying adw:none beside a classification label starts no run
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9305 in the recording tracker carries the labels "adw:bug" and "adw:none"
     When the webhook dispatches a "## Continue" comment on issue 9305 from that boundary
     Then no ADW run was started for issue 9305
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A ## Continue comment on an issue without adw:none still starts the orchestrator its label names
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9306 in the recording tracker carries the label "adw:bug"
@@ -329,7 +322,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then exactly one ADW run was started for issue 9306
     And the ADW run started for issue 9306 runs the orchestrator "adws/adwSdlc.tsx"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A ## Continue comment takes over an earlier workflow only on the issue that does not carry adw:none
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9307 in the recording tracker carries the labels "adw:chore" and "adw:none"
@@ -342,7 +334,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And exactly one ADW run was started for issue 9308
     And the ADW run started for issue 9308 runs the orchestrator "adws/adwChore.tsx"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: Closing a dependency starts no run for the dependent carrying adw:none and still starts the other dependent
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9309 in the recording tracker is in state "CLOSED"
@@ -362,7 +353,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And exactly one ADW run was started for issue 9311
     And the ADW run started for issue 9311 runs the orchestrator "adws/adwChore.tsx"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: The cron's sweep of fresh issues passes over an issue carrying adw:none and still picks up its neighbour
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9312 in the recording tracker carries the label "adw:none"
@@ -372,7 +362,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And exactly one ADW run was started for issue 9313
     And the ADW run started for issue 9313 runs the orchestrator "adws/adwSdlc.tsx"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario Outline: The cron does not take over an earlier workflow on an issue that now carries adw:none
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue <optedOut> in the recording tracker carries the labels "adw:chore" and "adw:none"
@@ -389,7 +378,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
       | abandoned     | 9314     | 9315    |
       | phase_timeout | 9316     | 9317    |
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: The cron does not dispatch the merge of an issue that now carries adw:none
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9318 in the recording tracker carries the labels "adw:bug" and "adw:none"
@@ -403,7 +391,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
 
   # ── §2 CONFLICTING CLASSIFICATION LABELS ARE HANDLED EXACTLY AS BEFORE ─────────────────────
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: An issue opened with two classification labels is still refused with a cleanup comment and starts no run
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9320 in the recording tracker carries the labels "adw:bug" and "adw:feature"
@@ -412,7 +399,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And the boundary's issue tracker recorded a comment on issue 9320
     And the recorded comment on issue 9320 contains "conflicting"
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A ## Continue comment on an issue carrying two classification labels is still classified and started
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9321 in the recording tracker carries the labels "adw:bug" and "adw:feature"
@@ -420,7 +406,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then exactly one ADW run was started for issue 9321
     And the issue classifier was consulted for issue 9321
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A dependent carrying two classification labels is still classified and started when its dependency closes
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9322 in the recording tracker is in state "CLOSED"
@@ -433,7 +418,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     Then exactly one ADW run was started for issue 9323
     And the issue classifier was consulted for issue 9323
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: The cron still passes over a fresh issue carrying two classification labels and picks up its neighbour
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9324 in the recording tracker carries the labels "adw:bug" and "adw:feature"
@@ -445,7 +429,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
 
   # ── §3 THE ADW LABELS ARE PROVISIONED UP FRONT ─────────────────────────────────────────────
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A cron launched for a repository defines every label of the ADW label catalogue on that repository
     When a cron trigger process is launched with --target-repo "adw-fixture/labels-932"
     Then the repository "adw-fixture/labels-932" has each of these labels:
@@ -459,7 +442,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
       | adw:unverified |
       | adw:blocked    |
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A cron whose forge refuses to create labels still asks for every one of them and goes on to poll its repository
     Given the forge refuses to create labels
     When a cron trigger process is launched with --target-repo "adw-fixture/labels-refused-932"
@@ -477,7 +459,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
 
   # ── §4 A MAJOR-UPGRADE ISSUE IS ROUTED BY ITS LABEL ────────────────────────────────────────
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A major-upgrade issue filed with adw:bug and no command in its body runs the full SDLC without a classification call or a label written back
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9327 in the recording tracker is titled "depaudit: major upgrade — left-pad 1.3.0 → ^2.0.0 (resolves GHSA-0000-0932-0001)"
@@ -494,7 +475,6 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
     And the issue classifier was not consulted for issue 9327
     And the boundary's providers recorded no label applied to issue 9327
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: A /adw_sdlc left in a major-upgrade issue's body selects nothing; the issue's adw label decides the orchestrator
     Given a launch boundary for the repository "adw-fixture/void-932" whose providers record every call
     And issue 9329 in the recording tracker is titled "depaudit: major upgrade — minimist 0.0.8 → ^1.2.6 (resolves GHSA-0000-0932-0002)"
@@ -512,11 +492,9 @@ Feature: adw:none stops every spawn path, a repository's cron defines every ADW 
 
   # ── §5 BACKSTOPS ────────────────────────────────────────────────────────────────────────────
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: TypeScript type-check passes with the opt-out on every spawn path and the labels provisioned at cron start
     Then the ADW TypeScript type-check passes
 
-  @adw-932 @adw-xs9x3g-bug-adw-none-wins-on
   Scenario: The git/gh guard stays green with label provisioning at cron start
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations

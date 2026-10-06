@@ -40,15 +40,14 @@ import {
   staleTimestamp,
 } from '../../regression/step_definitions/feature-932-world.ts';
 
-Before({ tags: '@adw-932' }, function () {
+Before({ tags: '@label-routing' }, function () {
   resetWorld();
   resetLocalState();
   installBunxShadow();
 
   s.savedPath = process.env['PATH'];
   s.savedClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
-  process.env['CLAUDE_CODE_PATH'] = installClaudeShadow();
-  clearClaudeCodePathCache();
+  installClaudeShadow();
 
   // An unsigned payload is refused with a 401 once a secret is set, and an auth gate makes the
   // webhook and the cron ignore the event — either would turn a "no run" assertion vacuous.
@@ -80,7 +79,7 @@ function removeSpawnLocks(issueNumbers: readonly number[], identities: readonly 
   }
 }
 
-After({ tags: '@adw-932' }, function () {
+After({ tags: '@label-routing' }, function () {
   killRealCronWorld(s.cron);
   for (const repoKey of s.registeredCronRepoKeys) fs.rmSync(cronPidFilePath(repoKey), { force: true });
 
