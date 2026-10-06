@@ -1,4 +1,4 @@
-@adw-907 @adw-orkxdp-structured-rate-limi
+@adw-907 @adw-orkxdp-structured-rate-limi @promotion-suggested-2026-10-06
 Feature: Rate-limit decisions rest on structured stream-json facts end to end — the parser captures the limit type and reset time, the rate-limit error carries them, and the pause-queue probe classifies from documented signals with no text fallback
 
   Issue #907 is the detection slice of `specs/prd/rate-limit-indefinite-retry.md` (sections
