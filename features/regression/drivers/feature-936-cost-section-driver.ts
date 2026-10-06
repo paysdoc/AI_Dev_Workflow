@@ -2,7 +2,7 @@
  * `SHOW_COST_IN_COMMENTS` (adws/core/config.ts) is bound at import time, so rendering the
  * completion comment's cost section in-process would always see the host's setting rather
  * than the scenario's. This script is spawned as a child instead, with the variable
- * overridden in its env. It lives under `features/per-issue/support/`, outside every
+ * overridden in its env. It lives under `features/regression/drivers/`, outside every
  * `cucumber.js` `import` glob, so it is never auto-loaded as a step definition module.
  *
  * Usage: bunx tsx feature-936-cost-section-driver.ts < records.json

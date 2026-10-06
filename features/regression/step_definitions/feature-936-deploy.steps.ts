@@ -32,7 +32,7 @@ const INITIAL_STATE: DeployState = { repo: undefined, push: undefined, checkouts
 
 let state: DeployState = INITIAL_STATE;
 
-After({ tags: '@adw-936' }, function () {
+After({ tags: '@cost-records' }, function () {
   const dirs = [state.repo?.dir, ...state.checkouts].filter((dir): dir is string => dir !== undefined);
   for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true });
   state = INITIAL_STATE;
