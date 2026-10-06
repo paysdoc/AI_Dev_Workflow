@@ -204,7 +204,7 @@ AfterAll(function () {
   bunxMockDir = null;
 });
 
-Before({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
+Before({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership or @rate-limit-detection) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
   this.mockContext = await setupMockInfrastructure();
 
   process.env['PATH'] = `${ghMockDir}:${process.env['PATH'] ?? ''}`;
@@ -226,7 +226,7 @@ Before({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-re
   fs.rmSync(PAUSE_QUEUE_PATH, { force: true });
 });
 
-After({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
+After({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership or @rate-limit-detection) and not @adw-908 and not @adw-812' }, async function (this: RegressionWorld) {
   for (const seeded of world.seeded.values()) {
     try { execSync(`pkill -f ${JSON.stringify(seeded.scriptPath)}`, { stdio: 'ignore' }); } catch { /* nothing to kill */ }
     try { fs.rmSync(seeded.worktreePath, { recursive: true, force: true }); } catch { /* best effort */ }

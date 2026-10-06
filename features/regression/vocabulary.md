@@ -380,6 +380,47 @@ guard pair.
 
 ---
 
+## Given/When/Then — Rate-Limit Detection (@rate-limit-detection)
+
+These phrases prove that ADW's rate-limit decisions rest on structured stream-json facts end to end
+(phase-import). One stubbed Claude CLI reply, set with `the Claude CLI answers the rate-limit probe
+with exit code {int} and {word}:`, is fed to three consumers: the real rate-limit probe
+(`probeRateLimit`, through the pause-queue harness's injected exec seam `probeStub`, W-EC6), the real
+`handleAgentProcess` on a fake child process (W-EC7), and the real `runClaudeAgentWithCommand`, which
+spawns a throwaway executable that replays the same output and exit code (W-RD1). The real Claude CLI
+is never spawned. Every assertion targets a runtime artefact: the classification the probe returns
+(verdict, limit type, reset time), the error the agent command throws and the limit facts it carries,
+the `authExpired`/`rateLimited` outcome of the agent run, and the log lines written while the scenario
+ran. No step reads a source file, satisfying the Rot-Detection Rubric. The definitions live in
+`feature-907.steps.ts`. Its hooks are keyed on `@rate-limit-detection`: they clear the recorded error,
+capture `console.log` for the scenario and restore it, and clear the CLI path cache. The pause-queue
+harness hooks in `feature-902.steps.ts` and `feature-902-queue.steps.ts` also run for that tag: they
+reset the probe stub and its recorded results, set up the mock GitHub API and the `gh` shadow, and save,
+clear and restore the pause queue. A scenario that uses these phrases must carry the tag.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| W-RD1 | `an agent command runs against the same Claude CLI output` | Writes a throwaway executable that prints the probe exec seam's stubbed stdout and stderr, each newline-terminated, and exits with the stubbed code; points `CLAUDE_CODE_PATH` at it for this step only, putting the previous value back before the step returns; runs the real `runClaudeAgentWithCommand` with no state path and a throwaway output file and cwd; records the error it throws | phase-import | thrown agent error (artefact) |
+| T-RD1 | `the rate-limit probe reports a {string} limit that resets at {string}` | Asserts the classification W-EC6 recorded carries the limit type verbatim and a `resetsAt` (epoch seconds, as the CLI emits it) that is the given ISO 8601 instant | phase-import | returned probe classification |
+| T-RD2 | `the rate-limit probe reports a {string} limit with no reset time` | As T-RD1, with `resetsAt` absent; a defaulted value fails | phase-import | returned probe classification |
+| T-RD3 | `the rate-limit probe reports no limit type and no reset time` | Asserts the classification carries neither `rateLimitType` nor `resetsAt` | phase-import | returned probe classification |
+| T-RD4 | `the rate-limit probe reports a confirmed non-rate-limit failure` | Asserts the classification's verdict is none of `clear`, `limited` or `unknown`; `unknown` is reserved for output with no JSON | phase-import | returned probe classification |
+| T-RD5 | `the rate-limit probe logged a warning quoting {string}` | Asserts a line of the `console.log` output captured during the scenario, where the probe's `log()` writes its unknown-result warning, contains the given text | phase-import | log stream (captured console output) |
+| T-RD6 | `the agent command fails with a rate-limit error` | Asserts the error W-RD1 recorded is a `RateLimitError` | phase-import | thrown agent error (artefact) |
+| T-RD7 | `the rate-limit error carries a {string} limit that resets at {string}` | Asserts the `RateLimitError` carries the limit type verbatim and a `resetsAt` (epoch seconds) that is the given ISO 8601 instant | phase-import | thrown agent error (artefact) |
+| T-RD8 | `the rate-limit error carries a {string} limit with no reset time` | As T-RD7, with `resetsAt` absent; a defaulted value fails | phase-import | thrown agent error (artefact) |
+| T-RD9 | `the rate-limit error carries no limit type and no reset time` | Asserts the `RateLimitError` carries neither `rateLimitType` nor `resetsAt` | phase-import | thrown agent error (artefact) |
+| T-RD10 | `the agent run ends with an authentication failure` | Asserts the `AgentResult` W-EC7 recorded has `authExpired: true` | phase-import | returned agent result |
+| T-RD11 | `the agent run does not end rate-limited` | Asserts the `AgentResult` W-EC7 recorded does not have `rateLimited: true` | phase-import | returned agent result |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G1, G20, T2, T22, the probe reply `the Claude CLI answers the
+rate-limit probe with exit code {int} and {word}:` (G-PQ10), the scanner and queue phrases W-PQ5,
+T-PQ8 and T-PQ10 (`@pause-queue-reset-time`), and the probe and agent-run phrases W-EC6, W-EC7 and
+T-EC15 (`@envelope-conformance`).
+
+---
+
 ## Given/When/Then — Surface phases and lifecycles
 
 These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
