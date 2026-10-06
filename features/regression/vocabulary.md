@@ -66,7 +66,7 @@ Scenarios in this repo can assert against the following observable surfaces:
 | G16 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` | For multi-scenario files: targets the scenario whose `Scenario:` line matches the given name and inserts `@promotion-suggested-<today>` | subprocess | worktree artefact |
 | G17 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` | Multi-scenario variant for N-days-ago pre-tagging | subprocess | worktree artefact |
 | G18 | `the ADW codebase is checked out` | Background no-op; codebase is always present in the test environment. Defined in `features/regression/step_definitions/givenSteps.ts`. | mock-query | test environment state |
-| G19 | `the cron is polling the target repository {string} from a host checked out at {string}` | Sets up two-repo world in World; seeds targetRepo and hostRepo paths | mock-query | test harness world state |
+| G19 | `the cron is polling the target repository {string} from a host checked out at {string}` | Builds the handling cron's own launch inputs for the named target repository: its `--target-repo` args (`buildCronTargetRepoArgs`) and a launch boundary for it (`buildLaunchBoundary`), which W-RD1 hands to the Retry handler. The host is the ADW checkout the scenario runs in, so its repository needs no setup. Defined in `features/regression/step_definitions/feature-908.steps.ts` | phase-import | handler input (SUT input) |
 | G20 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}` | Seeds a pause-queue entry for the target repo with the given issue number | mock-query / subprocess | pause-queue state artefact |
 | G21 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}, with its worktree remote pointing at {string}` | Seeds a pause-queue entry for the target repo with correct git remote configured in the fixture worktree | subprocess | pause-queue + worktree artefacts |
 | G22 | `the rate-limit probe reports the limit has cleared` | Stubs the Claude CLI probe to return exit 0 / no rate-limit text | subprocess | stub behaviour |
@@ -123,7 +123,7 @@ W2–W8 and W11 are retired: no scenario ever ran them. Phases are driven by W-S
 | T24 | `the resume does not authenticate against the cron host's own repository {string}` | Inverse of T23: asserts no auth call for the cron host's own repository | mock-query / phase-import | recorded auth calls |
 | T25 | `the resumed comment is recorded on issue {int} in the target repository {string}` | Asserts a POST to `/repos/{owner}/{repo}/issues/{n}/comments` was captured on the target repo | mock-query | recorded requests |
 | T26 | `the resume completes without a remote-owner-mismatch failure between the target worktree and the declared repository` | Asserts no error thrown / no error comment recorded during resume | phase-import / mock-query | error state + recorded requests |
-| T27 | `the mock harness recorded zero comment posts on issue {int} in the cron host's own repository {string}` | Asserts no comment recorded for the cron host's own repository | mock-query | recorded requests |
+| T27 | `the mock harness recorded zero comment posts on issue {int} in the cron host's own repository {string}` | Queries recorded requests; asserts no POST to `/repos/<owner>/<repo>/issues/N/comments` was captured for the cron host's own repository. Defined in `features/regression/step_definitions/feature-908.steps.ts` | mock-query | recorded requests |
 | T28 | `GitHub App authentication is re-asserted for the target repository {string} before any issues are fetched` | Asserts `ensureAppAuthForRepo(targetOwner, targetRepo)` recorded before the first `GET /repos/.../issues` call | mock-query | recorded auth + fetch call order |
 | T29 | `the poll batch fetches open issues from the target repository {string}` | Asserts a `GET /repos/{owner}/{repo}/issues` recorded | mock-query | recorded requests |
 | T30 | `the target repository's open issue {int} is visible to the poller` | Asserts the fetched issue list contains issue N | mock-query | recorded requests / response |
@@ -308,6 +308,56 @@ No step reads a source file, satisfying the Rot-Detection Rubric.
 
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
 is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the generic W16/T34 above.
+
+## Given/When/Then — Retry Directive (@retry-directive)
+
+These phrases drive the `## Retry` directive handler in-process (phase-import pattern). The cron
+path calls the real `handleRetryDirective` with the issue's seeded comments plus a trailing
+`## Retry` comment and `buildRetryHandlerDeps` over the launch boundary and `--target-repo` args
+G19 builds, with only its `spawnDetached` seam replaced by a recorder. The webhook path dispatches a
+real `issue_comment` through `dispatchWebhookEvent`, whose launch is the real one, so the state it
+resumes names a throwaway recording fixture orchestrator; every pause-queue entry seeded here names
+such a fixture too, so anything that resumes from an entry launches only the fixture. `gh` is
+shadowed on `PATH` and its `gh issue comment` posts are replayed against the mock GitHub API, and the
+GitHub App variables and `GITHUB_WEBHOOK_SECRET` are blanked, so no post reaches a real repository.
+The real `agents/paused_queue.json` and `agents/.auth_gate` are saved before each scenario and
+restored after it. Every assertion targets a runtime artefact: the launches recorded at the spawn
+seam, the fixture orchestrators' invocation logs, the pause-queue state file
+(`agents/paused_queue.json`), the top-level state file (`agents/<adwId>/state.json`), the requests
+the mock GitHub API recorded, or the logger output captured while the directive is handled. No step
+reads, greps or parses a source file, satisfying the Rot-Detection Rubric. The definitions, G19 and
+T27 among them, live in `feature-908.steps.ts`, whose `@retry-directive` hooks set up and restore
+all of the above.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RD1 | `the latest ADW workflow comment on issue {int} names adwId {string}` | Adds a comment carrying the `**ADW ID:**` marker and the adwId in backticks, the form the handler extracts an adwId from, to the issue's comment list that W-RD1 and W-RD3 hand the handler. Uses only lowercase letters, digits and hyphens in an adwId, or the handler extracts none and a no-op row passes vacuously | phase-import | handler input (SUT input) |
+| G-RD2 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with orchestrator script {string}` | Writes `agents/<adwId>/state.json` through `AgentStateManager.writeTopLevelState` with the adwId, the issue number, the stage, the `orchestratorScript` and `repoIdentity` `acme/widgets`; the After hook removes `agents/<adwId>/` | phase-import | state file artefact (SUT input) |
+| G-RD3 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with no orchestrator script` | As G-RD2 with no `orchestratorScript`, the shape of a state written before orchestrator scripts were recorded | phase-import | state file artefact (SUT input) |
+| G-RD4 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a merge retry count of {int}` | As G-RD2 with `mergeRetryCount` set and no `orchestratorScript` | phase-import | state file artefact (SUT input) |
+| G-RD5 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a resume attempt count of {int}` | As G-RD2 with `resumeAttempts` set and no `orchestratorScript` | phase-import | state file artefact (SUT input) |
+| G-RD6 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a recording fixture as its orchestrator script` | Writes a throwaway fixture orchestrator under `os.tmpdir()` that appends its argv to an invocation log and stays alive, then writes the state as G-RD2 does with the fixture's absolute path as `orchestratorScript`, so a real launch from that state runs only the fixture; the After hook kills it and removes its directory | phase-import | state file artefact + fixture orchestrator (SUT input) |
+| G-RD7 | `the rate-limit pause queue holds no entry for adwId {string}` | Removes any entry for the adwId from the real pause-queue state file `agents/paused_queue.json`, which the Before hook saved and cleared and the After hook restores | phase-import | pause-queue state artefact |
+| G-RD8 | `the rate-limit pause queue holds an entry for adwId {string} on issue {int}` | Appends a `rate_limited` entry for the adwId and issue to the real pause-queue state file, with a temporary worktree, `--target-repo acme/widgets` and a throwaway recording fixture as `orchestratorScript`, so anything that resumes from the entry (the scanner, or a handler that delegates to it) launches only the fixture | phase-import | pause-queue state artefact |
+| W-RD1 | `the cron handles the ## Retry directive on issue {int}` | Calls the real `handleRetryDirective` in-process as `trigger_cron.ts` does: the issue's seeded comments plus a trailing `## Retry` comment, and `buildRetryHandlerDeps` over G19's launch boundary and `--target-repo` args with only `spawnDetached` replaced by a recorder of each launch's command and argv. Captures the logger's output during the call, then replays the shadowed `gh issue comment` posts against the mock GitHub API | phase-import | recorded launches + state file + queue state + recorded requests + log stream |
+| W-RD2 | `the pause-queue scanner then runs a probe cycle in which the rate limit has cleared` | Runs the real `scanPauseQueue` once, at `PROBE_INTERVAL_CYCLES`, as the cron polling `acme/widgets` (the owner of every entry G-RD8 seeds) with a probe that answers `clear`, then replays the shadowed comment posts | phase-import | queue state + fixture launches + recorded requests |
+| W-RD3 | `the webhook receives a {string} comment on issue {int} from the repository {string}` | Registers this process as the repository's running cron (`writeCronPid`) so no cron is spawned, then dispatches an unsigned `issue_comment` `created` payload carrying the comment through the real `dispatchWebhookEvent`, with an event-boundary minter whose tracker serves the issue's seeded comments. Its launch is the real one, so only G-RD6's fixture can run | phase-import | fixture launches |
+| T-RD1 | `exactly one orchestrator was launched for issue {int}` | Counts the launches W-RD1 recorded for the issue plus the launches the issue's G-RD8 fixture recorded, and asserts the count is 1 | phase-import | recorded launches + fixture invocation log |
+| T-RD2 | `no orchestrator was launched for issue {int}` | Waits briefly for an asynchronous fixture launch, then asserts the count T-RD1 takes is 0 | phase-import | recorded launches + fixture invocation log |
+| T-RD3 | `the orchestrator launched for issue {int} runs {string} under adwId {string}` | Asserts the launch W-RD1 recorded for the issue runs the given script, as the handler resolved it, under the given adwId | phase-import | recorded launch argv |
+| T-RD4 | `the orchestrator launched for issue {int} targets the repository {string}` | Asserts the launch W-RD1 recorded for the issue carries `--target-repo <repository>` in its argv | phase-import | recorded launch argv |
+| T-RD5 | `no entry for adwId {string} was added to the rate-limit pause queue` | Reads the pause-queue state file; asserts no entry carries the adwId | phase-import | pause-queue state artefact |
+| T-RD6 | `the rate-limit pause queue no longer holds an entry for adwId {string}` | Reads the pause-queue state file; asserts the entry G-RD8 seeded for the adwId is gone | phase-import | pause-queue state artefact |
+| T-RD7 | `the rate-limit pause queue still holds the entry for adwId {string}` | Reads the pause-queue state file; asserts an entry still carries the adwId | phase-import | pause-queue state artefact |
+| T-RD8 | `the pause-queue scanner relaunched nothing for issue {int}` | Asserts the invocation log of the issue's G-RD8 fixture orchestrator holds no launch | phase-import | fixture invocation log |
+| T-RD9 | `the Retry handling logged that issue {int} is paused_auth and left to the auth queue` | Asserts a line of the logger output W-RD1 captured names `#<issue>`, `paused_auth` and the auth queue (`auth queue`, `auth-queue` or `authQueue`, any case) | phase-import | log stream |
+| T-RD10 | `the top-level state for adwId {string} records a merge retry count of {int}` | Reads `agents/<adwId>/state.json`; asserts its `mergeRetryCount` | phase-import | state file artefact |
+| T-RD11 | `the top-level state for adwId {string} records a resume attempt count of {int}` | Reads `agents/<adwId>/state.json`; asserts its `resumeAttempts` | phase-import | state file artefact |
+| T-RD12 | `no orchestrator was launched for issue {int} without the target repository {string}` | Waits briefly, then asserts every launch G-RD6's fixture recorded for the issue carries `--target-repo <repository>`; holds when nothing was launched, since leaving a paused workflow to the cron is legitimate | phase-import | fixture invocation log |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
+is checked out` (G18, Background), G19 (Background) and T27, both defined in `feature-908.steps.ts`,
+G1, T1, T14, T22, T25, and the git/gh guard pair W16/T34.
 
 ## Given/When/Then — Surface phases and lifecycles
 
