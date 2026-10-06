@@ -103,7 +103,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
   `## Retry`. §2's running-stage outline also carries `@adw-959`: `## Retry` stays a no-op on every
   running stage, `starting` included, so the directive can never start a second orchestrator
   beside a live one. The outline itself does not change. The rest of #959's behaviour is
-  specified in `features/per-issue/feature-959.feature`.
+  specified in `features/regression/takeover/feature-959.feature`.
 
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the orchestrator launches, recorded where they happen (see the notes below);

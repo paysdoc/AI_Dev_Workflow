@@ -1,6 +1,6 @@
 /**
- * Hooks for feature-959. Every row is scoped to OWN_ROWS because the flagged feature-908 and
- * feature-912 rows run under their own harness.
+ * Hooks for feature-959, scoped to OWN_ROWS, the tag only that feature carries: the flagged
+ * feature-908 and feature-912 rows run under their own harness.
  *
  * `mockContext` is initialised here because the shared T1 and T5 phrases fall into a legacy
  * source-inspection branch when it is null. The tick scans the checkout's real pause queue and

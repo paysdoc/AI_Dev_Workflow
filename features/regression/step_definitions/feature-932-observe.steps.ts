@@ -19,7 +19,7 @@ import {
   readArgvRecords,
   s,
   waitFor,
-} from './feature-932-world.ts';
+} from '../../regression/step_definitions/feature-932-world.ts';
 
 Then('no ADW run was started for issue {int}', function (issueNumber: number) {
   assert.deepStrictEqual(launchesFor(issueNumber), [], `Expected no ADW run for issue ${issueNumber}, recorded: ${describeLaunches()}`);

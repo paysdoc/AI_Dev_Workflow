@@ -884,3 +884,73 @@ state is module-scoped and is reset or released by hooks keyed on `@cost-records
 
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
 checked out` (G18), `the ADW TypeScript type-check passes` (T22) and the git/gh guard pair W16/T34.
+
+---
+
+## Given/When/Then — Dead-Orchestrator Takeover and Startup-Failure Logging (@dead-orchestrator-takeover)
+
+These phrases drive how ADW recovers a workflow whose orchestrator died, and what an orchestrator that
+dies during startup leaves behind. The cron rows are phase-import: one poll is the real
+`runHungDetectorSweep` over the scenario's own adwIds, then one real `checkAndTrigger(boundary)` from
+feature-796's recording launch boundary. The boundary's issue tracker and code host answer from an
+in-memory fixture and record every call, and its git context records every worktree reset and answers
+every other git call benignly. `bunx` is shadowed on `PATH` by a recorder that logs each launch's argv
+and exits, so no orchestrator ever starts from a cron row. The stand-ins for orchestrators are real
+throwaway child processes whose pid and start token are captured while they live: a made-up pid is never
+written anywhere. The startup rows are subprocess: they launch the real orchestrator script the way the
+cron does, with a Claude CLI that exists but is not executable. Every assertion targets a runtime
+artefact: the launches the cron recorded; the top-level state file `agents/<adwId>/state.json`; the
+spawn-lock records under `agents/spawn_locks/`; the liveness of the stand-in processes; the worktree
+resets recorded at the boundary's git context; the orchestrator's execution log
+`agents/<adwId>/<orchestrator>/execution.log`; and the launched orchestrator's exit code. No step reads,
+greps or parses a source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-959-workflow.steps.ts`, `feature-959-cron.steps.ts`,
+`feature-959-pr-review.steps.ts` and `feature-959-startup.steps.ts`, with their helpers in
+`feature-959-world.ts`, `feature-959-boundary.ts`, `feature-959-orchestrator.ts` and
+`feature-959-processes.ts`; G-DT1 is defined in `feature-796.steps.ts`, and G-DT2 and G-DT3 in
+`feature-820.steps.ts`. The cron rows share the `bunx` launch recorder of `feature-932-world.ts`. The
+hooks in `feature-959.steps.ts` are keyed on `@dead-orchestrator-takeover`: they set up the mock
+infrastructure, save, clear and restore `agents/paused_queue.json` and `agents/.auth_gate`, kill the
+stand-ins and end the in-process PR review, release the issues' spawn locks under both the boundary's
+and the checkout's repository, and remove each adwId's state and log directories. A scenario that uses
+these phrases must carry that tag. Issue numbers must be distinct across the run, because launches,
+locks and the cron's `processedSpawns` are keyed by issue. An adwId uses only lowercase letters, digits
+and hyphens. The repository the boundary names must not exist (`adw-fixture/void-959`); the startup
+rows' target is the fictional `acme/widgets`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-DT1 | `a launch boundary for the repository {string} whose providers record every call` | Builds the recording launch boundary through the real `buildLaunchBoundary`. Its issue tracker and code host answer from an in-memory fixture (issues, labels, comments, states, created and updated times, pull requests) and record every call, and no call reaches a forge. Defined in `feature-796.steps.ts` | phase-import | recording providers (SUT input) |
+| G-DT2 | `issue {int} in the recording tracker carries the label {string}` | Sets the issue's labels in the recording tracker's fixture to that one label. Fails unless G-DT1 ran first. Defined in `feature-820.steps.ts` | phase-import | recording tracker fixture (SUT input) |
+| G-DT3 | `issue {int} in the recording tracker carries the labels {string} and {string}` | As G-DT2, with both labels. Defined in `feature-820.steps.ts` | phase-import | recording tracker fixture (SUT input) |
+| G-DT4 | `issue {int} has an ADW workflow under adwId {string} that runs {string}, whose last run stopped at {string} half an hour ago` | Seeds the issue in the recording tracker, created and updated long before the cron's grace period, with an `**ADW ID:**` comment naming the adwId; it keeps any labels another step gave the issue. Writes the top-level state a run leaves, through `AgentStateManager.writeTopLevelState`: the adwId and the issue, the stage, the script as `orchestratorScript`, the boundary's repository, a branch name, a `lastSeenAt` half an hour old, a completed `plan` phase older still, and no `pid` and no `resumeAttempts`. Wraps the boundary's git context so that a worktree reset is recorded and does nothing, and every other git call a take-over makes gets a benign answer | phase-import | state file artefact + recording tracker fixture |
+| G-DT5 | `a relaunched orchestrator for workflow {string} recorded "starting" and died before its first phase` | Starts a throwaway child and captures its pid and start token, then writes what `initializeWorkflow` has written once it records `starting`: in the top-level state the stage `starting`, the script, repository and branch, the child's `pid` and `pidStartedAt` and a fresh `lastSeenAt`; the orchestrator sub-state `agents/<adwId>/<orchestrator>/state.json` with the child's pid; and the execution log's startup lines, ending `Allocated port 57665 for dev server`. Then kills the child and waits until it has exited | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| G-DT6 | `the orchestrator of workflow {string} died at workflowStage {string} ten minutes ago, leaving the issue's spawn lock behind` | Writes what G-DT5 writes for a live child, then the stage (for `<phase>_running` also a `running` entry for the phase, started more than ten minutes ago), a `lastSeenAt` ten minutes old, and the real spawn lock for the issue under the boundary's repository, recording the child's pid and start token. Then kills the child and waits until it has exited | phase-import | state file + spawn-lock artefacts |
+| G-DT7 | `a relaunched orchestrator for workflow {string} is alive and still starting up, past recording "starting" but before its first phase` | As G-DT5, but the child stays alive until the `After` hook kills it | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| G-DT8 | `a relaunched orchestrator for workflow {string} is alive and records "starting" between the cron's filtering of the issue and its takeover decision` | Starts a live child and arms a one-shot trigger on the recording tracker's issue listing. It fires on the first listing that does not ask for labels after the cron's own listing, which does: the concurrency check's listing, after the poll's filter has run and before the takeover handler reads the state. When it fires it writes what G-DT7 writes. W-DT1 fails the poll unless the trigger fired | phase-import | state file artefacts written mid-poll |
+| G-DT9 | `the orchestrator of workflow {string} is alive at workflowStage {string}, holding the issue's spawn lock and heartbeating` | As G-DT6 with a live child: writes what G-DT7 writes, then the stage (for `<phase>_running` also a `running` phase entry started more than ten minutes ago), a `lastSeenAt` of now, and the spawn lock under the child's pid. The child stays alive until the `After` hook kills it | phase-import | state file + spawn-lock artefacts |
+| G-DT10 | `the cron's own process holds the spawn lock for issue {int} in the repository {string}` | Takes the real spawn lock for `<repo>#<issue>` under this process's pid, because the cron runs in this process. Does nothing when this pid already holds the lock, as it does after a poll took the workflow over | phase-import | spawn-lock artefact |
+| G-DT11 | `the SDLC run of workflow {string} has exited, leaving its pid in the state` | Starts and kills a throwaway child, then writes its pid and start token into the workflow's top-level state as `pid` and `pidStartedAt` | phase-import | state file artefact |
+| G-DT12 | `a PR review of workflow {string} has started up on the issue's pull request and has stood at workflowStage {string} for ten minutes` | In order: seeds an open pull request for the workflow's branch in the recording code host, linked to the issue; declares application type `cli` in the PR worktree's `.adw/project.md`, under a directory the scenario removes; runs the real `initializePRReviewWorkflow` against the boundary under the issue's adwId and records `adws/adwPrReview.tsx` as the script; holds the real `runWithOrchestratorLifecycle` (spawn lock and heartbeat) in this process until the `After` hook ends it; and writes the stage with a `lastSeenAt` of now and, for a `<phase>_running` stage, a `running` phase entry started more than ten minutes ago | phase-import | state file + spawn-lock artefacts |
+| G-DT13 | `the Claude CLI that ADW is configured to run exists but is not executable` | Writes a shell script without the execute bit into a temporary directory. W-DT4 hands its absolute path to the launched orchestrator as `CLAUDE_CODE_PATH`, so the pre-flight check rejects it | subprocess | launched orchestrator environment (SUT input) |
+| G-DT14 | `the execution log of the {string} for adwId {string} already ends with the line {string}` | Initialises the orchestrator's state and appends the line to `agents/<adwId>/<orchestrator>/execution.log` through `AgentStateManager.appendLog`, as an earlier run would have written it | phase-import | execution log artefact |
+| W-DT1 | `the cron polls from that boundary, with its hung-orchestrator sweep due` | Runs the real `runHungDetectorSweep` over this scenario's adwIds only, with production state reads and liveness, then one real `checkAndTrigger` from the boundary with `bunx` shadowed on `PATH` by the launch recorder. Fails if an armed G-DT8 trigger did not fire. The cron module's state (`processedSpawns`, the tick counter) lives on across polls in the same process | phase-import | recorded launches + state file + spawn-lock + recorded resets |
+| W-DT2 | `the same cron polls again from that boundary, with its hung-orchestrator sweep due` | W-DT1 again in the same process, so the cron is never restarted between the polls | phase-import | recorded launches + state file + spawn-lock + recorded resets |
+| W-DT3 | `the orchestrator the cron relaunched for workflow {string} records "starting" exactly as #935's relaunched orchestrator did, and dies before its first phase` | Starts a throwaway child and writes what `initializeWorkflow` wrote before the fix: in the top-level state the stage `starting`, the script, repository and branch merged over the previous state (its `lastSeenAt` stays), and no `pid` or `pidStartedAt`; the orchestrator sub-state with the child's pid; and the execution log's startup lines, ending `Allocated port 57665 for dev server`. Takes no spawn lock. Then kills the child and waits until it has exited | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| W-DT4 | `the orchestrator {string} is launched as the cron launches it, for issue {int} under adwId {string} and the target repository {string}, with its output discarded` | Spawns the real orchestrator script from the ADW checkout as `bunx tsx <script> <issue> <adwId> --target-repo <repo>`, detached, with its stdio ignored, G-DT13's CLI as `CLAUDE_CODE_PATH` and the GitHub App variables blanked. Removes `agents/<adwId>` first unless G-DT14 seeded its log. Waits, bounded, for the child to exit and records its exit code in `World.lastExitCode`, which T5 reads | subprocess | exit code + execution log artefact |
+| T-DT1 | `the cron has launched {int} orchestrator(s) for issue {int}` | Waits, bounded, until the launch recorder holds N launches whose first argument after the script is the issue, then waits a quiet second and asserts exactly N | phase-import | recorded launches |
+| T-DT2 | `the cron launched no orchestrator for issue {int}` | Waits a quiet second, then asserts the recorder holds no launch for the issue | phase-import | recorded launches |
+| T-DT3 | `every orchestrator the cron launched for issue {int} runs {string} under adwId {string}` | Asserts at least one launch for the issue and that every one runs the script (compared repo-relative) under the adwId | phase-import | recorded launches |
+| T-DT4 | `the orchestrator process of workflow {string} is still alive` | Asserts the workflow's stand-in process is alive by pid and start token (`isProcessLive`); fails if no stand-in was started | phase-import | process table |
+| T-DT5 | `the worktree of workflow {string} was not reset` | Asserts the boundary's git context recorded no worktree reset of the workflow's branch or worktree path | mock-query | recorded worktree resets |
+| T-DT6 | `nothing but the orchestrator of workflow {string} holds the issue's spawn lock` | Checks two repositories, the boundary's and the checkout's own (the identity the cron module releases under); for each, asserts the issue's spawn-lock record is absent or records the workflow's stand-in pid | phase-import | spawn-lock artefact |
+| T-DT7 | `the execution log of the {string} for adwId {string} records the error that stopped its startup` | Reads `agents/<adwId>/<orchestrator>/execution.log` and asserts it holds a line, timestamped at or after the launch, that names G-DT13's non-executable path: the path the pre-flight check rejected | subprocess | execution log artefact |
+| T-DT8 | `the execution log of the {string} for adwId {string} still holds the line {string}` | Reads the execution log and asserts it still holds the line | subprocess | execution log artefact |
+| T-DT9 | `the execution log of the {string} for adwId {string} records the error that stopped its startup, after the line {string}` | As T-DT7, and asserts the given line is in the log and the startup error's line comes after it | subprocess | execution log artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G-PQ14 (`another live process holds the spawn lock for issue {int} in
+the repository {string}`; its holder process and lock are released by feature-911's exported
+`releaseHeldSpawnLocks`, which these hooks call), T1 (read from `agents/<adwId>/state.json`), T5 (the
+exit code W-DT4 records), T22, and the generic W16/T34 git/gh guard pair.
