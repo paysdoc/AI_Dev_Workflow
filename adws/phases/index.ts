@@ -4,6 +4,7 @@ export { completeWorkflow, handleWorkflowError, handleWorkflowDiscarded, handleR
 export { executeReviewPhase, executeReviewPatchCycle, type ReviewIssue } from './reviewPhase';
 export { executePlanPhase, buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
+export { executeBaselinePhase } from './baselinePhase';
 export { executeUnitTestPhase } from './unitTestPhase';
 export { executePRPhase } from './prPhase';
 export { executeDocumentPhase } from './documentPhase';

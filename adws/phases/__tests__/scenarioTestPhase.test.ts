@@ -4,7 +4,8 @@ vi.mock('../scenarioProof', () => ({
   runScenarioProof: vi.fn(),
 }));
 
-vi.mock('../../core/devServerLifecycle', () => ({
+vi.mock('../../core/devServerLifecycle', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/devServerLifecycle')>()),
   withDevServer: vi.fn(),
 }));
 

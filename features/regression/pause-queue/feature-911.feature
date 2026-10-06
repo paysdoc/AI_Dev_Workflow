@@ -98,8 +98,8 @@ Feature: Every pause-queue entry has exactly one owning cron — the cron whose 
 
   Changes to existing features. #911 runs every scan through ownership and changes the resume
   path, so the existing rows that depend on either now also carry `@adw-911`, or
-  `@pause-queue-ownership` in the promoted feature-910. None of their steps change, and each
-  file's description records why:
+  `@pause-queue-ownership` in the promoted feature-910 and feature-902. None of their steps
+  change, and each file's description records why:
     • feature-910: the four §2 decider outlines. Consulted by the `acme/widgets` cron, the owner of
       their entry, they are AC1's "matching target repo → proceeds to the other rules" across
       #910's whole decision table. Also the end-to-end journey: its entry is the only one written

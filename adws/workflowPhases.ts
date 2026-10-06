@@ -10,6 +10,7 @@ export {
   executePlanValidationPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  executeBaselinePhase,
   executeUnitTestPhase,
   executePRPhase,
   executeDocumentPhase,

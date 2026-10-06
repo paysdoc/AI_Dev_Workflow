@@ -12,6 +12,7 @@ import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, O
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
+  executeBaselinePhase,
   executeUnitTestPhase,
   completeWorkflow,
   handleWorkflowError,
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
   if (!await runWithOrchestratorLifecycle(config, async () => {
     const tracker = new CostTracker();
     try {
+      await runPhase(config, tracker, executeBaselinePhase, 'baseline');
       const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
 
       await completeWorkflow(config, tracker.totalCostUsd, {

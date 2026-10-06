@@ -13,25 +13,10 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
-import { withDevServer } from '../core/devServerLifecycle';
+import { devServerPort, isDevServerConfigured, withDevServer } from '../core/devServerLifecycle';
 import { resolveScenarioRunner } from '../core/scenarioRunner';
 import { requireApplicationProfile } from './applicationTypeGate';
 import type { WorkflowConfig } from './workflowInit';
-
-function extractPort(applicationUrl: string): number {
-  try {
-    const { port } = new URL(applicationUrl);
-    const parsed = parseInt(port, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 3000;
-  } catch {
-    return 3000;
-  }
-}
-
-function isDevServerConfigured(startDevServer: string): boolean {
-  const trimmed = startDevServer.trim();
-  return trimmed.length > 0 && trimmed !== 'N/A';
-}
 
 /**
  * Returns immediately with a passing result when:
@@ -103,7 +88,7 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
     log(`Scenario test phase: starting dev server (${startDevServer})`, 'info');
     AgentStateManager.appendLog(orchestratorStatePath, `Scenario test phase: wrapping in withDevServer`);
 
-    const port = extractPort(applicationUrl);
+    const port = devServerPort(applicationUrl);
     scenarioProof = await withDevServer(
       {
         startCommand: startDevServer,

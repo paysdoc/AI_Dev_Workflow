@@ -3,6 +3,7 @@
  *   - Gherkin freeze enforced inside executeScenarioFixPhase.
  *   - Post-resolve fidelity re-check (scenarios vs issue body) on first green.
  *   - @regression failure is treated as not-green (via computeResolveVerdict).
+ *   - A @regression scenario that also fails on the base branch parks the workflow instead of reaching the fix agent.
  */
 
 import { log, AgentStateManager, MAX_TEST_RETRY_ATTEMPTS } from '../core';
@@ -13,6 +14,7 @@ import { OutputValidationError } from '../agents/commandAgent';
 import { computeResolveVerdict } from '../core/resolveVerdict';
 import { executeScenarioTestPhase } from './scenarioTestPhase';
 import { executeScenarioFixPhase } from './scenarioFixPhase';
+import { createPreExistingRegressionGate, type PreExistingRegressionGate } from './preExistingRegressionGate';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
@@ -40,9 +42,11 @@ export interface ScenarioTestFixLoopResult {
 export async function runScenarioTestFixLoop(
   config: WorkflowConfig,
   tracker: CostTracker,
-  opts?: { maxAttempts?: number },
+  opts?: { maxAttempts?: number; preExistingRegressionGate?: PreExistingRegressionGate },
 ): Promise<ScenarioTestFixLoopResult> {
   const maxAttempts = opts?.maxAttempts ?? MAX_TEST_RETRY_ATTEMPTS;
+  // One gate per call, so that what it learns about the base branch spans the attempts.
+  const parkOnPreExistingRegression = opts?.preExistingRegressionGate ?? createPreExistingRegressionGate(config);
   const { issueNumber, worktreePath, adwId, logsDir, orchestratorStatePath } = config;
 
   let scenarioProof: ScenarioProofResult | undefined;
@@ -120,6 +124,9 @@ export async function runScenarioTestFixLoop(
 
       return { scenarioProof, scenarioProofPath, scenarioRetries };
     }
+
+    // Returns only when no failing regression scenario also fails on the base branch.
+    await parkOnPreExistingRegression(scenarioProof);
 
     const regressionTagResult = scenarioProof.tagResults.find(
       r => r.resolvedTag === '@regression',

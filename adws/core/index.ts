@@ -106,6 +106,12 @@ export { computeTestVerdict } from './testVerdict';
 export type { CheckVerdict, ProcessOutcome, ProcessRunner, StaticCheckCommands } from './checkRunner';
 export { runStaticChecks, combinedCheckOutput, runShellCommand, isCheckConfigured, STATIC_CHECKS, StaticCheckName, CheckStatus } from './checkRunner';
 
+export type { BaselineRecord, BaselineInput, BaselineVerdict, BaselineEvent, BaseCommandFailure, DevServerStartResult } from './baselineGate';
+export { BaselineStatus, isBaselineWaived, declaredDevServerCommand, runBaselineChecks, INSTALL_DEPENDENCIES_CHECK } from './baselineGate';
+
+export type { FailingScenario, ScenarioRerun, TriagedScenario, RegressionTriage } from './regressionTriage';
+export { BaseScenarioOutcome, triageRegressionFailures, scenarioMatchesCase, withRerunTag, describeFailingScenario } from './regressionTriage';
+
 export type { DiffFile } from './unifiedDiff';
 export { parseUnifiedDiff } from './unifiedDiff';
 

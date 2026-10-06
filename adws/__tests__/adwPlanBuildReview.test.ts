@@ -26,8 +26,20 @@ vi.mock('../cost', async (importOriginal) => {
   return { ...actual, persistTokenCounts: vi.fn() };
 });
 
+// A park ends the process, so it never reaches an error handler; the sentinel a test throws for it must not either.
+vi.mock('../workflowPhases', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../workflowPhases')>();
+  return {
+    ...actual,
+    handleWorkflowError: vi.fn((_config: unknown, error: unknown) => {
+      throw error;
+    }),
+  };
+});
+
 import { executePlanBuildReview, type PlanBuildReviewPhases } from '../adwPlanBuildReview';
 import { AgentStateManager } from '../core';
+import { runPhase } from '../core/phaseRunner';
 import { persistTokenCounts } from '../cost';
 import type { WorkflowConfig } from '../phases';
 
@@ -52,6 +64,7 @@ function scriptedReview(verdicts: ReviewVerdict[]) {
 
 function makePhases(verdicts: ReviewVerdict[]) {
   return {
+    executeBaselinePhase: vi.fn(async () => ZERO_COST),
     executeInstallPhase: vi.fn(async () => ZERO_COST),
     executePlanPhase: vi.fn(async () => ZERO_COST),
     executeScenarioPhase: vi.fn(async () => ZERO_COST),
@@ -148,5 +161,30 @@ describe('executePlanBuildReview — the review passes', () => {
     expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(1);
     expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
     expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+});
+
+class ParkedSignal extends Error {}
+
+describe('executePlanBuildReview — the baseline', () => {
+  it('runs first, as the phase named baseline, before the install phase and the plan phase', async () => {
+    const { config, phases } = await runWithReviews(PASSED_REVIEW);
+
+    const baseline = phases.executeBaselinePhase.mock.invocationCallOrder[0];
+    expect(baseline).toBeLessThan(phases.executeInstallPhase.mock.invocationCallOrder[0]);
+    expect(baseline).toBeLessThan(phases.executePlanPhase.mock.invocationCallOrder[0]);
+    expect(vi.mocked(runPhase)).toHaveBeenNthCalledWith(1, config, expect.anything(), phases.executeBaselinePhase, 'baseline');
+  });
+
+  it('stops the run before any plan is written when it parks the workflow', async () => {
+    const { config } = makeConfig();
+    const phases = makePhases([PASSED_REVIEW]);
+    phases.executeBaselinePhase.mockRejectedValueOnce(new ParkedSignal());
+
+    await expect(executePlanBuildReview(config, phases as unknown as PlanBuildReviewPhases)).rejects.toBeInstanceOf(ParkedSignal);
+
+    expect(phases.executeInstallPhase).not.toHaveBeenCalled();
+    expect(phases.executePlanPhase).not.toHaveBeenCalled();
+    expect(phases.executeBuildPhase).not.toHaveBeenCalled();
   });
 });
