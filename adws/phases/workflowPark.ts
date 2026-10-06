@@ -24,7 +24,7 @@ export function parkWorkflow(config: ParkConfig, evidence: ParkEvidence): never 
   log(message, 'warn');
   AgentStateManager.appendLog(config.orchestratorStatePath, message);
   // Written before the comment is posted: whoever sees the comment and then reads the state must find it.
-  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'human_gated' });
+  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'human_gated', parkReason: evidence.reason });
   postParkComment(config, evidence);
   process.exit(0);
 }

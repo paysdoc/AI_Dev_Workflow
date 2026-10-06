@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { loadProjectConfig } from '../projectConfig';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
@@ -68,6 +68,48 @@ describe('loadProjectConfig — python-flat fixture', () => {
     expect(config.commands.testDirectory).toBe('tests');
     expect(config.commands.testFramework).toBe('pytest');
     expect(config.commands.runTests).toBe('pytest');
+  });
+});
+
+describe('loadProjectConfig — applicationType field', () => {
+  const dirs: string[] = [];
+
+  function repoWithProjectMd(projectMd: string | null): string {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-apptype-'));
+    dirs.push(dir);
+    mkdirSync(join(dir, '.adw'));
+    if (projectMd !== null) writeFileSync(join(dir, '.adw', 'project.md'), projectMd, 'utf-8');
+    return dir;
+  }
+
+  afterEach(() => {
+    dirs.splice(0).forEach(dir => rmSync(dir, { recursive: true, force: true }));
+  });
+
+  it('reads no type from a project.md without the section', () => {
+    expect(loadProjectConfig(repoWithProjectMd('## Project Overview\nA tool\n')).applicationType).toBeNull();
+  });
+
+  it('reads the type the section names', () => {
+    expect(loadProjectConfig(repoWithProjectMd('## Application Type\nweb\n')).applicationType).toBe('web');
+  });
+
+  it('reads no type from an .adw/ directory that holds no project.md', () => {
+    expect(loadProjectConfig(repoWithProjectMd(null)).applicationType).toBeNull();
+  });
+
+  it('reads no type from a repository without an .adw/ directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-apptype-none-'));
+    dirs.push(dir);
+
+    const config = loadProjectConfig(dir);
+
+    expect(config.hasAdwDir).toBe(false);
+    expect(config.applicationType).toBeNull();
+  });
+
+  it("reads this repository's own type, cli, from its .adw/project.md", () => {
+    expect(loadProjectConfig(resolve(__dirname, '../../..')).applicationType).toBe('cli');
   });
 });
 

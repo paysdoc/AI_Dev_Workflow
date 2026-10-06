@@ -162,6 +162,19 @@
     - adws/core/fixRoundGuard.ts
     - adws/core/fixRoundGuardTable.ts
     - adws/core/unifiedDiff.ts
+    - adws/core/baselineGate.ts
+    - adws/core/regressionTriage.ts
+    - adws/phases/baselinePhase.ts
+    - adws/phases/baseWorktree.ts
+    - adws/phases/baseScenarioRerun.ts
+    - adws/phases/preExistingRegressionGate.ts
+    - adws/triggers/continueHandler.ts
+    - adws/core/__tests__/baselineGate*.test.ts
+    - adws/core/__tests__/regressionTriage.test.ts
+    - adws/phases/__tests__/baselinePhase*.test.ts
+    - adws/phases/__tests__/baseWorktree.test.ts
+    - adws/phases/__tests__/baseScenarioRerun*.test.ts
+    - adws/phases/__tests__/preExistingRegressionGate.test.ts
     - adws/core/__tests__/fixRoundGuard*.test.ts
     - adws/core/__tests__/staticCheckFixLoop*.test.ts
     - adws/core/__tests__/unifiedDiff*.test.ts
@@ -173,6 +186,9 @@
     - When a static-check fix loop stops on identical output or a rejected round, parks as `human_gated` (`parkWorkflow`), or `## Retry` should resume it
     - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`) and what `## Retry`/`## Continue` mean for each park reason
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
+    - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
+    - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
+    - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
   - Decisions:
     - 0014
@@ -198,9 +214,14 @@
     - When working on the artefact-only contract of the shared Then/When steps (T1 state-file lookup, T5 `World.lastExitCode`, W1/W10 failing without the subprocess harness, never reporting pending) or the rot-detection rubric forbidding source-reading steps
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the full-pipeline smoke scenarios (`adw_chore_diff_verdicts`, `adw_sdlc_happy_path`, `pause_resume_rate_limit`) that run real `adwChore`/`adwSdlc` subprocesses, their `byCommand` manifests (`safe-verdict.json`, `regression-possible-verdict.json`, `adw-sdlc-happy.json`, `rate-limit-pause-resume.json`), or the harness's `agents/paused_queue.json` snapshot and restore
+    - When working on the promoted in-process rate-limit wait scenario (`features/regression/rate-limit/feature-912.feature`, `feature-912.steps.ts`, `@rate-limit-in-process-wait`, vocabulary phrases G-RW/W-RW/T-RW) covering the wait policy, announced waits, heartbeat and spawn lock liveness while waiting, and the pause-path fallback
     - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
     - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5, T-SP6/T-SP7), or the `<name>-smoke-<N>` adwId shape
+    - When working on the promoted plan-commit scenario (`features/regression/plan-commit/feature-930.feature`, `@plan-commit-guard`) or its relocated step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
+    - When working on the promoted cost-records scenario (`features/regression/cost/feature-936.feature`, `@cost-records`): its `feature-936-*` step definitions, the `drivers/feature-936-*-driver.ts` child processes, reported vs computed cost, the cost API's `reported_cost_usd`/`computed_cost_usd`, or Worker deploy change detection
     - When the Background phrase G18 `the ADW codebase is checked out` is undefined or ambiguous, or a `.feature` file sits outside the `cucumber.js` paths and never runs
+    - When working on the promoted envelope conformance scenario (`features/regression/envelope/feature-909.feature`, `@envelope-conformance`), its step definitions (`feature-909.steps.ts`, `feature-909-tooling.steps.ts`), the vocabulary phrases G-EC1–11, W-EC1–7, T-EC1–15, or detector parity between the real rate-limit capture and the Claude CLI stub
+    - When a promotion issue lists fewer step-def sources than the feature needs (sibling `feature-N-*.steps.ts` imports) and a Cucumber load fails with a dangling import
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the promoted label-routing scenario (`features/regression/labels/feature-932.feature`, `@label-routing`), its step-definition closure (`feature-932*.steps.ts`, `feature-932-world.ts`, `feature-796.steps.ts`, `feature-820.steps.ts`), the recording launch boundary, the `shadowClaude()` dispatch-time Claude recorder, or vocabulary phrases G-LR/W-LR/T-LR covering `adw:none` opt-out, conflicting labels, label provisioning and routing by `adw:*` label
     - When working on the mock infrastructure layer (`test/mocks/**` — GitHub API server and its Actions-secrets route, Claude CLI stub, git remote mock and its `MOCK_GIT_LOG` invocation log, test harness) used by BDD step definitions
@@ -1010,3 +1031,17 @@
     - When troubleshooting a comment de-bloat sweep batch's guard pass/fail, or why a file was reported `code-changed`/`absent-at-base`/`absent-in-working-tree`/`unsupported-file-kind`
   - Decisions:
     - 0054
+
+- app_docs/feature-gfv9kt-application-type-mapping.md
+  - Owns:
+    - adws/core/applicationType.ts
+    - adws/core/__tests__/applicationType.test.ts
+    - adws/phases/applicationTypeGate.ts
+    - adws/phases/__tests__/applicationTypeGate*.ts
+  - Conditions:
+    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, review guidance section)
+    - When working on the application-type gate (`runApplicationTypeGate`, `requireApplicationProfile`, `WorkflowConfig.applicationProfile`) run by `initializeWorkflow` and `initializePRReviewWorkflow`
+    - When adding a third application type, or a consumer that needs the evidence profile rather than the raw `## Application Type`
+    - When an issue parks with `missing_application_type`, `## Application Type` has no default (`parseApplicationType` returns `null`), or `adw_init` must detect, preserve or leave out the section
+  - Decisions:
+    - 0061

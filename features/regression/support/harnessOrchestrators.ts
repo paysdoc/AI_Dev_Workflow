@@ -39,6 +39,11 @@ export const HARNESS_ORCHESTRATORS: Readonly<Record<string, HarnessOrchestrator>
   plan: { script: 'adws/adwPlan.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Plan },
   build: { script: 'adws/adwBuild.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Build },
   test: { script: 'adws/adwTest.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Test },
+  'plan-build': { script: 'adws/adwPlanBuild.tsx', issueType: '/feature', orchestratorId: OrchestratorId.PlanBuild },
+  'plan-build-test': { script: 'adws/adwPlanBuildTest.tsx', issueType: '/feature', orchestratorId: OrchestratorId.PlanBuildTest },
+  'plan-build-review': { script: 'adws/adwPlanBuildReview.tsx', issueType: '/feature', orchestratorId: OrchestratorId.PlanBuildReview },
+  'plan-build-test-review': { script: 'adws/adwPlanBuildTestReview.tsx', issueType: '/feature', orchestratorId: OrchestratorId.PlanBuildTestReview },
+  'plan-build-document': { script: 'adws/adwPlanBuildDocument.tsx', issueType: '/feature', orchestratorId: OrchestratorId.PlanBuildDocument },
   patch: { script: 'adws/adwPatch.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Patch },
   merge: { script: 'adws/adwMerge.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Merge },
   document: { script: 'adws/adwDocument.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Document },
@@ -47,6 +52,13 @@ export const HARNESS_ORCHESTRATORS: Readonly<Record<string, HarnessOrchestrator>
 };
 
 const ORCHESTRATOR_SCRIPT = /adws\/(adw[A-Z]\w*\.tsx|triggers\/promotionSweep\.ts)$/;
+
+/** The name a script stem such as `adwPlanBuild` is registered under. */
+export function harnessNameForStem(stem: string): string {
+  const found = Object.entries(HARNESS_ORCHESTRATORS).find(([, { script }]) => basename(script, '.tsx') === stem);
+  assert.ok(found, `Unknown orchestrator script "${stem}". The subprocess harness runs: ${Object.values(HARNESS_ORCHESTRATORS).map(({ script }) => basename(script, '.tsx')).join(', ')}`);
+  return found[0];
+}
 
 export function harnessOrchestrator(name: string): HarnessOrchestrator {
   const orchestrator = HARNESS_ORCHESTRATORS[name];

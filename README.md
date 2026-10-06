@@ -9,11 +9,13 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` via LLM heuristic and routes it to the right orchestrator; `adw:*` GitHub labels provide a deterministic override that bypasses AI classification entirely; body/comment slash-commands are not processed.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **Static-check gates and a per-repo unit-test switch** — the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`: each check's exit code is its verdict, `N/A` is skipped, and a red check goes to a static-check fix loop with no cap (`adws/core/staticCheckFixLoop.ts`). Every round is judged by a pure fix-round guard (`adws/core/fixRoundGuard.ts`) that rejects and reverts suppression comments (a framework table by language, plus the repository's own `## Suppression Patterns` additions in `.adw/commands.md`) and edits to lint, compiler or build configuration, `.adw/commands.md` or `features/playwright.config.*`. The loop stops when a round makes no progress (identical check output, or a rejected round) and parks the workflow as `human_gated` with a park comment (`adws/forge/parkComment.ts`) that names the failing check and says what `## Retry` and `## Continue` do; `## Retry` continues the loop. Target repos can opt out of the test run by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. That skips only the test run: the static checks still run, and `/test` runs only the unit-test command. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
+- **Baseline gate on the base branch** — before any work, every orchestrator that runs gates (`executeBaselinePhase`, `adws/phases/baselinePhase.ts`) checks the base branch out in a separate worktree, installs its dependencies, runs the static checks there (`runBaselineChecks`, `adws/core/baselineGate.ts`) and starts the dev server its `.adw/commands.md` declares. A red base parks the workflow as `human_gated` with a park comment (`baseline_red`, or `base_server_down` when the server does not start); a green one is recorded in the top-level state. A `@regression` scenario that fails on the change is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`): one that fails there too parks the workflow (`pre_existing_regression`) instead of going to the fix agent, and one that passes there goes to the fix agent as before. No full regression run happens on the base branch. The base worktree is removed when the run ends.
+- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli` or `web`) is written by `adw_init` and has no default. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch.
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
-- **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
+- **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Continue` on a base-branch park (`baseline_red`, `base_server_down`, `pre_existing_regression`) records a waiver and re-arms the workflow (`adws/triggers/continueHandler.ts`), so that run fixes the pre-existing failures too. `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority, forge-neutral, now a library import** — since issue #840, `GitContext` and the forge-neutral `exec()` executor it exposes (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) are no longer owned in-tree: ADW imports them from `@paysdoc/devplatform/git`, and the GitHub forge adapter (`GhRepoApi`, `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops, `ghCommandRunner.ts`) from `@paysdoc/devplatform/providers`. `adws/core/launchGitContext.ts` is ADW's sole wiring layer over the library: it constructs the one `GitContext` at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), and the library resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace) and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs that motivated the original design. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) was deleted well before the library extraction; every caller reaches those operations through the library's `GhRepoApi`. Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter inside the library still constructs a `GhRepoApi`.
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for three independent violation classes: a direct `git`/`gh` shell-out (`git-gh-shellout`) — since issue #840 moved the git core and the GitHub forge adapter into `@paysdoc/devplatform`, `EXEMPT_PACKAGES` is deliberately **empty** and nothing may ever be added back to it, since no in-repo package is permitted to shell out to git or gh at all; a `gitContextForRepo(…)` or `forgeProviders({ identity })` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769; `CONTEXT_CONSTRUCTOR_NAMES` since #823); or ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped allowlist (`unsanctioned-construction`, #795) — the allowlist is exactly one PERMANENT entry, `adws/core/launchGitContext.ts` (the library's own `forgeProviders.ts` assembly module lives outside this repo since #840 and is no longer a second site to sanction), and nothing may ever be added to it, with a self-cleaning ratchet failing the build if a stale transitional entry is ever left behind. The extraction-readiness rule (`extractionRule.ts`) was retired along with the `adws/gitContext`/`adws/providers` packages it guarded. The three remaining rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`).
 - **JSONL schema conformance checking** — `adws/jsonl/` (`schemaProbe.ts`, `conformanceCheck.ts`, `fixtureUpdater.ts`, plus the pure helpers in `schemaFields.ts`/`schemaMerge.ts`) probes the real Claude CLI's streamed JSONL envelope shape, persists it to `adws/jsonl/schema.json` keyed by `type` or `type/subtype`, and validates recorded test fixtures (`adws/jsonl/fixtures/` and the regression stub's `test/fixtures/jsonl/envelopes/`) against both that schema and ADW's own `claudeStreamParser.ts` parsers (`bun run jsonl:probe` / `jsonl:probe:check` / `jsonl:check` / `jsonl:update`), failing the build on drift so a CLI output-format change is caught before it silently breaks stream parsing. Probe-owned entries (`system/init`, `assistant`, `result/success`) are reconciled from a live one-turn probe; capture-owned entries (`rate_limit_event`, `system/api_retry`, `result/error_during_execution`) come from real captures and are hand-curated. `.github/workflows/envelope-conformance.yml` runs `jsonl:check` and the live `jsonl:probe:check` on every pull request against a pinned Claude CLI version; the live check authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run.
@@ -252,6 +254,8 @@ Required and optional environment variables (see `.env.sample` for full referenc
 ```
 
 During init, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
+
+`adw_init` detects the application type and writes `## Application Type` to `.adw/project.md`. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
 
 ### 5. Run ADW
 
@@ -561,7 +565,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
+│   │   ├── applicationType.test.ts
 │   │   ├── authGate.test.ts
+│   │   ├── baselineGate.record.test.ts
+│   │   ├── baselineGate.test.ts
 │   │   ├── checkRunner.combinedOutput.test.ts
 │   │   ├── checkRunner.integration.test.ts
 │   │   ├── checkRunner.test.ts
@@ -569,6 +576,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── conditionalDocsRegistryMutations.test.ts
 │   │   ├── conditionalDocsRegistryQueries.test.ts
+│   │   ├── devServerLifecycle.healthy.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── docsDecisions.test.ts
 │   │   ├── docsDecisionViolations.test.ts
@@ -608,6 +616,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
 │   │   ├── rateLimitWaitPolicy.test.ts
+│   │   ├── regressionTriage.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
@@ -623,7 +632,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── stateHelpers.test.ts
 │   │   ├── staticCheckFixLoop.guard.test.ts
 │   │   ├── staticCheckFixLoop.progress.test.ts
-│   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the static-check fix-loop tests
+│   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the fix-loop tests
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.test.ts
@@ -644,7 +653,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test run switch)
 │   ├── agentState.ts
+│   ├── applicationType.ts  # Pure application-type mapping: type → runner mode, evidence kinds, review guidance section (resolveApplicationType, APPLICATION_TYPE_PROFILES)
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
+│   ├── baselineGate.ts  # Baseline verdict for a base checkout: installs dependencies, runs the static checks, then the declared dev server → green / checks_red / server_down (runBaselineChecks, declaredDevServerCommand); BaselineRecord (passed / waived, isBaselineWaived)
 │   ├── checkRunner.ts  # Static-check runner: runs type check, additional type checks, lint and build from .adw/commands.md in fixed order; exit code is the verdict, N/A skipped (runStaticChecks, runShellCommand)
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
@@ -683,7 +694,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── portAllocator.ts
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── projectConfig.ts
+│   ├── projectConfig.ts  # Loads and parses the `.adw/` files; `applicationType` has no default (an absent or empty `## Application Type` is `null`)
 │   ├── promotionIssueBody.ts  # Pure builder for the #734-shaped promotion issue title/body/labels (git mv + vocabulary-registration instructions)
 │   ├── promotionReconcileLink.ts  # Pure matcher: parses `Promotes: feature-N` back-link, resolves open/no-issue/blocked/closed-unmerged/merged reconciliation fact
 │   ├── promotionSweepDecider.ts  # Pure lifecycle decider: {tagState, meetsThreshold, reconcile} → originate/leave/done/decline/redrive/withdraw
@@ -691,6 +702,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── providerConfig.ts  # .adw/providers.md reader (loadProviderConfig/parseCodeHostForge/parseIssueTrackerForge) — moved out of adws/providers/repoContext.ts to keep it under the line cap (#819); yields per-port forge names, not Platform, since #823
 │   ├── prReviewInvocation.ts  # resolvePrReviewInvocation — the branch→PR/adwId resolution lifted out of adwPrReview.tsx's main() so it runs after the launch boundary exists (#820)
 │   ├── rateLimitWaitPolicy.ts  # Pure decideRateLimitWait/sleepUntil: whether a RateLimitError rides out in-process (five_hour type with a reset time) or escalates to the pause queue
+│   ├── regressionTriage.ts  # Pure triage of failing @regression scenarios against single-scenario re-runs on the base branch: the first that fails there too is pre-existing (triageRegressionFailures, scenarioMatchesCase, withRerunTag)
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
@@ -811,6 +823,16 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── fixtures/
 │   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
 │   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
+│   │   ├── applicationTypeGate.helpers.ts
+│   │   ├── applicationTypeGate.park.test.ts
+│   │   ├── applicationTypeGate.test.ts
+│   │   ├── baselinePhase.directives.test.ts
+│   │   ├── baselinePhase.helpers.ts  # Shared helpers for the baseline-phase tests
+│   │   ├── baselinePhase.test.ts
+│   │   ├── baseScenarioRerun.helpers.ts  # Shared helpers for the base-scenario-re-run tests
+│   │   ├── baseScenarioRerun.server.test.ts
+│   │   ├── baseScenarioRerun.test.ts
+│   │   ├── baseWorktree.test.ts
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -822,6 +844,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── planCommitGuardPhase.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
+│   │   ├── preExistingRegressionGate.test.ts
 │   │   ├── prReviewCompletion.test.ts
 │   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
@@ -830,15 +853,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
+│   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── staticCheckFixRound.failure.test.ts
 │   │   ├── staticCheckFixRound.fix.test.ts
-│   │   ├── staticCheckFixRound.helpers.ts  # Shared helpers for the static-check fix-round tests
+│   │   ├── staticCheckFixRound.helpers.ts  # Shared helpers for the fix-round tests
 │   │   ├── staticCheckFixRound.keepDiscard.test.ts
+│   │   ├── staticCheckGate.label.test.ts
 │   │   ├── unitTestPhase.guard.test.ts
-│   │   ├── unitTestPhase.helpers.ts  # Shared helpers for the unit-test phase tests
+│   │   ├── unitTestPhase.helpers.ts  # Shared helpers for the unit-test-phase tests
 │   │   ├── unitTestPhase.park.test.ts
 │   │   ├── unitTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
@@ -849,8 +874,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── worktreeSetup.test.ts
 │   │   └── worktreeSetupTrackedAssets.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
+│   ├── applicationTypeGate.ts  # Resolves the application type at init; a missing or unknown type parks the workflow (missing_application_type); requireApplicationProfile
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes — the hitl gate's label read, approval read, hold-label write and comment all go through config.repoContext's providers (#796), not adws/github/* free functions
+│   ├── baselinePhase.ts  # Baseline phase (executeBaselinePhase): installs, runs the static checks and starts the declared dev server on the base branch before any work; parks the workflow when the base is red, records a green base in the top-level state, does nothing under a waiver
+│   ├── baseScenarioRerun.ts  # Single-scenario re-run on the base checkout (buildBaseScenarioRerun): tags the failing scenario, runs it alone under the base branch's dev server where one is declared, reports passed / failed / not run
+│   ├── baseWorktree.ts  # Base-branch worktree port: a detached checkout at .worktrees/base-issue-<N>-<adwId>, shared by the baseline and the re-runs and removed when the process exits (buildBaseWorktreePort, sharedBaseWorktree)
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
@@ -866,6 +895,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
+│   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through (createPreExistingRegressionGate)
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
@@ -912,6 +942,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── concurrencyGuard.test.ts
+│   │   ├── continueHandler.test.ts
 │   │   ├── cronIssueFilter.eligibility.test.ts
 │   │   ├── cronIssueFilter.optOut.test.ts
 │   │   ├── cronIssueFilter.test.ts
@@ -961,6 +992,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── retryHandler.ts   # Retry directive handler: resets merge_blocked → awaiting_merge (no worktree teardown); respawns `paused` workflows
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
+│   ├── continueHandler.ts  # Continue directive handler: records a waiver and re-arms a human_gated workflow parked for baseline_red, base_server_down or pre_existing_regression (handleContinueDirective, decideContinueAction); called by trigger_cron.ts and trigger_webhook.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
@@ -1171,13 +1203,17 @@ cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue scenarios — run by their own workflow's test phase only; swept 14 days after PR merges
 │   ├── step_definitions/  # Per-issue step definition files
-│   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts, feature-936-commit-driver.ts, feature-936-cost-section-driver.ts)
+│   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
-│   ├── drivers/        # Scripts the subprocess harness runs as child processes (the workflow-init driver); outside the support and step-definition directories, which Cucumber imports
+│   ├── cost/           # Regression scenarios covering cost records (the CLI's reported cost, token estimates, the cost API) and the Worker deploy workflow's change detection (#936)
+│   ├── drivers/        # Scripts run as child processes, outside the support and step-definition directories, which Cucumber imports: the workflow-init driver the subprocess harness runs, and the cost-section and cost-commit drivers of the cost scenarios
+│   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
+│   ├── plan-commit/    # Regression scenarios covering the plan commit that carries only the plan file, the plan-phase guard on .claude/ and .adw/, and worktree setup leaving the framework's own tracked Claude assets as the branch has them (#930)
+│   ├── rate-limit/     # Regression scenarios covering the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; gherkinTags.ts parses scenario tags for the harness
