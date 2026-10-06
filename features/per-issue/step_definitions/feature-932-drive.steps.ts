@@ -3,11 +3,11 @@ import * as path from 'path';
 import assert from 'assert';
 import type * as http from 'http';
 
-import { seededIssueNumbers } from './feature-796.steps.ts';
+import { seededIssueNumbers } from '../../regression/step_definitions/feature-796.steps.ts';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { writeCronPid } from '../../../adws/triggers/cronProcessGuard.ts';
 import { dispatchWebhookEvent } from '../../../adws/triggers/trigger_webhook.ts';
-import { bunxBinDir, repoKeyOf, requireBoundary, requireFixture, s, settle, staleTimestamp } from './feature-932-world.ts';
+import { bunxBinDir, repoKeyOf, requireBoundary, requireFixture, s, settle, staleTimestamp } from '../../regression/step_definitions/feature-932-world.ts';
 
 function seedListingTimestamps(): void {
   const fixture = requireFixture();
