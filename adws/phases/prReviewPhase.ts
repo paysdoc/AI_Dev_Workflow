@@ -6,6 +6,8 @@ import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
 import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
+import { runApplicationTypeGate, buildApplicationTypeGateDeps } from './applicationTypeGate';
+import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus } from '@paysdoc/devplatform';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
@@ -50,7 +52,9 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   const issueNumber = pr.linkedIssueNumber ?? null;
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, OrchestratorId.PrReview);
   // The issue's adwId is reused, so its state still records the finished run's owner: record this run, or the cron reads it as dead.
+  // The script is recorded too, so that a park inside init resumes this PR review on `## Retry`, not the issue's previous orchestrator.
   AgentStateManager.writeTopLevelState(resolvedAdwId, {
+    orchestratorScript: deriveOrchestratorScript(OrchestratorId.PrReview),
     pid: process.pid,
     // Always written, even as undefined: the shallow merge would otherwise pair this pid with the finished run's start time.
     pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
@@ -121,7 +125,11 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     prUrl: null,
     canResume: false,
   };
-  const projectConfig = loadProjectConfig(worktreePath);
+  const { projectConfig, applicationProfile } = runApplicationTypeGate(
+    { adwId: resolvedAdwId, issueNumber: issueNumber ?? 0, orchestratorStatePath, repoContext, worktreePath, defaultBranch: pr.targetBranch },
+    loadProjectConfig(worktreePath),
+    buildApplicationTypeGateDeps(gitCtx),
+  );
   const adwYmlConfig = readAdwYmlConfig(worktreePath);
   const topLevelStatePath = AgentStateManager.getTopLevelStatePath(resolvedAdwId);
   const base: WorkflowConfig = {
@@ -140,6 +148,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     applicationUrl,
     repoContext,
     projectConfig,
+    applicationProfile,
     adwYmlConfig,
     topLevelStatePath,
     gitContext: boundary.gitContext,
