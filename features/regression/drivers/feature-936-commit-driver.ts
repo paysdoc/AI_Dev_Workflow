@@ -2,7 +2,7 @@
  * `COST_API_URL` (adws/core/environment.ts) is bound at import time, so posting records to a
  * scenario's cost API in-process would always use the host's setting. This script is spawned as
  * a child instead, with `COST_API_URL` and `COST_API_TOKEN` overridden in its env. It lives under
- * `features/per-issue/support/`, outside every `cucumber.js` `import` glob, so it is never
+ * `features/regression/drivers/`, outside every `cucumber.js` `import` glob, so it is never
  * auto-loaded as a step definition module.
  *
  * Usage: COST_API_URL=... COST_API_TOKEN=... bunx tsx feature-936-commit-driver.ts <repo> < records.json

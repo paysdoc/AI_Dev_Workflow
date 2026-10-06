@@ -560,3 +560,81 @@ checked out` (G18, Background), G3 (its manifest is delivered as the marker abov
 issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (keeps the issues G4
 seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
 and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
+
+---
+
+## Given/When/Then — Cost Records, the Cost API and Worker Deploy Detection (@cost-records)
+
+These phrases drive three things. First, the real `handleAgentProcess` (phase-import): a fake Claude
+CLI child emits the JSONL a scenario describes (assistant turns, and a `result` message whose
+`modelUsage` carries each model's tokens and `costUSD`), and the phase's records are built with the
+real `createPhaseCostRecords`, several runs folded with `mergeModelUsageMaps`, as the phases build
+them; the divergence check is the real `checkDivergence`. The completion comment's cost section is
+rendered by the real `formatCostCommentSection` in a child process
+(`features/regression/drivers/feature-936-cost-section-driver.ts`), because `SHOW_COST_IN_COMMENTS` is
+bound when `adws/core/config.ts` is imported. Second, the cost API: a local HTTP server records what
+the real `CostTracker.commit` posts from a child process
+(`features/regression/drivers/feature-936-commit-driver.ts`, since `COST_API_URL` is bound at import),
+and the cost-api Worker's real ingest and query handlers answer in-process from an in-memory SQLite
+database (`node:sqlite`) that carries the Worker's real migrations. Third, the deploy workflow's change
+detection: a throwaway git repository laid out like ADW's (a default branch, a release branch, both
+Workers' files and a copy of `.github/workflows/deploy-workers.yml`) receives a release merge, and a
+port of `dorny/paths-filter`'s push-event path runs in a checkout of it. The workflow file is the
+system under test's configuration: its push trigger and the `dorny/paths-filter` step's inputs and
+filters are executed against the push, never asserted on. Every git command runs with the host's git
+configuration switched off and through the `PATH` captured when the module loads, so the `@regression`
+git-mock, which turns `clone` and `fetch` into no-ops, never intercepts it.
+
+Every assertion targets a runtime artefact: the cost records the phase built, the divergence verdict,
+the cost section the driver printed, the requests the recording cost API received, the Worker's query
+responses, git's diff of the throwaway repository, or the change detection's outcome. No step reads,
+greps or parses a source file to assert on it, satisfying the Rot-Detection Rubric. Costs are compared
+at four decimals, the precision the cost section shows. The definitions live in
+`feature-936-costRecords.steps.ts`, `feature-936-costApi.steps.ts` and `feature-936-deploy.steps.ts`,
+with their helpers `feature-936-costRun.ts`, `feature-936-usd.ts`, `feature-936-costApiWorker.ts`,
+`feature-936-throwawayRepo.ts`, `feature-936-pathsFilter.ts` and `feature-936-workflowConfig.ts`. Their
+state is module-scoped and is reset or released by hooks keyed on `@cost-records`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-CR1 | `cost comments are enabled` | Sets `SHOW_COST_IN_COMMENTS=true` in the environment the cost-section driver runs with; otherwise the driver runs with it set empty, since dotenv never overrides a variable that is already set. Reset before every scenario | subprocess | cost-section driver environment (SUT input) |
+| G-CR2 | `an agent run of the {string} phase whose Claude CLI result message reports:` | Describes a run of the phase that streams no assistant turn and ends with a `result/success` message: one `modelUsage` entry per row (`model`, `input`, `output`, `cache_read`, `cache_write`, `costUSD`), with `total_cost_usd` the rows' sum | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR3 | `a first/second agent run of the {string} phase whose Claude CLI result message reports:` | As G-CR2, for another run of the same phase; W-CR1 folds every run of the phase | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR4 | `that result message reports a total cost of ${float}` | Sets the last described result message's `total_cost_usd` to the figure, apart from its per-model `costUSD` figures | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR5 | `an agent run of the {string} phase that streams these assistant turns for model {string}:` | Describes a run that streams one `assistant` message per row for the model: the row's message id, `input_tokens`, `cache_creation_input_tokens` and `cache_read_input_tokens`, and a text block of the given character count. It has no result message until G-CR7 adds one | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR6 | `an agent run of the {string} phase that streams these assistant turns for model {string} and is stopped before the Claude CLI writes its result message:` | As G-CR5; the fake CLI child then closes with no exit code and never writes a result message | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR7 | `the agent run ends with a Claude CLI result message that reports:` | Ends the last described run with a result message, as G-CR2 describes one | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR8 | `a cost API that records the cost records posted to it` | Starts a local HTTP server on `127.0.0.1` (ephemeral port) that records each request's method, path, `Authorization` header and JSON body and answers 201; the `@cost-records` After hook stops it | mock-query | recording cost API (mock HTTP server) |
+| G-CR9 | `the cost API stores for project {string} a {string} record of issue {int} for model {string} with computed_cost_usd {float} and reported_cost_usd {float}` | Ingests one record (fixed token usage, provider `anthropic`) for the project through the cost-api Worker's real `handleIngest`, running in-process against an in-memory SQLite database that carries the Worker's real migrations; fails unless the Worker answers 201 | phase-import | Worker ingest response (artefact) |
+| G-CR10 | `a throwaway repository whose default branch is {string} and whose {string} holds the previous release` | Creates a git repository in a temp directory on the default branch, holding a README, each Worker's `wrangler.toml` and a source file, and a copy of the checkout's `.github/workflows/deploy-workers.yml`; commits it as the previous release and branches the release branch from it. The `@cost-records` After hook removes it | phase-import | git artefact (throwaway repository) |
+| G-CR11 | `a commit on {string} that is not yet on {string} changes {string}` | Fails unless the two names are the repository's default and release branches, then commits a change to the file on the default branch | phase-import | git artefact (throwaway repository) |
+| G-CR12 | `a( later) pull request that changes {string} has been merged into {string} with a merge commit` | Fails unless the name is the default branch, then commits the change on a fresh `feature-<n>` branch off it and merges that branch back with `--no-ff`, as a pull-request merge lands | phase-import | git artefact (throwaway repository) |
+| W-CR1 | `the {string} phase builds its cost records from its agent run(s)` | Feeds each described run of the phase, in order, to the real `handleAgentProcess` through a fake CLI child, then builds the phase's records with the real `createPhaseCostRecords` (several runs folded with `mergeModelUsageMaps`), with status `success` only when every run's cost came from a finalized result message | phase-import | built cost records (artefact) |
+| W-CR2 | `the phase runner posts the {string} phase's cost records to the cost API` | Runs `features/regression/drivers/feature-936-commit-driver.ts` as a child process with `COST_API_URL` set to G-CR8's server and a scenario token; the driver commits the phase's built records through the real `CostTracker.commit`. Fails unless the driver exits 0 | subprocess | exit code + recorded requests |
+| W-CR3 | `the cost breakdown and the per-issue costs of project {string} are requested from the cost API` | Calls the Worker's real `handleGetProjects`, `handleGetCostBreakdown` and `handleGetCostIssues` for the project against G-CR9's database and records the cost breakdown and the per-issue costs they answer | phase-import | Worker query responses (artefact) |
+| W-CR4 | `{string} is merged into {string} with a merge commit, the way releases are merged` | Fails unless the two names are the default and release branches, then merges the default branch into the release branch with `--no-ff` and records the push: the release branch's commit before and after the merge | phase-import | git artefact (merge commit) |
+| W-CR5 | `the change-detection step of the deploy workflow runs for the push of that merge to {string}` | Fails unless the name is the release branch, then clones the throwaway repository and runs the deploy workflow's change detection in the clone for the recorded push: the workflow's push trigger decides whether it fires, then the port of `dorny/paths-filter`'s push-event path evaluates the step's `base` and `ref` inputs against the push event, finds the changed files (git fetches, merge-base deepening, `git diff --name-only`) and matches them against the step's filters. Records `not-triggered`, `failed` (a git command or ref the action would fail on) or `completed` with each Worker marked or not | phase-import | change-detection outcome (artefact) |
+| W-CR6 | `the change-detection step of the deploy workflow runs for the push of that merge to {string} in a checkout that holds only the pushed commit` | As W-CR5, in a checkout that holds only the pushed commit, fetched at depth 1, as `actions/checkout` makes by default | phase-import | change-detection outcome (artefact) |
+| T-CR1 | `the {string} cost record for model {string} holds a reported cost of ${float}` | Asserts the built record's `reportedCostUsd` equals the figure at four decimals; fails when it is absent | phase-import | built cost record (artefact) |
+| T-CR2 | `the {string} cost record for model {string} holds a computed cost of ${float}` | Asserts the built record's `computedCostUsd` equals the figure at four decimals | phase-import | built cost record (artefact) |
+| T-CR3 | `the {string} cost record for model {string} holds no reported cost` | Asserts the built record has no `reportedCostUsd` | phase-import | built cost record (artefact) |
+| T-CR4 | `the {string} cost record for model {string} carries estimated tokens:` | Asserts the built record's `estimatedTokens` equal the table row (`input`, `output`, `cache_read`, `cache_write`) | phase-import | built cost record (artefact) |
+| T-CR5 | `the {string} cost record for model {string} carries actual tokens:` | Asserts the built record's `actualTokens` equal the table row | phase-import | built cost record (artefact) |
+| T-CR6 | `the {string} cost record for model {string} carries no actual tokens` | Asserts the built record has no `actualTokens` | phase-import | built cost record (artefact) |
+| T-CR7 | `the divergence check fires for the {string} cost record for model {string}` | Asserts the real `checkDivergence` over the record's computed and reported costs reports a divergence, a difference of more than 5% | phase-import | divergence verdict (artefact) |
+| T-CR8 | `the divergence check does not fire for the {string} cost record for model {string}` | Asserts `checkDivergence` reports no divergence; a record with no reported cost never diverges | phase-import | divergence verdict (artefact) |
+| T-CR9 | `the divergence check fires for no {string} cost record` | Asserts the phase built records and `checkDivergence` reports a divergence for none of them | phase-import | divergence verdict (artefact) |
+| T-CR10 | `the completion comment's cost section warns that {string} on {string} computed ${float} against a reported ${float}, a {float}% difference` | Renders the section once per scenario: `features/regression/drivers/feature-936-cost-section-driver.ts` runs as a child with the built records on stdin, `COST_REPORT_CURRENCIES=USD` and G-CR1's setting, and prints what the real `formatCostCommentSection` returns. Asserts the output carries `Cost Divergence Detected` and the item `**<phase>** (<model>): computed $<computed> vs reported $<reported> (<percent>% diff)` | subprocess | rendered cost section (driver stdout) |
+| T-CR11 | `the completion comment's cost section carries no cost divergence warning` | Asserts the section, rendered as T-CR10 renders it, carries `Cost Breakdown` and no `Cost Divergence Detected` | subprocess | rendered cost section (driver stdout) |
+| T-CR12 | `the completion comment's cost section reports estimated against actual tokens for {string} on {string}:` | For each row of the table, asserts the rendered section's `Estimate vs Actual Tokens` table holds a row of the phase, the model, the token type and its estimated, actual, delta and delta % figures, exactly as the row gives them | subprocess | rendered cost section (driver stdout) |
+| T-CR13 | `the completion comment's cost section reports no estimated against actual tokens for {string} on {string}` | Asserts the rendered section carries `Cost Breakdown` and its `Estimate vs Actual Tokens` table holds no row for the phase and model | subprocess | rendered cost section (driver stdout) |
+| T-CR14 | `the cost API received a {string} record for model {string} with reported_cost_usd {float} and computed_cost_usd {float}` | Among the records of every `POST /api/cost` G-CR8's server recorded, finds the phase's record for the model; asserts its `reported_cost_usd` equals the figure and its `computed_cost_usd` lies within 1e-9 of the figure | mock-query | recorded requests |
+| T-CR15 | `the cost API's cost breakdown gives model {string} a cost of ${float}` | Asserts the cost breakdown W-CR3 recorded lists the model with a `totalCost` equal to the figure at four decimals | phase-import | Worker query response (artefact) |
+| T-CR16 | `the cost API's per-issue costs give the {string} phase of issue {int} a cost of ${float}` | Asserts the per-issue costs W-CR3 recorded list the issue, and that the issue's phase has a `cost` equal to the figure at four decimals | phase-import | Worker query response (artefact) |
+| T-CR17 | `a comparison of {string} with the default branch {string} finds no changed file` | Fails unless the two names are the release and default branches, then asserts `git diff --name-only <default>...<release>` in the throwaway repository lists no file | phase-import | git artefact (diff) |
+| T-CR18 | `the change detection marks the {string} Worker for deployment` | Asserts the outcome W-CR5 or W-CR6 recorded is `completed` with the Worker's filter marked | phase-import | change-detection outcome (artefact) |
+| T-CR19 | `the change detection leaves the {string} Worker out of the deployment` | Asserts the workflow was not triggered, or the outcome is `completed` with the Worker's filter not marked | phase-import | change-detection outcome (artefact) |
+| T-CR20 | `the change detection either fails or marks the {string} Worker for deployment` | Asserts the outcome is `failed`, or `completed` with the Worker marked: never a silent skip | phase-import | change-detection outcome (artefact) |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18), `the ADW TypeScript type-check passes` (T22) and the git/gh guard pair W16/T34.
