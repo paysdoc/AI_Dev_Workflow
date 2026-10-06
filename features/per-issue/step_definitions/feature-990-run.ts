@@ -22,7 +22,7 @@ import { SURFACE_REPO } from '../../regression/support/mockForgeProviders.ts';
 import { claimAdwId, claimIssue, requireHarness } from '../../regression/support/subprocessHarness.ts';
 import { findRealBunx, runThroughHarness } from '../../regression/support/subprocessRun.ts';
 
-import { world796 } from './feature-796.steps.ts';
+import { world796 } from '../../regression/step_definitions/feature-796.steps.ts';
 import { commentsOn } from './feature-929-workflow.ts';
 import { s as state988 } from './feature-988-world.ts';
 import { buildManifest } from './feature-990-manifest.ts';

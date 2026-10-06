@@ -10,7 +10,7 @@ import assert from 'assert';
 
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 
-import { buildRecordingBoundary, resetWorld, splitRepo, world796 } from './feature-796.steps.ts';
+import { buildRecordingBoundary, resetWorld, splitRepo, world796 } from '../../regression/step_definitions/feature-796.steps.ts';
 import { trackTempDir } from './feature-933-fixture.ts';
 
 Before({ tags: '@adw-933' }, function () {

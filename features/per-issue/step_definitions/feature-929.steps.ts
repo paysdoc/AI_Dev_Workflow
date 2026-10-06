@@ -21,7 +21,7 @@ import { executeBuildPhase } from '../../../adws/phases/buildPhase.ts';
 import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
 import { executeReviewPhase } from '../../../adws/phases/reviewPhase.ts';
 
-import { world796, resetWorld } from './feature-796.steps.ts';
+import { world796, resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
 import { AGENT_NAMES, AGENT_COMMANDS, AGENT_PHASES, driveAgent, type AgentName } from './feature-929-agents.ts';
 import { installCompactingCli, readRuns, emptyBehaviour, type CliBehaviour, type InstalledCli, type RunRecord } from './feature-929-compacting-cli.ts';
 import { createWorkflow, commitFile, commentsOn, type Workflow929 } from './feature-929-workflow.ts';
