@@ -1183,6 +1183,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts, feature-936-commit-driver.ts, feature-936-cost-section-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── drivers/        # Scripts the subprocess harness runs as child processes (the workflow-init driver); outside the support and step-definition directories, which Cucumber imports
+│   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
