@@ -76,7 +76,8 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
         guard, which runs over the rewritten scanner.
 
   Changes to feature-902 and feature-907. Their scanner rows now run through the decider. The
-  rows that pin behaviour this slice must keep carry `@adw-910`:
+  rows that pin behaviour this slice must keep carry `@adw-910`, or `@pause-queue-reset-time` in
+  the promoted feature-902:
     • modified: feature-902's unknown-drop row. #908 left it asserting the old eviction text on
       purpose, because this slice was expected to change that text. The row is renamed. It keeps
       its "failed to resume after 3 probe attempts" assertion and now also requires the comment

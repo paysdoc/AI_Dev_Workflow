@@ -3,7 +3,7 @@
  * the mock GitHub / gh-shadow infrastructure, the saved-and-restored queue file, the seeded-
  * entry map, the pinned clock, the decider world) — see feature-902.steps.ts and
  * feature-902-queue.steps.ts for the Before/After hooks this file's scenarios run under
- * (widened to `(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
+ * (widened to `(@pause-queue-probe or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or
  * @pause-queue-ownership) and not @adw-908 and not @adw-812`), and feature-910.steps.ts for
  * the decider world (widened to `@adw-910 or @adw-911 or @pause-queue-reset-time or
  * @pause-queue-ownership`). This file owns only what neither of those already provides: the
