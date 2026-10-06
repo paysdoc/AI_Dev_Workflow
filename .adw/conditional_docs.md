@@ -1027,3 +1027,17 @@
     - When an issue parks with `missing_application_type`, `## Application Type` has no default (`parseApplicationType` returns `null`), or `adw_init` must detect, preserve or leave out the section
   - Decisions:
     - 0061
+
+- app_docs/feature-2u517h-adw-playwright-project.md
+  - Owns:
+    - templates/playwright/**
+    - adws/core/adwPlaywrightProject.ts
+    - adws/core/__tests__/adwPlaywrightProject.test.ts
+    - adws/phases/scenarioProjectSetup.ts
+    - adws/phases/__tests__/scenarioProjectSetup.test.ts
+  - Conditions:
+    - When working on ADW's Playwright BDD project for `web` repositories (`features/playwright.config.ts`, `features/package.json`, `features/.gitignore`) or its templates in `templates/playwright/`
+    - When working with `syncAdwPlaywrightProject`, `syncDeclaredScenarioProject`, `ProjectFilePolicy`, `ADW_PLAYWRIGHT_RUN_BY_TAG` or `ADW_PLAYWRIGHT_SETUP_COMMAND`
+    - When `adwUpgrade` fails with `scenario_project_error`, or the Playwright lockfile, Chromium install or `bddgen` run is missing in a worktree
+  - Decisions:
+    - 0061
