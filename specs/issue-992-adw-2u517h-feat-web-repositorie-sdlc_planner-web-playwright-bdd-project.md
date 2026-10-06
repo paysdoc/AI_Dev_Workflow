@@ -13,7 +13,7 @@ ADR-0061 decided that a `web` repository runs its Gherkin on the Playwright test
    - a `package.json` that pins `@playwright/test` 1.63.0 and `playwright-bdd` 9.2.1;
    - a `.gitignore` that keeps `node_modules/` and the generated tests out of git.
 
-   For a `web` repository, `adw_init` installs them in `features/` and installs the browser. The upgrade's regen commit commits them. The configuration is byte-identical in every web repository and is overwritten on every upgrade. Repository values reach it only through `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`. Existing e2e setups elsewhere in the repository are not touched.
+   For a `web` repository, `adw_init` installs them in `features/` and installs the browser. After the `/adw_init` agent has run, the upgrade itself writes the files from the templates and runs the install. Its regen commit therefore carries them and `features/package-lock.json`, whatever the agent did. The configuration is byte-identical in every web repository and is overwritten on every upgrade. Repository values reach it only through `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`. Existing e2e setups elsewhere in the repository are not touched.
 2. **The scenario run.** A framework table maps each `RunnerMode` to a scenario runner: the command, the step-definition directory and extensions, and how the run is prepared. `descriptor` is exactly today's behaviour. `adw_playwright` does the following:
    - installs `features/` from its lockfile when the worktree has no `node_modules`;
    - runs `npx bddgen` and then `npx playwright test --grep "@<tag>"` from `features/`;
@@ -58,6 +58,7 @@ So that every web review has a JUnit verdict on ADW's path and an end-state scre
   - The constants of the project:
     - project directory `features`;
     - step directory `features/steps`;
+    - the setup command `cd features && npm install --no-audit --no-fund && npx playwright install chromium`, the first install in a repository, which writes `features/package-lock.json` and installs the browser;
     - the install command `cd features && (test -d node_modules || npm ci)`;
     - the run-by-tag command `cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@{tag}\b"`.
   - The file table:
@@ -95,13 +96,14 @@ So that every web review has a JUnit verdict on ADW's path and an end-state scre
   - Step 8 drops the Playwright branch and gains a `web` branch that writes ADW's commands, `playwright-bdd` and `features/steps`. The `cli` branches stay.
   - Step 11 stops listing `review_proof.md` and reports the project.
 - **Upgrade (`adws/adwUpgrade.tsx`).**
-  - `UpgradeDeps` gains `syncScenarioProject`. Its default, `syncDeclaredScenarioProject` in the new `adws/phases/scenarioProjectSetup.ts`, does two things:
+  - `UpgradeDeps` gains `syncScenarioProject`. Its default, `syncDeclaredScenarioProject` in the new `adws/phases/scenarioProjectSetup.ts`, does three things:
     - it reads the regenerated `.adw/project.md` through `declaredApplicationProfile`, a new function in `applicationTypeGate.ts`: it resolves and never parks;
-    - when the runner mode is `adw_playwright`, it syncs the project files.
-  - It runs after `verifyAdwRegen` and before `.adw-version` and the commit, so "upgrade overwrites the configuration" holds even if the `/adw_init` agent skipped its copy.
-  - It only writes files. `npm install` and the browser install stay with `/adw_init`, which keeps the existing upgrade harness hermetic.
+    - when the runner mode is `adw_playwright`, it syncs the project files;
+    - it then installs the project with the setup command (`npm install` and the browser install in `features/`), through an injected `ProcessRunner`.
+  - It runs after `verifyAdwRegen` and before `.adw-version` and the commit. "Upgrade overwrites the configuration" therefore holds even if the `/adw_init` agent skipped its copy. The regen commit also carries `features/package-lock.json`, which every worktree's `npm ci` needs, even if the agent skipped its install.
+  - The issue gives `adw_init` the jobs "installs `@playwright/test` and `playwright-bdd` in `features/` …; installs the browser; commits". The upgrade lane is `adw_init`'s TypeScript path, and the `@adw-992` upgrade scenario asserts there that "the upgrade installed the packages … and the Playwright browser, in `features/`". The upgrade harness stays hermetic: stand-in `npm` and `npx` lead `PATH` and record the install (task 16).
 - **Removals.** `review_proof.md` leaves `REQUIRED_ADW_FILES`. `parseReviewProofMd`, `reviewProofConfig` and ADW's own `.adw/review_proof.md` stay; the reviewer issue removes them.
-- **"Commits".** The TypeScript path that runs `/adw_init` is the upgrade lane, and its regen commit carries everything `adw_init` wrote. `features/.gitignore` keeps `node_modules/` and `.features-gen/` out of it. The prompt adds no commit of its own, so the upgrade still lands one regen commit. In a manual `/adw_init` session the operator commits, as today.
+- **"Commits".** The TypeScript path that runs `/adw_init` is the upgrade lane. Its regen commit carries everything `adw_init` wrote, plus what the upgrade's own sync and install wrote, `features/package-lock.json` included. `features/.gitignore` keeps `node_modules/` and `.features-gen/` out of it. The prompt adds no commit of its own, so the upgrade still lands one regen commit. In a manual `/adw_init` session the operator commits, as today.
 - **Records.** Update ADR-0061's `### Confirmation`, the README and `adws/README.md`.
 
 ## Relevant Files
@@ -155,7 +157,7 @@ Use these files to implement the feature:
 - `features/per-issue/step_definitions/feature-929-workflow.ts` — `createWorkflow`, the shared hand-built config of the 929, 988, 989 and 991 harnesses. Add `applicationProfile`.
 - `features/per-issue/step_definitions/feature-937-workflow.ts` — Runs the real `executeScenarioTestPhase` (a promotion candidate). Add `applicationProfile`.
 - `features/per-issue/step_definitions/feature-929-agents.ts` — Calls `runStepDefAgent` positionally. Update it for the new parameter (`RunnerMode.Descriptor`).
-- `features/per-issue/step_definitions/feature-931.steps.ts`, `feature-991-upgrade.steps.ts`, `feature-991-project-md.ts` — The upgrade harness: the real `executeUpgrade` with a stubbed `/adw_init`, and `configureAdwInitAgent`/`regenCommitFile`. The `@adw-992` upgrade scenario can reuse it. Its assertions check membership, so the extra `features/` files a `web` regen commit gains do not break `@adw-931` or `@adw-991`.
+- `features/per-issue/step_definitions/feature-931.steps.ts`, `feature-991-upgrade.steps.ts`, `feature-991-project-md.ts` — The upgrade harness: the real `executeUpgrade` with a stubbed `/adw_init`, and `configureAdwInitAgent`/`regenCommitFile`. The `@adw-992` upgrade scenarios can reuse it. Its assertions check membership, so the extra `features/` files a `web` regen commit gains do not break `@adw-931` or `@adw-991`. The upgrade now runs the install for a `web` regen. That includes feature-991's upgrade outline, whose `web` row also carries `@adw-992`. So the harness puts the stand-in `npm` and `npx` first on `PATH`, and its `Before`/`After` hooks must also cover `@adw-992` (task 16).
 - `features/regression/support/launchRecorder.ts` — Prior art for a stand-in executable shadowing a tool on `PATH` (the `bunx` shadow), the model for a hermetic `npx`/`npm` stand-in.
 - `test/fixtures/python-app/` — Declares `web` but runs descriptor commands. Only `runScenarioProof` is driven over it (`@python-e2e`), with default options, so it is unaffected. Read-only.
 - `app_docs/feature-gfv9kt-application-type-mapping.md` — Conditional doc for the application-type mapping, `RunnerMode`, `requireApplicationProfile`, and `adw_init` writing the type.
@@ -180,8 +182,8 @@ Use these files to implement the feature:
 - `adws/core/__tests__/adwPlaywrightProject.test.ts` — Sync behaviour over a temp directory, and the templates' pinned decisions.
 - `adws/core/scenarioRunner.ts` — `ScenarioRunner`, the `Record<RunnerMode, …>` table and `resolveScenarioRunner`.
 - `adws/core/__tests__/scenarioRunner.test.ts` — Both runners, one runner per mode, and the tag regex.
-- `adws/phases/scenarioProjectSetup.ts` — `syncDeclaredScenarioProject`, the upgrade's default `syncScenarioProject`.
-- `adws/phases/__tests__/scenarioProjectSetup.test.ts` — `web` syncs, `cli`/missing/unknown do not.
+- `adws/phases/scenarioProjectSetup.ts` — `syncDeclaredScenarioProject`, the upgrade's default `syncScenarioProject`: sync the files, then install.
+- `adws/phases/__tests__/scenarioProjectSetup.test.ts` — `web` syncs and installs, `cli`/missing/unknown do neither.
 - `adws/phases/__tests__/stepDefPhase.test.ts` — The runner mode reaches the agent; a missing profile is non-fatal.
 - `adws/phases/__tests__/stackCoherenceReporter.test.ts` — The `web` runner silences the descriptor-based warnings; `cli` is unchanged.
 - `adws/__tests__/generateStepDefinitionsPrompt.test.ts` — Source-text drift tests over `generate_step_definitions.md`.
@@ -202,12 +204,12 @@ Use these files to implement the feature:
 - `executeUnitTestPhase` installs the runner's project before the static checks, and `reportStackCoherence` reads the runner's stack signals.
 - The step-def agent and phase pass the runner mode.
 - `generate_step_definitions.md` gains the `adw_playwright` mode, and `adw_init.md` changes in `hashInputs`, `$3` and steps 2, 6, 8 and 11.
-- `adwUpgrade` syncs the project files after the regen.
+- `adwUpgrade` syncs the project files and installs the project after the regen.
 
 ### Phase 3: Integration
 - Every hand-built `WorkflowConfig` that runs these phases carries an application profile: unit-test helpers, the regression surface harness and the per-issue harnesses.
 - Prompt drift tests pin the prompts to the constants and the mapping.
-- The `@adw-992` step definitions drive the real phase and upgrade hermetically.
+- The `@adw-992` step definitions drive the real phases and upgrade hermetically. The exception is the fresh-repository run, which runs the real Playwright stack (acceptance criterion 1).
 - ADR-0061's `### Confirmation`, the README and `adws/README.md` describe what shipped.
 - Run the full validation.
 
@@ -257,6 +259,7 @@ Execute every step in order, top to bottom.
   - `ADW_PLAYWRIGHT_PROJECT_DIR = 'features'`;
   - `ADW_PLAYWRIGHT_STEP_DEF_DIR = 'features/steps'`;
   - `ADW_PLAYWRIGHT_TEMPLATE_DIR = path.join('templates', 'playwright')`;
+  - `ADW_PLAYWRIGHT_SETUP_COMMAND = 'cd features && npm install --no-audit --no-fund && npx playwright install chromium'`, the first install in a repository: it writes `features/package-lock.json` and installs Chromium. The upgrade runs it, and `adw_init.md` step 6 names it;
   - `ADW_PLAYWRIGHT_INSTALL_COMMAND = 'cd features && (test -d node_modules || npm ci)'`;
   - `` ADW_PLAYWRIGHT_RUN_BY_TAG = `${ADW_PLAYWRIGHT_INSTALL_COMMAND} && npx bddgen && npx playwright test --grep "@{tag}\\b"` ``. The value written to the prompt and run by the shell is `… --grep "@{tag}\b"`.
 - Comments on the run command, one line each:
@@ -430,7 +433,7 @@ Execute every step in order, top to bottom.
     - `[ -f features/package.json ] || cp "$3/templates/playwright/package.json.template" features/package.json`;
     - `touch features/.gitignore`, then append each line of `"$3/templates/playwright/gitignore.template"` that `features/.gitignore` lacks, using a `grep -qxF` loop.
   - When `features/package.json` already existed, set its `devDependencies` versions of `@playwright/test` and `playwright-bdd` to the template's, and change nothing else.
-  - Install: `(cd features && npm install --no-audit --no-fund && npx playwright install chromium)`. This writes `features/package-lock.json`. Each ADW worktree installs from that lockfile with `npm ci`, so it is committed together with `package.json`, the configuration and `.gitignore`; `features/.gitignore` keeps `node_modules/` and `.features-gen/` out.
+  - Install: `(cd features && npm install --no-audit --no-fund && npx playwright install chromium)`, which is `ADW_PLAYWRIGHT_SETUP_COMMAND` in a subshell. The upgrade runs the same command again after the agent. This writes `features/package-lock.json`. Each ADW worktree installs from that lockfile with `npm ci`, so it is committed together with `package.json`, the configuration and `.gitignore`; `features/.gitignore` keeps `node_modules/` and `.features-gen/` out.
   - Never edit `features/playwright.config.ts` afterwards, never add a `webServer` block, and never convert or delete existing step definitions: the owner decides what to rewrite.
 - Step 8:
   - Delete the **Playwright** branch.
@@ -451,23 +454,29 @@ Execute every step in order, top to bottom.
 ### 13. Upgrade: overwrite the project's files from the templates
 - New `adws/phases/scenarioProjectSetup.ts`:
   - `export type ScenarioProjectSyncResult = { readonly kind: 'synced'; readonly files: readonly ProjectFileOutcome[] } | { readonly kind: 'not_applicable' }`;
-  - `export function syncDeclaredScenarioProject(worktreePath: string, frameworkRepoRoot: string): ScenarioProjectSyncResult`. It calls `declaredApplicationProfile(loadProjectConfig(worktreePath))`, and when the profile's `runnerMode` is `RunnerMode.AdwPlaywright` it calls `syncAdwPlaywrightProject`; otherwise it returns `not_applicable`.
+  - `export async function syncDeclaredScenarioProject(worktreePath: string, frameworkRepoRoot: string, runProcess: ProcessRunner = runShellCommand): Promise<ScenarioProjectSyncResult>`. It calls `declaredApplicationProfile(loadProjectConfig(worktreePath))`. When the profile's `runnerMode` is `RunnerMode.AdwPlaywright`:
+    - it calls `syncAdwPlaywrightProject`;
+    - then it runs `ADW_PLAYWRIGHT_SETUP_COMMAND` with `runProcess` in the worktree, and throws with the command's `output` when `exitCode` is not 0.
+  - Otherwise it returns `not_applicable` and runs nothing.
+  - Comment the install, one line: every worktree's `npm ci` installs from the `features/package-lock.json` it writes, so the regen commit must carry that file whatever the agent did.
 - `adws/adwUpgrade.tsx`:
-  - `UpgradeDeps` gains `readonly syncScenarioProject: (worktreePath: string, frameworkRepoRoot: string) => ScenarioProjectSyncResult`, and `buildDefaultUpgradeDeps` sets it to `syncDeclaredScenarioProject`.
-  - In `executeUpgrade`, right after `verifyAdwRegen` passes, call it inside `try`:
+  - `UpgradeDeps` gains `readonly syncScenarioProject: (worktreePath: string, frameworkRepoRoot: string) => Promise<ScenarioProjectSyncResult>`, and `buildDefaultUpgradeDeps` sets it to `(worktreePath, frameworkRepoRoot) => syncDeclaredScenarioProject(worktreePath, frameworkRepoRoot)`.
+  - In `executeUpgrade`, right after `verifyAdwRegen` passes, await it inside `try`:
     - on success, log `adwUpgrade: scenario project <kind>`;
-    - on throw, post `buildUpgradeFailureComment(String(error), …)` and return `{ outcome: 'failed', reason: 'scenario_project_error' }`.
-  - It runs before `writeAdwVersion` and `commitChanges`, so the files ride in the regen commit.
+    - on throw (a missing template or a failed install), post `buildUpgradeFailureComment(String(error), …)` and return `{ outcome: 'failed', reason: 'scenario_project_error' }`.
+  - It runs before `writeAdwVersion` and `commitChanges`, so the files and the lockfile ride in the regen commit.
 - `adws/__tests__/adwUpgrade.test.ts`:
-  - `makeDeps` gains `syncScenarioProject: vi.fn().mockReturnValue({ kind: 'not_applicable' })`;
+  - `makeDeps` gains `syncScenarioProject: vi.fn().mockResolvedValue({ kind: 'not_applicable' })`;
   - it is called once, with the worktree and framework root, after `verifyAdwRegen` and before `writeAdwVersion` and `commitChanges` (check the order of `mock.invocationCallOrder`);
   - it is not called when verification fails;
-  - a throw yields `scenario_project_error`, a failure comment, and no commit.
-- New `adws/phases/__tests__/scenarioProjectSetup.test.ts`, over a temp worktree using the real templates (`REPO_ROOT`):
+  - a rejection yields `scenario_project_error`, a failure comment, and no commit.
+- New `adws/phases/__tests__/scenarioProjectSetup.test.ts`, over a temp worktree using the real templates (`REPO_ROOT`) and a recording fake `runProcess`:
   - `web` writes the three files, and the configuration is byte-identical to the template;
+  - `web` then runs `ADW_PLAYWRIGHT_SETUP_COMMAND` once, in the worktree, after the files exist;
+  - a non-zero exit of the install throws, with its output in the message;
   - a modified `features/playwright.config.ts` is overwritten;
   - an existing `features/package.json` is kept byte for byte;
-  - `cli`, missing and unknown types return `not_applicable` and write nothing.
+  - `cli`, missing and unknown types return `not_applicable`, write nothing and run no process.
 
 ### 14. Give every hand-built `WorkflowConfig` that runs these phases an application profile
 - `adws/phases/__tests__/scenarioTestPhase.test.ts` and `adws/phases/__tests__/unitTestPhase.helpers.ts`: done in tasks 8 and 9.
@@ -480,6 +489,7 @@ Execute every step in order, top to bottom.
   - every file in `templates/playwright/` appears in `adw_init.md`'s `hashInputs:` frontmatter list, so a template edit bumps the hash;
   - the prompt contains `ADW_PLAYWRIGHT_RUN_BY_TAG` verbatim, and the same command with `{tag}` replaced by `regression`;
   - step 6 copies each template named in `ADW_PLAYWRIGHT_PROJECT_FILES` to its `target`;
+  - step 6 contains `ADW_PLAYWRIGHT_SETUP_COMMAND` verbatim, the command the upgrade runs after the agent;
   - the prompt contains no `bunx playwright test --grep` and no `tests/e2e/`, so the old branch is gone;
   - step 6 no longer creates `.adw/review_proof.md` (no `Create \`.adw/review_proof.md\`` heading);
   - step 2 no longer maps a `webServer` block to `N/A`;
@@ -499,14 +509,26 @@ Execute every step in order, top to bottom.
 
 ### 16. Step definitions for the `@adw-992` scenarios
 - Implement the steps of `features/per-issue/feature-992.feature`, written by the scenario agent, in `features/per-issue/step_definitions/feature-992*.ts`. Keep each file under 300 lines.
-- Keep them hermetic:
+- Keep them hermetic, except the fresh-repository run described below:
   - never reach the npm registry or download a browser;
   - put a stand-in `npx` and `npm` first on `PATH`, modelled on `features/regression/support/launchRecorder.ts`;
   - the stand-in records argv, cwd and the `ADW_*` variables;
   - for `playwright test`, it writes a JUnit report with an `[[ATTACHMENT|<png>]]` line to `ADW_JUNIT_REPORT_PATH` and a PNG under `ADW_PROOF_DIR`;
+  - for the upgrade's `npm install` and `npx playwright install`, it records the call and creates `features/node_modules/`. The real upgrade is then checked against "the upgrade installed the packages … and the Playwright browser, in `features/`", "the upgrade installed nothing in `features/`" and "the regen commit holds nothing under `features/node_modules/`";
   - pre-create `features/node_modules/` in the throwaway worktree, so the install guard is skipped, or let the stand-in `npm ci` record the call.
-- Drive the real `executeScenarioTestPhase` (or `runScenarioProof`) with a `web` profile, and the real `executeUpgrade` through `feature-931.steps.ts`'s harness (`configureAdwInitAgent` with a `web` `.adw/project.md`, `regenCommitFile`) for "upgrade overwrites a modified configuration".
+- The real code under test:
+  - the scenario-phase scenarios ("When the workflow's scenario test phase runs") drive the real `executeScenarioTestPhase` with the profile their `.adw/project.md` declares, not `runScenarioProof` alone. The dev server, its address in `ADW_APPLICATION_URL` and its stop by the end of the phase belong to the phase;
+  - the generator-mode scenarios drive the real `executeStepDefPhase`. The 929 harness's throwaway CLI records `/generate_step_definitions` and its arguments, so the mode is read from the recorded `$2`;
+  - the upgrade scenarios drive the real `executeUpgrade` through `feature-931.steps.ts`'s harness (`configureAdwInitAgent` with a `web` `.adw/project.md`, `regenCommitFile`). Extend the harness's `Before`/`After` tag expression to `@adw-931 or @adw-991 or @adw-992`, so these scenarios get a fresh world and their temporary directories are removed. Put the stand-ins first on `PATH` for every upgrade scenario except the fresh-repository run.
+- The fresh-repository run is the scenario "In a fresh "web" repository the framework upgrade initialised, a per-issue scenario run writes its JUnit report to ADW's path and an end-state image for the scenario that opens a page, and none for the one that does not". It checks acceptance criterion 1 end to end. An end-state image for the scenario that takes `page`, and none for the one that does not, is Playwright's own behaviour, which a stand-in could only imitate. So:
+  - it runs the real `npm` and `npx`: the upgrade's install from the registry and the Chromium download, `npm ci` in the fresh worktree, and a real `bddgen` and `playwright test`;
+  - its fixture is a minimal web application. Its dev server, a Node `http` script started on `{PORT}`, serves a page titled "Widgets" at `/`, answers 200 at `/health`, and records the paths it served;
+  - its `createBdd()` step files are written into the temporary repository at run time;
+  - it needs network access. Give its steps a timeout long enough for the first install.
 - Never add a `.ts` file that imports `@playwright/test` or `playwright-bdd` anywhere in ADW's tree. ADW's `tsc` includes every `.ts` file, and ADW does not depend on them. Write such files into temp directories at run time, or as `.template` text.
+- The `@adw-992` run also includes two existing outlines that carry the tag:
+  - feature-989's protected-path outline. The guard already rejects edits to `features/playwright.config.ts`, so nothing changes;
+  - feature-991's upgrade outline. Its `web` row now syncs and installs the project through the harness.
 - Do not re-declare phrases that other step files already register (`@adw-931`, `@adw-991`).
 
 ### 17. Records
@@ -558,12 +580,13 @@ Execute every step in order, top to bottom.
   - `cli` runs only the four checks.
 - `adws/phases/__tests__/stackCoherenceReporter.test.ts`: `web` with a Python test stack is not labelled; `cli` mismatch and non-Gherkin warnings are unchanged.
 - `adws/phases/__tests__/stepDefPhase.test.ts`: the runner mode reaches `runStepDefAgent` for `web` and `cli`; a missing profile is non-fatal.
-- `adws/phases/__tests__/scenarioProjectSetup.test.ts`: `web` syncs from the real templates (overwrite, keep); `cli`, missing and unknown do nothing.
+- `adws/phases/__tests__/scenarioProjectSetup.test.ts`: `web` syncs from the real templates (overwrite, keep), then runs the setup command once in the worktree; a failed install throws; `cli`, missing and unknown write nothing and run nothing.
 - `adws/__tests__/adwUpgrade.test.ts`: the sync is called after verify and before version and commit; it is skipped when verify fails; a throw gives `scenario_project_error`.
 - `adws/__tests__/adwInitPrompt.test.ts`:
   - templates in `hashInputs`;
   - the run commands equal the constant;
   - the templates are copied to their targets;
+  - step 6 runs `ADW_PLAYWRIGHT_SETUP_COMMAND`;
   - the old Playwright branch, the `review_proof.md` step and the `webServer` → `N/A` rule are gone.
 - `adws/__tests__/generateStepDefinitionsPrompt.test.ts`: every `RunnerMode` value is named, plus `createBdd`, `playwright-bdd`, `{ page }`, `features/steps`, the guarded `bddgen` check, and `$2`.
 - `adws/core/__tests__/applicationType.test.ts` (existing): still green. No new module names `applicationType`.
@@ -580,7 +603,8 @@ Execute every step in order, top to bottom.
 - Several tags in one phase run: each tag gets its own output directory, so the per-issue images and their JUnit attachment paths survive a later regression run.
 - `ADW_APPLICATION_URL` in `cli` mode: an extra variable only; the runner, commands, step definitions and proof directory are unchanged.
 - A missing application profile on a hand-built config: the scenario phase rejects, the unit-test phase rejects, and the step-def phase logs and continues.
-- `cli`, missing or unknown type during an upgrade: no Playwright files are written. Missing or unknown types are parked later by the gate, not by the upgrade.
+- `cli`, missing or unknown type during an upgrade: no Playwright files are written and nothing is installed. Missing or unknown types are parked later by the gate, not by the upgrade.
+- An upgrade of a `web` repository whose install fails, for example without registry access: the upgrade fails with `scenario_project_error` and commits nothing, and the next upgrade tries again. A regen commit without `features/package-lock.json` would make `npm ci` fail in every worktree.
 - A legacy `/adw_init` run with an empty `$3`: the project is skipped with a warning in the report, as the vocabulary copy is.
 - A never-initialised repository upgraded after this change: there is no `review_proof.md`, and `verifyAdwRegen` still passes.
 - A scenario that never takes `page`: the run passes with no image and no attachment. The proof line for that case belongs to the proof-assembler issue.
@@ -594,6 +618,7 @@ Execute every step in order, top to bottom.
 - In a `cli` repository, the scenario phase runs `.adw/commands.md`'s command with the same step-definition directory, extensions and `ADW_PROOF_DIR` as before. The only difference is the additional `ADW_APPLICATION_URL`.
 - `generate_step_definitions` receives `adw_playwright` in a `web` repository and writes `createBdd()` steps under `features/steps/` that take `page`. In a `cli` repository it receives `descriptor` and behaves as today.
 - An upgrade of a `web` repository whose `features/playwright.config.ts` was modified commits the template's bytes for that file.
+- An upgrade of a `web` repository installs, after the `/adw_init` agent, the packages `features/package.json` names and the browser in `features/`. It commits `features/package-lock.json` and nothing under `features/node_modules/`. An upgrade of a `cli` repository, or of one with no type, writes and installs nothing in `features/`.
 - `adw_init.md` no longer has the Playwright branch in step 8, no longer writes `.adw/review_proof.md`, and lists the templates in `hashInputs`. `REQUIRED_ADW_FILES` no longer contains `review_proof.md`.
 - `adws/triggers/promotionSweepDefaults.ts` and the sweep code are unchanged.
 - Source-text tests cover the new mode of `adw_init` and the generator (`adwInitPrompt.test.ts`, `generateStepDefinitionsPrompt.test.ts`, `adwPlaywrightProject.test.ts`).
@@ -611,7 +636,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx vitest run adws/core/__tests__/scenarioRunner.test.ts adws/core/__tests__/adwPlaywrightProject.test.ts adws/__tests__/adwInitPrompt.test.ts adws/__tests__/generateStepDefinitionsPrompt.test.ts adws/__tests__/adwUpgrade.test.ts adws/phases/__tests__/scenarioTestPhase.test.ts adws/phases/__tests__/stepDefPhase.test.ts adws/phases/__tests__/scenarioProjectSetup.test.ts adws/phases/__tests__/applicationTypeGate.test.ts adws/phases/__tests__/worktreeSetup.test.ts` — The feature's own tests, in isolation.
 - `bunx tsx adws/core/hashComputer.ts` — Prints the framework hash. It fails if a `hashInputs` file, such as a new template, does not resolve.
 - `bun run lint:git-guard` — No raw `git`/`gh` strings in the new code.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-992"` — This issue's scenarios.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-992"` — This issue's scenarios, plus the feature-989 protected-path outline and the feature-991 upgrade outline, which also carry the tag. The fresh-repository run installs from the npm registry and downloads Chromium, so it needs network access.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-991 or @adw-931"` — The upgrade harness and the application-type scenarios still pass with the new upgrade dependency and the shared config's profile.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — The regression suite, including surface rows 06, 20, 21 and 22 with the profile on the harness config, the `@python-e2e` scenario proof, and the `@framework-hash` digest over the live checkout.
 
@@ -629,7 +654,8 @@ Execute every command to validate the feature works correctly with zero regressi
   - The install guard (`test -d node_modules || npm ci`): this is "installs … in `features/`" carried into each fresh worktree. It also keeps `npx` from fetching an unrelated `bddgen` from the registry.
   - One output directory per tag in `web` mode: Playwright empties `outputDir` at the start of every run. Regression images now survive in their own subdirectory. ADR-0061 already accepts that `screenshot: 'on'` captures them, and ADR-0063's proof assembler, a later issue, selects the per-issue ones. Until then, the review phase's existing whole-directory upload includes them.
   - `ADW_APPLICATION_URL` in both modes: the PRD's **Scenario phase** module passes it "in addition to the existing variables". `cli` behaviour (runner, commands, step definitions) is unchanged.
-  - "Commits": the upgrade lane's regen commit carries what `adw_init` wrote. The prompt adds no commit of its own, so the upgrade still lands one regen commit.
+  - "Commits": the upgrade lane's regen commit carries what `adw_init` wrote and what the upgrade's own sync and install wrote. The prompt adds no commit of its own, so the upgrade still lands one regen commit.
+  - The upgrade runs the install itself. The issue gives "installs … installs the browser; commits" to `adw_init`, and `adw_init`'s TypeScript path is the upgrade lane. The install runs there for the same reason the file sync does. The regen commit then holds the lockfile every worktree's `npm ci` needs, even when the agent skipped step 6, and the `@adw-992` upgrade scenario can check the install.
 - **Upgrade fan-out.** Listing the templates in `hashInputs` and editing `adw_init.md` bump the framework hash, so every registered target repository gets an upgrade PR.
   - `web` repositories gain the project and `## Start Dev Server` with `{PORT}`.
   - Their old cucumber-js step definitions are left alone (no migration). Until the owner rewrites them under `features/steps/`, `bddgen` fails on their undefined steps. This is the red regression baseline ADR-0061 accepts.
