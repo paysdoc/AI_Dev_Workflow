@@ -47,6 +47,13 @@ function cleanup(tmpDir: string | null): void {
   }
 }
 
+/** Stands a fixture framework a scenario of another feature built in for this feature's, so that this feature's hash steps read it. */
+export function adoptFixtureFramework(root: string): void {
+  ctx.fixtureRoot = root;
+  ctx.recordedHashes = [];
+  ctx.lastError = null;
+}
+
 Before({ tags: '@framework-hash' }, function () {
   ctx.fixtureRoot = null;
   ctx.secondFixtureRoot = null;

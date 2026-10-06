@@ -15,6 +15,7 @@ import type { RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import { AgentStateManager, detectRecoveryState } from '../../../adws/core/index.ts';
+import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
 
 import { world796, splitRepo, buildRecordingBoundary } from './feature-796.steps.ts';
 
@@ -114,6 +115,7 @@ export function createWorkflow(issueNumber: number, repoStr: string): Workflow92
       scenarios: { bddFramework: 'cucumber-js' },
     },
     adwYmlConfig: { hitl: false, unitTests: false },
+    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
     topLevelStatePath: '',
     gitContext: boundary.gitContext,
   } as unknown as WorkflowConfig;

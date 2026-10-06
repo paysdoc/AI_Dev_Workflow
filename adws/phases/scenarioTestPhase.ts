@@ -9,12 +9,13 @@ import {
   log,
   AgentStateManager,
   emptyModelUsageMap,
-  stepDefExtensionsFor,
   type ModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import { withDevServer } from '../core/devServerLifecycle';
+import { resolveScenarioRunner } from '../core/scenarioRunner';
+import { requireApplicationProfile } from './applicationTypeGate';
 import type { WorkflowConfig } from './workflowInit';
 
 function extractPort(applicationUrl: string): number {
@@ -35,7 +36,7 @@ function isDevServerConfigured(startDevServer: string): boolean {
 /**
  * Returns immediately with a passing result when:
  * - `projectConfig.scenariosMd` is empty (no scenarios configured), or
- * - `projectConfig.commands.runScenariosByTag` is 'N/A'
+ * - the scenario runner's command is 'N/A', which only a descriptor runner can say
  */
 export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
@@ -55,12 +56,11 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
   const phaseStartTime = Date.now();
   const modelUsage = emptyModelUsageMap();
 
-  const { runScenariosByTag: runByTagCommand, startDevServer, healthCheckPath } = projectConfig.commands;
+  const { startDevServer, healthCheckPath } = projectConfig.commands;
   const { scenariosMd, reviewProofConfig } = projectConfig;
-  const { stepDefDirectory, bddFramework } = projectConfig.scenarios;
-  const stepDefExtensions = stepDefExtensionsFor(bddFramework);
+  const runner = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, projectConfig);
 
-  if (!scenariosMd.trim() || runByTagCommand.trim() === 'N/A') {
+  if (!scenariosMd.trim() || runner.runByTagCommand.trim() === 'N/A') {
     log('Scenario test phase: no scenarios configured — skipping', 'info');
     AgentStateManager.appendLog(orchestratorStatePath, 'Scenario test phase: skipped (no scenarios configured)');
 
@@ -87,12 +87,14 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
     runScenarioProof({
       scenariosMd,
       reviewProofConfig,
-      runByTagCommand,
+      runByTagCommand: runner.runByTagCommand,
       issueNumber,
       proofDir,
       cwd: worktreePath,
-      stepDefDirectory,
-      stepDefExtensions,
+      stepDefDirectory: runner.stepDefDirectory,
+      stepDefExtensions: [...runner.stepDefExtensions],
+      proofDirPerTag: runner.proofDirPerTag,
+      env: { ADW_APPLICATION_URL: applicationUrl },
     });
 
   let scenarioProof: ScenarioProofResult;

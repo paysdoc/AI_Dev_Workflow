@@ -6,6 +6,7 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runStepDefAgent } from '../agents';
+import { requireApplicationProfile } from './applicationTypeGate';
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
 
@@ -23,6 +24,7 @@ export async function executeStepDefPhase(
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting step definition generation phase');
 
   try {
+    const { runnerMode } = requireApplicationProfile(config);
     const stepDefAgentStatePath = AgentStateManager.initializeState(adwId, 'step-def-agent', orchestratorStatePath);
     AgentStateManager.writeState(stepDefAgentStatePath, {
       adwId,
@@ -31,7 +33,7 @@ export async function executeStepDefPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext, workflowLaunchContext(config));
+    const result = await runStepDefAgent(issueNumber, adwId, runnerMode, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext, workflowLaunchContext(config));
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

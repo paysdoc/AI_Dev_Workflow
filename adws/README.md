@@ -838,7 +838,7 @@ Three required sections:
 - `## Run Scenarios by Tag` — Tool-specific command to run scenarios filtered by tag; use `{tag}` as a placeholder (substituted at runtime)
 - `## Run Regression Scenarios` — Command to run all `@regression`-tagged regression scenarios
 
-**Playwright example:**
+**Playwright example** (a `cli` repository that names its own Playwright tests; `adw_init` no longer writes this, and a `web` repository gets the configuration below instead):
 
 ```markdown
 ## Scenario Directory
@@ -863,6 +863,38 @@ cucumber-js --tags "@{tag}"
 ## Run Regression Scenarios
 cucumber-js --tags "@regression"
 ```
+
+**`web` repositories — ADW's Playwright project:**
+
+For a repository whose `## Application Type` is `web`, `adw_init` writes ADW's own configuration, whatever scenario tooling the repository already has. The repository's own e2e setup is left as it is and is not used:
+
+```markdown
+## Scenario Directory
+features/
+
+## Run Scenarios by Tag
+cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@{tag}\b"
+
+## Run Regression Scenarios
+cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@regression\b"
+
+## BDD Framework
+playwright-bdd
+
+## Step Def Directory
+features/steps
+```
+
+The scenario phase takes its runner from the application type's profile (`adws/core/scenarioRunner.ts`), not from these descriptors, so a `web` repository whose `.adw/` still names another runner runs on ADW's project all the same. In `web` mode the phase:
+
+- runs ADW's command from the worktree root: install `features/` from its lockfile when the worktree has no `node_modules`, `npx bddgen`, then `npx playwright test --grep "@<tag>\b"` (`\b` keeps `@adw-99` from selecting `@adw-992`);
+- starts the dev server through the usual lifecycle and passes `ADW_APPLICATION_URL`, the dev server's address, which `features/playwright.config.ts` reads as `use.baseURL`, next to `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`;
+- gives each tag its own `ADW_PROOF_DIR` inside the proof's artifacts directory, because Playwright empties its output directory at the start of every run;
+- reads step definitions from `features/steps/` (`.ts`).
+
+The unit-test phase installs the project the same way before the static checks, since the repository's own type check or lint may cover `features/**`. `generate_step_definitions` receives the runner mode (`adw_playwright`) and writes `createBdd()` steps from `playwright-bdd` that take the `page` fixture; the configuration takes an end-state screenshot of every scenario that uses `page`.
+
+`cli` repositories are unchanged: the scenario phase runs `.adw/commands.md`'s command, with the step-definition directory and extensions `.adw/scenarios.md` names, and `ADW_PROOF_DIR` as before. The one difference is the extra `ADW_APPLICATION_URL` variable.
 
 **`commands.md` additions:**
 

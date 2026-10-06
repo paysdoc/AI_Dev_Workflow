@@ -159,6 +159,8 @@ function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
  * @param options.runByTagCommand - Command template with `{tag}` placeholder.
  * @param options.issueNumber - Current issue number for `{issueNumber}` substitution in tag patterns.
  * @param options.proofDir - Directory in which to write `scenario_proof.md`.
+ * @param options.env - Extra variables for every run. `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR` always take ADW's own values.
+ * @param options.proofDirPerTag - Gives each tag's run its own `ADW_PROOF_DIR` inside the artifacts directory.
  */
 export async function runScenarioProof(options: {
   scenariosMd: string;
@@ -169,6 +171,8 @@ export async function runScenarioProof(options: {
   cwd?: string;
   stepDefDirectory?: string;
   stepDefExtensions?: string[];
+  env?: Readonly<Record<string, string>>;
+  proofDirPerTag?: boolean;
 }): Promise<ScenarioProofResult> {
   const {
     reviewProofConfig,
@@ -178,6 +182,8 @@ export async function runScenarioProof(options: {
     cwd,
     stepDefDirectory = 'features/step_definitions',
     stepDefExtensions = ['.ts'],
+    env = {},
+    proofDirPerTag = false,
   } = options;
 
   const effectiveCwd = cwd ?? process.cwd();
@@ -215,9 +221,12 @@ export async function runScenarioProof(options: {
     // Remove any stale report from a prior run
     fs.rmSync(reportPath, { force: true });
 
+    const tagProofDir = proofDirPerTag ? path.join(artifactsDir, safeTagName) : artifactsDir;
+
     const result = await runScenariosByTag(runByTagCommand, tagName, cwd, {
+      ...env,
       ADW_JUNIT_REPORT_PATH: reportPath,
-      ADW_PROOF_DIR: artifactsDir,
+      ADW_PROOF_DIR: tagProofDir,
     });
 
     const report = readJUnitReport(reportPath);

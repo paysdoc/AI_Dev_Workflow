@@ -11,6 +11,7 @@ import {
 } from '../../core/applicationType';
 import { ParkReason, type ParkEvidence } from '../../forge/parkComment';
 import {
+  declaredApplicationProfile,
   requireApplicationProfile,
   runApplicationTypeGate,
   type ApplicationTypeGateConfig,
@@ -223,5 +224,43 @@ describe('requireApplicationProfile', () => {
   it('throws, naming both initialisers, instead of defaulting when there is none', () => {
     expect(() => requireApplicationProfile({})).toThrow(/initializeWorkflow/);
     expect(() => requireApplicationProfile({})).toThrow(/initializePRReviewWorkflow/);
+  });
+});
+
+describe('declaredApplicationProfile', () => {
+  it.each([
+    ['cli', APPLICATION_TYPE_PROFILES.cli],
+    ['web', APPLICATION_TYPE_PROFILES.web],
+  ] as const)('returns the %s profile for a repository that declares it', (type, profile) => {
+    expect(declaredApplicationProfile(configDeclaring(type))).toBe(profile);
+  });
+
+  it('reads a value that differs only in case or spacing as the type it names', () => {
+    expect(declaredApplicationProfile(configDeclaring('  Web '))).toBe(APPLICATION_TYPE_PROFILES.web);
+  });
+
+  it.each([
+    ['missing', null],
+    ['blank', '   '],
+    ['unknown', 'desktop'],
+    ['an inherited name', 'constructor'],
+  ])('returns null where the gate would park: %s', (_name, declared) => {
+    expect(declaredApplicationProfile(configDeclaring(declared))).toBeNull();
+  });
+
+  it('answers for a third type that reaches it through the table alone', () => {
+    const profiles: ApplicationProfiles = { ...APPLICATION_TYPE_PROFILES, desktop: FAKE };
+
+    expect(declaredApplicationProfile(configDeclaring('desktop'), profiles)).toBe(FAKE);
+    expect(declaredApplicationProfile(configDeclaring('desktop'))).toBeNull();
+  });
+
+  it('does not merge, park or log: it only reads the configuration it is given', () => {
+    const config = makeConfig();
+
+    declaredApplicationProfile(configDeclaring(null));
+
+    expect(sandbox.consoleOutput()).toBe('');
+    expect(fs.existsSync(path.join(config.orchestratorStatePath, 'execution.log'))).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import type { GitContext } from '@paysdoc/devplatform/git';
 import { log, AgentStateManager, loadProjectConfig, type LogLevel, type ProjectConfig } from '../core';
 import {
+  APPLICATION_TYPE_PROFILES,
   describeApplicationProfile,
   resolveApplicationType,
   type ApplicationProfile,
@@ -66,6 +67,15 @@ export function runApplicationTypeGate(
   const second = resolveApplicationType(reloaded.applicationType, deps.profiles);
   if (second.kind === 'known') return proceed(config, reloaded, second.profile);
   return deps.park(config, second.evidence);
+}
+
+/** For callers that must never park, such as the upgrade that re-runs `adw_init`: the profile the declared type resolves to, or null where `runApplicationTypeGate` would park. */
+export function declaredApplicationProfile(
+  projectConfig: Pick<ProjectConfig, 'applicationType'>,
+  profiles: ApplicationProfiles = APPLICATION_TYPE_PROFILES,
+): ApplicationProfile | null {
+  const resolution = resolveApplicationType(projectConfig.applicationType, profiles);
+  return resolution.kind === 'known' ? resolution.profile : null;
 }
 
 export function buildApplicationTypeGateDeps(gitContext: Pick<GitContext, 'mergeLatestFromDefaultBranch'>): ApplicationTypeGateDeps {

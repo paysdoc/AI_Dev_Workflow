@@ -26,6 +26,7 @@ import { executeScenarioFixPhase } from '../../../adws/phases/scenarioFixPhase.t
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
 import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
+import { declaredApplicationProfile } from '../../../adws/phases/applicationTypeGate.ts';
 import type { PRReviewWorkflowContext } from '../../../adws/forge/workflowCommentsPR.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
@@ -227,6 +228,10 @@ export function buildConfigFor(world: RegressionWorld, adwId: string, launch: Pi
   const orchestratorStatePath = AgentStateManager.initializeState(adwId, id);
   writeInitialTopLevelState(adwId, issue, id, branchName);
 
+  const projectConfig = loadProjectConfig(worktreePath);
+  const applicationProfile = declaredApplicationProfile(projectConfig);
+  assert.ok(applicationProfile, `The fixture's .adw/project.md declares no application type ADW knows (it declares ${JSON.stringify(projectConfig.applicationType)}), and initializeWorkflow would have parked the run`);
+
   return {
     issueNumber: issue.number,
     adwId,
@@ -242,7 +247,8 @@ export function buildConfigFor(world: RegressionWorld, adwId: string, launch: Pi
     branchName,
     applicationUrl: 'http://localhost:0',
     repoContext: mockForgeProviders(SURFACE_REPO, worktreePath),
-    projectConfig: loadProjectConfig(worktreePath),
+    projectConfig,
+    applicationProfile,
     adwYmlConfig: readAdwYmlConfig(worktreePath),
     topLevelStatePath: AgentStateManager.getTopLevelStatePath(adwId),
     gitContext,

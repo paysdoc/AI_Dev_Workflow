@@ -83,6 +83,23 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 export type { ApplicationProfile, ApplicationProfiles, ApplicationType, ApplicationTypeResolution } from './applicationType';
 export { APPLICATION_TYPE_PROFILES, RunnerMode, EvidenceKind, resolveApplicationType, describeApplicationProfile } from './applicationType';
 
+export type { AdwPlaywrightProjectFile, ProjectFileAction, ProjectFileOutcome } from './adwPlaywrightProject';
+export {
+  ADW_PLAYWRIGHT_PROJECT_DIR,
+  ADW_PLAYWRIGHT_STEP_DEF_DIR,
+  ADW_PLAYWRIGHT_TEMPLATE_DIR,
+  ADW_PLAYWRIGHT_SETUP_COMMAND,
+  ADW_PLAYWRIGHT_INSTALL_COMMAND,
+  ADW_PLAYWRIGHT_RUN_BY_TAG,
+  ADW_PLAYWRIGHT_PROJECT_FILES,
+  ProjectFilePolicy,
+  appendMissingLines,
+  syncAdwPlaywrightProject,
+} from './adwPlaywrightProject';
+
+export type { ScenarioRunner, ScenarioRunnerConfig } from './scenarioRunner';
+export { resolveScenarioRunner } from './scenarioRunner';
+
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
