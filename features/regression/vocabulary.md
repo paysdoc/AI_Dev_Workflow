@@ -309,6 +309,77 @@ No step reads a source file, satisfying the Rot-Detection Rubric.
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
 is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the generic W16/T34 above.
 
+---
+
+## Given/When/Then — Rate-Limit In-Process Wait (@rate-limit-in-process-wait)
+
+These phrases drive the in-process wait for a five-hour rate limit (phase-import): the real pure wait
+policy (`decideRateLimitWait`, `adws/core/rateLimitWaitPolicy.ts`), the real phase runner (`runPhase`)
+over a scripted fake phase function, and the real takeover handler (`evaluateCandidate`) and
+hung-orchestrator detector (`findHungOrchestrators`). The phase runner is given an injected orchestrator
+clock, whose every wait advances the pinned instant to the wait's end while keeping the runner
+suspended for a short real delay, and a comment seam that records every comment it posts; `process.exit`
+is trapped for the When step. The orchestrator a scenario sets up holds the real spawn lock and runs the
+real heartbeat on a 20 ms tick — timers are never faked. Every assertion targets a runtime artefact: the
+decision the policy returns; the attempts, waits and comments recorded at those seams, in one ordered
+event log; the trapped exit code; the top-level state file `agents/<adwId>/state.json`, sampled when
+every wait begins and ends; the pause-queue state file `agents/paused_queue.json`; and the decisions the
+takeover handler and the detector reach. No step reads a source file, satisfying the Rot-Detection
+Rubric. The definitions live in `feature-912.steps.ts`. Its hooks are keyed on
+`@rate-limit-in-process-wait`: they reset its module-scoped world, save, clear and restore the pause
+queue, and stop the heartbeat and remove the state directories, the `acme/widgets` spawn locks and the
+throwaway worktree. A scenario that uses these phrases must carry that tag and name `acme/widgets`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RW1 | `rate-limit facts with a {string} limit that resets at {string}` | Builds the wait policy's input facts as `RateLimitError` carries them: `rateLimitType` as given and `resetsAt` as the epoch seconds of the given ISO 8601 instant | phase-import | wait-policy input (SUT input) |
+| G-RW2 | `rate-limit facts with a {string} limit and no reset time` | As G-RW1, with no `resetsAt` key | phase-import | wait-policy input (SUT input) |
+| G-RW3 | `rate-limit facts with no limit type and a reset time of {string}` | As G-RW1, with no `rateLimitType` key | phase-import | wait-policy input (SUT input) |
+| G-RW4 | `rate-limit facts with no limit type and no reset time` | Empty facts, as an overload or server error carries | phase-import | wait-policy input (SUT input) |
+| G-RW5 | `the orchestrator's clock reads {string}` | Pins the phase runner's injected clock (`WaitClock.now`) to the instant; each wait advances it to the wait's end. Not the scanner's clock (`the cron host's clock reads {string}`) | phase-import | phase-runner clock seam (SUT input) |
+| G-RW6 | `an orchestrator for issue {int} in the target repository {string} is running under adwId {string}` | Mirrors `runWithOrchestratorLifecycle`: writes the top-level state `agents/<adwId>/state.json` (stage `starting`, this process's `pid` and `pidStartedAt`, a `lastSeenAt`), takes the real spawn lock for `<repo>#<issue>` under this process, starts the real heartbeat on a 20 ms tick, and builds a `WorkflowConfig` over a throwaway worktree with no repo context. Use `acme/widgets`: the `After` hook releases that repository's spawn locks | phase-import | state file + spawn-lock artefacts |
+| G-RW7 | `the {string} phase meets these outcomes, attempt by attempt:` | Scripts the fake phase function from the table (`attempt`, `outcome`, `limit type`, `resets at`): `rate-limited` throws `RateLimitError(<phase>, facts)` with `resetsAt` in epoch seconds and an empty cell left out of the facts; `succeeds` returns a zero-cost `PhaseResult`. Each attempt records the orchestrator clock reading at its start | phase-import | phase function (SUT input) |
+| G-RW8 | `the {string} phase is rejected by {int} five-hour limits in a row, the first resetting at {string} and each later one five hours after the one before, and then succeeds` | Scripts N `five_hour` rejections resetting at X, X + 5 h, X + 10 h, …, then one success | phase-import | phase function (SUT input) |
+| G-RW9 | `a candidate arrives at issue {int} during every wait` | Makes every wait run the real `evaluateCandidate` for the issue (real spawn-gate functions, inert stubs for the rest) and record the decision | phase-import | takeover decisions (artefact) |
+| G-RW10 | `the orchestrator process dies during its first wait` | Makes the first wait never resolve; the phase-runner When then returns once that wait has begun, stops the heartbeat, and points the top-level state's and the spawn lock's `pid`/`pidStartedAt` at a child process that has really exited | phase-import | state file + spawn-lock artefacts |
+| W-RW1 | `the rate-limit wait policy decides at {string}` | Calls the real pure `decideRateLimitWait` with the facts and the given instant; records the returned decision | phase-import | returned decision (artefact) |
+| W-RW2 | `the phase runner runs the {string} phase` | Runs the real `runPhase` under the phase name over the scripted phase function, with the orchestrator clock and the recording comment seam injected and `process.exit` replaced, for the call, by a recorder that throws a sentinel the step catches. Every wait records its end, samples the top-level state when it begins and ends, runs the hung-orchestrator detector at its end, and stays suspended in real time for longer than the detector's threshold. Stops the heartbeat when the run ends | phase-import | attempt log + wait log + recorded comments + trapped exit + state file |
+| W-RW3 | `the phase runner runs the {string} phase anonymously` | As W-RW2 with no phase name, as the orchestrators run most of their phases | phase-import | attempt log + wait log + recorded comments + trapped exit + state file |
+| W-RW4 | `the next candidate arrives at issue {int}` | Runs the real `evaluateCandidate` for the issue with the real spawn-gate functions, the real top-level state and real process liveness, resolving the adwId with `extractLatestAdwId` over the workflow's starting comment followed by the recorded comments; records the decision | phase-import | takeover decision (artefact) |
+| T-RW1 | `the wait policy decides to wait in-process until {string}` | Asserts the decision's kind is `wait_in_process` and its `until` is the given instant | phase-import | returned decision (artefact) |
+| T-RW2 | `the wait policy decides to enqueue with the reset time {string}` | Asserts kind `enqueue` and a `resetsAt` (epoch seconds) that is the given instant | phase-import | returned decision (artefact) |
+| T-RW3 | `the wait policy decides to enqueue with no reset time` | Asserts kind `enqueue` and no `resetsAt`; `null` or a defaulted value fails | phase-import | returned decision (artefact) |
+| T-RW4 | `the {string} phase ran {int} time(s)` | Asserts the number of attempts recorded at the scripted phase function | phase-import | recorded attempts (artefact) |
+| T-RW5 | `the orchestrator waited in-process until each of these times, in order:` | Asserts the recorded wait ends equal the `waits until` column, in order | phase-import | recorded waits at the clock seam |
+| T-RW6 | `the orchestrator waited in-process {int} times, each until the reset time reported by the rejection before it` | Asserts N recorded waits, wait k ending at the reset time scripted attempt k's rejection reported | phase-import | recorded waits at the clock seam |
+| T-RW7 | `the orchestrator did not wait in-process` | Asserts no wait was recorded | phase-import | recorded waits at the clock seam |
+| T-RW8 | `no re-run of the {string} phase started before the reset time it waited for` | Asserts an attempt follows every wait and that attempt k + 1 started at an orchestrator clock reading no earlier than wait k's end | phase-import | recorded attempts + waits |
+| T-RW9 | `the orchestrator never exited` | Asserts the trapped `process.exit` recorded no call | phase-import | trapped exit (artefact) |
+| T-RW10 | `the orchestrator exited with code {int}` | Asserts the trapped `process.exit` was called with the code | phase-import | trapped exit code (artefact) |
+| T-RW11 | `the state file for adwId {string} recorded workflowStage {string} throughout every wait` | Asserts at least one wait happened and that the top-level state sampled when every wait began and ended records the stage | phase-import | state file artefact (sampled in each wait) |
+| T-RW12 | `the heartbeat advanced lastSeenAt in the state file for adwId {string} during every wait` | Asserts at least one wait happened and that in every wait the end sample's `lastSeenAt` is a strictly later instant than the begin sample's | phase-import | state file artefact (sampled in each wait) |
+| T-RW13 | `the hung-orchestrator detector did not report adwId {string} at the end of any wait` | Asserts at least one wait happened and that the real `findHungOrchestrators`, run at the end of each wait over the real top-level state and real process liveness with a threshold of six test heartbeat ticks, did not report the adwId | phase-import | detector report (artefact) |
+| T-RW14 | `every candidate that arrived at issue {int} during a wait was deferred to the waiting orchestrator` | Asserts at least one candidate decision was recorded and that every one is `defer_live_holder` naming this process's pid | phase-import | takeover decisions (artefact) |
+| T-RW15 | `the candidate takes the workflow over under adwId {string}` | Asserts the decision W-RW4 recorded is `take_over_adwId` for the adwId | phase-import | takeover decision (artefact) |
+| T-RW16 | `exactly {int} wait comment(s) was/were posted on issue {int}` | Asserts the number of comments the phase runner posted for the issue at the injected comment seam | phase-import | recorded comments |
+| T-RW17 | `no wait comment was posted on issue {int}` | Asserts the phase runner posted no comment for the issue at the injected comment seam | phase-import | recorded comments |
+| T-RW18 | `the wait comments on issue {int} name these attempts and wait-until times in UTC, in order:` | Asserts as many comments as table rows, comment k carrying `**Attempt:** <attempt>`, the `waits until` instant in ISO 8601 (`toISOString()`) and `(UTC)` | phase-import | recorded comment bodies |
+| T-RW19 | `each wait comment on issue {int} was posted before the wait it announces began` | Asserts one comment per wait, comment k recorded before wait k in the event log the comment and clock seams share | phase-import | recorded event order |
+| T-RW20 | `every wait comment on issue {int} says the workflow is waiting for a rate limit to reset` | Asserts at least one comment and that every body names a rate limit, case-insensitively: "rate limit" (space, underscore or hyphen optional), "five hour", "5 hour", "session limit" or "usage limit" | phase-import | recorded comment bodies |
+| T-RW21 | `every wait comment on issue {int} is recognised by ADW as its own comment` | Asserts at least one comment and that `isAdwComment(body)` holds for every one | phase-import | recorded comment bodies |
+| T-RW22 | `the wait comments on issue {int} carry the attempt numbers 1 to {int}, in order` | Asserts exactly N comments, comment k carrying `**Attempt:** k` | phase-import | recorded comment bodies |
+| T-RW23 | `the pause queue does not hold adwId {string}` | Reads `agents/paused_queue.json` (saved, cleared and restored around the scenario); asserts no entry for the adwId | phase-import | pause-queue state artefact |
+| T-RW24 | `the pause queue holds adwId {string} with a {string} limit that resets at {string}` | Asserts the adwId's entry carries the `rateLimitType` verbatim and a `resetsAt` that is the given instant | phase-import | pause-queue state artefact |
+| T-RW25 | `the pause queue holds adwId {string} with a {string} limit and no reset time` | Asserts the adwId's entry carries the `rateLimitType` verbatim and no `resetsAt` key | phase-import | pause-queue state artefact |
+| T-RW26 | `the pause queue holds adwId {string} with no limit type and no reset time` | Asserts the adwId's entry has neither `rateLimitType` nor `resetsAt` | phase-import | pause-queue state artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), T1 (read from `agents/<adwId>/state.json`; one scenario also uses it as
+a Given, to confirm the stage the orchestrator was seeded with), T22, and the generic W16/T34 git/gh
+guard pair.
+
+---
+
 ## Given/When/Then — Surface phases and lifecycles
 
 These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
@@ -560,6 +631,67 @@ checked out` (G18, Background), G3 (its manifest is delivered as the marker abov
 issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (keeps the issues G4
 seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
 and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
+
+## Given/When/Then — Envelope Conformance Gate and Rate-Limited Claude CLI Stub (@envelope-conformance)
+
+These phrases drive ADW's stream-json envelope conformance gate (`adws/jsonl/`) and the regression
+suite's Claude CLI stub (`test/mocks/claude-cli-stub.ts`). The gate runs as a subprocess through its
+package script (`bun run jsonl:check`, exactly as CI runs it) and in-process (phase-import) through
+`checkConformance`, `updateFixtureEnvelopes` and `probeClaudeJsonlSchema` over throwaway inputs. The
+stub runs as a subprocess the way an agent spawns the CLI. The real Claude CLI is never spawned: the
+schema probe gets a throwaway fake CLI on `CLAUDE_CODE_PATH`, and the rate-limit probe and the agent
+run get the pause-queue harness's injected exec seam and a fake child process. Every input is a
+throwaway copy under `os.tmpdir()`: committed fixtures are read or copied, never modified, and the
+probe writes a throwaway copy of the schema, never `adws/jsonl/schema.json`. Every assertion targets a
+runtime artefact: the gate's exit code and report, the per-fixture results `checkConformance` returns
+(pass or fail, missing required fields by dot-path, informational unknown fields), the copy the
+fixture updater rewrote, the argv the fake CLI recorded, the stub's stdout and exit code, the
+rate-limit probe's classification and the agent run's result. No step reads, greps or parses a source
+file, satisfying the Rot-Detection Rubric. The definitions live in `feature-909.steps.ts` and
+`feature-909-tooling.steps.ts`; W-EC6, W-EC7, T-EC14 and T-EC15 live in the pause-queue harness's
+`feature-902.steps.ts`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-EC1 | `a copy of the committed JSONL fixture captured from a real rate limit` | Copies the committed capture of a real rate-limited session (`adws/jsonl/fixtures/session-rate-limited.jsonl`, one message per line) into a fresh throwaway directory under `os.tmpdir()`; later steps mutate and check only that copy | phase-import | fixture input (SUT input, not source) |
+| G-EC2 | `a copy of the committed JSONL error-result fixture` | Copies the committed error-result fixture (`adws/jsonl/fixtures/result-error.jsonl`) into a fresh throwaway directory and records the `result` value of the copy's first message as the baseline T-EC8 compares against | phase-import | fixture input (SUT input, not source) |
+| G-EC3 | `in that copy the {string} message no longer carries the field {string}` | Deletes the field, a dot-path such as `rate_limit_info.status`, from every message of the given `type` in the throwaway copy and rewrites the copy one message per line: a single-field drift, the way a CLI change arrives | phase-import | fixture input (SUT input, not source) |
+| G-EC4 | `in that copy the {string} message carries {string} under its stale name {string}` | Moves the field's value to its stale name (such as `is_error` to `isError`) on every message of the given `type` in the throwaway copy that carries the field | phase-import | fixture input (SUT input, not source) |
+| G-EC5 | `a copy of the api_retry system message the Claude CLI documents:` | Writes the DocString, one `system`/`api_retry` JSON line as the Claude CLI's headless documentation publishes it, as `system-api-retry.jsonl` in a fresh throwaway directory | phase-import | fixture input (SUT input, not source) |
+| G-EC6 | `the Claude CLI answers the schema probe with:` | Writes a throwaway fake Claude CLI that appends its argv to a record file and prints the DocString as its stream-json output, points `CLAUDE_CODE_PATH` at it (the previous value is put back after the scenario) and copies the committed schema to a throwaway path for the probe to write. The record path is baked into the script rather than passed in a `MOCK_*` variable, which the probe's spawn environment drops | phase-import | stub behaviour (fake Claude CLI) |
+| G-EC7 | `the Claude CLI stub is asked for its rate-limited response` | Arms the next W-EC5 run with the stub's on-demand switch, `MOCK_RESPONSE=rate-limited` | subprocess | stub behaviour |
+| G-EC8 | `a copy of the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub as W-EC5 does, with `MOCK_RESPONSE=rate-limited`, and writes its stdout as a JSONL file in a fresh throwaway directory, for the gate to check like any fixture | subprocess | fixture input (stub output, SUT input) |
+| G-EC9 | `the Claude CLI answers the rate-limit probe with the committed JSONL fixture captured from a real rate limit` | Sets the rate-limit probe exec seam's reply (`probeStub.result`, from `feature-902.steps.ts`) to the committed rate-limited capture on `stdout` with exit code 1 | phase-import | stub behaviour (probe exec seam) |
+| G-EC10 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub with `MOCK_RESPONSE=rate-limited` and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| G-EC11 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's default response` | Runs the Claude CLI stub with no response switch and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| W-EC1 | `the envelope conformance gate is run through its package script entry point` | Runs `bun run jsonl:check` from the ADW checkout root as a subprocess, exactly as CI runs the gate over the committed fixtures, the committed schema and ADW's stream parser; records its exit status and stdout | subprocess | exit code + log stream |
+| W-EC2 | `the envelope conformance gate checks that copy` | Calls the gate's check in-process, `checkConformance(<committed schema>, <throwaway directory>)`, over the copy's directory; records the per-fixture results: pass or fail, missing required fields by dot-path, informational unknown fields, parser and extractor errors | phase-import | returned conformance results |
+| W-EC3 | `the fixture updater runs over that copy` | Calls `updateFixtureEnvelopes(<committed schema>, <throwaway directory>)` in-process, the updater behind `bun run jsonl:update` that a failing gate report points to; it rewrites the copy in place | phase-import | fixture copy rewritten by the updater |
+| W-EC4 | `the schema probe runs` | Calls `probeClaudeJsonlSchema(<throwaway schema path>)` in-process; the probe spawns the fake Claude CLI G-EC6 installed, which records the argv it receives | phase-import | recorded argv |
+| W-EC5 | `the Claude CLI stub is run` | Spawns `test/mocks/claude-cli-stub.ts` the way an agent spawns the CLI (`--print --verbose --output-format stream-json` and a prompt, no stream delay), with G-EC7's switch when armed; records its stdout and exit code | subprocess | log stream + exit code |
+| W-EC6 | `the rate-limit probe runs` | Calls the real `probeRateLimit` with the injected exec seam (`probeStub.exec`, never a spawned CLI) and records its classification. Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+| W-EC7 | `the same Claude CLI output is streamed through an agent run` | Streams the probe exec seam's stdout, newline-terminated, through the real `handleAgentProcess` on a fake child process (one `data` event, then `close`) and records the `AgentResult`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC1 | `the envelope conformance gate exits 0` | Asserts the exit status W-EC1 recorded is 0; the gate's stdout is shown on failure | subprocess | exit code |
+| T-EC2 | `the envelope conformance gate reports no failing fixture` | Asserts W-EC1's stdout carries no failing-fixture marker (`✗`) | subprocess | log stream |
+| T-EC3 | `the envelope conformance gate fails` | Asserts at least one result W-EC2 recorded did not pass | phase-import | returned conformance results |
+| T-EC4 | `the envelope conformance gate passes` | Asserts every result W-EC2 recorded passed | phase-import | returned conformance results |
+| T-EC5 | `the envelope conformance gate reports {string} missing from the {string} message` | Asserts one of W-EC2's missing-required-field reports names the field's dot-path for that message `type`; a report with no message prefix also counts | phase-import | returned conformance results |
+| T-EC6 | `the envelope conformance gate flags no field of the {string} message as unknown` | Asserts none of W-EC2's informational unknown-field reports (extra fields, or "no schema coverage") belongs to that message `type` | phase-import | returned conformance results |
+| T-EC7 | `the envelope conformance gate flags none of these fields of the {string} message as unknown:` | For each `field` row of the data table, asserts no unknown-field report W-EC2 recorded for that message `type` names the field | phase-import | returned conformance results |
+| T-EC8 | `that copy's {string} message keeps its original {string} value` | Reads the copy W-EC3 rewrote and asserts the message's field still equals the baseline G-EC2 recorded | phase-import | fixture copy rewritten by the updater |
+| T-EC9 | `the schema probe requested {string} output from the Claude CLI` | Reads the argv the fake Claude CLI recorded for the probe's last invocation; asserts `--output-format` is followed by the given format | phase-import | recorded argv |
+| T-EC10 | `the schema probe requested verbose output from the Claude CLI` | Asserts the argv recorded for the probe's last invocation includes `--verbose` | phase-import | recorded argv |
+| T-EC11 | `the stub's output carries a rate_limit_event that rejects the request` | Parses W-EC5's stdout line by line; asserts a `rate_limit_event` whose `rate_limit_info.status` is `rejected` | subprocess | log stream |
+| T-EC12 | `the stub's rate_limit_event names a reset time that has not yet passed` | Asserts that event's `rate_limit_info.resetsAt`, in epoch seconds like the real capture, is later than now | subprocess | log stream |
+| T-EC13 | `the stub's output ends with a result whose api_error_status is {int} and whose is_error is {word}` | Asserts the last line of W-EC5's stdout is a `result` carrying that `api_error_status` and that `is_error`. Defined as a regex whose last group accepts only `true` or `false` | subprocess | log stream |
+| T-EC14 | `the agent run ends rate-limited` | Asserts the `AgentResult` W-EC7 recorded has `rateLimited: true`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC15 | `the rate-limit probe reports {string}` | Asserts the verdict of the classification W-EC6 recorded (`clear`, `limited`, `failed` or `unknown`). Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+
+G-EC9, G-EC10 and G-EC11 are literal phrases on purpose: a single parameterised phrase would collide
+with `the Claude CLI answers the rate-limit probe with exit code {int} and {word}:`. The scenario's
+`<reply>` outline column expands to G-EC9 and G-EC10. This section also reuses already-registered
+phrases, so they need no new rows: `the ADW codebase is checked out` (G18), `the ADW TypeScript
+type-check passes` (T22) and the git/gh guard pair W16/T34.
 
 ---
 
