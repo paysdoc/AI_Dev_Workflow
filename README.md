@@ -577,7 +577,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
-│   │   ├── fixRoundGuard.test.ts
+│   │   ├── fixRoundGuard.config.test.ts
+│   │   ├── fixRoundGuard.protectedPaths.test.ts
+│   │   ├── fixRoundGuard.suppression.test.ts
+│   │   ├── fixRoundGuard.table.test.ts
+│   │   ├── fixRoundGuard.verdict.test.ts
+│   │   ├── fixRoundGuardFixtures.ts
 │   │   ├── forgeWiring.test.ts
 │   │   ├── githubAppAuth.test.ts
 │   │   ├── guardrailsGate.test.ts
@@ -615,14 +620,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
-│   │   ├── staticCheckFixLoop.test.ts
+│   │   ├── staticCheckFixLoop.guard.test.ts
+│   │   ├── staticCheckFixLoop.progress.test.ts
+│   │   ├── staticCheckFixLoopHelpers.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   ├── unaddressedComments.test.ts
-│   │   ├── unifiedDiff.test.ts
+│   │   ├── unifiedDiff.parse.test.ts
+│   │   ├── unifiedDiff.touchedPaths.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
 │   │   ├── upgradeFailureCap.test.ts
@@ -716,7 +724,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── hitlBoardNotifier.test.ts
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   ├── parkComment.test.ts
+│   │   ├── parkComment.content.test.ts
+│   │   ├── parkComment.helpers.ts
+│   │   ├── parkComment.quoting.test.ts
+│   │   ├── parkComment.structure.test.ts
 │   │   ├── prCommentDetector.test.ts
 │   │   ├── workflowCommentsBase.test.ts
 │   │   └── workflowCommentsIssue.test.ts
@@ -821,7 +832,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── startupFailureLog.test.ts
-│   │   ├── staticCheckFixRound.test.ts
+│   │   ├── staticCheckFixRound.failure.test.ts
+│   │   ├── staticCheckFixRound.fix.test.ts
+│   │   ├── staticCheckFixRound.helpers.ts
+│   │   ├── staticCheckFixRound.keepDiscard.test.ts
 │   │   ├── unitTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowCompletion.test.ts
@@ -1156,6 +1170,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   └── support/        # Per-issue Cucumber support drivers (e.g. feature-846-ensure-driver.ts, feature-936-commit-driver.ts, feature-936-cost-section-driver.ts)
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── drivers/        # Scripts the subprocess harness runs as child processes (the workflow-init driver); outside the support and step-definition directories, which Cucumber imports
+│   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)

@@ -41,11 +41,11 @@ const stubState: { stdout: string; status: number | null; askedForRateLimited: b
   stdout: '', status: null, askedForRateLimited: false,
 };
 
-Before({ tags: '@adw-909' }, function () {
+Before({ tags: '@envelope-conformance' }, function () {
   resetFeature902ProbeState();
 });
 
-After({ tags: '@adw-909' }, function () {
+After({ tags: '@envelope-conformance' }, function () {
   if (probeState.scriptDir) {
     try { rmSync(probeState.scriptDir, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
