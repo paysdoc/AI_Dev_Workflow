@@ -561,6 +561,67 @@ issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (k
 seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
 and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
 
+## Given/When/Then — Envelope Conformance Gate and Rate-Limited Claude CLI Stub (@envelope-conformance)
+
+These phrases drive ADW's stream-json envelope conformance gate (`adws/jsonl/`) and the regression
+suite's Claude CLI stub (`test/mocks/claude-cli-stub.ts`). The gate runs as a subprocess through its
+package script (`bun run jsonl:check`, exactly as CI runs it) and in-process (phase-import) through
+`checkConformance`, `updateFixtureEnvelopes` and `probeClaudeJsonlSchema` over throwaway inputs. The
+stub runs as a subprocess the way an agent spawns the CLI. The real Claude CLI is never spawned: the
+schema probe gets a throwaway fake CLI on `CLAUDE_CODE_PATH`, and the rate-limit probe and the agent
+run get the pause-queue harness's injected exec seam and a fake child process. Every input is a
+throwaway copy under `os.tmpdir()`: committed fixtures are read or copied, never modified, and the
+probe writes a throwaway copy of the schema, never `adws/jsonl/schema.json`. Every assertion targets a
+runtime artefact: the gate's exit code and report, the per-fixture results `checkConformance` returns
+(pass or fail, missing required fields by dot-path, informational unknown fields), the copy the
+fixture updater rewrote, the argv the fake CLI recorded, the stub's stdout and exit code, the
+rate-limit probe's classification and the agent run's result. No step reads, greps or parses a source
+file, satisfying the Rot-Detection Rubric. The definitions live in `feature-909.steps.ts` and
+`feature-909-tooling.steps.ts`; W-EC6, W-EC7, T-EC14 and T-EC15 live in the pause-queue harness's
+`feature-902.steps.ts`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-EC1 | `a copy of the committed JSONL fixture captured from a real rate limit` | Copies the committed capture of a real rate-limited session (`adws/jsonl/fixtures/session-rate-limited.jsonl`, one message per line) into a fresh throwaway directory under `os.tmpdir()`; later steps mutate and check only that copy | phase-import | fixture input (SUT input, not source) |
+| G-EC2 | `a copy of the committed JSONL error-result fixture` | Copies the committed error-result fixture (`adws/jsonl/fixtures/result-error.jsonl`) into a fresh throwaway directory and records the `result` value of the copy's first message as the baseline T-EC8 compares against | phase-import | fixture input (SUT input, not source) |
+| G-EC3 | `in that copy the {string} message no longer carries the field {string}` | Deletes the field, a dot-path such as `rate_limit_info.status`, from every message of the given `type` in the throwaway copy and rewrites the copy one message per line: a single-field drift, the way a CLI change arrives | phase-import | fixture input (SUT input, not source) |
+| G-EC4 | `in that copy the {string} message carries {string} under its stale name {string}` | Moves the field's value to its stale name (such as `is_error` to `isError`) on every message of the given `type` in the throwaway copy that carries the field | phase-import | fixture input (SUT input, not source) |
+| G-EC5 | `a copy of the api_retry system message the Claude CLI documents:` | Writes the DocString, one `system`/`api_retry` JSON line as the Claude CLI's headless documentation publishes it, as `system-api-retry.jsonl` in a fresh throwaway directory | phase-import | fixture input (SUT input, not source) |
+| G-EC6 | `the Claude CLI answers the schema probe with:` | Writes a throwaway fake Claude CLI that appends its argv to a record file and prints the DocString as its stream-json output, points `CLAUDE_CODE_PATH` at it (the previous value is put back after the scenario) and copies the committed schema to a throwaway path for the probe to write. The record path is baked into the script rather than passed in a `MOCK_*` variable, which the probe's spawn environment drops | phase-import | stub behaviour (fake Claude CLI) |
+| G-EC7 | `the Claude CLI stub is asked for its rate-limited response` | Arms the next W-EC5 run with the stub's on-demand switch, `MOCK_RESPONSE=rate-limited` | subprocess | stub behaviour |
+| G-EC8 | `a copy of the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub as W-EC5 does, with `MOCK_RESPONSE=rate-limited`, and writes its stdout as a JSONL file in a fresh throwaway directory, for the gate to check like any fixture | subprocess | fixture input (stub output, SUT input) |
+| G-EC9 | `the Claude CLI answers the rate-limit probe with the committed JSONL fixture captured from a real rate limit` | Sets the rate-limit probe exec seam's reply (`probeStub.result`, from `feature-902.steps.ts`) to the committed rate-limited capture on `stdout` with exit code 1 | phase-import | stub behaviour (probe exec seam) |
+| G-EC10 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub with `MOCK_RESPONSE=rate-limited` and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| G-EC11 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's default response` | Runs the Claude CLI stub with no response switch and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| W-EC1 | `the envelope conformance gate is run through its package script entry point` | Runs `bun run jsonl:check` from the ADW checkout root as a subprocess, exactly as CI runs the gate over the committed fixtures, the committed schema and ADW's stream parser; records its exit status and stdout | subprocess | exit code + log stream |
+| W-EC2 | `the envelope conformance gate checks that copy` | Calls the gate's check in-process, `checkConformance(<committed schema>, <throwaway directory>)`, over the copy's directory; records the per-fixture results: pass or fail, missing required fields by dot-path, informational unknown fields, parser and extractor errors | phase-import | returned conformance results |
+| W-EC3 | `the fixture updater runs over that copy` | Calls `updateFixtureEnvelopes(<committed schema>, <throwaway directory>)` in-process, the updater behind `bun run jsonl:update` that a failing gate report points to; it rewrites the copy in place | phase-import | fixture copy rewritten by the updater |
+| W-EC4 | `the schema probe runs` | Calls `probeClaudeJsonlSchema(<throwaway schema path>)` in-process; the probe spawns the fake Claude CLI G-EC6 installed, which records the argv it receives | phase-import | recorded argv |
+| W-EC5 | `the Claude CLI stub is run` | Spawns `test/mocks/claude-cli-stub.ts` the way an agent spawns the CLI (`--print --verbose --output-format stream-json` and a prompt, no stream delay), with G-EC7's switch when armed; records its stdout and exit code | subprocess | log stream + exit code |
+| W-EC6 | `the rate-limit probe runs` | Calls the real `probeRateLimit` with the injected exec seam (`probeStub.exec`, never a spawned CLI) and records its classification. Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+| W-EC7 | `the same Claude CLI output is streamed through an agent run` | Streams the probe exec seam's stdout, newline-terminated, through the real `handleAgentProcess` on a fake child process (one `data` event, then `close`) and records the `AgentResult`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC1 | `the envelope conformance gate exits 0` | Asserts the exit status W-EC1 recorded is 0; the gate's stdout is shown on failure | subprocess | exit code |
+| T-EC2 | `the envelope conformance gate reports no failing fixture` | Asserts W-EC1's stdout carries no failing-fixture marker (`✗`) | subprocess | log stream |
+| T-EC3 | `the envelope conformance gate fails` | Asserts at least one result W-EC2 recorded did not pass | phase-import | returned conformance results |
+| T-EC4 | `the envelope conformance gate passes` | Asserts every result W-EC2 recorded passed | phase-import | returned conformance results |
+| T-EC5 | `the envelope conformance gate reports {string} missing from the {string} message` | Asserts one of W-EC2's missing-required-field reports names the field's dot-path for that message `type`; a report with no message prefix also counts | phase-import | returned conformance results |
+| T-EC6 | `the envelope conformance gate flags no field of the {string} message as unknown` | Asserts none of W-EC2's informational unknown-field reports (extra fields, or "no schema coverage") belongs to that message `type` | phase-import | returned conformance results |
+| T-EC7 | `the envelope conformance gate flags none of these fields of the {string} message as unknown:` | For each `field` row of the data table, asserts no unknown-field report W-EC2 recorded for that message `type` names the field | phase-import | returned conformance results |
+| T-EC8 | `that copy's {string} message keeps its original {string} value` | Reads the copy W-EC3 rewrote and asserts the message's field still equals the baseline G-EC2 recorded | phase-import | fixture copy rewritten by the updater |
+| T-EC9 | `the schema probe requested {string} output from the Claude CLI` | Reads the argv the fake Claude CLI recorded for the probe's last invocation; asserts `--output-format` is followed by the given format | phase-import | recorded argv |
+| T-EC10 | `the schema probe requested verbose output from the Claude CLI` | Asserts the argv recorded for the probe's last invocation includes `--verbose` | phase-import | recorded argv |
+| T-EC11 | `the stub's output carries a rate_limit_event that rejects the request` | Parses W-EC5's stdout line by line; asserts a `rate_limit_event` whose `rate_limit_info.status` is `rejected` | subprocess | log stream |
+| T-EC12 | `the stub's rate_limit_event names a reset time that has not yet passed` | Asserts that event's `rate_limit_info.resetsAt`, in epoch seconds like the real capture, is later than now | subprocess | log stream |
+| T-EC13 | `the stub's output ends with a result whose api_error_status is {int} and whose is_error is {word}` | Asserts the last line of W-EC5's stdout is a `result` carrying that `api_error_status` and that `is_error`. Defined as a regex whose last group accepts only `true` or `false` | subprocess | log stream |
+| T-EC14 | `the agent run ends rate-limited` | Asserts the `AgentResult` W-EC7 recorded has `rateLimited: true`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC15 | `the rate-limit probe reports {string}` | Asserts the verdict of the classification W-EC6 recorded (`clear`, `limited`, `failed` or `unknown`). Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+
+G-EC9, G-EC10 and G-EC11 are literal phrases on purpose: a single parameterised phrase would collide
+with `the Claude CLI answers the rate-limit probe with exit code {int} and {word}:`. The scenario's
+`<reply>` outline column expands to G-EC9 and G-EC10. This section also reuses already-registered
+phrases, so they need no new rows: `the ADW codebase is checked out` (G18), `the ADW TypeScript
+type-check passes` (T22) and the git/gh guard pair W16/T34.
+
 ---
 
 ## Given/When/Then — Cost Records, the Cost API and Worker Deploy Detection (@cost-records)

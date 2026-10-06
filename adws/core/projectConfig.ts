@@ -2,8 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from './conditionalDocsRegistry';
 
-export type ApplicationType = 'cli' | 'web';
-
 export interface CommandsConfig {
   packageManager: string;
   installDeps: string;
@@ -77,8 +75,8 @@ export interface ProjectConfig {
   scenarios: ScenariosConfig;
   scenariosMd: string;
   reviewProofConfig: ReviewProofConfig;
-  /** Defaults to `'cli'`. */
-  applicationType: ApplicationType;
+  /** Absent or empty ⇒ `null`. Decisions read it only through `resolveApplicationType`, which alone says what a value means. */
+  applicationType: string | null;
 }
 
 const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
@@ -180,7 +178,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     scenarios: getDefaultScenariosConfig(),
     scenariosMd: '',
     reviewProofConfig: getDefaultReviewProofConfig(),
-    applicationType: 'cli',
+    applicationType: null,
   };
 }
 
@@ -216,15 +214,11 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   return sections;
 }
 
-/**
- * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
- * Defaults to `'cli'` when the section is absent or has any other value.
- */
-export function parseApplicationType(projectMd: string): ApplicationType {
+/** The section's value as written, comments stripped and trimmed; `null` when the section is absent or empty. */
+export function parseApplicationType(projectMd: string): string | null {
   const sections = parseMarkdownSections(projectMd);
-  const value = sections['application type'];
-  if (value !== undefined && value.trim().toLowerCase() === 'web') return 'web';
-  return 'cli';
+  const value = stripHtmlComments(sections['application type'] ?? '');
+  return value === '' ? null : value;
 }
 
 export function parseCommandsMd(content: string): CommandsConfig {
