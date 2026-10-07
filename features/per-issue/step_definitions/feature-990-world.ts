@@ -111,27 +111,36 @@ function forgetWorkflow(): void {
   state988.workflow = null;
 }
 
-Before({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld) {
+/** The hook bodies are exported for the scenarios of other features that run this feature's workflows. */
+export async function setUpWorld990(world: RegressionWorld): Promise<void> {
   resetState();
   forgetWorkflow();
-  s.world = this;
-  this.mockContext = await setupMockInfrastructure();
-  this.subprocess = createSubprocessHarness(this);
+  s.world = world;
+  world.mockContext = await setupMockInfrastructure();
+  world.subprocess = createSubprocessHarness(world);
 
   const scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-990-'));
   s.scratch = scratchPaths(scratchDir);
-  this.cleanup.push(() => fs.rmSync(scratchDir, { recursive: true, force: true }));
-});
+  world.cleanup.push(() => fs.rmSync(scratchDir, { recursive: true, force: true }));
+}
 
-After({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld) {
-  await runCleanup(this);
+export async function tearDownWorld990(world: RegressionWorld): Promise<void> {
+  await runCleanup(world);
   await teardownMockInfrastructure();
-  this.mockContext = null;
-  this.subprocess = null;
-  this.lastExitCode = -1;
-  this.lastOutput = '';
-  this.harnessEnv = {};
-  this.cleanup = [];
+  world.mockContext = null;
+  world.subprocess = null;
+  world.lastExitCode = -1;
+  world.lastOutput = '';
+  world.harnessEnv = {};
+  world.cleanup = [];
   resetState();
   forgetWorkflow();
+}
+
+Before({ tags: OWN_SCENARIOS }, function (this: RegressionWorld) {
+  return setUpWorld990(this);
+});
+
+After({ tags: OWN_SCENARIOS }, function (this: RegressionWorld) {
+  return tearDownWorld990(this);
 });

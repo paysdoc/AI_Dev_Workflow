@@ -19,6 +19,7 @@ import type { AssembledProof } from '../../../adws/proof/proofAssembler.ts';
 import { deactivateStandInAgent } from './feature-994-agent.ts';
 import type { RepositoryType } from './feature-994-names.ts';
 import { disposeRunner, type CaseOutcome, type StandInRunner, type TagBehaviour } from './feature-994-runner.ts';
+import type { PromptReceived } from './feature-995-prompt.ts';
 import type { ScreenshotStore } from './feature-937-world.ts';
 
 /** A scenario the stand-in runner reports, as a table says it: where its feature file is, and how its run ends. */
@@ -76,6 +77,8 @@ export interface State994 {
   verdicts: readonly (string | null)[];
   /** The proof each review was given, in the order the reviews ran. */
   reviewed: ProofReceived[];
+  /** The prompt each review agent was started with, in the order the reviews ran. */
+  prompts: PromptReceived[];
   /** The proof the last run of the scenario test phase left. */
   proof: ScenarioProofResult | null;
 }
@@ -101,6 +104,7 @@ function freshState(): State994 {
     pullRequestComments: [],
     verdicts: [],
     reviewed: [],
+    prompts: [],
     proof: null,
   };
 }
@@ -156,13 +160,18 @@ function removeScenarioArtefacts(): void {
   if (s.runner) disposeRunner(s.runner);
 }
 
-Before({ tags: '@adw-994' }, function () {
+/** The hook bodies are exported for the scenarios of other features that run this feature's workflow. */
+export function setUpWorld994(): void {
   resetState();
-});
+}
 
-After({ tags: '@adw-994' }, function () {
+export function tearDownWorld994(): void {
   setProofUploaderForTesting(null);
   deactivateStandInAgent();
   removeScenarioArtefacts();
   resetState();
-});
+}
+
+Before({ tags: '@adw-994' }, setUpWorld994);
+
+After({ tags: '@adw-994' }, tearDownWorld994);

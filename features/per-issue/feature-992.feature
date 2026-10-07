@@ -81,7 +81,7 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
       | declares the application type "cli"  |
       | has no "## Application Type" section |
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
+  @adw-992 @adw-2u517h-feat-web-repositorie @adw-995
   Scenario Outline: The framework upgrade of a "<type>" repository never initialised by ADW completes when the "/adw_init" agent writes no ".adw/review_proof.md", and commits none
     Given a target repository never initialised by ADW
     And the "/adw_init" agent writes an ADW configuration with no ".adw/review_proof.md", whose ".adw/project.md" declares the application type "<type>"
