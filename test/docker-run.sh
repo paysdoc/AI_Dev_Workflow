@@ -5,7 +5,7 @@
 #   bash test/docker-run.sh [--tags "@regression"] [--build] [--shell]
 #
 # Options:
-#   --tags <tag>   Cucumber tag filter (default: @regression)
+#   --tags <tag>   Cucumber tag filter (default: @regression); scenarios tagged @host-only are always left out
 #   --build        Force image rebuild even if already cached
 #   --shell        Open an interactive shell inside the container for debugging
 #
@@ -50,6 +50,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# The image holds only Bun and Git, so a scenario that needs the real npm, the npm registry or a browser cannot run in it.
+CONTAINER_TAGS="(${BDD_TAGS}) and not @host-only"
+
 # ---------------------------------------------------------------------------
 # Pre-flight: Docker must be available
 # ---------------------------------------------------------------------------
@@ -92,17 +95,17 @@ if $OPEN_SHELL; then
     -v "${REPO_ROOT}:/workspace:ro" \
     -v /workspace/node_modules \
     -e "TEST_RUNTIME=docker" \
-    -e "BDD_TAGS=${BDD_TAGS}" \
+    -e "BDD_TAGS=${CONTAINER_TAGS}" \
     ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
     --entrypoint /bin/bash \
     "$IMAGE_TAG"
 else
-  echo "Running BDD scenarios tagged '${BDD_TAGS}' inside Docker container..."
+  echo "Running BDD scenarios tagged '${CONTAINER_TAGS}' inside Docker container..."
   docker run --rm \
     -v "${REPO_ROOT}:/workspace:ro" \
     -v /workspace/node_modules \
     -e "TEST_RUNTIME=docker" \
-    -e "BDD_TAGS=${BDD_TAGS}" \
+    -e "BDD_TAGS=${CONTAINER_TAGS}" \
     ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} \
     "$IMAGE_TAG"
 fi

@@ -10,8 +10,8 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 
-import type { Workflow929 } from './feature-929-workflow.ts';
-import { s } from './feature-988-world.ts';
+import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
+import { s } from '../../regression/step_definitions/feature-988-world.ts';
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8' });

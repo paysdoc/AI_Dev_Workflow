@@ -8,7 +8,7 @@ import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 import { buildApplicationTypeGateDeps, runApplicationTypeGate } from '../../../adws/phases/applicationTypeGate.ts';
 import { requireWorkflowGitContext } from '../../../adws/phases/workflowRepoIdentity.ts';
 
-import type { Workflow929 } from './feature-929-workflow.ts';
+import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
 import type { StartOutcome } from './feature-991-world.ts';
 
 export function startWorkflow(workflow: Workflow929): StartOutcome {

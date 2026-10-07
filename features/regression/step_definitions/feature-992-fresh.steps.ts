@@ -4,7 +4,8 @@
  * worktree checked out from the regen commit installs from the committed lockfile, and `bddgen` and `playwright test`
  * run the scenarios against a dev server written as a small Node program. An end-state image for the scenario that takes
  * `page`, and none for the one that does not, is Playwright's own behaviour, which a stand-in could only imitate.
- * It needs network access.
+ * It needs network access. It is tagged `@host-only`: the Docker image has neither npm nor a browser, so the container
+ * run leaves it out.
  */
 
 import { Given, Then, type DataTable } from '@cucumber/cucumber';
@@ -13,7 +14,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { commitAll, configureAdwInitAgent, createTargetRepo, git, runFrameworkUpgrade, upgradeWorld } from './feature-931.steps.ts';
+import { commitAll, configureAdwInitAgent, createTargetRepo, runFrameworkUpgrade, upgradeWorld } from './feature-931.steps.ts';
 import { createWorkflow } from './feature-929-workflow.ts';
 import { s as workflowWorld } from './feature-988-world.ts';
 import { assertProjectMdFile, projectMd } from './feature-991-project-md.ts';
@@ -24,6 +25,7 @@ import { devServerLog, standIns, toolchain } from './feature-992-standins.ts';
 import { registerDirectory, requireProof, requireWorkflow, s } from './feature-992-world.ts';
 import { writeFeature, writeStepFile } from './feature-992-worktree.ts';
 import { devServerSource } from './feature-992-standin-source.ts';
+import { realGit } from '../support/fixtureWorktree.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 const TARGET_REPOSITORY = 'adw-fixture/void-992-fresh';
@@ -72,7 +74,8 @@ Given('a workflow for issue {int} has a worktree checked out fresh from the rege
   const workflow = createWorkflow(issueNumber, TARGET_REPOSITORY);
   const checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-992-checkout-'));
   registerDirectory(checkout);
-  git(checkout, 'clone', '-q', repositoryDirectory(), '.');
+  // The @regression git mock turns clone into a no-op, even of a local path.
+  realGit(checkout, 'clone', '-q', repositoryDirectory(), '.');
   assert.ok(fs.existsSync(path.join(checkout, 'features', 'package-lock.json')), 'Expected the regen commit to carry the lockfile of ADW\'s Playwright project');
   assert.ok(!fs.existsSync(path.join(checkout, 'features', 'node_modules')), 'Expected a fresh worktree to hold no installed packages');
   const { repoContext } = workflow.config;

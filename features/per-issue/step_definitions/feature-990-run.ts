@@ -23,8 +23,8 @@ import { claimAdwId, claimIssue, requireHarness } from '../../regression/support
 import { findRealBunx, runThroughHarness } from '../../regression/support/subprocessRun.ts';
 
 import { world796 } from '../../regression/step_definitions/feature-796.steps.ts';
-import { commentsOn } from './feature-929-workflow.ts';
-import { s as state988 } from './feature-988-world.ts';
+import { commentsOn } from '../../regression/step_definitions/feature-929-workflow.ts';
+import { s as state988 } from '../../regression/step_definitions/feature-988-world.ts';
 import { buildManifest } from './feature-990-manifest.ts';
 import { ensurePullRequestBranch, PR_REVIEW_ORCHESTRATOR, seedPullRequestReview } from './feature-990-pr-review.ts';
 import { writeScripts } from './feature-990-scripts.ts';

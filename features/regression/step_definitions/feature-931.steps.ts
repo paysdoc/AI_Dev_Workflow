@@ -35,7 +35,7 @@ const AGENT_OUTPUT_PATHS: readonly string[] = [
   VOCABULARY_PATH,
 ];
 
-const UPGRADE_SCENARIOS = '@adw-931 or @adw-991 or @adw-992';
+const UPGRADE_SCENARIOS = '@adw-931 or @adw-991 or @web-playwright-project';
 const DEFAULT_MANIFEST = { file: 'package.json', content: '{ "name": "adw-931-target", "version": "0.0.0" }\n' };
 
 interface AdwInitAgent {

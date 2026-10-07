@@ -13,8 +13,8 @@ import { tmpdir } from 'os';
 import { runStaticChecks, CheckStatus, type CheckVerdict } from '../../../adws/core/checkRunner.ts';
 import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 
-import { checksThatRan } from './feature-988-commands.ts';
-import { s, recordingProcessRunner, writeStaticChecks } from './feature-988-world.ts';
+import { checksThatRan } from '../../regression/step_definitions/feature-988-commands.ts';
+import { s, recordingProcessRunner, writeStaticChecks } from '../../regression/step_definitions/feature-988-world.ts';
 
 interface VerdictRow {
   check: string;
