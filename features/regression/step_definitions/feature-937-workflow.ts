@@ -1,7 +1,7 @@
 /**
  * The workflow the feature-937 scenarios run the real scenario test phase and the real review phase
- * over: a throwaway worktree of a web repository, a recording issue tracker, and a stand-in Playwright
- * run that leaves a fixed proof run as the issue's scenario's screenshots instead of starting a browser.
+ * over: a throwaway worktree, a recording issue tracker, and a scenario command that copies a fixed
+ * proof run into the proof directory instead of starting a test suite.
  */
 
 import * as fs from 'fs';
@@ -19,7 +19,6 @@ import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { setProofUploaderForTesting } from '../../../adws/proof/proofUploader.ts';
 import { activateStandInAgent, deactivateStandInAgent, scriptStandInVerdict } from './feature-937-agent.ts';
-import { installStandInRunner, withStandInRunner, writePlaywrightProject } from './feature-937-runner.ts';
 import {
   REPO_ID,
   fixtureBytes,
@@ -35,12 +34,29 @@ import {
 
 const SCENARIOS_MD = '# Scenarios\n\nThe BDD scenarios of the workflow\'s repository.\n';
 
-// A web repository runs its scenarios with ADW's Playwright project, whatever its `.adw/` names as the scenario command.
-function repositoryProjectConfig(): ProjectConfig {
+const PASSING_JUNIT_REPORT =
+  '<?xml version="1.0" encoding="UTF-8"?><testsuite name="cucumber-js" tests="1" failures="0" skipped="0">' +
+  '<testcase name="The proof run" classname="features.proof"/></testsuite>';
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+// Whatever the tag, the command leaves the proof run in $ADW_PROOF_DIR and reports one passing scenario.
+function proofRunCommand(proofRunDir: string): string {
+  return [
+    'mkdir -p "$ADW_PROOF_DIR"',
+    `cp -R ${shellQuote(`${proofRunDir}/.`)} "$ADW_PROOF_DIR/"`,
+    `printf '%s' ${shellQuote(PASSING_JUNIT_REPORT)} > "$ADW_JUNIT_REPORT_PATH"`,
+    'echo "1 scenarios (1 passed)"',
+  ].join(' && ');
+}
+
+function repositoryProjectConfig(proofRunDir: string): ProjectConfig {
   const defaults = getDefaultProjectConfig();
   return {
     ...defaults,
-    commands: { ...defaults.commands, startDevServer: 'N/A' },
+    commands: { ...defaults.commands, startDevServer: 'N/A', runScenariosByTag: proofRunCommand(proofRunDir) },
     scenariosMd: SCENARIOS_MD,
   };
 }
@@ -51,6 +67,13 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 
+// The scenario test phase only runs when the repository has step definitions in its step-definition directory.
+function writeStepDefinitionFile(worktreePath: string): void {
+  const stepDefinitionDir = path.join(worktreePath, 'features', 'step_definitions');
+  fs.mkdirSync(stepDefinitionDir, { recursive: true });
+  fs.writeFileSync(path.join(stepDefinitionDir, 'proof.steps.ts'), '// The repository\'s step definitions.\n');
+}
+
 export function createReviewWorkflow(issueNumber: number, adwId: string): ReviewWorkflow {
   // A state directory left by a crashed earlier run would let an assertion pass without this run writing it.
   fs.rmSync(path.join(AGENTS_STATE_DIR, adwId), { recursive: true, force: true });
@@ -59,9 +82,7 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
   const worktreePath = makeTempDir('adw-937-worktree-');
   const logsDir = makeTempDir('adw-937-logs-');
   const proofRunDir = makeTempDir('adw-937-proof-run-');
-  const runnerBinDir = makeTempDir('adw-937-runner-');
-  writePlaywrightProject(worktreePath, issueNumber);
-  installStandInRunner(runnerBinDir, proofRunDir, issueNumber);
+  writeStepDefinitionFile(worktreePath);
 
   const repoContext = {
     issueTracker: recordingIssueTracker(),
@@ -98,14 +119,14 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
     applicationUrl: 'http://localhost:0',
     targetRepo: undefined,
     repoContext,
-    projectConfig: repositoryProjectConfig(),
+    projectConfig: repositoryProjectConfig(proofRunDir),
     adwYmlConfig: { hitl: false, unitTests: false },
-    applicationProfile: APPLICATION_TYPE_PROFILES.web,
+    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
     topLevelStatePath: '',
     gitContext: undefined,
   } as unknown as WorkflowConfig;
 
-  return { config, issueNumber, adwId, worktreePath, proofRunDir, runnerBinDir };
+  return { config, issueNumber, adwId, worktreePath, proofRunDir };
 }
 
 function writeFixture(dir: string, relPath: string): void {
@@ -114,7 +135,7 @@ function writeFixture(dir: string, relPath: string): void {
   fs.writeFileSync(fullPath, fixtureBytes(relPath));
 }
 
-/** Changes what the issue's scenario leaves in the proof directory from the next run on. */
+/** Changes what the scenario command copies into the proof directory from the next run on. */
 export function setProofRun(proofRun: ProofRun): void {
   const { proofRunDir } = requireWorkflow();
   fs.rmSync(proofRunDir, { recursive: true, force: true });
@@ -143,14 +164,14 @@ async function judgeProof(config: WorkflowConfig, proofPath: string): Promise<Re
 
 /**
  * Runs the scenario tests, then the review over the proof they reported (an empty path when they
- * reported none), as the orchestrators do. The stand-in store, runner and agent are installed for the run only.
+ * reported none), as the orchestrators do. The stand-in store and agent are installed for the run only.
  */
 export async function runScenarioTestsThenReview(): Promise<void> {
-  const { config, worktreePath, runnerBinDir } = requireWorkflow();
+  const { config, worktreePath } = requireWorkflow();
   setProofUploaderForTesting(requireStore().uploader);
   activateStandInAgent();
   try {
-    const { scenarioProof } = await withStandInRunner(runnerBinDir, () => executeScenarioTestPhase(config));
+    const { scenarioProof } = await executeScenarioTestPhase(config);
     const proofPath = scenarioProof?.resultsFilePath ?? '';
     scriptStandInVerdict(worktreePath, proofPath);
     world.outcome = await judgeProof(config, proofPath);

@@ -67,7 +67,7 @@ export function createScreenshotStore(): ScreenshotStore {
   return { uploads, uploader, refuse: relPath => { refusedBytes.push(fixtureBytes(relPath)); } };
 }
 
-/** What the issue's scenario leaves in the proof directory on every run, relative to that directory. */
+/** What the scenario command copies into the proof directory on every run, relative to that directory. */
 export interface ProofRun {
   readonly screenshots: readonly string[];
   readonly otherFiles: readonly string[];
@@ -79,8 +79,6 @@ export interface ReviewWorkflow {
   readonly adwId: string;
   readonly worktreePath: string;
   readonly proofRunDir: string;
-  /** Holds the stand-in `npx` the scenario test phase finds first on `PATH`. */
-  readonly runnerBinDir: string;
 }
 
 export type ReviewOutcome =
