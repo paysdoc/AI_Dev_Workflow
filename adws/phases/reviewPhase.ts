@@ -15,6 +15,7 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
+import { buildReviewPromptContext, describeReviewPromptContext } from './reviewPromptContext';
 import { getPlanFilePath } from '../agents/planAgent';
 import type { CodeHost, IssueTracker, RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
@@ -96,7 +97,7 @@ async function uploadReviewedProofScreenshots(config: WorkflowConfig): Promise<s
  * Returns immediately — retries are handled by the calling orchestrator via executeReviewPatchCycle.
  *
  * @param scenarioProofPath - Path to the scenario_proof.md file from scenarioTestPhase.
- *   When empty, the review agent falls through to Strategy B or code-diff review.
+ *   Empty when the repository runs no scenarios.
  */
 export async function executeReviewPhase(
   config: WorkflowConfig,
@@ -131,10 +132,16 @@ export async function executeReviewPhase(
     postIssueStageComment(repoContext, issueNumber, 'review_running', ctx);
   }
 
+  const promptContext = buildReviewPromptContext(config);
+  const handOff = describeReviewPromptContext(promptContext);
+  log(handOff, 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, handOff);
+
   const agentStatePath = AgentStateManager.initializeState(adwId, 'review-agent', orchestratorStatePath);
   const reviewAgentResult = await runReviewAgent(
     adwId,
     specFile,
+    promptContext,
     logsDir,
     agentStatePath,
     worktreePath,

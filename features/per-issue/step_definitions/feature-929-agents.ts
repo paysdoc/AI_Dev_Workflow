@@ -12,6 +12,7 @@ import { runReviewAgent, type ReviewIssue } from '../../../adws/agents/reviewAge
 import { runResolveScenarioAgent } from '../../../adws/agents/testAgent.ts';
 import { runDocumentAgent } from '../../../adws/agents/documentAgent.ts';
 import { runPrReviewBuildAgent } from '../../../adws/agents/buildAgent.ts';
+import { buildReviewPromptContext } from '../../../adws/phases/reviewPromptContext.ts';
 import { applyPatchBlocker } from '../../../adws/phases/reviewPatchHelpers.ts';
 import { requireWorkflowGitContext } from '../../../adws/phases/workflowRepoIdentity.ts';
 import type { AgentIdentifier } from '../../../adws/types/agentTypes.ts';
@@ -90,7 +91,7 @@ const DRIVERS: Partial<Record<AgentName, Driver>> = {
     const { config } = workflow;
     const specFile = getPlanFilePath(workflow.issueNumber, config.worktreePath);
     const subprocessEnv = requireWorkflowGitContext(config).commandEnv();
-    return runReviewAgent(workflow.adwId, specFile, config.logsDir, statePathOf(workflow, 'review-agent'), config.worktreePath, config.issue.body, undefined, subprocessEnv, launchContextOf(workflow));
+    return runReviewAgent(workflow.adwId, specFile, buildReviewPromptContext(config), config.logsDir, statePathOf(workflow, 'review-agent'), config.worktreePath, config.issue.body, undefined, subprocessEnv, launchContextOf(workflow));
   },
   'review-patch build agent': workflow => {
     const { config } = workflow;

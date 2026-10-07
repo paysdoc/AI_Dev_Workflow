@@ -946,18 +946,24 @@
     - adws/phases/reviewPatchHelpers.ts
     - adws/phases/reviewRetryLoop.ts
     - adws/phases/__tests__/reviewRetryLoop*.test.ts
+    - adws/phases/reviewPromptContext.ts
   - Conditions:
     - When working on the review phase, diff evaluation phase, or review patch helpers in `adws/phases/`
     - When working on the shared review-retry loop (`runReviewRetryLoop`, `serverStartBlocker`, `recordFailedStartReview`, `scenarioOutcomeOf`), the review attempt counter and its reset, or a dev-server start failure that becomes a review blocker and reaches `review_failed` at the cap
+    - When working on the review prompt context (`buildReviewPromptContext`: guidance section, issue kind, per-issue image paths) handed to the reviewer
   - Decisions:
     - 0027
     - 0031
     - 0038
+    - 0058
+    - 0061
     - 0062
+    - 0063
 
 - app_docs/feature-9gjajh-review-and-patch-agents.md
   - Owns:
     - adws/agents/reviewAgent.ts
+    - adws/agents/reviewPromptArgs.ts
     - adws/agents/diffEvaluatorAgent.ts
     - adws/agents/patchAgent.ts
     - adws/agents/refactorAgent.ts
@@ -965,9 +971,13 @@
     - adws/agents/validationAgent.ts
   - Conditions:
     - When working on review, diff evaluation, patch, refactor, resolution, or validation agents in `adws/agents/`
+    - When working on the evidence-only reviewer: the `/review` positional args (`formatReviewArgs`, `ReviewPromptContext`, `ReviewIssueKind`) or what the reviewer judges
   - Decisions:
     - 0027
     - 0031
+    - 0058
+    - 0061
+    - 0063
 
 - app_docs/feature-9gjajh-scenario-and-stepdef-agents.md
   - Owns:

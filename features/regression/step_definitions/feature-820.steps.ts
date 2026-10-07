@@ -35,6 +35,7 @@ import { forgeProviders } from '@paysdoc/devplatform/providers';
 import { GitContext } from '@paysdoc/devplatform/git';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
+import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
 
 import { clearIssueComments } from '../../../adws/adwClearComments.tsx';
 import { publishPrProof } from '../../../adws/proof/prProofPublisher.ts';
@@ -297,6 +298,7 @@ function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; l
     targetRepo: undefined,
     repoContext,
     projectConfig: {},
+    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
     adwYmlConfig: { hitl: false, unitTests: true },
     topLevelStatePath: '',
     gitContext: undefined,

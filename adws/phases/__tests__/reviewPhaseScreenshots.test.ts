@@ -36,6 +36,7 @@ import { executeReviewPhase } from '../reviewPhase';
 import { runReviewAgent } from '../../agents/reviewAgent';
 import { postIssueStageComment } from '../phaseCommentHelpers';
 import { uploadProofArtifacts } from '../../proof/proofUploader';
+import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import type { WorkflowConfig } from '../workflowInit';
 
 const mockRunReviewAgent = vi.mocked(runReviewAgent);
@@ -97,6 +98,8 @@ function makeConfig({ withRepoContext = true, withScenarioProof = true, selected
       createdAt: '2026-01-01T00:00:00Z',
       url: 'https://github.com/test/repo/issues/42',
     },
+    issueType: '/feature',
+    applicationProfile: APPLICATION_TYPE_PROFILES.web,
     ctx: withScenarioProof
       ? {
           scenarioProof: {

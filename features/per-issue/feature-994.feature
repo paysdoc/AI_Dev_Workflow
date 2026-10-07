@@ -219,7 +219,7 @@ Feature: The proof assembler selects the images of the per-issue scenarios, and 
       | 9953  | web  | @adw-9953   | failed            | passed             |
       | 9954  | web  | @regression | passed            | failed             |
 
-  @adw-994 @adw-eflw7o-feat-per-issue-scena
+  @adw-994 @adw-eflw7o-feat-per-issue-scena @adw-995
   Scenario: The scenario test phase runs only "@regression" and the issue's own tag, and a failed per-issue scenario is a blocker failure, whatever the repository's ".adw/review_proof.md" configures
     Given a workflow for issue 9955 in a "cli" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's ".adw/review_proof.md" holds:

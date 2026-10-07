@@ -72,18 +72,10 @@ export function makeConfig(overrides: {
       projectMd: '',
       conditionalDocsMd: '',
       conditionalDocs: parseConditionalDocs(''),
-      reviewProofMd: '',
       hasAdwDir: true,
       providers: { codeHost: 'github', issueTracker: 'github' },
       scenarios: { scenarioDirectory: overrides.scenarioDirectory ?? 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
       scenariosMd: overrides.scenariosMd ?? 'some scenario content',
-      reviewProofConfig: {
-        tags: [
-          { tag: '@adw-{issueNumber}', severity: 'blocker', optional: false },
-          { tag: '@regression', severity: 'blocker', optional: true },
-        ],
-        supplementaryChecks: [],
-      },
       applicationType: 'cli',
     },
   } as unknown as WorkflowConfig;

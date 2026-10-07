@@ -251,7 +251,7 @@ bunx tsx adws/adwPlanBuildTestReview.tsx <issueNumber> [adw-id]
 5. Review (validates against spec, auto-fixes issues)
 
 #### adwPlanBuildReview.tsx - Plan + Build + Review
-Pipeline with review but skipping tests.
+Pipeline with review, which is reached only when the static checks, unit tests and scenarios are green.
 
 **Usage:**
 ```bash
@@ -260,11 +260,15 @@ bunx tsx adws/adwPlanBuildReview.tsx <issueNumber> [adw-id]
 
 **Phases:**
 1. Planning (creates implementation spec)
-2. Building (implements solution)
-3. PR creation
-4. Review (validates against spec, auto-fixes issues)
+2. Plan Validation (aligns plan with BDD scenarios)
+3. Building (implements solution)
+4. Step definitions (writes the steps the scenarios need)
+5. Unit tests with the static checks (auto-fixes failures)
+6. Scenario test-and-fix loop (runs `@regression` and the issue's own scenarios, auto-fixes failures)
+7. Review (judges the change against the issue and its evidence, auto-fixes blockers)
+8. PR creation
 
-**Note:** Review phase evaluates implementation against specification but without test verification. Best for non-critical changes or when testing is handled separately.
+**Note:** The review runs nothing: the machine gates have decided the checks before it is called, and a gate that cannot be made green ends the run with an error, no review and no pull request. The review judges what a machine cannot: scope, scenario fidelity, the per-issue images of a `web` repository, the coding guidelines and the guidance for the application type.
 
 #### adwPlanBuildDocument.tsx - Plan + Build + Document
 Fast documentation pipeline skipping tests and review.
