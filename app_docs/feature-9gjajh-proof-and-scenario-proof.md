@@ -2,45 +2,55 @@
 
 ## Overview
 
-This module collects BDD scenario results and screenshot artifacts, formats them into a structured proof comment, and posts that comment to the pull request. It provides both the orchestration phase (`proofPublishPhase`) and the underlying machinery: a scenario runner (`scenarioProof`), a pure artifact harvester (`proofArtifactHarvester`), a non-throwing R2 uploader (`proofUploader`), and a pure formatter plus impure publisher (`prProofPublisher`). The uploader is shared by the review phase (issue review comment) and the PR proof publisher.
+This module runs the fixed BDD scenario tags, assembles the scenario proof, selects the per-issue scenario images as the visual evidence, and publishes them to the review comment and the pull request. A pure proof assembler in `adws/proof/` decides tag outcomes, image selection and the `scenario_proof.md` text; `runScenarioProof` is the I/O shell around it. The upload half is shared by the review phase (issue comment of each attempt) and the PR proof publisher.
 
 ## Responsibilities
 
-- `executeProofPublishPhase`: calls `publishPrProof` with the scenario proof result and PR number from `ctx`; catches and logs all errors so the workflow continues regardless. Since #820, it skips immediately (before the try, zero cost) when `config.repoContext` is absent, and otherwise binds `commenter` to `repoContext.codeHost.commentOnPullRequest` — no legacy `commentOnPR` import or default.
-- `runScenarioProof`: iterates over `ReviewProofConfig.tags`, substitutes `{issueNumber}` in tag patterns, runs each tag via `runScenariosByTag`, reads the JUnit XML report, derives pass/fail/skip from the report (with a JUnit-overrides-exit-code reconciliation for post-suite noise), writes `scenario_proof.md`, and returns a `ScenarioProofResult`.
-- `shouldRunScenarioProof`: returns false when `.adw/scenarios.md` is empty, allowing callers to fall back to code-diff proof.
-- `harvestProofArtifacts`: recursively walks the `ADW_PROOF_DIR` directory and returns a sorted list of image files as `ProofArtifact` records. Pure — no uploads, no logging.
-- `formatPrProofComment`: composes a Markdown PR comment from tag results and uploaded screenshot URLs. Pure — no I/O, no ADW footer.
-- `uploadProofArtifacts` (`proofUploader.ts`): harvests the proof directory and uploads each image sequentially to `proof/{adwId}/{relPath}`, returning the `UploadedArtifact[]` that succeeded. Uploader resolves as `deps.uploader ?? installedUploader ?? uploadToR2`. Also exports `isR2Configured` and the test-only `setProofUploaderForTesting(uploader | null)`.
-- `publishPrProof`: uploads via `uploadProofArtifacts` (when Cloudflare credentials are configured), calls `formatPrProofComment`, appends `ADW_SIGNATURE`, and posts the comment to the PR. All errors are caught and logged. `PublishDeps.commenter: CommenterFn` (`(prNumber, body) => void`) is required since #820 — bound by the caller to `repoContext.codeHost.commentOnPullRequest`, no legacy default; `PublishDeps.repoInfo` stays (it namespaces the R2 upload key, independent of the commenter).
+- `runScenarioProof` (`adws/phases/scenarioProof.ts`): the I/O shell. Indexes the feature files under `featureDirectory`, runs `@regression` always and `@adw-{issueNumber}` only when a scenario carries it, reads each tag's JUnit report, harvests the artifacts directory, calls `assembleScenarioProof`, writes `scenario_proof.md` and returns a `ScenarioProofResult` (`tagResults`, `hasBlockerFailures`, `perIssueImages`, `resultsFilePath`, `artifactsDir`). Requires `applicationProfile` and `featureDirectory`.
+- `shouldRunScenarioProof`: false when `.adw/scenarios.md` is empty, so callers can fall back to code-diff proof.
+- `assembleScenarioProof` (`proofAssembler.ts`, pure): returns `{ tagResults, hasBlockerFailures, perIssueImages, document }`. Owns the fixed tags (`fixedScenarioTags`, `REGRESSION_SCENARIO_TAG`, `ScenarioTagRole`), `shouldRunTag`, tag outcomes and image selection.
+- `indexFeatureScenarios`, `hasScenarioTagged`, `scenariosForTestCase` (`featureScenarioIndex.ts`, pure): parse feature files with `@cucumber/gherkin`, compute each scenario's effective tags (feature, rule, scenario, Examples) and the JUnit test-case name the ADW Playwright project gives it, including Scenario Outline rows.
+- `readFeatureFiles` (`featureFileReader.ts`): lists every `.feature` file under a directory, skipping `node_modules` and dot-directories.
+- `renderProofDocument` (`proofDocument.ts`, pure): renders `scenario_proof.md`, with the exported fixed lines `NO_PER_ISSUE_SCENARIOS` and `NO_SCENARIO_OPENED_A_PAGE` and an `## Evidence` section listing the selected absolute image paths.
+- `harvestProofArtifacts`: recursively lists image files in `ADW_PROOF_DIR` as sorted `ProofArtifact` records. Pure of uploads and logging; supplies the assembler's artifact list.
+- `uploadProofArtifacts` (`proofUploader.ts`): uploads a given `images` list sequentially to `proof/{adwId}/{relPath}` and returns the `UploadedArtifact[]` that succeeded. Uploader resolves as `deps.uploader ?? installedUploader ?? uploadToR2`. Exports `isR2Configured`, `isProofUploadConfigured` and the test-only `setProofUploaderForTesting(uploader | null)`.
+- `publishPrProof` / `formatPrProofComment`: uploads `scenarioProof.perIssueImages` when `isProofUploadConfigured()`, formats the comment (per-scenario `<details>` groups, labels HTML-escaped), appends `ADW_SIGNATURE` and posts to the PR.
+- `executeProofPublishPhase`: calls `publishPrProof` with `ctx.scenarioProof` and the PR number; catches and logs all errors. Skips when `repoContext` is absent; binds `commenter` to `repoContext.codeHost.commentOnPullRequest`.
+- The review phase's `uploadReviewedProofScreenshots` uploads the same selected list for each review attempt.
+- `TagProofResult`, `ScenarioProofResult`, `PerIssueImage` live in `adws/proof/types.ts`; `scenarioProof.ts` re-exports the first two.
 
 ## Contracts & Invariants
 
-- `executeProofPublishPhase` always returns with zero cost — it is non-fatal by design. It skips silently when `ctx.scenarioProof` or `ctx.prUrl` are absent.
-- `runScenarioProof` pre-flight checks for step definition files; when none are found it writes a warning-only `scenario_proof.md` and returns `{ tagResults: [], hasBlockerFailures: false }`.
-- JUnit report takes precedence over subprocess exit code when `report.total > 0`. A clean JUnit with a non-zero exit code results in PASS with a warning string attached.
-- A JUnit report with `total === 0` for an optional tag is treated as SKIP; for a required tag it is treated as FAIL.
-- `harvestProofArtifacts` returns `[]` when the directory does not exist; callers need not guard the directory's existence.
-- `uploadProofArtifacts` never throws: harvest or per-artifact errors are logged and skipped. Only the default `uploadToR2` is gated on `isR2Configured()`; an injected or installed uploader counts as configured.
-- `publishPrProof` skips uploading when R2 credentials are absent and renders a note in the comment instead.
-- The artifacts directory (`ADW_PROOF_DIR`) is wiped and recreated at the start of each `runScenarioProof` call to avoid stale screenshots from a prior run bleeding into the proof.
-- Stale per-tag JUnit reports are deleted before each tag run so a missing report is distinguishable from an empty one.
+- Tags are fixed, both blocking on failure: `@regression` and `@adw-{issueNumber}`. Only the per-issue tag is `optional`.
+- Per-issue images are selected only from the per-issue run's report, only for test cases whose matched scenarios all carry `@adw-{issueNumber}`, and only when the attachment path (resolved against the report's directory) is an image in the artifacts list. Regression images, traces, videos and missing files are never selected. Result is deduplicated by `absPath`.
+- Selection happens only when the application profile expects `EvidenceKind.PerIssueImages` (`web`); in a `cli` repository `perIssueImages` is always `[]` and nothing is uploaded.
+- When no scenario in the feature files carries `@adw-{issueNumber}`, the per-issue tag is not run: its result is `{ passed: true, skipped: true }`, the proof says `no per-issue scenarios`, and it is never a gate failure. If such scenarios exist but the run reports zero cases, the tag fails with a warning.
+- A `web` proof with no selected image says `no scenario opened a page`; this does not fail the run. A case whose name matches no scenario is left out of the images and named in the proof.
+- Regression outcome: report with cases → `failed === 0` decides; report with zero cases → failed; no report → exit code. A clean report with a non-zero exit code passes with a warning.
+- `runScenarioProof` with no step definitions writes a notice-only proof and returns `{ tagResults: [], hasBlockerFailures: false, perIssueImages: [] }`.
+- `uploadProofArtifacts` never throws: per-image errors are logged and skipped. An injected or installed uploader counts as configured; only the default `uploadToR2` is gated on `isR2Configured()`.
+- `harvestProofArtifacts` returns `[]` for a missing directory. The artifacts directory is wiped at the start of each `runScenarioProof`; stale per-tag JUnit reports are deleted before each run.
+- `formatPrProofComment` does not append `ADW_SIGNATURE`; `publishPrProof` does.
 
 ## Configuration
 
-R2 upload requires `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` to be set. When any are absent, `publishPrProof` skips the upload step. The `runByTagCommand` template (with `{tag}` placeholder), `stepDefDirectory`, and `stepDefExtensions` are caller-supplied, read from `.adw/` project config.
+R2 upload requires `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`. Without them and without an installed uploader, `publishPrProof` skips the upload and the comment carries an "R2 is not configured" note. `runByTagCommand` (with `{tag}`), `stepDefDirectory`, `stepDefExtensions`, `applicationProfile` and `featureDirectory` (relative to `cwd`; from `ScenarioRunner.featureDirectory`) are caller-supplied.
 
 ## Gotchas
 
-- Uploads run sequentially, not in parallel: `uploadToR2` ensures the bucket per call and parallel first uploads would race bucket creation.
-- The review phase uploads the same images before the PR exists; `publishPrProof` re-uploads later under identical keys, an idempotent overwrite.
-- The JUnit reconciliation warning exists because Cucumber (and some other BDD runners) exit non-zero for pending/undefined steps even when all defined scenarios pass, and also emit errors from shutdown hooks (e.g. D1 write failures) that are unrelated to test results.
-- `leadingSegment(relPath)` groups uploaded screenshots by the first path segment of their relative path (e.g. the scenario folder name). When an image lives at the root of the artifacts directory, it is grouped under the literal string `'Screenshots'`.
-- `harvestProofArtifacts` uses an iterative DFS stack rather than recursion to avoid stack overflow on deep artifact trees.
-- `formatPrProofComment` does not append `ADW_SIGNATURE`; the caller (`publishPrProof`) must append it. This keeps the formatter pure and testable without the signature string.
+- Test-case names must match the pinned ADW Playwright project (`@playwright/test` 1.63.0, `playwright-bdd` 9.2.1): `Feature › [Rule ›] Scenario`, outline rows `… › Outline › <example title>`. A runner that reports the scenario title alone is matched on the last segment.
+- Tags come from the feature files, because JUnit test-case names carry none; image paths come from `[[ATTACHMENT|...]]` lines in `<system-out>`.
+- Uploads run sequentially so first uploads do not race bucket creation.
+- The review phase uploads before the PR exists; `publishPrProof` re-uploads under identical keys, an idempotent overwrite.
+- `hasScenarioTagged` treats an unparseable feature file containing the tag as a match, so the runner reports the parse error.
+- Images at the artifacts root are grouped under the literal `'Screenshots'` in the PR comment.
+- `harvestProofArtifacts` and `readFeatureFiles` use iterative walks, not recursion.
 
 ## Decisions
 
 - [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
 - [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
 - [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0058](../specs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
+- [ADR-0061](../specs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) — The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project
+- [ADR-0063](../specs/adr/0063-per-issue-scenario-images-are-the-visual-evidence.md) — Every per-issue scenario image in a `web` repository is visual evidence; the reviewer judges it before the pull request exists

@@ -21,11 +21,6 @@ Then('the park comment posted on issue {int} quotes {string}', function (issue: 
   assert.ok(quotingLine, `Expected the park comment to quote "${quoted}" in an indented line, got:\n${comment}`);
 });
 
-Then('the park comment posted on issue {int} names {string}', function (issue: number, name: string) {
-  const comment = lastParkComment(issue);
-  assert.ok(comment.includes(name), `Expected the park comment to name "${name}", got:\n${comment}`);
-});
-
 Then('the park comment posted on issue {int} names the scenario {string}', function (issue: number, scenario: string) {
   const comment = lastParkComment(issue);
   assert.ok(comment.includes(`${scenario}\``), `Expected the park comment to name the scenario "${scenario}", got:\n${comment}`);

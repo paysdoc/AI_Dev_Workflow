@@ -4,6 +4,7 @@
  *   - Post-resolve fidelity re-check (scenarios vs issue body) on first green.
  *   - @regression failure is treated as not-green (via computeResolveVerdict).
  *   - A @regression scenario that also fails on the base branch parks the workflow instead of reaching the fix agent.
+ *   - A dev server that does not start goes to the review loop, not to the fix agent: no scenario ran.
  */
 
 import { log, AgentStateManager, MAX_TEST_RETRY_ATTEMPTS } from '../core';
@@ -11,7 +12,9 @@ import { CostTracker, runPhase } from '../core/phaseRunner';
 import { findScenarioFiles } from '../agents/validationAgent';
 import { runScenarioFidelityAgent } from '../agents/scenarioFidelityAgent';
 import { OutputValidationError } from '../agents/commandAgent';
+import { DevServerStartStatus, NO_DEV_SERVER_START, type DevServerStart } from '../core/devServerFailure';
 import { computeResolveVerdict } from '../core/resolveVerdict';
+import { REGRESSION_SCENARIO_TAG } from '../proof/proofAssembler';
 import { executeScenarioTestPhase } from './scenarioTestPhase';
 import { executeScenarioFixPhase } from './scenarioFixPhase';
 import { createPreExistingRegressionGate, type PreExistingRegressionGate } from './preExistingRegressionGate';
@@ -37,6 +40,7 @@ export interface ScenarioTestFixLoopResult {
   scenarioProof?: ScenarioProofResult;
   scenarioProofPath: string;
   scenarioRetries: number;
+  devServer: DevServerStart;
 }
 
 export async function runScenarioTestFixLoop(
@@ -52,19 +56,31 @@ export async function runScenarioTestFixLoop(
   let scenarioProof: ScenarioProofResult | undefined;
   let scenarioProofPath = '';
   let scenarioRetries = 0;
+  let devServer: DevServerStart = NO_DEV_SERVER_START;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const testResult = await runPhase(config, tracker, executeScenarioTestPhase);
+    devServer = testResult.devServer;
+
+    // Ahead of the pass check, which reads a missing proof as "no scenarios configured".
+    if (devServer.status === DevServerStartStatus.Failed) {
+      AgentStateManager.appendLog(
+        orchestratorStatePath,
+        'Scenario fix loop: the dev server did not start on the issue branch; the failed start goes to the review loop, not to the scenario fix agent',
+      );
+      return { scenarioProof: undefined, scenarioProofPath: '', scenarioRetries, devServer };
+    }
+
     scenarioProof = testResult.scenarioProof;
     scenarioProofPath = scenarioProof?.resultsFilePath ?? '';
 
     if (!scenarioProof || !scenarioProof.hasBlockerFailures) {
       if (scenarioRetries === 0) {
-        return { scenarioProof, scenarioProofPath, scenarioRetries };
+        return { scenarioProof, scenarioProofPath, scenarioRetries, devServer };
       }
 
       const regressionTagResult = scenarioProof?.tagResults.find(
-        r => r.resolvedTag === '@regression',
+        r => r.resolvedTag === REGRESSION_SCENARIO_TAG,
       );
       const regressionPass = !regressionTagResult ||
         regressionTagResult.passed ||
@@ -122,14 +138,14 @@ export async function runScenarioTestFixLoop(
         throw new GoalFidelityError(summary);
       }
 
-      return { scenarioProof, scenarioProofPath, scenarioRetries };
+      return { scenarioProof, scenarioProofPath, scenarioRetries, devServer };
     }
 
     // Returns only when no failing regression scenario also fails on the base branch.
     await parkOnPreExistingRegression(scenarioProof);
 
     const regressionTagResult = scenarioProof.tagResults.find(
-      r => r.resolvedTag === '@regression',
+      r => r.resolvedTag === REGRESSION_SCENARIO_TAG,
     );
     const regressionPass = !regressionTagResult ||
       regressionTagResult.passed ||
@@ -160,5 +176,5 @@ export async function runScenarioTestFixLoop(
     await runPhase(config, tracker, fixWrapper);
   }
 
-  return { scenarioProof, scenarioProofPath, scenarioRetries };
+  return { scenarioProof, scenarioProofPath, scenarioRetries, devServer };
 }

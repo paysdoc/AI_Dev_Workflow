@@ -21,7 +21,8 @@ This module manages the full lifecycle of development server processes needed du
 ## Contracts & Invariants
 
 - `allocateRandomPort` always returns a port that was observed free at the moment of the bind test; callers must accept that the port may be taken by the time `spawnServer` runs (TOCTOU window exists)
-- `withDevServer` always calls `work()` — even when all health-check attempts fail — and always kills any running process in `finally`; the work callback's return value is propagated unchanged
+- `withHealthyDevServer` is the only way to run work under a dev server; it never runs the work against a server that did not start, hands back the last attempt's output, and always stops the process group (waiting for it) in `finally`; what a failed start means is left to the caller
+- `adws/core/devServerFailure.ts` (pure, no imports) holds the start outcome (`DevServerStart`: `not_started`/`started`/`failed` with command, health URL and output) and the review-attempt counter rules: `countFailedStart` (a failed start is a failed review), `countStartedServer` (resets the failed count only when the previous start failed), `countFailedReview`, `isReviewBudgetSpent`, and `serverOutputTail` (last 6000 characters behind an omission marker; empty output becomes `(no output)`)
 - `deriveStageFromRemote` never throws; it returns the state-file fallback (`'starting'` if no state exists) whenever remote reads are inconclusive
 - `mapArtifactsToStage` returns `null` (not a stage) when artifacts are insufficient, signaling callers to fall back
 - `ensureTargetRepoWorkspace` is idempotent: it clones once and fetches on every subsequent call
@@ -39,10 +40,10 @@ This module manages the full lifecycle of development server processes needed du
 
 ## Gotchas
 
-- No production consumers of `withDevServer` are wired yet; this is infrastructure only
+- The scenario phase (issue branch) and the base re-run use `withHealthyDevServer`; a start failure on the issue branch is a failed review, on the base branch a park (`base_server_down`)
 - Port availability is checked by attempting a real TCP bind, not by scanning `/proc` or `ss`; the port can be claimed between the check and the spawn
 - The health probe uses the global `fetch`; in Node versions without native `fetch`, the caller must polyfill it
-- `spawnServer` calls `proc.unref()`, so the Node process can exit while the child is still running if the caller does not hold a reference; `withDevServer` holds the reference until `finally`
+- `spawnServer` calls `proc.unref()`, so the Node process can exit while the child is still running if the caller does not hold a reference; `withHealthyDevServer` holds the reference until `finally`
 - `remoteReconcile` uses `execWithRetry` (a shell call to `git ls-remote`) for branch checks; this requires the ADW process to have network access and a configured `origin` remote pointing to GitHub
 - `fetchLatestRefs` shells out to `gh repo view` to determine the default branch name, meaning a valid `gh` CLI session is required in the working directory's context
 - HTTPS clone URLs are silently converted to SSH; if SSH keys are not configured, the clone will fail with an opaque git error
@@ -55,3 +56,4 @@ This module manages the full lifecycle of development server processes needed du
 - [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
 - [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
 - [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review

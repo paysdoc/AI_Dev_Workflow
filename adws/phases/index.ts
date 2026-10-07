@@ -26,7 +26,7 @@ export { executeStepDefPhase } from './stepDefPhase';
 export { executeInstallPhase, extractInstallContext } from './installPhase';
 export { executeAutoMergePhase } from './autoMergePhase';
 export { executeDiffEvaluationPhase, type DiffEvaluationPhaseResult } from './diffEvaluationPhase';
-export { executeScenarioTestPhase } from './scenarioTestPhase';
+export { executeScenarioTestPhase, type ScenarioTestPhaseResult } from './scenarioTestPhase';
 export { executeScenarioFixPhase } from './scenarioFixPhase';
 export { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
 export {
@@ -35,6 +35,15 @@ export {
   GoalFidelityError,
   type ScenarioTestFixLoopResult,
 } from './scenarioTestFixLoop';
+export {
+  runReviewRetryLoop,
+  scenarioOutcomeOf,
+  recordFailedStartReview,
+  serverStartBlocker,
+  type ReviewRetryPhases,
+  type ReviewRetryResult,
+  type ScenarioOutcome,
+} from './reviewRetryLoop';
 export {
   shouldRunScenarioProof,
   runScenarioProof,

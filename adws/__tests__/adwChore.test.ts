@@ -5,7 +5,7 @@ vi.mock('../core', async (importOriginal) => {
   return {
     ...actual,
     MAX_REVIEW_RETRY_ATTEMPTS: 3,
-    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn() },
+    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn(), appendLog: vi.fn() },
     log: vi.fn(),
   };
 });
@@ -35,82 +35,12 @@ vi.mock('../workflowPhases', async (importOriginal) => {
   };
 });
 
-import { executeChore, type ChorePhases } from '../adwChore';
+import type { ChorePhases } from '../adwChore';
+import { executeChore } from '../adwChore';
 import { AgentStateManager } from '../core';
 import { runPhase } from '../core/phaseRunner';
 import { persistTokenCounts } from '../cost';
-import type { WorkflowConfig } from '../phases';
-
-const BRANCH = 'chore-issue-42-rename-config-keys';
-const PR_URL = 'https://github.com/acme/widget/pull/77';
-const PR_NUMBER = 77;
-const ZERO_COST = { costUsd: 0, modelUsage: {}, phaseCostRecords: [] };
-
-const BLOCKER = {
-  reviewIssueNumber: 1,
-  issueDescription: 'broken',
-  issueResolution: 'fix it',
-  issueSeverity: 'blocker',
-};
-const FAILED_REVIEW = { reviewPassed: false, reviewIssues: [BLOCKER] };
-const PASSED_REVIEW = { reviewPassed: true, reviewIssues: [] };
-type ReviewVerdict = typeof FAILED_REVIEW | typeof PASSED_REVIEW;
-
-/** Answers with each scripted verdict in turn, then repeats the last one. */
-function scriptedReview(verdicts: ReviewVerdict[]) {
-  let attempt = 0;
-  return vi.fn(async () => ({ ...ZERO_COST, ...verdicts[Math.min(attempt++, verdicts.length - 1)] }));
-}
-
-function makePhases(diffVerdict: 'regression_possible' | 'safe', reviews: ReviewVerdict[]) {
-  return {
-    executeBaselinePhase: vi.fn(async () => ZERO_COST),
-    executeInstallPhase: vi.fn(async () => ZERO_COST),
-    executePlanPhase: vi.fn(async () => ZERO_COST),
-    executeBuildPhase: vi.fn(async () => ZERO_COST),
-    executeStepDefPhase: vi.fn(async () => ZERO_COST),
-    executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
-    runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: 0 })),
-    executeDiffEvaluationPhase: vi.fn(async () => ({ ...ZERO_COST, verdict: diffVerdict, reason: 'test' })),
-    executeReviewPhase: scriptedReview(reviews),
-    executeReviewPatchCycle: vi.fn(async () => ZERO_COST),
-    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined })),
-    executeDocumentPhase: vi.fn(async () => ZERO_COST),
-    executePRPhase: vi.fn(async (cfg: WorkflowConfig) => {
-      cfg.ctx.prUrl = PR_URL;
-      return ZERO_COST;
-    }),
-  };
-}
-
-// The issue has no labels unless a test says otherwise, so a pre-approval that should not happen
-// would be visible.
-function makeConfig(labels: string[] = []) {
-  const commentOnIssue = vi.fn();
-  const approvePullRequest = vi.fn(() => ({ success: true }));
-  const config = {
-    issueNumber: 42,
-    adwId: 'adw-test',
-    orchestratorStatePath: '/mock/agents/adw-test/chore',
-    ctx: { issueNumber: 42, adwId: 'adw-test', branchName: BRANCH },
-    repoContext: {
-      issueTracker: { commentOnIssue, fetchLabels: vi.fn(() => labels) },
-      codeHost: { approvePullRequest },
-    },
-  } as unknown as WorkflowConfig;
-  return { config, commentOnIssue, approvePullRequest };
-}
-
-async function runChore(
-  diffVerdict: 'regression_possible' | 'safe',
-  reviews: ReviewVerdict[],
-  labels: string[] = [],
-) {
-  const { config, commentOnIssue, approvePullRequest } = makeConfig(labels);
-  const phases = makePhases(diffVerdict, reviews);
-  await executeChore(config, phases as unknown as ChorePhases);
-  return { config, commentOnIssue, approvePullRequest, phases };
-}
+import { FAILED_REVIEW, PASSED_REVIEW, PR_NUMBER, BRANCH, makeConfig, makePhases, runChore } from './adwChore.helpers';
 
 function writtenStages(): Array<string | undefined> {
   return vi.mocked(AgentStateManager.writeTopLevelState).mock.calls.map(([, state]) => state.workflowStage);

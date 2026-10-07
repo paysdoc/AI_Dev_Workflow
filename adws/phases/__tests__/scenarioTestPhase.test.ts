@@ -4,11 +4,6 @@ vi.mock('../scenarioProof', () => ({
   runScenarioProof: vi.fn(),
 }));
 
-vi.mock('../../core/devServerLifecycle', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../core/devServerLifecycle')>()),
-  withDevServer: vi.fn(),
-}));
-
 vi.mock('../../cost', () => ({
   createPhaseCostRecords: vi.fn(() => []),
   PhaseCostStatus: { Success: 'success', Failed: 'failed', Partial: 'partial' },
@@ -20,118 +15,44 @@ vi.mock('../../core', () => ({
     appendLog: vi.fn(),
   },
   emptyModelUsageMap: vi.fn(() => ({})),
-  stepDefExtensionsFor: vi.fn((framework: string) => framework ? ['.ts', '.js'] : ['.ts']),
 }));
 
-import { executeScenarioTestPhase } from '../scenarioTestPhase';
+import { executeScenarioTestPhase, type ScenarioTestPhaseDeps } from '../scenarioTestPhase';
 import { runScenarioProof } from '../scenarioProof';
-import { withDevServer } from '../../core/devServerLifecycle';
 import { createPhaseCostRecords } from '../../cost';
-import { parseConditionalDocs } from '../../core/conditionalDocsRegistry';
+import { failingProof, fakeLifecycle, makeConfig, passingProof } from './scenarioTestPhase.helpers';
 
 const mockRunScenarioProof = vi.mocked(runScenarioProof);
-const mockWithDevServer = vi.mocked(withDevServer);
 const mockCreatePhaseCostRecords = vi.mocked(createPhaseCostRecords);
 
-const passingProof = {
-  tagResults: [
-    { tag: '@adw-{issueNumber}', resolvedTag: '@adw-42', severity: 'blocker' as const, optional: false, passed: true, output: 'ok', exitCode: 0, skipped: false },
-    { tag: '@regression', resolvedTag: '@regression', severity: 'blocker' as const, optional: true, passed: true, output: 'ok', exitCode: 0, skipped: false },
-  ],
-  hasBlockerFailures: false,
-  resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
-  artifactsDir: '/agents/test-id/scenario-test/artifacts',
-};
+const NO_DECLARED_SERVER = { readDeclaredDevServer: () => null };
 
-const failingProof = {
-  tagResults: [
-    { tag: '@adw-{issueNumber}', resolvedTag: '@adw-42', severity: 'blocker' as const, optional: false, passed: false, output: 'FAILED', exitCode: 1, skipped: false },
-  ],
-  hasBlockerFailures: true,
-  resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
-  artifactsDir: '/agents/test-id/scenario-test/artifacts',
-};
-
-function makeConfig(overrides: {
-  scenariosMd?: string;
-  runScenariosByTag?: string;
-  startDevServer?: string;
-  healthCheckPath?: string;
-} = {}): Parameters<typeof executeScenarioTestPhase>[0] {
-  return {
-    issueNumber: 42,
-    adwId: 'test-id',
-    issue: { body: 'issue body', number: 42, title: 'Test', state: 'OPEN', author: { login: 'user', isBot: false }, assignees: [], labels: [], comments: [], createdAt: '', updatedAt: '', url: '' },
-    issueType: '/feature' as const,
-    worktreePath: '/worktrees/test',
-    defaultBranch: 'main',
-    logsDir: '/logs',
-    orchestratorStatePath: '/state.json',
-    orchestratorName: 'sdlc',
-    recoveryState: { isRecovery: false, adwId: null, branchName: null },
-    ctx: {} as unknown as Parameters<typeof executeScenarioTestPhase>[0]['ctx'],
-    branchName: 'feature-42-test',
-    applicationUrl: 'http://localhost:4567',
-    topLevelStatePath: '/agents/test-id/state.json',
-    projectConfig: {
-      commands: {
-        packageManager: 'bun',
-        installDeps: 'bun install',
-        runLinter: 'bun run lint',
-        typeCheck: 'bunx tsc --noEmit',
-        runTests: 'bun run test',
-        runBuild: 'bun run build',
-        startDevServer: overrides.startDevServer ?? 'N/A',
-        healthCheckPath: overrides.healthCheckPath ?? '/',
-        prepareApp: 'N/A',
-        additionalTypeChecks: '',
-        libraryInstall: 'bun add',
-        scriptExecution: 'bunx tsx',
-        runScenariosByTag: overrides.runScenariosByTag ?? 'bunx cucumber-js --tags {tag}',
-        runRegressionScenarios: 'bunx cucumber-js --tags @regression',
-      },
-      projectMd: '',
-      conditionalDocsMd: '',
-      conditionalDocs: parseConditionalDocs(''),
-      reviewProofMd: '',
-      hasAdwDir: true,
-      providers: { codeHost: 'github', issueTracker: 'github' },
-      scenarios: { scenarioDirectory: 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
-      scenariosMd: overrides.scenariosMd ?? 'some scenario content',
-      reviewProofConfig: {
-        tags: [
-          { tag: '@adw-{issueNumber}', severity: 'blocker', optional: false },
-          { tag: '@regression', severity: 'blocker', optional: true },
-        ],
-        supplementaryChecks: [],
-      },
-      applicationType: 'cli',
-    },
-  } as unknown as Parameters<typeof executeScenarioTestPhase>[0];
+function declaring(command: string): { deps: Partial<ScenarioTestPhaseDeps>; lifecycle: ReturnType<typeof fakeLifecycle> } {
+  const lifecycle = fakeLifecycle();
+  return { deps: { readDeclaredDevServer: () => command, withHealthyDevServer: lifecycle.withHealthyDevServer }, lifecycle };
 }
 
 beforeEach(() => {
   mockRunScenarioProof.mockReset();
-  mockWithDevServer.mockReset();
   mockCreatePhaseCostRecords.mockReset();
   mockCreatePhaseCostRecords.mockReturnValue([]);
-  mockWithDevServer.mockImplementation(async (_cfg, work) => work());
 });
 
 describe('executeScenarioTestPhase — skip when no scenarios', () => {
   it('returns passing result immediately when scenariosMd is empty', async () => {
+    const { deps, lifecycle } = declaring('bun run dev');
     const config = makeConfig({ scenariosMd: '' });
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, deps);
 
     expect(result.costUsd).toBe(0);
     expect(result.scenarioProof).toBeUndefined();
     expect(mockRunScenarioProof).not.toHaveBeenCalled();
-    expect(mockWithDevServer).not.toHaveBeenCalled();
+    expect(lifecycle.configs).toHaveLength(0);
   });
 
   it('returns passing result when scenariosMd is whitespace only', async () => {
     const config = makeConfig({ scenariosMd: '   \n  ' });
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.scenarioProof).toBeUndefined();
     expect(mockRunScenarioProof).not.toHaveBeenCalled();
@@ -140,41 +61,33 @@ describe('executeScenarioTestPhase — skip when no scenarios', () => {
 
 describe('executeScenarioTestPhase — skip when runScenariosByTag is N/A', () => {
   it('returns passing result immediately when runScenariosByTag is N/A', async () => {
+    const { deps, lifecycle } = declaring('bun run dev');
     const config = makeConfig({ runScenariosByTag: 'N/A' });
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, deps);
 
     expect(result.scenarioProof).toBeUndefined();
     expect(mockRunScenarioProof).not.toHaveBeenCalled();
-    expect(mockWithDevServer).not.toHaveBeenCalled();
+    expect(lifecycle.configs).toHaveLength(0);
   });
 });
 
 describe('executeScenarioTestPhase — without dev server', () => {
-  it('calls runScenarioProof directly when startDevServer is N/A', async () => {
+  it('calls runScenarioProof directly when the repository declares no dev server', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: 'N/A' });
+    const lifecycle = fakeLifecycle();
+    const config = makeConfig();
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(config, { ...NO_DECLARED_SERVER, withHealthyDevServer: lifecycle.withHealthyDevServer });
 
     expect(mockRunScenarioProof).toHaveBeenCalledOnce();
-    expect(mockWithDevServer).not.toHaveBeenCalled();
-  });
-
-  it('calls runScenarioProof directly when startDevServer is empty string', async () => {
-    mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: '' });
-
-    await executeScenarioTestPhase(config);
-
-    expect(mockRunScenarioProof).toHaveBeenCalledOnce();
-    expect(mockWithDevServer).not.toHaveBeenCalled();
+    expect(lifecycle.configs).toHaveLength(0);
   });
 
   it('passes correct options to runScenarioProof', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: 'N/A', runScenariosByTag: 'bunx cucumber-js --tags {tag}' });
+    const config = makeConfig({ runScenariosByTag: 'bunx cucumber-js --tags {tag}' });
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(mockRunScenarioProof).toHaveBeenCalledWith(expect.objectContaining({
       issueNumber: 42,
@@ -187,36 +100,35 @@ describe('executeScenarioTestPhase — without dev server', () => {
 });
 
 describe('executeScenarioTestPhase — with dev server', () => {
-  it('wraps runScenarioProof in withDevServer when startDevServer is configured', async () => {
+  it('wraps runScenarioProof in the lifecycle when the repository declares a dev server', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: 'bun run dev --port {PORT}' });
+    const { deps, lifecycle } = declaring('bun run dev --port {PORT}');
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(makeConfig(), deps);
 
-    expect(mockWithDevServer).toHaveBeenCalledOnce();
+    expect(lifecycle.configs).toHaveLength(1);
     expect(mockRunScenarioProof).toHaveBeenCalledOnce();
   });
 
-  it('passes the parsed port from applicationUrl to withDevServer', async () => {
+  it('passes the parsed port from applicationUrl to the lifecycle', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: 'bun run dev --port {PORT}' });
+    const { deps, lifecycle } = declaring('bun run dev --port {PORT}');
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(makeConfig(), deps);
 
-    const [devServerConfig] = mockWithDevServer.mock.calls[0];
+    const [devServerConfig] = lifecycle.configs;
     expect(devServerConfig.port).toBe(4567);
     expect(devServerConfig.startCommand).toBe('bun run dev --port {PORT}');
     expect(devServerConfig.cwd).toBe('/worktrees/test');
   });
 
-  it('passes healthCheckPath to withDevServer', async () => {
+  it('passes healthCheckPath to the lifecycle', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    const config = makeConfig({ startDevServer: 'bun run dev', healthCheckPath: '/api/health' });
+    const { deps, lifecycle } = declaring('bun run dev');
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(makeConfig({ healthCheckPath: '/api/health' }), deps);
 
-    const [devServerConfig] = mockWithDevServer.mock.calls[0];
-    expect(devServerConfig.healthPath).toBe('/api/health');
+    expect(lifecycle.configs[0].healthPath).toBe('/api/health');
   });
 });
 
@@ -225,7 +137,7 @@ describe('executeScenarioTestPhase — structured result', () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
     const config = makeConfig();
 
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.scenarioProof).toBeDefined();
     expect(result.scenarioProof?.hasBlockerFailures).toBe(false);
@@ -237,7 +149,7 @@ describe('executeScenarioTestPhase — structured result', () => {
     mockRunScenarioProof.mockResolvedValueOnce(failingProof);
     const config = makeConfig();
 
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.scenarioProof?.hasBlockerFailures).toBe(true);
   });
@@ -246,7 +158,7 @@ describe('executeScenarioTestPhase — structured result', () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
     const config = makeConfig();
 
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.costUsd).toBe(0);
   });
@@ -257,7 +169,7 @@ describe('executeScenarioTestPhase — phase cost records', () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
     const config = makeConfig();
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(mockCreatePhaseCostRecords).toHaveBeenCalledWith(
       expect.objectContaining({ phase: 'scenarioTest' }),
@@ -268,7 +180,7 @@ describe('executeScenarioTestPhase — phase cost records', () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
     const config = makeConfig();
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(mockCreatePhaseCostRecords).toHaveBeenCalledWith(
       expect.objectContaining({ workflowId: 'test-id', issueNumber: 42 }),
@@ -278,7 +190,7 @@ describe('executeScenarioTestPhase — phase cost records', () => {
   it('creates phase cost records even when skipping (no scenarios)', async () => {
     const config = makeConfig({ scenariosMd: '' });
 
-    await executeScenarioTestPhase(config);
+    await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(mockCreatePhaseCostRecords).toHaveBeenCalledWith(
       expect.objectContaining({ phase: 'scenarioTest' }),
@@ -290,7 +202,7 @@ describe('executeScenarioTestPhase — phase cost records', () => {
     mockCreatePhaseCostRecords.mockReturnValueOnce([{ id: 'record-1' } as unknown as import('../../cost').PhaseCostRecord]);
     const config = makeConfig();
 
-    const result = await executeScenarioTestPhase(config);
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.phaseCostRecords).toEqual([{ id: 'record-1' }]);
   });

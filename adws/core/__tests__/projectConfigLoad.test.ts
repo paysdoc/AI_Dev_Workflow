@@ -1,5 +1,10 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { loadProjectConfig } from '../projectConfig';
+import {
+  getDefaultCommandsConfig,
+  getDefaultProvidersConfig,
+  getDefaultScenariosConfig,
+  loadProjectConfig,
+} from '../projectConfig';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
@@ -58,6 +63,27 @@ describe('loadProjectConfig — healthCheckPath integration', () => {
     expect(config.scenarios.perIssueScenarioDirectory).toBe('features/per-issue/');
     expect(config.scenarios.regressionScenarioDirectory).toBe('features/regression/');
     expect(config.scenarios.vocabularyRegistry).toBe('features/regression/vocabulary.md');
+  });
+});
+
+describe('loadProjectConfig — an .adw/ directory that holds no file', () => {
+  it('loads the defaults of every file, empty text, and no application type', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-empty-adw-'));
+    mkdirSync(join(dir, '.adw'));
+    try {
+      const config = loadProjectConfig(dir);
+
+      expect(config.hasAdwDir).toBe(true);
+      expect(config.commands).toEqual(getDefaultCommandsConfig());
+      expect(config.providers).toEqual(getDefaultProvidersConfig());
+      expect(config.scenarios).toEqual(getDefaultScenariosConfig());
+      expect(config.projectMd).toBe('');
+      expect(config.conditionalDocsMd).toBe('');
+      expect(config.scenariosMd).toBe('');
+      expect(config.applicationType).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

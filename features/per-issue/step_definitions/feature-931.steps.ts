@@ -22,6 +22,8 @@ import type { RunInitCommandParams, UpgradeDeps, UpgradeRunResult } from '../../
 import { parseAdwYml } from '../../../adws/core/adwYmlConfig.ts';
 import { REQUIRED_ADW_FILES } from '../../../adws/phases/worktreeSetup.ts';
 
+import { disposeToolchain, syncProjectUnderToolchain } from './feature-992-standins.ts';
+
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const REPO_ID: RepoIdentifier = { owner: 'adw-fixture', repo: 'target-931', platform: Platform.GitHub };
 const UPGRADE_ISSUE_NUMBER = 931;
@@ -33,14 +35,19 @@ const AGENT_OUTPUT_PATHS: readonly string[] = [
   VOCABULARY_PATH,
 ];
 
+const UPGRADE_SCENARIOS = '@adw-931 or @adw-991 or @adw-992';
+const DEFAULT_MANIFEST = { file: 'package.json', content: '{ "name": "adw-931-target", "version": "0.0.0" }\n' };
+
 interface AdwInitAgent {
   command: string;
   leavesUntouched: string | null;
   /** What the stub writes as ".adw/project.md"; null leaves it the text every regenerated file gets. */
   projectMd: string | null;
+  /** Further files the stub writes, by path from the repository's root, after the complete configuration. */
+  extraFiles: Readonly<Record<string, string>>;
 }
 
-interface World931 {
+export interface World931 {
   repoDir: string;
   tempDirs: string[];
   seededAdwYml: string | null;
@@ -70,16 +77,17 @@ function resetWorld(): void {
   w.issueComments = [];
 }
 
-Before({ tags: '@adw-931 or @adw-991' }, function () {
+Before({ tags: UPGRADE_SCENARIOS }, function () {
   resetWorld();
 });
 
-After({ tags: '@adw-931 or @adw-991' }, function () {
+After({ tags: UPGRADE_SCENARIOS }, function () {
   for (const dir of w.tempDirs) fs.rmSync(dir, { recursive: true, force: true });
+  disposeToolchain();
   resetWorld();
 });
 
-function git(cwd: string, ...args: string[]): string {
+export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
@@ -87,7 +95,7 @@ function runShell(command: string, cwd: string): string {
   return execSync(command, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
-function commitAll(dir: string, message: string): void {
+export function commitAll(dir: string, message: string): void {
   git(dir, 'add', '-A');
   git(dir, 'commit', '-q', '-m', message);
 }
@@ -98,13 +106,13 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 
-function createTargetRepo(initialisedByOlderFramework: boolean): void {
+export function createTargetRepo(initialisedByOlderFramework: boolean, manifest: { file: string; content: string } = DEFAULT_MANIFEST): void {
   const dir = makeTempDir('adw-931-target-');
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.email', 'adw-931@test.dev');
   git(dir, 'config', 'user.name', 'ADW 931 Test');
   git(dir, 'config', 'commit.gpgsign', 'false');
-  fs.writeFileSync(path.join(dir, 'package.json'), '{ "name": "adw-931-target", "version": "0.0.0" }\n');
+  fs.writeFileSync(path.join(dir, manifest.file), manifest.content);
   fs.writeFileSync(path.join(dir, 'README.md'), '# Target repository\n');
   if (initialisedByOlderFramework) {
     fs.mkdirSync(path.join(dir, '.adw'), { recursive: true });
@@ -139,6 +147,11 @@ async function runAdwInitStub(params: RunInitCommandParams): Promise<{ success: 
   const vocabularyFile = path.join(params.worktreePath, VOCABULARY_PATH);
   fs.mkdirSync(path.dirname(vocabularyFile), { recursive: true });
   fs.writeFileSync(vocabularyFile, '# Regression vocabulary\n');
+  for (const [relativePath, content] of Object.entries(w.agent?.extraFiles ?? {})) {
+    const file = path.join(params.worktreePath, relativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content);
+  }
   return { success: true };
 }
 
@@ -153,6 +166,7 @@ function buildUpgradeDeps(): UpgradeDeps {
     findPRByBranch: () => null,
     runInitCommand: runAdwInitStub,
     copyInitCommandToWorktree: () => {},
+    syncScenarioProject: syncProjectUnderToolchain,
     commitChanges: (message, cwd, opts) => commitOps.commitChanges(runShell, message, cwd, opts),
     pushBranch: () => {},
     createPullRequest: () => ({ url: `https://github.com/${REPO_ID.owner}/${REPO_ID.repo}/pull/1`, number: 1 }),
@@ -180,9 +194,14 @@ export function regenCommitFile(filePath: string): string {
   return git(w.repoDir, 'show', `HEAD:${filePath}`);
 }
 
-/** Configures the stubbed "/adw_init" agent, which writes `projectMd` as the repository's ".adw/project.md". */
-export function configureAdwInitAgent(command: string, projectMd: string): void {
-  w.agent = { command, leavesUntouched: null, projectMd };
+/** Configures the stubbed "/adw_init" agent, which writes `projectMd` as the repository's ".adw/project.md", and `extraFiles` besides. */
+export function configureAdwInitAgent(command: string, projectMd: string, extraFiles: Readonly<Record<string, string>> = {}): void {
+  w.agent = { command, leavesUntouched: null, projectMd, extraFiles };
+}
+
+/** What the scenario's upgrade has done so far, for the scenarios of later features that read it. */
+export function upgradeWorld(): Readonly<World931> {
+  return w;
 }
 
 function assertUnitTestSwitch(filePath: string, expected: boolean): void {
@@ -223,26 +242,21 @@ Given(
       !AGENT_OUTPUT_PATHS.includes(leavesUntouched),
       `The stubbed "${command}" agent writes "${leavesUntouched}", contradicting the scenario`,
     );
-    w.agent = { command, leavesUntouched, projectMd: null };
+    w.agent = { command, leavesUntouched, projectMd: null, extraFiles: {} };
   },
 );
+
+export async function runFrameworkUpgrade(): Promise<void> {
+  assert.ok(w.repoDir, 'Expected a target repository to have been prepared first');
+  assert.ok(w.agent, 'Expected the /adw_init agent to have been configured first');
+  w.headBefore = git(w.repoDir, 'rev-parse', 'HEAD').trim();
+  w.result = await executeUpgrade(UPGRADE_ISSUE_NUMBER, UPGRADE_ADW_ID, REPO_ID, w.repoDir, FRAMEWORK_REPO_ROOT, buildUpgradeDeps());
+}
 
 When(
   "the framework upgrade regenerates the target repository's ADW configuration",
   { timeout: 60_000 },
-  async function () {
-    assert.ok(w.repoDir, 'Expected a target repository to have been prepared first');
-    assert.ok(w.agent, 'Expected the /adw_init agent to have been configured first');
-    w.headBefore = git(w.repoDir, 'rev-parse', 'HEAD').trim();
-    w.result = await executeUpgrade(
-      UPGRADE_ISSUE_NUMBER,
-      UPGRADE_ADW_ID,
-      REPO_ID,
-      w.repoDir,
-      FRAMEWORK_REPO_ROOT,
-      buildUpgradeDeps(),
-    );
-  },
+  runFrameworkUpgrade,
 );
 
 Then('the upgrade commits the regenerated configuration', function () {

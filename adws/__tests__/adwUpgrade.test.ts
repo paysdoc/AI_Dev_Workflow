@@ -28,6 +28,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     runInitCommand: vi.fn().mockResolvedValue({ success: true }),
     copyInitCommandToWorktree: vi.fn(),
     verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
+    syncScenarioProject: vi.fn().mockResolvedValue({ kind: 'not_applicable' }),
     copyStarterSettings: vi.fn().mockReturnValue({ action: 'copied', destPath: '/worktrees/adw-upgrade-a1b2c3d4e5f6/.claude/settings.json' }),
     writeAdwYmlTemplate: vi.fn().mockReturnValue({ created: true }),
     writeAdwVersion: vi.fn(),
@@ -748,6 +749,90 @@ describe('executeUpgrade — .github/adw.yml template write', () => {
     expect(result.reason).toBe('pr_merged');
     expect(deps.commitChanges).toHaveBeenCalledTimes(1);
     expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("executeUpgrade — ADW's Playwright project is synced and installed after the agent", () => {
+  const WORKTREE = '/worktrees/adw-upgrade-a1b2c3d4e5f6';
+
+  it('calls syncScenarioProject exactly once with (worktreePath, frameworkRepoRoot)', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.syncScenarioProject).toHaveBeenCalledTimes(1);
+    expect(deps.syncScenarioProject).toHaveBeenCalledWith(WORKTREE, FRAMEWORK_ROOT);
+  });
+
+  it('runs after the agent and its verification, and before the version stamp and the commit, so the files ride in the regen commit', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    const orderOf = (fn: unknown): number => (fn as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+    expect(orderOf(deps.runInitCommand)).toBeLessThan(orderOf(deps.syncScenarioProject));
+    expect(orderOf(deps.verifyAdwRegen)).toBeLessThan(orderOf(deps.syncScenarioProject));
+    expect(orderOf(deps.syncScenarioProject)).toBeLessThan(orderOf(deps.writeAdwVersion));
+    expect(orderOf(deps.syncScenarioProject)).toBeLessThan(orderOf(deps.commitChanges));
+  });
+
+  it('does not run when the agent fails (llm_failed)', async () => {
+    const deps = makeDeps({ runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'Claude timeout' }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.syncScenarioProject).not.toHaveBeenCalled();
+  });
+
+  it('does not run when the verifyAdwRegen gate fails (regen_incomplete)', async () => {
+    const deps = makeDeps({ verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.syncScenarioProject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['synced', { kind: 'synced', files: [{ target: 'features/playwright.config.ts', action: 'written' }] }],
+    ['not_applicable', { kind: 'not_applicable' }],
+  ])('logs the outcome (%s) and still proceeds to commit, push and the PR', async (kind, outcome) => {
+    const deps = makeDeps({ syncScenarioProject: vi.fn().mockResolvedValue(outcome) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.log).toHaveBeenCalledWith(`adwUpgrade: scenario project ${kind}`, 'info');
+    expect(result.outcome).toBe('completed');
+    expect(deps.commitChanges).toHaveBeenCalledTimes(1);
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  describe('when the sync or the install throws', () => {
+    async function failingUpgrade(message = 'ENOENT: templates/playwright/playwright.config.ts.template'): Promise<{ deps: UpgradeDeps; result: UpgradeRunResult }> {
+      const deps = makeDeps({ syncScenarioProject: vi.fn().mockRejectedValue(new Error(message)) });
+      const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+      return { deps, result };
+    }
+
+    it('fails with reason=scenario_project_error', async () => {
+      const { result } = await failingUpgrade();
+
+      expect(result).toEqual({ outcome: 'failed', reason: 'scenario_project_error' });
+    });
+
+    it('posts one failure comment that names the cause and is not an ADW workflow comment', async () => {
+      const { deps } = await failingUpgrade('npm ERR! code E404');
+
+      expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+      const [issueNumber, body] = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(issueNumber).toBe(541);
+      expect(body).toContain('npm ERR! code E404');
+      expect(body).toContain(UPGRADE_FAILURE_SIGNATURE);
+      expect(isAdwComment(body)).toBe(false);
+    });
+
+    it('stamps no version, commits nothing, pushes nothing and opens no PR, so the next upgrade tries again', async () => {
+      const { deps } = await failingUpgrade();
+
+      expect(deps.writeAdwVersion).not.toHaveBeenCalled();
+      expect(deps.commitChanges).not.toHaveBeenCalled();
+      expect(deps.pushBranch).not.toHaveBeenCalled();
+      expect(deps.createPullRequest).not.toHaveBeenCalled();
+    });
   });
 });
 

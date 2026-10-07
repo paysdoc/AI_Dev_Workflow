@@ -173,8 +173,9 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
     const original = fs.readFileSync(located.file);
     fs.writeFileSync(located.file, withRerunTag(original.toString('utf-8'), located.headerLine, BASE_RERUN_TAG));
     try {
-      // The change's own server is stopped by a timer, so the run waits for the port before the base server
-      // starts, and the base run's probe cannot be answered by the change's server.
+      // The scenario phase stops the change's own server and waits for it, but the wait gives up after
+      // KILL_GRACE_MS + PROBE_INTERVAL_MS. So the run waits for the port before the base server starts, and
+      // the base run's probe cannot be answered by the change's server.
       return isDevServerConfigured(base.project.commands.startDevServer) ? await runUnderServer(base) : await runTagged(base);
     } finally {
       fs.writeFileSync(located.file, original);

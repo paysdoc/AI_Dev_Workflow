@@ -2,8 +2,8 @@
  * Encapsulates the full spawn → probe → retry → work → cleanup lifecycle for
  * a development server process.
  *
- * `withDevServer` runs the work even when no attempt became healthy;
- * `withHealthyDevServer` never does, and hands back the last attempt's output instead.
+ * `withHealthyDevServer` never runs the work against a server that did not start: it hands back
+ * the last attempt's output instead, and leaves the meaning of a failed start to its caller.
  */
 
 import * as fs from 'fs';
@@ -98,54 +98,6 @@ export async function probeHealth(
     }
   }
   return false;
-}
-
-/**
- * Starts a dev server, runs `work`, then tears down the server.
- *
- * If all attempts fail, log a warning and fall back to running `work` anyway.
- * In the `finally` block, kill the process group (SIGTERM → SIGKILL after
- * `KILL_GRACE_MS`) regardless of whether `work` threw.
- */
-export async function withDevServer<T>(
-  config: DevServerConfig,
-  work: () => Promise<T>,
-): Promise<T> {
-  const command = substitutePort(config.startCommand, config.port);
-  const url = `http://localhost:${config.port}${config.healthPath}`;
-
-  let runningProcess: ChildProcess | null = null;
-
-  for (let attempt = 0; attempt < MAX_START_ATTEMPTS; attempt++) {
-    const proc = spawnServer(command, config.cwd);
-    runningProcess = proc;
-
-    const healthy = await probeHealth(url, PROBE_INTERVAL_MS, PROBE_TIMEOUT_MS);
-
-    if (healthy) {
-      break; // runningProcess holds the running server
-    }
-
-    // Probe timed out — kill this attempt before retrying
-    if (proc.pid !== undefined) {
-      killProcessGroup(proc.pid, KILL_GRACE_MS);
-    }
-    runningProcess = null;
-  }
-
-  if (runningProcess === null) {
-    console.warn(
-      '[devServerLifecycle] Dev server failed to become healthy after all attempts — running work anyway',
-    );
-  }
-
-  try {
-    return await work();
-  } finally {
-    if (runningProcess?.pid !== undefined) {
-      killProcessGroup(runningProcess.pid, KILL_GRACE_MS);
-    }
-  }
 }
 
 function isGroupAlive(pid: number): boolean {

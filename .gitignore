@@ -42,3 +42,39 @@ output.jsonl
 
 # PR Lens writes its previews here. They are rebuilt on demand.
 .pr-lens/
+# ADW: copied slash commands (do not commit)
+.claude/commands/align_plan_scenarios.md
+.claude/commands/bug.md
+.claude/commands/chore.md
+.claude/commands/classify_issue.md
+.claude/commands/clean_local_repo.md
+.claude/commands/commit.md
+.claude/commands/conditional_docs.md
+.claude/commands/correct_output.md
+.claude/commands/diff_evaluator.md
+.claude/commands/document.md
+.claude/commands/extract_dependencies.md
+.claude/commands/feature.md
+.claude/commands/find_issue_dependencies.md
+.claude/commands/generate_branch_name.md
+.claude/commands/generate_step_definitions.md
+.claude/commands/implement.md
+.claude/commands/patch.md
+.claude/commands/pr_review.md
+.claude/commands/promote_regression_vocabulary.md
+.claude/commands/pull_request.md
+.claude/commands/resolve_conflict.md
+.claude/commands/resolve_failed_scenario.md
+.claude/commands/resolve_failed_test.md
+.claude/commands/resolve_plan_scenarios.md
+.claude/commands/review.md
+.claude/commands/scenario_writer.md
+.claude/commands/test.md
+.claude/commands/tools.md
+.claude/commands/validate_plan_scenarios.md
+.claude/commands/validate_scenario_fidelity.md
+.claude/skills/depaudit-triage/
+.claude/skills/pr-lens/
+.claude/skills/promote-regression-vocabulary/
+.claude/skills/refactor/
+.claude/skills/write-a-skill/

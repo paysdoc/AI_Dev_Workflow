@@ -59,7 +59,7 @@ export function getLastProbeClassification(): ProbeClassification | null {
   return world.lastClassification;
 }
 
-Before({ tags: '(@adw-902 or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership) and not @adw-908 and not @adw-812' }, function () {
+Before({ tags: '(@pause-queue-probe or @adw-907 or @adw-910 or @adw-911 or @pause-queue-reset-time or @pause-queue-ownership or @rate-limit-detection) and not @adw-908 and not @adw-812' }, function () {
   resetFeature902ProbeState();
 });
 

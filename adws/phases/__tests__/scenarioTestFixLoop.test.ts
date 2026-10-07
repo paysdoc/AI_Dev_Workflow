@@ -56,7 +56,9 @@ import { executeScenarioTestPhase } from '../scenarioTestPhase';
 import { executeScenarioFixPhase } from '../scenarioFixPhase';
 import { runScenarioFidelityAgent } from '../../agents/scenarioFidelityAgent';
 import { findScenarioFiles } from '../../agents/validationAgent';
+import { AgentStateManager } from '../../core';
 import { CostTracker } from '../../core/phaseRunner';
+import type { PreExistingRegressionGate } from '../preExistingRegressionGate';
 
 function makeConfig(overrides?: Record<string, unknown>) {
   return {
@@ -70,10 +72,14 @@ function makeConfig(overrides?: Record<string, unknown>) {
   } as never;
 }
 
-function makePassingProof(extra?: Partial<{ hasBlockerFailures: boolean }>) {
+const NOT_STARTED = { status: 'not_started' };
+const SERVER_OUTPUT = "Error: Cannot find module './routes'";
+
+function makePassingProof(extra?: Partial<{ hasBlockerFailures: boolean }>, devServer: object = NOT_STARTED) {
   return {
     costUsd: 0,
     modelUsage: {},
+    devServer,
     scenarioProof: {
       hasBlockerFailures: extra?.hasBlockerFailures ?? false,
       resultsFilePath: '/proof.md',
@@ -90,6 +96,7 @@ function makeFailingProof() {
   return {
     costUsd: 0,
     modelUsage: {},
+    devServer: NOT_STARTED,
     scenarioProof: {
       hasBlockerFailures: true,
       resultsFilePath: '/proof.md',
@@ -105,6 +112,16 @@ function makeFailingProof() {
 
 function makeFixResult() {
   return { costUsd: 0, modelUsage: {}, phaseCostRecords: [], gherkinFreezeViolations: [] };
+}
+
+function makeFailedStart() {
+  return {
+    costUsd: 0,
+    modelUsage: {},
+    scenarioProof: undefined,
+    devServer: { status: 'failed', command: 'bun run dev --port 4567', healthUrl: 'http://localhost:4567/', output: SERVER_OUTPUT },
+    phaseCostRecords: [],
+  };
 }
 
 describe('runScenarioTestFixLoop', () => {
@@ -167,6 +184,7 @@ describe('runScenarioTestFixLoop', () => {
       costUsd: 0,
       modelUsage: {},
       scenarioProof: undefined,
+      devServer: NOT_STARTED,
       phaseCostRecords: [],
     });
 
@@ -174,6 +192,92 @@ describe('runScenarioTestFixLoop', () => {
     const result = await runScenarioTestFixLoop(makeConfig(), tracker);
     expect(result.scenarioRetries).toBe(0);
     expect(result.scenarioProof).toBeUndefined();
+    expect(result.devServer).toEqual(NOT_STARTED);
     expect(runScenarioFidelityAgent).not.toHaveBeenCalled();
+  });
+
+  it('carries the dev server start of the last run on a pass', async () => {
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(makePassingProof(undefined, { status: 'started' }));
+
+    const result = await runScenarioTestFixLoop(makeConfig(), new CostTracker());
+
+    expect(result.devServer).toEqual({ status: 'started' });
+  });
+});
+
+describe('runScenarioTestFixLoop — a dev server that does not start on the issue branch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (findScenarioFiles as Mock).mockReturnValue(['/feat.feature']);
+  });
+
+  function failedStartDeps(): { gate: Mock<PreExistingRegressionGate> } {
+    return { gate: vi.fn<PreExistingRegressionGate>(async () => undefined) };
+  }
+
+  it('is handed back at once on the first run, with no scenario retry counted', async () => {
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(makeFailedStart());
+    const { gate } = failedStartDeps();
+
+    const result = await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 3, preExistingRegressionGate: gate });
+
+    expect(result).toEqual({
+      scenarioProof: undefined,
+      scenarioProofPath: '',
+      scenarioRetries: 0,
+      devServer: expect.objectContaining({ status: 'failed', output: SERVER_OUTPUT }),
+    });
+    expect(executeScenarioTestPhase).toHaveBeenCalledTimes(1);
+  });
+
+  it('reaches neither the scenario fix agent, nor the fidelity check, nor the pre-existing regression gate', async () => {
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(makeFailedStart());
+    const { gate } = failedStartDeps();
+
+    await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 3, preExistingRegressionGate: gate });
+
+    expect(executeScenarioFixPhase).not.toHaveBeenCalled();
+    expect(runScenarioFidelityAgent).not.toHaveBeenCalled();
+    expect(gate).not.toHaveBeenCalled();
+  });
+
+  it('is not turned into a hermeticity failure by a budget of one attempt', async () => {
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(makeFailedStart());
+    const { gate } = failedStartDeps();
+
+    const result = await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 1, preExistingRegressionGate: gate });
+
+    expect(result.devServer).toMatchObject({ status: 'failed' });
+  });
+
+  it('says in the state log that the failed start goes to the review loop', async () => {
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(makeFailedStart());
+    const { gate } = failedStartDeps();
+
+    await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 3, preExistingRegressionGate: gate });
+
+    const appended = vi.mocked(AgentStateManager.appendLog).mock.calls.map(([, message]) => message).join('\n');
+    expect(appended).toMatch(/dev server did not start/i);
+    expect(appended).toMatch(/review loop/i);
+  });
+
+  it('is handed back after a fix round with the one retry that round counted, and the fix round is not repeated', async () => {
+    (executeScenarioTestPhase as Mock)
+      .mockResolvedValueOnce(makeFailingProof())
+      .mockResolvedValueOnce(makeFailedStart());
+    (executeScenarioFixPhase as Mock).mockResolvedValueOnce(makeFixResult());
+    const { gate } = failedStartDeps();
+
+    const result = await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 3, preExistingRegressionGate: gate });
+
+    expect(result).toEqual({
+      scenarioProof: undefined,
+      scenarioProofPath: '',
+      scenarioRetries: 1,
+      devServer: expect.objectContaining({ status: 'failed' }),
+    });
+    expect(executeScenarioFixPhase).toHaveBeenCalledTimes(1);
+    expect(runScenarioFidelityAgent).not.toHaveBeenCalled();
+    expect(gate).toHaveBeenCalledTimes(1);
   });
 });

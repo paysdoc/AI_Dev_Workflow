@@ -60,6 +60,12 @@ export {
 } from './reviewAgent';
 
 export {
+  ReviewIssueKind,
+  formatReviewArgs,
+  type ReviewPromptContext,
+} from './reviewPromptArgs';
+
+export {
   runPatchAgent,
 } from './patchAgent';
 

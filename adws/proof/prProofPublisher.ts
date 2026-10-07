@@ -1,22 +1,27 @@
 /**
  * Pure half: formatPrProofComment — composes JUnit summary + inline screenshots.
- * Impure half: publishPrProof — uploads through uploadProofArtifacts, then formats and posts.
+ * Impure half: publishPrProof — uploads the images the scenario proof selected through uploadProofArtifacts, then formats and posts.
  *
  * No side effects in the pure formatter. The only I/O here is the GitHub comment; fs and R2 are in proofUploader.
  */
 
 import { log } from '../core/logger';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
-import { isR2Configured, uploadProofArtifacts } from './proofUploader';
+import { isProofUploadConfigured, uploadProofArtifacts } from './proofUploader';
 import type { ProofCommentInput, PublishDeps, TagProofResultLike, UploadedArtifact } from './types';
 
 function formatImageEmbed(fileName: string, url: string): string {
   return `[![${fileName}](${url})](${url})\n${url}`;
 }
 
+// Scenario names are written by people, and the summary is HTML.
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function formatScenarioGroup(scenario: string, artifacts: UploadedArtifact[]): string {
   const embeds = artifacts.map(a => formatImageEmbed(a.fileName, a.url)).join('\n\n');
-  return `<details>\n<summary>${scenario} (${artifacts.length})</summary>\n\n${embeds}\n\n</details>`;
+  return `<details>\n<summary>${escapeHtml(scenario)} (${artifacts.length})</summary>\n\n${embeds}\n\n</details>`;
 }
 
 function tagStatusEmoji(result: TagProofResultLike): string {
@@ -94,7 +99,6 @@ export function formatPrProofComment(input: ProofCommentInput): string {
 /** Non-fatal — any error is caught and logged. */
 export async function publishPrProof(deps: PublishDeps): Promise<void> {
   const {
-    artifactsDir,
     scenarioProof,
     prNumber,
     repoInfo,
@@ -107,17 +111,17 @@ export async function publishPrProof(deps: PublishDeps): Promise<void> {
     log('publishPrProof: prNumber <= 0 — skipping proof comment', 'info');
     return;
   }
-  if (!artifactsDir || !scenarioProof) {
-    log('publishPrProof: missing artifactsDir or scenarioProof — skipping proof comment', 'info');
+  if (!scenarioProof) {
+    log('publishPrProof: missing scenarioProof — skipping proof comment', 'info');
     return;
   }
 
   try {
-    // Gated here as well as inside the uploader, so an injected uploader is skipped without credentials
-    // and the comment carries the "R2 is not configured" note.
-    const r2Configured = isR2Configured();
+    // Gated here as well as inside the uploader, so that an injected uploader is skipped when there are neither
+    // credentials nor an installed uploader, and the comment then carries the "R2 is not configured" note.
+    const r2Configured = isProofUploadConfigured();
     const uploaded = r2Configured
-      ? await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader })
+      ? await uploadProofArtifacts({ images: scenarioProof.perIssueImages, repoInfo, adwId, uploader })
       : [];
 
     const body = formatPrProofComment({

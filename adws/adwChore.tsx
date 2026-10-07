@@ -10,7 +10,8 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { DevServerStartStatus } from './core/devServerFailure';
 import { extractPrNumber } from './adwBuildHelpers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -28,8 +29,10 @@ import {
   executeReviewPatchCycle,
   executeDocumentPhase,
   executeDiffEvaluationPhase,
+  runReviewRetryLoop,
   handleWorkflowError,
-  type ReviewIssue,
+  type DiffEvaluationPhaseResult,
+  type ReviewRetryResult,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
@@ -72,65 +75,47 @@ const CHORE_PHASES: ChorePhases = {
   executePRPhase,
 };
 
-function postEscalationComment(config: WorkflowConfig): void {
+enum ChoreEscalation {
+  RegressionPossible = 'regression_possible',
+  DevServerDidNotStart = 'dev_server_did_not_start',
+}
+
+// The first heading is asserted by features/regression/smoke/adw_chore_diff_verdicts.feature.
+const ESCALATION_COMMENTS: Readonly<Record<ChoreEscalation, readonly string[]>> = {
+  [ChoreEscalation.RegressionPossible]: [
+    '## Chore Escalation: Regression Possible',
+    '',
+    'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
+    '',
+    'Phases: review → document → PR',
+  ],
+  [ChoreEscalation.DevServerDidNotStart]: [
+    '## Chore Escalation: Dev Server Did Not Start',
+    '',
+    'The dev server did not start on the issue branch, so no scenario ran. That is a failed review, whatever the diff evaluator rules. Escalating to the full review pipeline.',
+    '',
+    'Phases: review → document → PR',
+  ],
+};
+
+function postEscalationComment(config: WorkflowConfig, escalation: ChoreEscalation): void {
   const { repoContext, issueNumber } = config;
   if (!repoContext) return;
   try {
-    repoContext.issueTracker.commentOnIssue(
-      issueNumber,
-      [
-        '## Chore Escalation: Regression Possible',
-        '',
-        'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
-        '',
-        'Phases: review → document → PR',
-      ].join('\n'),
-    );
+    repoContext.issueTracker.commentOnIssue(issueNumber, ESCALATION_COMMENTS[escalation].join('\n'));
   } catch (error) {
     log(`Failed to post escalation comment: ${error}`, 'warn');
   }
 }
 
-interface EscalatedReviewResult {
-  readonly reviewPassed: boolean | undefined;
+interface FailedReviewRecord {
+  readonly testResult: { unitTestsPassed: boolean; totalRetries: number };
+  readonly scenarioRetries: number;
   readonly reviewRetries: number;
+  readonly diffVerdict: DiffEvaluationPhaseResult['verdict'];
 }
 
-async function runEscalatedReviewLoop(
-  config: WorkflowConfig,
-  tracker: CostTracker,
-  phases: ChorePhases,
-  scenarioProofPath: string,
-): Promise<EscalatedReviewResult> {
-  let reviewPassed: boolean | undefined;
-  let reviewRetries = 0;
-  let proofPath = scenarioProofPath;
-  let reviewBlockers: ReviewIssue[] = [];
-  for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-    const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
-    const reviewResult = await runPhase(config, tracker, reviewFn);
-    reviewPassed = reviewResult.reviewPassed;
-    reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-    if (reviewPassed) break;
-    reviewRetries++;
-    if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-      const patchWrapper = (cfg: WorkflowConfig) =>
-        phases.executeReviewPatchCycle(cfg, reviewBlockers);
-      await runPhase(config, tracker, patchWrapper);
-      const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-      proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-    }
-  }
-  return { reviewPassed, reviewRetries };
-}
-
-function stopAfterFailedReview(
-  config: WorkflowConfig,
-  tracker: CostTracker,
-  testResult: { unitTestsPassed: boolean; totalRetries: number },
-  scenarioRetries: number,
-  reviewRetries: number,
-): void {
+function stopAfterFailedReview(config: WorkflowConfig, tracker: CostTracker, record: FailedReviewRecord): void {
   executeSdlcReviewFailedHandoff({
     adwId: config.adwId,
     issueNumber: config.issueNumber,
@@ -140,12 +125,12 @@ function stopAfterFailedReview(
   AgentStateManager.writeState(config.orchestratorStatePath, {
     metadata: {
       totalCostUsd: tracker.totalCostUsd,
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-      scenarioRetries,
-      diffVerdict: 'regression_possible',
+      unitTestsPassed: record.testResult.unitTestsPassed,
+      totalTestRetries: record.testResult.totalRetries,
+      scenarioRetries: record.scenarioRetries,
+      diffVerdict: record.diffVerdict,
       reviewPassed: false,
-      totalReviewRetries: reviewRetries,
+      totalReviewRetries: record.reviewRetries,
     },
   });
   persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
@@ -182,25 +167,33 @@ async function runChorePhases(
   await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
-  const { scenarioProofPath, scenarioRetries } = await phases.runScenarioTestFixLoop(config, tracker);
+  const scenarios = await phases.runScenarioTestFixLoop(config, tracker);
+  const { scenarioRetries } = scenarios;
 
   // Diff evaluation uses git diff against the default branch (worktree-dependent).
   // Runs before PR so the worktree is still available.
   const diffResult = await runPhase(config, tracker, phases.executeDiffEvaluationPhase);
 
-  let reviewPassed: boolean | undefined;
-  let reviewRetries = 0;
-  if (diffResult.verdict !== 'safe') {
-    postEscalationComment(config);
+  // A failed start is a failed review whatever the diff judge rules: a chore whose scenarios never ran must not be auto-merged.
+  const startFailed = scenarios.devServer.status === DevServerStartStatus.Failed;
 
-    ({ reviewPassed, reviewRetries } = await runEscalatedReviewLoop(config, tracker, phases, scenarioProofPath));
+  let review: ReviewRetryResult | undefined;
+  if (diffResult.verdict !== 'safe' || startFailed) {
+    postEscalationComment(config, startFailed ? ChoreEscalation.DevServerDidNotStart : ChoreEscalation.RegressionPossible);
 
-    // A loop that recorded no verdict counts as failed. The gate lives in this branch because a
-    // chore the diff judge rules safe runs no review, so it has no verdict to gate on.
-    const outcome = decidePostReviewOutcome(reviewPassed ?? false);
+    review = await runReviewRetryLoop(config, tracker, scenarios, phases);
+
+    // The gate lives in this branch because a chore the judge rules safe, with a server that started, runs no
+    // review, so it has no verdict to gate on.
+    const outcome = decidePostReviewOutcome(review.reviewPassed);
 
     if (outcome.skipDocAndPR) {
-      stopAfterFailedReview(config, tracker, testResult, scenarioRetries, reviewRetries);
+      stopAfterFailedReview(config, tracker, {
+        testResult,
+        scenarioRetries,
+        reviewRetries: review.reviewRetries,
+        diffVerdict: diffResult.verdict,
+      });
       return;
     }
 
@@ -219,11 +212,8 @@ async function runChorePhases(
       unitTestsPassed: testResult.unitTestsPassed,
       totalTestRetries: testResult.totalRetries,
       scenarioRetries,
-      diffVerdict: reviewPassed !== undefined ? 'regression_possible' : 'safe',
-      ...(reviewPassed !== undefined ? {
-        reviewPassed,
-        totalReviewRetries: reviewRetries,
-      } : {}),
+      diffVerdict: diffResult.verdict,
+      ...(review ? { reviewPassed: review.reviewPassed, totalReviewRetries: review.reviewRetries } : {}),
     },
   });
   persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);

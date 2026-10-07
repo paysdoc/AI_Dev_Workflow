@@ -1,12 +1,12 @@
 /**
- * Passive judge: reads scenario_proof.md artifact, calls a single agent,
- * returns reviewIssues + passed. Does not run tests, start a dev server, or
- * take screenshots.
+ * Passive judge: the agent is handed the spec, the scenario proof, the per-issue images and the guidance section
+ * for the repository's application type, and returns reviewIssues + passed. Neither ADW nor the agent runs a check here.
  */
 
 import * as path from 'path';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
+import { formatReviewArgs, type ReviewPromptContext } from './reviewPromptArgs';
 import { extractJson } from '../core/jsonParser';
 
 /** Matches the JSON output structure defined in .claude/commands/review.md */
@@ -68,21 +68,10 @@ function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
   return { success: true, data: parsed };
 }
 
-/** Args: adwId ($0), specFile ($1), agentName ($2), scenarioProofPath ($3 if provided) */
-export function formatReviewArgs(
-  adwId: string,
-  specFile: string,
-  agentName: string,
-  scenarioProofPath?: string,
-): string[] {
-  return scenarioProofPath
-    ? [adwId, specFile, agentName, scenarioProofPath]
-    : [adwId, specFile, agentName];
-}
-
 export async function runReviewAgent(
   adwId: string,
   specFile: string,
+  context: ReviewPromptContext,
   logsDir: string,
   statePath?: string,
   cwd?: string,
@@ -91,7 +80,7 @@ export async function runReviewAgent(
   subprocessEnv?: NodeJS.ProcessEnv,
   launchContext?: AgentLaunchContext,
 ): Promise<ReviewAgentResult> {
-  const args = formatReviewArgs(adwId, specFile, 'Review', scenarioProofPath);
+  const args = formatReviewArgs(adwId, specFile, 'Review', scenarioProofPath, context);
 
   const reviewAgentConfig: CommandAgentConfig<ReviewResult> = {
     command: '/review',

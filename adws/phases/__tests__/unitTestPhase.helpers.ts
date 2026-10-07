@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from '../../core/config';
+import { APPLICATION_TYPE_PROFILES, type ApplicationProfile } from '../../core/applicationType';
 import { getDefaultProjectConfig, type CommandsConfig } from '../../core/projectConfig';
 import type { CheckVerdict, ProcessOutcome, ProcessRunner, StaticCheckCommands } from '../../core/checkRunner';
 import type { FixRoundPort } from '../../core/staticCheckFixLoop';
@@ -62,7 +63,11 @@ export interface Workflow {
   readonly comments: () => string[];
 }
 
-export function makeWorkflow(unitTests: boolean, commands: Partial<CommandsConfig> = CHECK_COMMANDS): Workflow {
+export function makeWorkflow(
+  unitTests: boolean,
+  commands: Partial<CommandsConfig> = CHECK_COMMANDS,
+  applicationProfile: ApplicationProfile = APPLICATION_TYPE_PROFILES.cli,
+): Workflow {
   const projectConfig = getDefaultProjectConfig();
   const adwId = `unit-test-phase-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
   adwIds.push(adwId);
@@ -78,12 +83,17 @@ export function makeWorkflow(unitTests: boolean, commands: Partial<CommandsConfi
     repoContext: { issueTracker: { moveToStatus: vi.fn(async () => undefined), commentOnIssue, applyLabel: vi.fn() } },
     projectConfig: { ...projectConfig, commands: { ...projectConfig.commands, ...commands } },
     adwYmlConfig: { hitl: false, unitTests },
+    applicationProfile,
   } as unknown as WorkflowConfig;
   return { config, comments: () => commentOnIssue.mock.calls.map(([, body]) => String(body)) };
 }
 
-export function makeConfig(unitTests: boolean, commands: Partial<CommandsConfig> = CHECK_COMMANDS): WorkflowConfig {
-  return makeWorkflow(unitTests, commands).config;
+export function makeConfig(
+  unitTests: boolean,
+  commands: Partial<CommandsConfig> = CHECK_COMMANDS,
+  applicationProfile: ApplicationProfile = APPLICATION_TYPE_PROFILES.cli,
+): WorkflowConfig {
+  return makeWorkflow(unitTests, commands, applicationProfile).config;
 }
 
 /** A command's outcomes in the order it is run; the last one repeats once the queue is spent. */

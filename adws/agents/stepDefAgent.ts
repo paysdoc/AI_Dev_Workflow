@@ -1,3 +1,4 @@
+import type { RunnerMode } from '../core/applicationType';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
@@ -52,10 +53,11 @@ const stepDefAgentConfig: CommandAgentConfig<RemovedScenario[]> = {
   outputSchema: removedScenariosSchema,
 };
 
-/** CWD is set to the worktree so the agent reads and writes files in the target repo. */
+/** CWD is set to the worktree so the agent reads and writes files in the target repo. `runnerMode` reaches the prompt as `$2`. */
 export async function runStepDefAgent(
   issueNumber: number,
   adwId: string,
+  runnerMode: RunnerMode,
   logsDir: string,
   statePath?: string,
   cwd?: string,
@@ -64,7 +66,7 @@ export async function runStepDefAgent(
   launchContext?: AgentLaunchContext,
 ): Promise<StepDefAgentResult> {
   const result = await runCommandAgent(stepDefAgentConfig, {
-    args: [String(issueNumber), adwId],
+    args: [String(issueNumber), adwId, runnerMode],
     logsDir,
     issueBody,
     statePath,

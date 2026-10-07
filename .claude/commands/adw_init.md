@@ -4,6 +4,9 @@ hashInputs:
   - .claude/commands/adw_init.md
   - .claude/commands/document.md
   - templates/vocabulary.md.template
+  - templates/playwright/playwright.config.ts.template
+  - templates/playwright/package.json.template
+  - templates/playwright/gitignore.template
 ---
 # Initialize ADW Project Configuration
 
@@ -13,7 +16,7 @@ Analyze the current working directory's codebase and generate the `.adw/` config
 issueNumber: $0 — MUST be a numeric GitHub issue number (e.g., 31, 456). Default: 0
 adwId: $1 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
 issueJson: $2 — JSON string containing full issue details. Default: `{}`
-frameworkRepoRoot: $3 — Absolute path to the ADW framework repository root. Used by step 7 to locate `templates/claude-settings-starter.json` and by step 8 to locate `templates/vocabulary.md.template`. Default: empty string (skip both template copies if empty).
+frameworkRepoRoot: $3 — Absolute path to the ADW framework repository root. Used by step 6 to locate `templates/playwright/`, by step 7 to locate `templates/claude-settings-starter.json` and by step 8 to locate `templates/vocabulary.md.template`. Default: empty string (skip all three template copies if empty).
 
 CRITICAL: $0 is ALWAYS the numeric issue number. $1 is ALWAYS the ADW ID string. $2 is ALWAYS the issue JSON string. $3 is ALWAYS the framework repo root path. Do NOT swap these values.
 Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
@@ -55,11 +58,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
          - **cargo nextest** → `cargo nextest run --profile ci` with a nextest profile that sets `junit.path = "$ADW_UNIT_TEST_REPORT_PATH"` (document the nextest config requirement)
          - **other / unknown** → use the idiomatic test command (e.g. `bun run test`) with a comment noting that JUnit emission is not configured; runs will resolve to `unverified` until the command is updated to emit a report to `$ADW_UNIT_TEST_REPORT_PATH`
      - `## Run Build` — Command to build the project
-     - `## Start Dev Server` — Determine the correct value using these detection rules:
-       - **CLI-only target repos** (no web framework, no dev server needed) → set `N/A`
-       - **Playwright with a `webServer` block** in `playwright.config.{ts,js}` → set `N/A` (Playwright manages its own dev server)
-       - **Any other test runner that self-manages its server** → set `N/A`
-       - **Web framework targets without a self-managing runner** → set the framework's dev command with `{PORT}` substituted (e.g., `bun run dev --port {PORT}`, `bunx next dev --port {PORT}`)
+     - `## Start Dev Server` — Determine the correct value from the application type decided in step 1:
+       - **`web`** → the framework's dev command with `{PORT}` substituted (e.g., `npm run dev -- --port {PORT}`, `bunx next dev --port {PORT}`, `python manage.py runserver 0.0.0.0:{PORT}`), whatever test runners the repository has. ADW starts and stops the server itself and hands its address to its own Playwright project, whose configuration has no `webServer` block. A `webServer` block in the repository's own e2e configuration is ignored.
+       - **`cli`, or undecided** → `N/A`
        - Note: `{PORT}` is a substitution placeholder used at runtime by the dev server lifecycle helper to allocate dynamic ports for parallel workflows, avoiding port collisions between concurrent workflow runs
      - `## Health Check Path` — HTTP path the dev server health probe hits (default `/`). Can be overridden per target repo if `/` is slow or redirects to a login page.
      - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder in any dev server start command
@@ -81,7 +82,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Suppression Patterns` — The repository owner's own additions to ADW's table of suppression patterns, one pattern per line. ADW's framework table always applies as well, and a line starting with `!` is ignored:
        - **If `.adw/commands.md` already has a `## Suppression Patterns` section, preserve it verbatim — never create, populate or reorder it.** Regenerating `.adw/` on a framework upgrade would otherwise drop the owner's additions.
        - **If the section is absent**, leave it out.
-   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 8 (Playwright, Cypress, Cucumber, or default Cucumber)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` are the ones step 8 writes, and must be consistent with the scenario tool chosen there (ADW's Playwright project for `web`; Cypress, Cucumber or default Cucumber otherwise)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
@@ -127,19 +128,23 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Issue Tracker URL` — Same as code host URL
      - `## Issue Tracker Project Key` — Empty (user fills in for Jira/Linear)
 
-6. **Create `.adw/review_proof.md`**
-   - Generate `.adw/review_proof.md` defining the proof requirements for the `/review` command
-   - Analyze the project type detected in step 1 to determine appropriate proof requirements:
-     - **Web/UI projects** (Next.js, React, Vue, Angular, Svelte, etc.): proof should include browser screenshots of key pages/components, test output summaries, visual regression checks, and dev server verification
-     - **CLI/automation tools** (no UI): proof should include code-diff verification, test output summaries, type check and lint verification — do NOT include browser screenshots
-     - **API projects** (Express, FastAPI, Django REST, etc.): proof should include API response validation (curl/httpie output), test output summaries, and endpoint verification
-     - **Library/package projects**: proof should include test output summaries, type check verification, API compatibility checks, and export validation
-   - Include the following sections in the generated file:
-     - `# Review Proof Requirements` — Intro sentence explaining this file defines proof requirements for the project and that the `/review` command reads it
-     - `## Proof Type` — State the project type and list the specific evidence to produce (numbered list), tailored to the detected project type
-     - `## Proof Format` — How to structure proof in the review JSON output: `reviewSummary` for overview, `reviewIssues` for discrepancies, `screenshots` for proof artifact paths
-     - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
-     - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
+6. **Install ADW's Playwright project (`web` only)**
+   - Skip this step when the application type written in step 3 is not `web`, and report `not applicable (<type>)` in step 11. If `$3` (`frameworkRepoRoot`) is empty (legacy invocation without framework repo root), skip it and log a warning in the step 11 report that this repository's scenarios cannot run — same convention as the vocabulary template copy in step 8.
+   - The project is a self-contained Node project in `features/`, installed even when the application itself is not a Node application. It never touches the application's own package management.
+   - Any e2e setup the repository already has elsewhere (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left exactly as it is, and ADW does not use it.
+   - Run the following via the Bash tool, from the repository root:
+     ```bash
+     mkdir -p features
+     cp "$3/templates/playwright/playwright.config.ts.template" features/playwright.config.ts
+     [ -f features/package.json ] || cp "$3/templates/playwright/package.json.template" features/package.json
+     touch features/.gitignore
+     [ -n "$(tail -c1 features/.gitignore)" ] && echo >> features/.gitignore
+     while IFS= read -r line; do grep -qxF -- "$line" features/.gitignore || echo "$line" >> features/.gitignore; done < "$3/templates/playwright/gitignore.template"
+     ```
+   - The configuration is always copied over, even when the file exists and was edited: ADW owns `features/playwright.config.ts`, it is byte-identical in every web repository, and every upgrade restores it.
+   - When `features/package.json` already existed, set its `devDependencies` versions of `@playwright/test` and `playwright-bdd` to the template's, and change nothing else in it.
+   - Install the packages and the browser: `(cd features && npm install --no-audit --no-fund && npx playwright install chromium)`. The upgrade runs the same command again after this step. It writes `features/package-lock.json`: every ADW worktree installs from that lockfile with `npm ci`, so commit it together with `features/package.json`, `features/playwright.config.ts` and `features/.gitignore`. `features/.gitignore` keeps `node_modules/` and the generated tests (`.features-gen/`) out of git.
+   - Never edit `features/playwright.config.ts` afterwards, never add a `webServer` block to it, and never convert or delete existing step definitions: the owner decides what to rewrite.
 
 7. **Copy Starter Guardrails Settings**
    - If `$3` (`frameworkRepoRoot`) is non-empty and the target repo does NOT already have a `.claude/settings.json`, copy the canonical deny-only starter guardrails template verbatim so the repo owner's own interactive Claude Code sessions get a sensible deny list (recursive-force `rm`, force-push, `.env` secrets) without the owner having to author one from scratch:
@@ -158,10 +163,13 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 
 8. **Create `.adw/scenarios.md`**
    - Detect the scenario tool from the project's test configuration
-   - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
-     - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
-     - `## Run Scenarios by Tag` → `bunx playwright test --grep "@{tag}"`
-     - `## Run Regression Scenarios` → `bunx playwright test --grep "@regression"`
+   - If the application type is **`web`**, whatever scenario tooling the repository has (ADW's Playwright project from step 6 runs the scenarios; the repository's own e2e setup is not used):
+     - `## Scenario Directory` → `features/`
+     - `## Run Scenarios by Tag` → `cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@{tag}\b"`
+     - `## Run Regression Scenarios` → `cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@regression\b"`
+     - `## BDD Framework` → `playwright-bdd`
+     - `## Step Def Directory` → `features/steps`
+   - For any other application type, or an undecided one, take the first of these that matches:
    - If **Cypress** detected (`npx cypress run`, `cypress run`, etc.):
      - `## Scenario Directory` → `cypress/e2e/`
      - `## Run Scenarios by Tag` → `npx cypress run --spec "**/*{tag}*"`
@@ -189,7 +197,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - **Draft the observability-surfaces examples block**: after the template copy above, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`.
 
      **Classification rules** (use the analysis already performed in step 1 — do not re-read manifests):
-     - **browser-test-equipped** — at least one of `@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch` appears in `devDependencies` of `package.json` (Node), or the equivalent browser-test runner in `requirements.txt`/`pyproject.toml` (Python: `playwright`, `pytest-playwright`, `selenium`), `Gemfile` (Ruby: `capybara`, `selenium-webdriver`), `pom.xml`/`build.gradle` (Java: `selenium-java`, `playwright-java`), or `.csproj`/`packages.config` (.NET: `Microsoft.Playwright`, `Selenium.WebDriver`).
+     - **browser-test-equipped** — the application type is `web`, because ADW's Playwright project gives it Playwright; or at least one of `@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch` appears in `devDependencies` of `package.json` (Node), or the equivalent browser-test runner in `requirements.txt`/`pyproject.toml` (Python: `playwright`, `pytest-playwright`, `selenium`), `Gemfile` (Ruby: `capybara`, `selenium-webdriver`), `pom.xml`/`build.gradle` (Java: `selenium-java`, `playwright-java`), or `.csproj`/`packages.config` (.NET: `Microsoft.Playwright`, `Selenium.WebDriver`).
      - **CLI-only** — no browser test runner detected and at least one manifest was parseable.
      - **fallback** — no manifest could be parsed (empty repo, unrecognised stack).
 
@@ -274,11 +282,12 @@ EOF
    - Change nothing else in the file.
 
 11. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, `features/regression/vocabulary.md` when copied, `.github/adw.yml` when created, and the coding guidelines file when created)
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `scenarios.md`, `features/regression/vocabulary.md` when copied, `.github/adw.yml` when created, and the coding guidelines file when created)
+   - Playwright project (step 6): `not applicable (<type>)`, or each of `features/playwright.config.ts`, `features/package.json` and `features/.gitignore` as `written`, `kept` or `appended`, plus the outcome of `npm install` and of the browser install. If the step was skipped for an empty `$3`, note the warning that this repository's scenarios cannot run.
    - Summarize the detected project type and key configuration choices
    - Note the `## Application Type` written to `.adw/project.md`: the value, and whether it was detected or preserved; or `left out — detection could not decide (the next ADW run parks the issue with missing_application_type)`.
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
-   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
+   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (`web` and Cucumber/Gherkin branches only).
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
    - Note the `## Test Directory` and `## Test Framework` values written to `commands.md`.
    - Note whether the starter guardrails `.claude/settings.json` (step 7) was copied or skipped (already present), and that a `## Agent Guardrails` section was written to `.adw/project.md` reflecting that outcome. This edit's presence in `adw_init.md` is what bumps `.adw-version` and fans the starter-settings copy out to every registered target repo on the next upgrade regen (issue #763).
