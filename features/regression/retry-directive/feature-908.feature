@@ -1,4 +1,4 @@
-@adw-908 @adw-2fgeai-retry-resumes-a-work @promotion-suggested-2026-10-04
+@regression @retry-directive
 Feature: The `## Retry` directive revives a workflow stranded in the paused stage: it drops the workflow's pause-queue entry, respawns the orchestrator its top-level state names with the handling cron's own --target-repo, and says so on the issue, while paused_auth, every running stage and the human-gated branches behave exactly as before
 
   Issue #908 is the directive slice of `specs/prd/rate-limit-indefinite-retry.md` (user stories
@@ -91,16 +91,16 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   FLAGGED BY #911 (per-repo ownership of pause-queue entries). A cron now acts only on the
   pause-queue entries it owns: those that record its own identity as their target repository.
-  §1's still-queued scenario also carries `@adw-911`. Its follow-up step, "the pause-queue scanner
+  §1's still-queued scenario is the row #911 flagged. Its follow-up step, "the pause-queue scanner
   then runs a probe cycle in which the rate limit has cleared", must scan as the Background's cron,
   the one polling `acme/widgets`, which owns the entry. A scan by any other cron relaunches nothing
   whatever `## Retry` did, and "relaunched nothing" would then pass vacuously. The scenario itself
   does not change. The rest of #911's behaviour is specified in
-  `features/per-issue/feature-911.feature`.
+  `features/regression/pause-queue/feature-911.feature`.
 
   FLAGGED BY #959 (an orchestrator that dies in `starting` strands its issue). A workflow whose
   orchestrator died in `starting` or in any running stage is now taken over by the cron, not by
-  `## Retry`. §2's running-stage outline also carries `@adw-959`: `## Retry` stays a no-op on every
+  `## Retry`. §2's running-stage outline is the row #959 flagged: `## Retry` stays a no-op on every
   running stage, `starting` included, so the directive can never start a second orchestrator
   beside a live one. The outline itself does not change. The rest of #959's behaviour is
   specified in `features/regression/takeover/feature-959.feature`.
@@ -151,7 +151,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
       returns [] when there is no mockContext. Route the handler's posts to the mock the way
       feature-902-queue.steps.ts does: shadow `gh` so that it records `gh issue comment`, then
       replay the recorded calls against the mock after the When step. Initialise mockContext in
-      an `@adw-908` `Before` hook. The Background's "accept issue comments" Given fails fast
+      a `@retry-directive` `Before` hook. The Background's "accept issue comments" Given fails fast
       without it, and T1 falls into a legacy source-inspection branch when it is null. The
       resumed-comment rows are the positive controls.
     • SAFETY. The handler runs in-process inside the real ADW checkout, so the cron host's own
@@ -179,7 +179,7 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
       feature-844.steps.ts: the guard pair runs `adws/checkGitGhGuard.ts` and asserts exit 0, and
       T22 runs `tsc --noEmit`. Redefining any of them is an AmbiguousStepDefinition. (The guard
       pair is written `git\/gh` there, because "/" means alternation in a cucumber expression.)
-    • Scope every hook to `@adw-908`.
+    • Scope every hook to `@retry-directive`.
 
   Vocabulary note. These registered phrases from `features/regression/vocabulary.md` are reused:
     • G18 `the ADW codebase is checked out`
@@ -219,7 +219,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §1 THE PAUSED BRANCH ─────────────────────────────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: Replaying #840 — `## Retry` on a paused workflow whose pause-queue entry was already evicted respawns its orchestrator once and says so on the issue
     Given the latest ADW workflow comment on issue 840 names adwId "retry908-840"
     And the top-level state for adwId "retry908-840" records issue 840 at workflowStage "paused" with orchestrator script "adws/adwChore.tsx"
@@ -232,7 +231,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the resumed comment is recorded on issue 840 in the target repository "acme/widgets"
     And the mock harness recorded zero comment posts on issue 840 in the cron host's own repository "paysdoc/AI_Dev_Workflow"
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-911
   Scenario: `## Retry` on a paused workflow that is still queued drops its pause-queue entry and respawns the orchestrator once, leaving the scanner nothing to relaunch
     Given the latest ADW workflow comment on issue 871 names adwId "retry908-871"
     And the top-level state for adwId "retry908-871" records issue 871 at workflowStage "paused" with orchestrator script "adws/adwChore.tsx"
@@ -247,7 +245,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     Then the pause-queue scanner relaunched nothing for issue 871
     And exactly one orchestrator was launched for issue 871
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario Outline: The respawned orchestrator is the one the paused workflow's top-level state records, never a hardcoded default
     Given the latest ADW workflow comment on issue 874 names adwId "retry908-874"
     And the top-level state for adwId "retry908-874" records issue 874 at workflowStage "paused" with orchestrator script "<script>"
@@ -262,7 +259,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
       | adws/adwChore.tsx           |
       | adws/adwPlanBuildReview.tsx |
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: A paused workflow whose state predates recorded orchestrator scripts respawns under the resume default, adws/adwSdlc.tsx
     Given the latest ADW workflow comment on issue 879 names adwId "retry908-879"
     And the top-level state for adwId "retry908-879" records issue 879 at workflowStage "paused" with no orchestrator script
@@ -272,7 +268,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the orchestrator launched for issue 879 runs "adws/adwSdlc.tsx" under adwId "retry908-879"
     And the orchestrator launched for issue 879 targets the repository "acme/widgets"
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: `## Retry` removes only its own workflow's pause-queue entry
     Given the latest ADW workflow comment on issue 871 names adwId "retry908-871"
     And the top-level state for adwId "retry908-871" records issue 871 at workflowStage "paused" with orchestrator script "adws/adwChore.tsx"
@@ -286,7 +281,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §2 WHAT ## Retry STILL LEAVES ALONE ─────────────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario: `## Retry` on a paused_auth workflow does nothing and logs that the auth queue owns its recovery
     Given the latest ADW workflow comment on issue 873 names adwId "retry908-873"
     And the top-level state for adwId "retry908-873" records issue 873 at workflowStage "paused_auth" with orchestrator script "adws/adwChore.tsx"
@@ -296,7 +290,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And the mock harness recorded zero comment posts on issue 873
     And the Retry handling logged that issue 873 is paused_auth and left to the auth queue
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-959 @adw-960
   Scenario Outline: `## Retry` on a running stage does nothing, so it can never start a second orchestrator beside a live one
     Given the latest ADW workflow comment on issue 876 names adwId "retry908-876"
     And the top-level state for adwId "retry908-876" records issue 876 at workflowStage "<stage>" with orchestrator script "adws/adwChore.tsx"
@@ -316,7 +309,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
       | document_running |
       | stepDef_running  |
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario Outline: `## Retry` on a finished or automatically recovered stage still does nothing
     Given the latest ADW workflow comment on issue 877 names adwId "retry908-877"
     And the top-level state for adwId "retry908-877" records issue 877 at workflowStage "<stage>" with orchestrator script "adws/adwChore.tsx"
@@ -335,7 +327,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §3 THE HUMAN-GATED BRANCHES ARE UNCHANGED ───────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario: `## Retry` on merge_blocked still re-arms the merge exactly as before and launches nothing itself
     Given the latest ADW workflow comment on issue 881 names adwId "retry908-881"
     And the top-level state for adwId "retry908-881" records issue 881 at workflowStage "merge_blocked" with a merge retry count of 2
@@ -345,7 +336,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
     And no orchestrator was launched for issue 881
     And the mock harness recorded zero comment posts on issue 881
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work @adw-960
   Scenario Outline: `## Retry` on human_gated or review_failed still re-arms the resume counter exactly as before and launches nothing itself
     Given the latest ADW workflow comment on issue 882 names adwId "retry908-882"
     And the top-level state for adwId "retry908-882" records issue 882 at workflowStage "<stage>" with a resume attempt count of 3
@@ -362,7 +352,6 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §4 THE OTHER CALLER ─────────────────────────────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: A `## Retry` the webhook delivers never launches an orchestrator without the webhook's target repository
     Given the latest ADW workflow comment on issue 875 names adwId "retry908-875"
     And the top-level state for adwId "retry908-875" records issue 875 at workflowStage "paused" with a recording fixture as its orchestrator script
@@ -371,11 +360,9 @@ Feature: The `## Retry` directive revives a workflow stranded in the paused stag
 
   # ── §5 BACKSTOPS ────────────────────────────────────────────────────────────────────────────
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: TypeScript type-check passes with the paused branch wired into the Retry handler
     Then the ADW TypeScript type-check passes
 
-  @adw-908 @adw-2fgeai-retry-resumes-a-work
   Scenario: The git/gh guard stays green with the Retry handler launching orchestrators and posting the resumed comment
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
