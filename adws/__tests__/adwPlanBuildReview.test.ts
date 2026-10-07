@@ -5,7 +5,7 @@ vi.mock('../core', async (importOriginal) => {
   return {
     ...actual,
     MAX_REVIEW_RETRY_ATTEMPTS: 3,
-    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn() },
+    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn(), appendLog: vi.fn() },
     log: vi.fn(),
   };
 });
@@ -56,13 +56,26 @@ const FAILED_REVIEW = { reviewPassed: false, reviewIssues: [BLOCKER] };
 const PASSED_REVIEW = { reviewPassed: true, reviewIssues: [] };
 type ReviewVerdict = typeof FAILED_REVIEW | typeof PASSED_REVIEW;
 
+const SERVER_OUTPUT = "Error: Cannot find module './routes'";
+const NOT_STARTED = { status: 'not_started' };
+const STARTED = { status: 'started' };
+const FAILED_START = { status: 'failed', command: 'bun run dev --port 4567', healthUrl: 'http://localhost:4567/', output: SERVER_OUTPUT };
+type DevServerStart = typeof NOT_STARTED | typeof STARTED | typeof FAILED_START;
+
+/** Answers with each scripted start in turn, then repeats the last one. */
+function scriptedStarts(starts: DevServerStart[]) {
+  let run = 0;
+  return () => starts[Math.min(run++, starts.length - 1)];
+}
+
 /** Answers with each scripted verdict in turn, then repeats the last one. */
 function scriptedReview(verdicts: ReviewVerdict[]) {
   let attempt = 0;
   return vi.fn(async () => ({ ...ZERO_COST, ...verdicts[Math.min(attempt++, verdicts.length - 1)] }));
 }
 
-function makePhases(verdicts: ReviewVerdict[]) {
+function makePhases(verdicts: ReviewVerdict[], starts: DevServerStart[] = [NOT_STARTED]) {
+  const nextStart = scriptedStarts(starts);
   return {
     executeBaselinePhase: vi.fn(async () => ZERO_COST),
     executeInstallPhase: vi.fn(async () => ZERO_COST),
@@ -71,9 +84,9 @@ function makePhases(verdicts: ReviewVerdict[]) {
     executeAlignmentPhase: vi.fn(async () => ZERO_COST),
     executeBuildPhase: vi.fn(async () => ZERO_COST),
     executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
-    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined })),
+    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined, devServer: nextStart() })),
     executeReviewPhase: scriptedReview(verdicts),
-    executeReviewPatchCycle: vi.fn(async () => ZERO_COST),
+    executeReviewPatchCycle: vi.fn(async (_config: unknown, _blockers: Array<{ issueDescription: string }>) => ZERO_COST),
     executePRPhase: vi.fn(async () => ZERO_COST),
   };
 }
@@ -91,8 +104,12 @@ function makeConfig() {
 }
 
 async function runWithReviews(...verdicts: ReviewVerdict[]) {
+  return runWithStarts([NOT_STARTED], ...verdicts);
+}
+
+async function runWithStarts(starts: DevServerStart[], ...verdicts: ReviewVerdict[]) {
   const { config, commentOnIssue } = makeConfig();
-  const phases = makePhases(verdicts);
+  const phases = makePhases(verdicts, starts);
   await executePlanBuildReview(config, phases as unknown as PlanBuildReviewPhases);
   return { config, commentOnIssue, phases };
 }
@@ -159,6 +176,65 @@ describe('executePlanBuildReview — the review passes', () => {
 
     expect(phases.executeReviewPhase).toHaveBeenCalledTimes(2);
     expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(1);
+    expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
+    expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+});
+
+describe('executePlanBuildReview — the dev server does not start on the issue branch', () => {
+  it('never runs the review agent, and hands the patch cycle the server blocker once for each failed start but the last', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executeReviewPhase).not.toHaveBeenCalled();
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(2);
+    phases.executeReviewPatchCycle.mock.calls.forEach(([, blockers]) => {
+      expect(blockers).toHaveLength(1);
+      expect(blockers[0].issueDescription).toContain(SERVER_OUTPUT);
+    });
+  });
+
+  it('starts the server again after each patch: one scenario run for the first start and one per patch', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executeScenarioTestPhase).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops at review_failed and never writes awaiting_merge', async () => {
+    await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(writtenStages()).toEqual(['review_failed']);
+  });
+
+  it('opens no pull request', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executePRPhase).not.toHaveBeenCalled();
+  });
+
+  it('records each failed start as a failed review in the orchestrator metadata', async () => {
+    const { config } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(AgentStateManager.writeState).toHaveBeenCalledWith(config.orchestratorStatePath, {
+      metadata: expect.objectContaining({ reviewPassed: false, totalReviewRetries: 3 }),
+    });
+  });
+
+  it('puts the server output in the issue comments, with the branch and ## Retry in the last one', async () => {
+    const { commentOnIssue } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    const comments = commentOnIssue.mock.calls.map(([, body]) => String(body));
+    expect(comments.length).toBeGreaterThan(0);
+    comments.forEach(body => expect(body).toContain(SERVER_OUTPUT));
+    const last = comments[comments.length - 1];
+    expect(last).toContain('## Retry');
+    expect(last).toContain(BRANCH);
+  });
+
+  it('carries on to the pull request when the server starts again after two failed starts and the review passes', async () => {
+    const { phases } = await runWithStarts([FAILED_START, FAILED_START, STARTED], PASSED_REVIEW);
+
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(2);
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(1);
     expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
     expect(writtenStages()).toEqual(['awaiting_merge']);
   });

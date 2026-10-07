@@ -16,6 +16,8 @@ import { devServerSource, toolSource, type DevServerConfig } from './feature-992
 export interface StandInBehaviour {
   /** Tags (without the `@`) whose JUnit report carries one failing scenario. */
   failingTags: string[];
+  /** Tags (without the `@`) whose scenario fails unless the dev server answers when the run starts. */
+  serverTags: string[];
   playwrightExitCode: number;
   /** The health check path the stand-in `npx playwright test` asks the dev server for, before and after it holds. */
   probePath: string;
@@ -26,6 +28,7 @@ export interface StandInBehaviour {
 export function defaultBehaviour(): StandInBehaviour {
   return {
     failingTags: [],
+    serverTags: [],
     playwrightExitCode: 0,
     probePath: '/health',
     holdMs: 300,
@@ -53,6 +56,10 @@ export interface RecordedCall {
   readonly tag?: string;
   /** What the dev server answered the stand-in `npx playwright test` before and after it held; absent when no address was given. */
   readonly probes?: readonly { readonly phase: 'start' | 'end'; readonly status: number | null }[];
+  /** When the run finished, in milliseconds since the epoch. */
+  readonly at?: number;
+  /** Whether the scenarios of the tag passed, as the stand-in `npx playwright test` reported them. */
+  readonly passed?: boolean;
 }
 
 /** Which `npm` and `npx` the code under test finds: the stand-ins, unless the fresh-repository scenario asked for the real ones. */
@@ -102,7 +109,7 @@ export function writeStandIns(): StandIns {
   const { behaviour } = toolchain;
   for (const name of ['npm', 'npx', 'scenario-command']) {
     const program = path.join(si.binDir, name);
-    fs.writeFileSync(program, toolSource({ callsFile: si.callsFile, failingTags: behaviour.failingTags, playwrightExitCode: behaviour.playwrightExitCode, probePath: behaviour.probePath, holdMs: behaviour.holdMs }), { mode: 0o755 });
+    fs.writeFileSync(program, toolSource({ callsFile: si.callsFile, failingTags: behaviour.failingTags, serverTags: behaviour.serverTags, playwrightExitCode: behaviour.playwrightExitCode, probePath: behaviour.probePath, holdMs: behaviour.holdMs }), { mode: 0o755 });
   }
   fs.writeFileSync(si.serverScript, devServerSource(behaviour.devServer));
   return si;

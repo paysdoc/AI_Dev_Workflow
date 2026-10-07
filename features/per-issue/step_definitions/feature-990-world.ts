@@ -4,7 +4,9 @@
  * bring up and tear down the subprocess harness around every scenario of the feature. The scenarios run real
  * orchestrator processes through the regression suite's harness, so these hooks do what its
  * `@regression and (@subprocess or @webhook)` hooks do. The feature-989 park-comment scenarios that also carry
- * `@adw-990` run no workflow and are left to their own hooks.
+ * `@adw-990` run no workflow and are left to their own hooks. The workflow scenarios of feature-993 run on the same
+ * harness, with a `web` repository and agents that change what the dev server does; the feature-992 scenario that
+ * carries `@adw-993` keeps its own hooks.
  */
 
 import { After, Before } from '@cucumber/cucumber';
@@ -47,6 +49,22 @@ export interface RunRecord {
 
 export type ScenarioFixAgent = 'fixes' | 'nothing';
 
+/** `.adw/commands.md` declares the same server on both branches, so what an agent does to it is left in the worktree as a marker. */
+export type ServerEffect =
+  | { readonly kind: 'breaks'; readonly standardError: string }
+  | { readonly kind: 'fixes' };
+
+export interface ServerEffects {
+  /** The build agents: the one that builds the issue, and the one that builds each review patch. */
+  readonly build: ServerEffect | null;
+  /** The review patch agent. */
+  readonly patch: ServerEffect | null;
+}
+
+export type ReviewSetup =
+  | { readonly kind: 'passes' }
+  | { readonly kind: 'blocks'; readonly blocker: string };
+
 export interface State990 {
   world: RegressionWorld | null;
   scratch: ScratchPaths | null;
@@ -58,6 +76,12 @@ export interface State990 {
   scenarioFixAgent: ScenarioFixAgent;
   /** The error the build agent is made to fail with, or null. */
   buildFailure: string | null;
+  serverEffects: ServerEffects;
+  review: ReviewSetup;
+  /** The target repository declares the application type "web", and its scenarios run on ADW's Playwright project. */
+  web: boolean;
+  /** The issue's scenarios fail unless the dev server answers while they run. */
+  issueScenariosNeedServer: boolean;
   workflow: WorkflowSetup | null;
   /** Whether the target workspace has been committed to the base branch yet. */
   built: boolean;
@@ -76,6 +100,10 @@ function freshState(): State990 {
     requiresServer: false,
     scenarioFixAgent: 'nothing',
     buildFailure: null,
+    serverEffects: { build: null, patch: null },
+    review: { kind: 'passes' },
+    web: false,
+    issueScenariosNeedServer: false,
     workflow: null,
     built: false,
     runs: [],
@@ -104,7 +132,7 @@ export function requireWorkflowSetup(): WorkflowSetup {
   return s.workflow;
 }
 
-const OWN_SCENARIOS = '@adw-990 and not @adw-989';
+const OWN_SCENARIOS = '(@adw-990 and not @adw-989) or (@adw-993 and not @adw-992)';
 
 function forgetWorkflow(): void {
   resetWorld();

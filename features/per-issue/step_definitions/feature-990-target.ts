@@ -13,6 +13,8 @@ import { realGit } from '../../regression/support/fixtureWorktree.ts';
 import { ensureTargetWorkspace } from '../../regression/support/subprocessHarness.ts';
 
 import { configuredChecksFrom, type ConfiguredCheck } from './feature-988-commands.ts';
+import { projectMd } from './feature-991-project-md.ts';
+import { writeWebProject } from './feature-992-worktree.ts';
 import type { ScenarioOutcomes } from './feature-990-scripts.ts';
 import { BASE_BRANCH, requireScratch, requireWorld, s, type ServerSetup } from './feature-990-world.ts';
 
@@ -102,6 +104,20 @@ function writeScenarioFiles(workspace: string): void {
   if (onBase.length > 0) write(workspace, 'features/cart.feature', featureFile(onBase));
 }
 
+const WEB_APPLICATION_TYPE = 'web';
+
+/**
+ * The files a web repository has once `adw_init` has run: its application type, ADW's Playwright project and a step file for the
+ * issue's scenarios. The review proof names the tags that the scenario phase runs, which the fixture's own file names otherwise.
+ */
+function writeWebRepository(workspace: string): void {
+  write(workspace, '.adw/project.md', projectMd(WEB_APPLICATION_TYPE));
+  write(workspace, '.adw/scenarios.md', SCENARIOS_FILE);
+  write(workspace, '.adw/review_proof.md', REVIEW_PROOF_FILE);
+  write(workspace, 'features/steps/steps.ts', 'export {};\n');
+  writeWebProject(workspace);
+}
+
 function commitAll(workspace: string, message: string): void {
   realGit(workspace, 'add', '-A');
   realGit(workspace, 'commit', '-q', '-m', message);
@@ -131,6 +147,7 @@ export function buildTarget(): string {
   renameDefaultBranch(workspace);
   write(workspace, '.adw/commands.md', renderCommandsFile());
   writeScenarioFiles(workspace);
+  if (s.web) writeWebRepository(workspace);
   commitAll(workspace, 'Describe the target repository of the scenario');
   moveRemoteBaseBranch(workspace);
   s.built = true;

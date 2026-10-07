@@ -9,7 +9,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -24,8 +24,9 @@ import {
   executePRPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
+  runReviewRetryLoop,
+  scenarioOutcomeOf,
   handleWorkflowError,
-  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
@@ -77,26 +78,8 @@ async function runPlanBuildReviewPhases(
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
   const scenarioResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-  let proofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
 
-  let reviewRetries = 0;
-  let reviewPassed = false;
-  let reviewBlockers: ReviewIssue[] = [];
-  for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-    const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
-    const reviewResult = await runPhase(config, tracker, reviewFn);
-    reviewPassed = reviewResult.reviewPassed;
-    reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-    if (reviewPassed) break;
-    reviewRetries++;
-    if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-      const patchWrapper = (cfg: WorkflowConfig) =>
-        phases.executeReviewPatchCycle(cfg, reviewBlockers);
-      await runPhase(config, tracker, patchWrapper);
-      const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-      proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-    }
-  }
+  const { reviewPassed, reviewRetries } = await runReviewRetryLoop(config, tracker, scenarioOutcomeOf(scenarioResult), phases);
 
   const outcome = decidePostReviewOutcome(reviewPassed);
 

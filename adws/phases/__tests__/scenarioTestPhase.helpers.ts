@@ -1,5 +1,7 @@
 import { APPLICATION_TYPE_PROFILES, type ApplicationProfile } from '../../core/applicationType';
 import { parseConditionalDocs } from '../../core/conditionalDocsRegistry';
+import type { HealthyDevServerConfig, HealthyDevServerOutcome } from '../../core/devServerLifecycle';
+import type { ScenarioTestPhaseDeps } from '../scenarioTestPhase';
 import type { WorkflowConfig } from '../workflowInit';
 
 export const passingProof = {
@@ -81,4 +83,20 @@ export function makeConfig(overrides: {
       applicationType: 'cli',
     },
   } as unknown as WorkflowConfig;
+}
+
+/** The lifecycle's answer: `'starts'` runs the work inside the server; `{ output }` is a start that never got a health answer. */
+export type LifecycleBehaviour = 'starts' | { readonly output: string };
+
+export function fakeLifecycle(behaviour: LifecycleBehaviour = 'starts'): {
+  withHealthyDevServer: ScenarioTestPhaseDeps['withHealthyDevServer'];
+  configs: HealthyDevServerConfig[];
+} {
+  const configs: HealthyDevServerConfig[] = [];
+  const withHealthyDevServer = (async <T>(config: HealthyDevServerConfig, work: () => Promise<T>): Promise<HealthyDevServerOutcome<T>> => {
+    configs.push(config);
+    if (behaviour !== 'starts') return { started: false, output: behaviour.output };
+    return { started: true, result: await work() };
+  }) as ScenarioTestPhaseDeps['withHealthyDevServer'];
+  return { withHealthyDevServer, configs };
 }

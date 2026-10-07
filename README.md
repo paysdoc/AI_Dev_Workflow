@@ -14,6 +14,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
+- **A dev server that will not start on the issue branch is a failed review** — the scenario phase starts only the dev server the repository declares (`readDeclaredDevServer`, `adws/phases/declaredDevServer.ts`), the one the baseline starts. When it does not start after the lifecycle's retries, no scenario runs and the failed start (`DevServerStart`, `adws/core/devServerFailure.ts`) goes to the review loop (`runReviewRetryLoop`, `adws/phases/reviewRetryLoop.ts`, the one owner of the review attempt counter): the builder gets a blocker that carries the server's output through the review patch loop, and each failed start uses one review attempt, up to `review_failed`. A start that follows a failed start resets the failed-review count to zero; a server that starts every time never does. The baseline still parks: a base-branch start failure is `base_server_down`, not a failed review.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Continue` on a base-branch park (`baseline_red`, `base_server_down`, `pre_existing_regression`) records a waiver and re-arms the workflow (`adws/triggers/continueHandler.ts`), so that run fixes the pre-existing failures too. `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority, forge-neutral, now a library import** — since issue #840, `GitContext` and the forge-neutral `exec()` executor it exposes (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) are no longer owned in-tree: ADW imports them from `@paysdoc/devplatform/git`, and the GitHub forge adapter (`GhRepoApi`, `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops, `ghCommandRunner.ts`) from `@paysdoc/devplatform/providers`. `adws/core/launchGitContext.ts` is ADW's sole wiring layer over the library: it constructs the one `GitContext` at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), and the library resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace) and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs that motivated the original design. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) was deleted well before the library extraction; every caller reaches those operations through the library's `GhRepoApi`. Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter inside the library still constructs a `GhRepoApi`.
@@ -501,10 +502,13 @@ templates/              # ADW framework-level templates
 └── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
 adws/                   # ADW workflow system (GitContext and the forge provider layer — formerly adws/gitContext/ and adws/providers/ — now come from the `@paysdoc/devplatform` npm package, issue #840)
 ├── __tests__/          # Vitest integration tests
+│   ├── adwChore.devServer.test.ts
+│   ├── adwChore.helpers.ts  # Shared helpers for the adwChore tests
 │   ├── adwChore.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts
+│   ├── adwPlanBuildTest.test.ts
 │   ├── adwPlanBuildTestReview.test.ts
 │   ├── adwUpgrade.test.ts
 │   ├── checkBranchNames.test.ts
@@ -584,6 +588,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── conditionalDocsRegistryMutations.test.ts
 │   │   ├── conditionalDocsRegistryQueries.test.ts
+│   │   ├── devServerFailure.test.ts
 │   │   ├── devServerLifecycle.healthy.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── docsDecisions.test.ts
@@ -671,7 +676,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
-│   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   ├── devServerFailure.ts  # Pure: the start of a dev server (not_started / started / failed with its output) and the rules of the review attempt counter (countFailedStart, countStartedServer, countFailedReview, isReviewBudgetSpent)
+│   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers; withHealthyDevServer never runs the work against a server that did not start
 │   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from specs/adr/
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
@@ -848,6 +854,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
 │   │   ├── decidePostReviewOutcome.test.ts
+│   │   ├── declaredDevServer.test.ts
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
@@ -863,6 +870,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
+│   │   ├── reviewRetryLoop.blocker.test.ts
+│   │   ├── reviewRetryLoop.counter.test.ts
+│   │   ├── reviewRetryLoop.test.ts
 │   │   ├── scenarioProjectSetup.test.ts
 │   │   ├── scenarioProofRun.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
@@ -871,6 +881,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── scenarioTestPhase.helpers.ts
 │   │   ├── scenarioTestPhase.runner.test.ts
+│   │   ├── scenarioTestPhase.server.test.ts
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── stackCoherenceReporter.test.ts
 │   │   ├── stepDefPhase.test.ts
@@ -900,6 +911,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── baseWorktree.ts  # Base-branch worktree port: a detached checkout at .worktrees/base-issue-<N>-<adwId>, shared by the baseline and the re-runs and removed when the process exits (buildBaseWorktreePort, sharedBaseWorktree)
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
+│   ├── declaredDevServer.ts  # The dev server a repository declares in its raw .adw/commands.md (readDeclaredDevServer), shared by the baseline and the scenario phase
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; opens a GitHub issue for each violation. buildDefaultDocsSelfCheckDeps(issueTracker) takes an injected IssueTracker — createIssue/searchOpenIssues, no ad-hoc GitContext construction (#796)
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
@@ -924,13 +936,14 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
 │   ├── rotAdvisoryFormat.ts  # Formats rotAnalysisAgent output into the advisory PR comment body
+│   ├── reviewRetryLoop.ts  # The review retry loop of every review orchestrator (runReviewRetryLoop): the one owner of the review attempt counter, in which a failed dev-server start is a failed review carrying the server's output (serverStartBlocker, recordFailedStartReview)
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server) — approval goes through repoContext.codeHost.approvePullRequest, not the adws/github approvePR free function (#796)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
-│   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict
+│   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict; hands a dev server that did not start to the review loop
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioProjectSetup.ts  # `syncDeclaredScenarioProject`, the upgrade's `syncScenarioProject`: for a regenerated `.adw/project.md` whose type runs on ADW's Playwright project, writes the project's files and installs it (`npm install` and the browser) so the regen commit carries `features/package-lock.json`
-│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
+│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
