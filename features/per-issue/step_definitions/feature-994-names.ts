@@ -28,13 +28,13 @@ interface Outline {
   readonly name: string;
   readonly tags: readonly string[];
   /** The rows seen so far, across the Examples tables of the outline. */
-  rows: number;
+  readonly rows: number;
 }
 
 interface Examples {
   readonly name: string;
   readonly tags: readonly string[];
-  header: readonly string[] | null;
+  readonly header: readonly string[] | null;
 }
 
 function after(line: string, keyword: string): string {
@@ -64,48 +64,66 @@ function rowTitle(outline: Outline, examples: Examples, values: Readonly<Record<
   return `Example #${outline.rows}`;
 }
 
-export function runnerCases(featureText: string, type: RepositoryType): RunnerCase[] {
-  const found: RunnerCase[] = [];
-  let feature = '';
-  let featureTags: readonly string[] = [];
-  let pendingTags: string[] = [];
-  let outline: Outline | null = null;
-  let examples: Examples | null = null;
+interface ParserState {
+  readonly feature: string;
+  readonly featureTags: readonly string[];
+  readonly pendingTags: readonly string[];
+  readonly outline: Outline | null;
+  readonly examples: Examples | null;
+  readonly cases: readonly RunnerCase[];
+}
 
-  const takeTags = (): string[] => pendingTags.splice(0);
-  const nameOf = (...segments: string[]): string => (type === 'web' ? [feature, ...segments].join(SEPARATOR) : segments[segments.length - 1]);
-  const addCase = (scenario: string, tags: readonly string[], ...segments: string[]): void => {
-    found.push({ scenario, feature, name: nameOf(...segments), tags: [...new Set([...featureTags, ...tags])] });
+const INITIAL_STATE: ParserState = { feature: '', featureTags: [], pendingTags: [], outline: null, examples: null, cases: [] };
+
+function nameOf(type: RepositoryType, feature: string, segments: readonly string[]): string {
+  return type === 'web' ? [feature, ...segments].join(SEPARATOR) : segments[segments.length - 1];
+}
+
+function withCase(state: ParserState, type: RepositoryType, scenario: string, tags: readonly string[], ...segments: string[]): ParserState {
+  const found: RunnerCase = {
+    scenario,
+    feature: state.feature,
+    name: nameOf(type, state.feature, segments),
+    tags: [...new Set([...state.featureTags, ...tags])],
   };
+  return { ...state, cases: [...state.cases, found] };
+}
 
-  for (const raw of featureText.split('\n')) {
-    const line = raw.trim();
-    if (line === '' || line.startsWith('#')) continue;
-    if (line.startsWith('@')) {
-      pendingTags = [...pendingTags, ...line.split(/\s+/)];
-    } else if (line.startsWith('Feature:')) {
-      feature = after(line, 'Feature:');
-      featureTags = takeTags();
-    } else if (line.startsWith('Scenario Outline:')) {
-      outline = { name: after(line, 'Scenario Outline:'), tags: takeTags(), rows: 0 };
-      examples = null;
-    } else if (line.startsWith('Scenario:')) {
-      const name = after(line, 'Scenario:');
-      outline = null;
-      addCase(name, takeTags(), name);
-    } else if (line.startsWith('Examples:') && outline) {
-      examples = { name: after(line, 'Examples:'), tags: takeTags(), header: null };
-    } else if (line.startsWith('|') && outline && examples) {
-      const row = cells(line);
-      if (examples.header === null) {
-        examples.header = row;
-        continue;
-      }
-      outline.rows += 1;
-      const values = Object.fromEntries(examples.header.map((column, position) => [column, row[position]]));
-      const title = rowTitle(outline, examples, values);
-      addCase(title, [...outline.tags, ...examples.tags], outline.name, title);
-    }
+function withScenario(state: ParserState, type: RepositoryType, line: string): ParserState {
+  const name = after(line, 'Scenario:');
+  return withCase({ ...state, outline: null, pendingTags: [] }, type, name, state.pendingTags, name);
+}
+
+function withExamplesRow(state: ParserState, type: RepositoryType, line: string): ParserState {
+  const { outline, examples } = state;
+  if (!outline || !examples) return state;
+
+  const row = cells(line);
+  if (examples.header === null) return { ...state, examples: { ...examples, header: row } };
+
+  const counted: Outline = { ...outline, rows: outline.rows + 1 };
+  const values = Object.fromEntries(examples.header.map((column, position) => [column, row[position]]));
+  const title = rowTitle(counted, examples, values);
+  return withCase({ ...state, outline: counted }, type, title, [...outline.tags, ...examples.tags], outline.name, title);
+}
+
+function readLine(state: ParserState, rawLine: string, type: RepositoryType): ParserState {
+  const line = rawLine.trim();
+  if (line === '' || line.startsWith('#')) return state;
+  if (line.startsWith('@')) return { ...state, pendingTags: [...state.pendingTags, ...line.split(/\s+/)] };
+  if (line.startsWith('Feature:')) return { ...state, feature: after(line, 'Feature:'), featureTags: state.pendingTags, pendingTags: [] };
+  if (line.startsWith('Scenario Outline:')) {
+    return { ...state, outline: { name: after(line, 'Scenario Outline:'), tags: state.pendingTags, rows: 0 }, examples: null, pendingTags: [] };
   }
-  return found;
+  if (line.startsWith('Scenario:')) return withScenario(state, type, line);
+  if (line.startsWith('Examples:') && state.outline) {
+    return { ...state, examples: { name: after(line, 'Examples:'), tags: state.pendingTags, header: null }, pendingTags: [] };
+  }
+  if (line.startsWith('|')) return withExamplesRow(state, type, line);
+  return state;
+}
+
+export function runnerCases(featureText: string, type: RepositoryType): RunnerCase[] {
+  const final = featureText.split('\n').reduce((state, line) => readLine(state, line, type), INITIAL_STATE);
+  return [...final.cases];
 }
