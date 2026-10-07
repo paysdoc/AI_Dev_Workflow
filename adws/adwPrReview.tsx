@@ -10,7 +10,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager, resolvePrReviewInvocation, log, type LaunchBoundary } from './core';
+import { parseTargetRepoArgs, buildLaunchBoundary, AgentStateManager, resolvePrReviewInvocation, log, type LaunchBoundary } from './core';
 import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -24,14 +24,10 @@ import {
   executeBaselinePhase,
   executeInstallPhase,
   executeUnitTestPhase,
-  executeScenarioTestPhase,
   runScenarioTestFixLoop,
-  executeReviewPhase,
-  executeReviewPatchCycle,
+  runReviewRetryLoop,
   type PRReviewWorkflowConfig,
-  type ReviewIssue,
 } from './workflowPhases';
-import type { WorkflowConfig } from './phases';
 import { runWithOrchestratorLifecycle, MERGE_POLL_LOCK_WAIT } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
@@ -56,25 +52,9 @@ async function runPrReviewPhases(config: PRReviewWorkflowConfig, boundary: Launc
 
     await runPhase(config.base, tracker, executeUnitTestPhase);
 
-    const { scenarioProofPath } = await runScenarioTestFixLoop(config.base, tracker);
+    const scenarios = await runScenarioTestFixLoop(config.base, tracker);
 
-    let proofPath = scenarioProofPath;
-    let reviewBlockers: ReviewIssue[] = [];
-    let reviewPassed = false;
-    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
-      const reviewResult = await runPhase(config.base, tracker, reviewFn);
-      reviewPassed = reviewResult.reviewPassed;
-      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-      if (reviewPassed) break;
-      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-        const patchWrapper = (cfg: WorkflowConfig) =>
-          executeReviewPatchCycle(cfg, reviewBlockers);
-        await runPhase(config.base, tracker, patchWrapper);
-        const retestResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
-        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-      }
-    }
+    const { reviewPassed } = await runReviewRetryLoop(config.base, tracker, scenarios);
 
     await runPhase(config.base, tracker, _ => executePRReviewCommitPushPhase(config), 'pr_review_commit_push');
 

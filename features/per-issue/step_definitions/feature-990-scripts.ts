@@ -13,6 +13,10 @@ export const BASE_WORKTREE_MARKER = '/.worktrees/base-issue-';
 export const FIXED_MARKER_FILE = '.adw-scenarios-fixed';
 export const NO_SERVER_MESSAGE = 'no dev server was started on this worktree';
 
+/** A worktree holding the first and not the second marker has a dev server that prints the first's text to standard error and exits 1. */
+export const BROKEN_SERVER_MARKER = '.adw-server-broken';
+export const FIXED_SERVER_MARKER = '.adw-server-fixed';
+
 export interface ScenarioOutcomes {
   readonly name: string;
   readonly feature: string;
@@ -64,7 +68,17 @@ const here = fs.realpathSync(process.cwd());
 const registryFile = path.join(${literal(paths.registryDir)}, crypto.createHash('sha1').update(here).digest('hex'));
 const log = (line) => fs.appendFileSync(${literal(paths.serverLog)}, line + '\\n');
 const port = Number(process.argv[2]);
-const server = http.createServer((request, response) => { response.statusCode = 200; response.end(here); });
+log('attempt ' + here + ' ' + Date.now());
+const brokenMarker = path.join(here, ${literal(BROKEN_SERVER_MARKER)});
+if (fs.existsSync(brokenMarker) && !fs.existsSync(path.join(here, ${literal(FIXED_SERVER_MARKER)}))) {
+  process.stderr.write(fs.readFileSync(brokenMarker, 'utf-8'));
+  process.exit(1);
+}
+const server = http.createServer((request, response) => {
+  log('answered ' + here + ' ' + Date.now());
+  response.statusCode = 200;
+  response.end(here);
+});
 const stop = () => {
   fs.rmSync(registryFile, { force: true });
   log('stopped ' + here + ' ' + Date.now());
@@ -166,11 +180,16 @@ const escapeXml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').re
 }
 
 const BUILD_COMMAND = '/implement-tdd';
+const COMMIT_COMMAND = '/commit';
+/** What the commit agent finds to commit in a worktree that is clean: the stub's stand-in for the command fails on an empty commit. */
+const COMMIT_NOTES_FILE = '.adw-commit-notes';
 
 /**
  * Records every start, then hands the prompt to the Claude CLI stub. The build agent, when the scenario makes it fail,
  * is not handed on: it says the error, as an agent that failed with one does, and exits 1. The stub's own error
- * response carries no text, and the error a phase fails with is the text the agent said.
+ * response carries no text, and the error a phase fails with is the text the agent said. A commit agent that finds
+ * a clean worktree, as it does after a review patch whose answer is the same every round, is given a note to commit:
+ * the real command reports that there is nothing to commit, where the stub's stand-in for it fails.
  */
 function recorderSource(paths: ScratchPaths, stubPath: string, buildFailure: string | null): string {
   const envelopes = path.join(path.dirname(stubPath), '..', 'fixtures', 'jsonl', 'envelopes');
@@ -189,6 +208,13 @@ if (buildFailure !== null && args.some((arg) => arg.startsWith(${literal(BUILD_C
   const result = { ...envelope('result-message.jsonl'), is_error: true, api_error_status: null, result: buildFailure };
   process.stdout.write(JSON.stringify(assistant) + '\\n' + JSON.stringify(result) + '\\n');
   process.exit(1);
+}
+
+if (args.some((arg) => arg.startsWith(${literal(COMMIT_COMMAND)}))) {
+  const status = spawnSync('git', ['status', '--porcelain'], { cwd: process.cwd(), encoding: 'utf-8' });
+  if (status.status === 0 && status.stdout.trim() === '') {
+    fs.appendFileSync(path.join(process.cwd(), ${literal(COMMIT_NOTES_FILE)}), 'committed at ' + Date.now() + '\\n');
+  }
 }
 
 const result = spawnSync(${literal(stubPath)}, args, { stdio: 'inherit' });

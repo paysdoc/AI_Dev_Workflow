@@ -1,0 +1,9 @@
+{
+  "name": "adw-scenarios",
+  "private": true,
+  "description": "ADW's Playwright project: runs this repository's Gherkin scenarios through playwright-bdd.",
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "playwright-bdd": "9.2.1"
+  }
+}

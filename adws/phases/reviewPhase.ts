@@ -15,6 +15,7 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
+import { buildReviewPromptContext, describeReviewPromptContext } from './reviewPromptContext';
 import { getPlanFilePath } from '../agents/planAgent';
 import type { CodeHost, IssueTracker, RepoContext } from '@paysdoc/devplatform';
 import type { WorkflowConfig } from './workflowInit';
@@ -80,11 +81,12 @@ function approvePullRequestAfterReviewPass(repoContext: RepoContext, issueNumber
 }
 
 // Self-host has no repoContext and posts no issue comment, so an upload would show the images nowhere.
+// The images are the ones the scenario proof selected, not whatever the artifacts directory holds.
 async function uploadReviewedProofScreenshots(config: WorkflowConfig): Promise<string[]> {
-  const artifactsDir = config.ctx.scenarioProof?.artifactsDir;
-  if (!config.repoContext || !artifactsDir) return [];
+  const images = config.ctx.scenarioProof?.perIssueImages ?? [];
+  if (!config.repoContext || images.length === 0) return [];
   const uploaded = await uploadProofArtifacts({
-    artifactsDir,
+    images,
     repoInfo: config.repoContext.repoId,
     adwId: config.adwId,
   });
@@ -95,7 +97,7 @@ async function uploadReviewedProofScreenshots(config: WorkflowConfig): Promise<s
  * Returns immediately — retries are handled by the calling orchestrator via executeReviewPatchCycle.
  *
  * @param scenarioProofPath - Path to the scenario_proof.md file from scenarioTestPhase.
- *   When empty, the review agent falls through to Strategy B or code-diff review.
+ *   Empty when the repository runs no scenarios.
  */
 export async function executeReviewPhase(
   config: WorkflowConfig,
@@ -130,10 +132,16 @@ export async function executeReviewPhase(
     postIssueStageComment(repoContext, issueNumber, 'review_running', ctx);
   }
 
+  const promptContext = buildReviewPromptContext(config);
+  const handOff = describeReviewPromptContext(promptContext);
+  log(handOff, 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, handOff);
+
   const agentStatePath = AgentStateManager.initializeState(adwId, 'review-agent', orchestratorStatePath);
   const reviewAgentResult = await runReviewAgent(
     adwId,
     specFile,
+    promptContext,
     logsDir,
     agentStatePath,
     worktreePath,
@@ -148,8 +156,8 @@ export async function executeReviewPhase(
   const reviewPassed = reviewAgentResult.passed;
   const reviewIssues = reviewAgentResult.reviewResult?.reviewIssues ?? [];
 
-  // Assigned on every attempt: the scenario tests re-run between attempts and empty the artifacts
-  // directory, so a list from an earlier attempt must not reach this attempt's comment.
+  // Assigned on every attempt: the scenario tests re-run between attempts and select their images anew,
+  // so a list from an earlier attempt must not reach this attempt's comment.
   ctx.screenshotUrls = await uploadReviewedProofScreenshots(config);
 
   if (reviewPassed) {

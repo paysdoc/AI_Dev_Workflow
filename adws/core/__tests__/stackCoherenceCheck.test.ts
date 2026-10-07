@@ -59,6 +59,21 @@ describe('stackCoherenceCheck', () => {
     expect(result.warnings.some(w => w.code === 'language-mismatch')).toBe(true);
   });
 
+  it('playwright-bdd is a Gherkin runtime — no non-gherkin warning, and it points to javascript', () => {
+    const input: StackCoherenceInput = {
+      testFramework: 'vitest',
+      runTests: 'bun run test:unit',
+      bddFramework: 'playwright-bdd',
+      runScenariosByTag: 'bunx playwright-bdd test --grep "@{tag}"',
+    };
+
+    const result = stackCoherenceCheck(input);
+
+    expect(result.ok).toBe(true);
+    expect(result.warnings.some(w => w.code === 'non-gherkin-bdd')).toBe(false);
+    expect([...inferStackLanguages({ ...input, testFramework: '', runTests: '', runScenariosByTag: '' })]).toEqual(['javascript']);
+  });
+
   it('empty bddFramework is the Gherkin default — no non-gherkin warning', () => {
     const result = stackCoherenceCheck({
       testFramework: 'vitest',

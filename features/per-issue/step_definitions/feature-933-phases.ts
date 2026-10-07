@@ -63,6 +63,7 @@ function failingScenarioProof(workflow: Workflow933): ScenarioProofResult {
   return {
     tagResults: [{ tag, resolvedTag: tag, severity: 'blocker', optional: false, passed: false, output: 'One scenario failed.', exitCode: 1, skipped: false }],
     hasBlockerFailures: true,
+    perIssueImages: [],
     resultsFilePath: path.join(workflow.logsDir, 'scenario_proof.md'),
     artifactsDir: path.join(workflow.logsDir, 'proof'),
   };

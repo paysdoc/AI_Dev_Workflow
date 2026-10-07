@@ -9,12 +9,11 @@ import {
   type TriagedScenario,
 } from '../core/regressionTriage';
 import { ParkReason } from '../forge/parkComment';
+import { REGRESSION_SCENARIO_TAG } from '../proof/proofAssembler';
 import { buildBaseScenarioRerun } from './baseScenarioRerun';
 import type { ScenarioProofResult } from './scenarioProof';
 import { parkWorkflow } from './workflowPark';
 import type { WorkflowConfig } from './workflowInit';
-
-const REGRESSION_TAG = '@regression';
 
 export type PreExistingRegressionGate = (proof: ScenarioProofResult) => Promise<void>;
 
@@ -25,7 +24,7 @@ export interface PreExistingRegressionGateDeps {
 
 /** `null` when the tag failed without per-case results: the failing scenarios cannot be told apart. */
 export function failingRegressionScenarios(proof: ScenarioProofResult): readonly FailingScenario[] | null {
-  const result = proof.tagResults.find(tag => tag.resolvedTag === REGRESSION_TAG);
+  const result = proof.tagResults.find(tag => tag.resolvedTag === REGRESSION_SCENARIO_TAG);
   if (!result || result.passed || result.skipped) return [];
   if (!result.cases) return null;
   return result.cases

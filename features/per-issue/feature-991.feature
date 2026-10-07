@@ -129,7 +129,7 @@ Feature: The application type decides the evidence through a framework-owned map
     And the workflow for issue 9917 is not parked
     And exactly one park comment was posted on issue 9917
 
-  @adw-991 @adw-gfv9kt-feat-the-application
+  @adw-991 @adw-gfv9kt-feat-the-application @adw-992
   Scenario Outline: The framework upgrade of a target repository never initialised by ADW commits the "## Application Type" its "/adw_init" agent wrote, and ADW reads "<type>" from the regen commit
     Given a target repository never initialised by ADW
     And the "/adw_init" agent writes a complete ADW configuration whose ".adw/project.md" declares the application type "<type>"

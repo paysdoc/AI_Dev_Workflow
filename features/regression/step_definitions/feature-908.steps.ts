@@ -151,7 +151,7 @@ function resetLocalState(): void {
   s.usedIssueNumbers = new Set();
 }
 
-Before({ tags: '@adw-908' }, async function (this: RegressionWorld) {
+Before({ tags: '@retry-directive' }, async function (this: RegressionWorld) {
   this.mockContext = await setupMockInfrastructure();
 
   process.env['PATH'] = `${ghMockDir}:${process.env['PATH'] ?? ''}`;
@@ -183,7 +183,7 @@ Before({ tags: '@adw-908' }, async function (this: RegressionWorld) {
   resetLocalState();
 });
 
-After({ tags: '@adw-908' }, async function (this: RegressionWorld) {
+After({ tags: '@retry-directive' }, async function (this: RegressionWorld) {
   for (const seeded of [...s.seededQueueEntries.values(), ...s.webhookFixtures.values()]) {
     try { execSync(`pkill -f ${JSON.stringify(seeded.scriptPath)}`, { stdio: 'ignore' }); } catch { /* nothing to kill */ }
     try { fs.rmSync(seeded.worktreePath, { recursive: true, force: true }); } catch { /* best effort */ }

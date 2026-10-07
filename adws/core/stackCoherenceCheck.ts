@@ -26,6 +26,7 @@ const LANGUAGE_TOKENS: Array<[string, StackLanguage]> = [
   ['cucumber-js', 'javascript'],
   ['cucumber-ruby', 'ruby'],
   ['cucumber-rs', 'rust'],
+  ['playwright-bdd', 'javascript'],
   ['pytest-bdd', 'python'],
   ['pytest', 'python'],
   ['behave', 'python'],

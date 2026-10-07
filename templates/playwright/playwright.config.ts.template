@@ -1,0 +1,19 @@
+import { defineConfig } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
+
+// ADW owns this file: it is identical in every web repository and overwritten on upgrade. Repository values arrive
+// only through ADW_APPLICATION_URL, ADW_PROOF_DIR and ADW_JUNIT_REPORT_PATH, and ADW starts the dev server itself.
+const testDir = defineBddConfig({
+  features: '**/*.feature',
+  steps: 'steps/**/*.ts',
+});
+
+export default defineConfig({
+  testDir,
+  outputDir: process.env.ADW_PROOF_DIR,
+  reporter: [['list'], ['junit', { outputFile: process.env.ADW_JUNIT_REPORT_PATH }]],
+  use: {
+    baseURL: process.env.ADW_APPLICATION_URL,
+    screenshot: 'on',
+  },
+});

@@ -73,6 +73,7 @@ function testRun(tagResults: Array<{ resolvedTag: string; passed: boolean }>, id
   return {
     costUsd: 0,
     modelUsage: {},
+    devServer: { status: 'not_started' },
     scenarioProof: {
       hasBlockerFailures: tagResults.some(result => !result.passed),
       resultsFilePath: `/proof-${id}.md`,

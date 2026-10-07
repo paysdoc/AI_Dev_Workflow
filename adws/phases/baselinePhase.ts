@@ -1,9 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, emptyModelUsageMap, type LogLevel } from '../core';
 import {
   BaselineStatus,
-  declaredDevServerCommand,
   isBaselineWaived,
   runBaselineChecks,
   type BaselineEvent,
@@ -17,6 +15,7 @@ import type { PhaseResult } from '../core/phaseRunner';
 import { loadProjectConfig } from '../core/projectConfig';
 import { ParkReason } from '../forge/parkComment';
 import { sharedBaseWorktree, type BaseCheckout, type BaseWorktreePort } from './baseWorktree';
+import { readDeclaredDevServer } from './declaredDevServer';
 import { logCheckVerdict } from './staticCheckGate';
 import type { WorkflowConfig } from './workflowInit';
 import { parkWorkflow } from './workflowPark';
@@ -57,14 +56,6 @@ function recordLine(statePath: string, message: string, level: LogLevel): void {
 
 function outputOf(output: string): string {
   return output.trim() === '' ? '(no output)' : output.trimEnd();
-}
-
-function rawCommandsMd(checkoutPath: string): string {
-  try {
-    return fs.readFileSync(path.join(checkoutPath, '.adw', 'commands.md'), 'utf-8');
-  } catch {
-    return '';
-  }
 }
 
 function logEvent(statePath: string, event: BaselineEvent): void {
@@ -157,7 +148,7 @@ export async function executeBaselinePhase(config: WorkflowConfig, deps: Partial
   recordLine(statePath, `Baseline: base branch ${checkout.baseBranch} at ${checkout.commit} is checked out in ${checkout.path}`, 'info');
 
   const project = loadProjectConfig(checkout.path);
-  const declaredServer = declaredDevServerCommand(rawCommandsMd(checkout.path));
+  const declaredServer = readDeclaredDevServer(checkout.path);
   const verdict = await runBaselineChecks({
     commands: project.commands,
     cwd: checkout.path,

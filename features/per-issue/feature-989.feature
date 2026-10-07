@@ -29,7 +29,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
       | Rust       | cargo test     | cucumber-rs   | src/lib.rs  | #![allow(clippy::all)]                                        |
       | Ruby       | rspec          | cucumber-ruby | lib/cart.rb | # rubocop:disable Metrics/MethodLength                        |
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-992
   Scenario Outline: The fix-round guard rejects a fix round that <change> the protected file "<path>"
     Given a target repository whose ".adw/" names the test framework "<test framework>" and the BDD framework "<bdd framework>"
     And a fix round whose diff <change> "<path>"

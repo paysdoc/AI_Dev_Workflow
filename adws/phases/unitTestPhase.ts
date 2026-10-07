@@ -10,7 +10,8 @@ import {
   computeTestVerdict,
   ADW_UNVERIFIED_LABEL,
 } from '../core';
-import { runShellCommand, type ProcessRunner } from '../core/checkRunner';
+import { runShellCommand, type ProcessOutcome, type ProcessRunner } from '../core/checkRunner';
+import { resolveScenarioRunner } from '../core/scenarioRunner';
 import type { FixRoundPort } from '../core/staticCheckFixLoop';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -20,6 +21,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
 import { BoardStatus } from '@paysdoc/devplatform';
+import { requireApplicationProfile } from './applicationTypeGate';
 import { reportStackCoherence } from './stackCoherenceReporter';
 import { runStaticCheckGate } from './staticCheckGate';
 
@@ -138,6 +140,28 @@ async function runUnitTestSuite(
   };
 }
 
+async function runInstall(command: string, worktreePath: string, runProcess: ProcessRunner): Promise<ProcessOutcome> {
+  try {
+    return await runProcess(command, worktreePath);
+  } catch (error) {
+    return { exitCode: null, output: String(error) };
+  }
+}
+
+/** A failed install is logged and the checks run either way: a repository whose checks do not reach the project does not need it. */
+async function installScenarioProject(config: WorkflowConfig, runProcess: ProcessRunner): Promise<void> {
+  const { installCommand } = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, config.projectConfig);
+  if (installCommand === null) return;
+
+  const { exitCode, output } = await runInstall(installCommand, config.worktreePath, runProcess);
+  const installed = exitCode === 0;
+  const message = installed
+    ? `Scenario project installed (${installCommand})`
+    : `Scenario project install failed (non-fatal, exit ${exitCode ?? 'none'}): ${output}`;
+  log(message, installed ? 'info' : 'warn');
+  AgentStateManager.appendLog(config.orchestratorStatePath, message);
+}
+
 function skipUnitTestRun(config: WorkflowConfig): TestRunOutcome {
   log('Unit tests disabled — skipping the test run', 'info');
   AgentStateManager.appendLog(config.orchestratorStatePath, 'Unit tests disabled — skipping the test run');
@@ -165,7 +189,11 @@ export async function executeUnitTestPhase(config: WorkflowConfig, deps: Partial
 
   reportStackCoherence(config);
 
-  const gate = await runStaticCheckGate(config, { runProcess: deps.runProcess ?? runShellCommand, fixRounds: deps.fixRounds });
+  const runProcess = deps.runProcess ?? runShellCommand;
+  // Before the checks: the repository's own type check and lint may cover features/**, whose imports resolve only from features/node_modules.
+  await installScenarioProject(config, runProcess);
+
+  const gate = await runStaticCheckGate(config, { runProcess, fixRounds: deps.fixRounds });
 
   const testRun = adwYmlConfig.unitTests
     ? await runUnitTestSuite(config, deps.runUnitTestsWithRetry)

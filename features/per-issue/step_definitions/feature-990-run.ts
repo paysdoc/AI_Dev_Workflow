@@ -29,18 +29,22 @@ import { buildManifest } from './feature-990-manifest.ts';
 import { ensurePullRequestBranch, PR_REVIEW_ORCHESTRATOR, seedPullRequestReview } from './feature-990-pr-review.ts';
 import { writeScripts } from './feature-990-scripts.ts';
 import { buildTarget } from './feature-990-target.ts';
+import { webRunEnvironment } from './feature-990-web.ts';
 import { BASE_BRANCH, requireScratch, requireWorkflowSetup, requireWorld, s, type RunRecord } from './feature-990-world.ts';
 import { CLAUDE_CLI_STUB } from '../../regression/support/claudeCliStub.ts';
 
-/** A run that waits out the dev-server lifecycle's three 20 s probes outlasts the harness's two-minute default. */
-export const RUN_TIMEOUT_MS = 170_000;
-export const STEP_TIMEOUT_MS = 180_000;
+/**
+ * A start that fails waits out the dev-server lifecycle's three 20 s probes, and a workflow that never gets its server
+ * to start makes three starts: nine probes, three minutes, before it has done anything else. That outlasts the harness's
+ * two-minute default.
+ */
+export const RUN_TIMEOUT_MS = 330_000;
+export const STEP_TIMEOUT_MS = 340_000;
 
 const ISSUE_AGE_MS = 60 * 60_000;
 
-export async function describeWorkflow(orchestrator: string, issue: number): Promise<void> {
+export async function describeWorkflow(orchestrator: string, issue: number, adwId = `throwaway${issue}-bdd990`): Promise<void> {
   const world = requireWorld();
-  const adwId = `throwaway${issue}-bdd990`;
   claimAdwId(world, adwId);
   claimIssue(world, issue);
   s.workflow = { orchestrator, harnessName: harnessNameForStem(orchestrator), issue, adwId };
@@ -110,7 +114,7 @@ export async function runWorkflow(): Promise<RunRecord> {
       args: ['tsx', ...orchestratorArgv(workflow.harnessName, workflow.adwId, workflow.issue, SURFACE_REPO)],
       timeoutMs: RUN_TIMEOUT_MS,
       label: `The "${workflow.orchestrator}" orchestrator`,
-      env: { CLAUDE_CODE_PATH: scratch.recorderScript },
+      env: { CLAUDE_CODE_PATH: scratch.recorderScript, ...webRunEnvironment(workflow.issue) },
     },
     { recordsExitCode: true, defaultBranch: BASE_BRANCH },
   );

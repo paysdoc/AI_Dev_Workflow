@@ -7,6 +7,7 @@ import {
   setupFixtureRepo,
   teardownFixtureRepo,
 } from '../../../test/mocks/test-harness.ts';
+import { resolveApplicationType } from '../../../adws/core/applicationType.ts';
 import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 import { stepDefExtensionsFor } from '../../../adws/core/stepDefDetection.ts';
 import { runScenarioProof } from '../../../adws/phases/scenarioProof.ts';
@@ -45,18 +46,21 @@ When(
     assert.ok(this.pythonFixture, 'Expected pythonFixture to be set by Given step');
     const { repoDir } = this.pythonFixture;
     const cfg = loadProjectConfig(repoDir);
+    const resolution = resolveApplicationType(cfg.applicationType);
+    assert.strictEqual(resolution.kind, 'known', `Expected the fixture to declare an application type ADW knows, but it declares ${JSON.stringify(cfg.applicationType)}`);
     const proofDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-python-e2e-'));
     this.proofDir = proofDir;
 
     this.scenarioProofResult = await runScenarioProof({
       scenariosMd: cfg.scenariosMd,
-      reviewProofConfig: cfg.reviewProofConfig,
       runByTagCommand: cfg.commands.runScenariosByTag,
       issueNumber,
       proofDir,
       cwd: repoDir,
       stepDefDirectory: cfg.scenarios.stepDefDirectory,
       stepDefExtensions: stepDefExtensionsFor(cfg.scenarios.bddFramework),
+      applicationProfile: resolution.profile,
+      featureDirectory: cfg.scenarios.scenarioDirectory,
     });
   },
 );
@@ -137,7 +141,6 @@ Then(
     assert.ok(this.scenarioProofResult, 'Expected scenarioProofResult to be set by When step');
 
     await publishPrProof({
-      artifactsDir: this.scenarioProofResult.artifactsDir,
       scenarioProof: this.scenarioProofResult,
       prNumber: 583,
       repoInfo: { owner: 'paysdoc', repo: 'python-app', platform: Platform.GitHub },

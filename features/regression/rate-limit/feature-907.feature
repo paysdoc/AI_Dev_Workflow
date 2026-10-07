@@ -1,4 +1,4 @@
-@adw-907 @adw-orkxdp-structured-rate-limi @promotion-suggested-2026-10-06
+@regression @rate-limit-detection
 Feature: Rate-limit decisions rest on structured stream-json facts end to end â€” the parser captures the limit type and reset time, the rate-limit error carries them, and the pause-queue probe classifies from documented signals with no text fallback
 
   Issue #907 is the detection slice of `specs/prd/rate-limit-indefinite-retry.md` (sections
@@ -90,9 +90,8 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
   Notes for the step definitions:
     â€¢ REUSE #902's HARNESS (`feature-902.steps.ts`, `feature-902-queue.steps.ts`): the injectable
       probe stub, the agent-run fake child, and the pause-queue, mock GitHub and `gh`-shadow setup.
-      Their hooks are scoped to `@adw-902`. Widen each existing hook to `@adw-902 or @adw-907`
-      instead of adding a second `@adw-907` hook. The amended feature-902 scenarios carry both
-      tags, and a second hook would initialise the mock infrastructure twice.
+      Their hooks are widened to `@rate-limit-detection`, the tag this feature carries, rather
+      than duplicated in this feature's step file.
     â€¢ "the rate-limit probe reports {string}" compares the classification's verdict. Adapt the
       stored outcome to whatever `probeRateLimit` now returns.
     â€¢ "a {string} limit that resets at {string}" compares the limit type verbatim and the reset
@@ -109,8 +108,9 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       NEVER SPAWN THE REAL CLAUDE CLI.
         â€“ Point `CLAUDE_CODE_PATH` at the executable AFTER the mock-infrastructure hook has run,
           because that hook points it at the claude-cli-stub.
-        â€“ Clear the cached CLI path before and after the run, and restore the env in an `After`
-          hook.
+        â€“ Clear the cached CLI path before and after the run, and put the env back before the
+          step returns: the `@regression` teardown runs before this feature's `After` hook, so a
+          restore there would overwrite the value the teardown put back.
         â€“ Pass no statePath, and use a throwaway outputFile and cwd.
         â€“ Capture the thrown error for the Then steps.
     â€¢ "the rate-limit probe logged a warning quoting {string}" reads the log output captured while
@@ -125,15 +125,17 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
     â€¢ G1 `the mock GitHub API is configured to accept issue comments`
     â€¢ T2 `the mock GitHub API recorded a comment on issue {int}`
     â€¢ T22 `the ADW TypeScript type-check passes`
-  #902's phrases have step definitions but are not registered; they are reused as written. The
-  following are novel, because the registry has nothing for them: the agent-command When, the
-  rate-limit error assertions, the probe's limit-fact assertions, the confirmed-failure assertion,
-  the agent-run authentication assertions, and the probe-log assertion.
+  The phrases #902 introduced are registered too, by the promotions that reuse its harness: the
+  probe reply (G-PQ10), the scanner and queue phrases (W-PQ5, T-PQ8, T-PQ10), and the probe and
+  agent-run phrases (W-EC6, W-EC7, T-EC15). The following were novel, because the registry had
+  nothing for them: the agent-command When, the rate-limit error assertions, the probe's
+  limit-fact assertions, the confirmed-failure assertion, the agent-run authentication
+  assertions, and the probe-log assertion. They are registered under `@rate-limit-detection`
+  (W-RD1, T-RD1â€“T-RD11).
 
   Background:
     Given the ADW codebase is checked out
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: Replaying 2026-09-22 â€” the session limit that stranded #840 hands the same limit type and reset time to the rate-limit error and to the probe, whatever the exit code
     Given the Claude CLI answers the rate-limit probe with exit code <exit> and stdout:
       """
@@ -154,7 +156,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | 1    |
       | 0    |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario: A seven-day limit reaches the rate-limit error and the probe as a seven-day limit with its own reset time â€” the limit type is read, not assumed
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -169,7 +170,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
     And the agent command fails with a rate-limit error
     And the rate-limit error carries a "seven_day" limit that resets at "2026-09-28T07:00:00Z"
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario: A rejected rate_limit_event that carries no reset time yields its limit type and no invented reset time
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -184,7 +184,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
     And the agent command fails with a rate-limit error
     And the rate-limit error carries a "five_hour" limit with no reset time
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: Every documented api_retry rate-limit or overload signal pauses the agent and holds the probe as "limited" on its own, with no rate_limit_event and so no limit facts
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -207,7 +206,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | overloaded enum, no HTTP status | {"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":500,"error_status":null,"error":"overloaded"} |
       | HTTP 529, unrecognised enum     | {"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":500,"error_status":529,"error":"unknown"}     |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: A documented error status on the result envelope pauses the agent and holds the probe as "limited" on its own, with no rate_limit_event and so no limit facts
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -228,7 +226,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | 500    | API Error: 500 Internal server error                             |
       | 502    | 502 Bad Gateway                                                  |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: Every documented authentication signal ends the agent run as an authentication failure and makes the probe report a confirmed failure, never "limited"
     Given the Claude CLI answers the rate-limit probe with exit code 1 and stdout:
       """
@@ -248,7 +245,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | HTTP 401, unrecognised enum                | {"type":"system","subtype":"api_retry","attempt":1,"max_retries":10,"retry_delay_ms":500,"error_status":401,"error":"unknown"}                                    |
       | result envelope with HTTP 401              | {"type":"result","subtype":"success","is_error":true,"api_error_status":401,"terminal_reason":"api_error","result":"OAuth token has expired Â· Please run /login"} |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi @adw-910
   Scenario: An expired login no longer holds a paused workflow in the queue forever â€” each probe that meets it counts a failure, and the third drops the workflow with a comment
     Given the mock GitHub API is configured to accept issue comments
     And a workflow for issue 911 is paused in the rate-limit queue for the target repository "acme/widgets"
@@ -264,7 +260,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
     Then the pause queue no longer holds the workflow for issue 911
     And the mock GitHub API recorded a comment on issue 911
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: Output containing no JSON makes the probe report "unknown" whatever the text says and whatever the exit code â€” the text fallback is gone
     Given the Claude CLI answers the rate-limit probe with exit code <exit> and <stream>:
       """
@@ -285,7 +280,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | 1    | stderr | Invalid authentication credentials                               |
       | 0    | stdout | You've hit your session limit Â· resets 1:50pm (Europe/Amsterdam) |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario Outline: An unknown probe result leaves the tail of the Claude CLI's output in the cron log, so the next unrecognised failure can be diagnosed
     Given the Claude CLI answers the rate-limit probe with exit code 1 and <stream>:
       """
@@ -300,7 +294,6 @@ Feature: Rate-limit decisions rest on structured stream-json facts end to end â€
       | stderr | You've hit your session limit Â· resets 1:50pm (Europe/Amsterdam) |
       | stdout | Error: Claude Code process exited unexpectedly                   |
 
-  @adw-907 @adw-orkxdp-structured-rate-limi
   Scenario: TypeScript type-check passes after the limit facts are threaded from the stream parser through the rate-limit error to the probe
     Given the ADW codebase is checked out
     Then the ADW TypeScript type-check passes

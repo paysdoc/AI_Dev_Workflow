@@ -41,7 +41,7 @@ export interface WorkflowContext {
   maxReviewAttempts?: number;
   /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
   runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
-  /** Public R2 URLs of the images from the scenario proof the review judged; set by the review phase. */
+  /** Public R2 URLs of the per-issue images the scenario proof selected; set by the review phase on every attempt. */
   screenshotUrls?: string[];
   /** Scenario proof result from the final review iteration. */
   scenarioProof?: ScenarioProofResult;

@@ -6,10 +6,11 @@
  * - ANTHROPIC_API_KEY: (Optional) Anthropic API key; setting it moves billing from the Claude subscription to the API
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
+ * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -19,13 +20,15 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  executeStepDefPhase,
   executeUnitTestPhase,
   executeScenarioTestPhase,
+  runScenarioTestFixLoop,
   executePRPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
+  runReviewRetryLoop,
   handleWorkflowError,
-  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
@@ -43,7 +46,9 @@ export interface PlanBuildReviewPhases {
   readonly executeScenarioPhase: typeof executeScenarioPhase;
   readonly executeAlignmentPhase: typeof executeAlignmentPhase;
   readonly executeBuildPhase: typeof executeBuildPhase;
+  readonly executeStepDefPhase: typeof executeStepDefPhase;
   readonly executeUnitTestPhase: typeof executeUnitTestPhase;
+  readonly runScenarioTestFixLoop: typeof runScenarioTestFixLoop;
   readonly executeScenarioTestPhase: typeof executeScenarioTestPhase;
   readonly executeReviewPhase: typeof executeReviewPhase;
   readonly executeReviewPatchCycle: typeof executeReviewPatchCycle;
@@ -57,7 +62,9 @@ const PLAN_BUILD_REVIEW_PHASES: PlanBuildReviewPhases = {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  executeStepDefPhase,
   executeUnitTestPhase,
+  runScenarioTestFixLoop,
   executeScenarioTestPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
@@ -74,29 +81,13 @@ async function runPlanBuildReviewPhases(
   await runPhasesParallel(config, tracker, [phases.executePlanPhase, phases.executeScenarioPhase]);
   await runPhase(config, tracker, phases.executeAlignmentPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);
+  await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
-  const scenarioResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-  let proofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+  const scenarios = await phases.runScenarioTestFixLoop(config, tracker);
+  const { scenarioRetries } = scenarios;
 
-  let reviewRetries = 0;
-  let reviewPassed = false;
-  let reviewBlockers: ReviewIssue[] = [];
-  for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-    const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
-    const reviewResult = await runPhase(config, tracker, reviewFn);
-    reviewPassed = reviewResult.reviewPassed;
-    reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-    if (reviewPassed) break;
-    reviewRetries++;
-    if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-      const patchWrapper = (cfg: WorkflowConfig) =>
-        phases.executeReviewPatchCycle(cfg, reviewBlockers);
-      await runPhase(config, tracker, patchWrapper);
-      const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-      proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-    }
-  }
+  const { reviewPassed, reviewRetries } = await runReviewRetryLoop(config, tracker, scenarios, phases);
 
   const outcome = decidePostReviewOutcome(reviewPassed);
 
@@ -112,6 +103,7 @@ async function runPlanBuildReviewPhases(
         totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
+        scenarioRetries,
         reviewPassed: false,
         totalReviewRetries: reviewRetries,
       },
@@ -128,6 +120,7 @@ async function runPlanBuildReviewPhases(
       totalCostUsd: tracker.totalCostUsd,
       unitTestsPassed: testResult.unitTestsPassed,
       totalTestRetries: testResult.totalRetries,
+      scenarioRetries,
       reviewPassed,
       totalReviewRetries: reviewRetries,
     },

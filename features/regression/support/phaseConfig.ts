@@ -26,6 +26,7 @@ import { executeScenarioFixPhase } from '../../../adws/phases/scenarioFixPhase.t
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
 import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
+import { declaredApplicationProfile } from '../../../adws/phases/applicationTypeGate.ts';
 import type { PRReviewWorkflowContext } from '../../../adws/forge/workflowCommentsPR.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
@@ -83,21 +84,22 @@ function prReviewWorkflowConfig(base: WorkflowConfig): PRReviewWorkflowConfig {
 // Orchestrators pass the review the proof path of the scenario run before it, and an empty one when no proof preceded it, as here.
 const reviewWithoutProof: PhaseFn = (config) => executeReviewPhase(config, '');
 
-/** What the scenario test phase leaves over the fixture once step definitions exist: the fenced scenario command exits 127 with nothing on stdout, so the review-proof blocker tag fails. */
-function failedReviewProof(adwId: string): ScenarioProofResult {
+/** What the scenario test phase leaves over the fixture once step definitions exist: the fenced scenario command exits 127 with nothing on stdout, so the regression tag fails. */
+function failedRegressionProof(adwId: string): ScenarioProofResult {
   const proofDirectory = join(AGENTS_STATE_DIR, adwId, 'scenario-test');
   return {
     tagResults: [
-      { tag: '@review-proof', resolvedTag: '@review-proof', severity: 'blocker', optional: false, passed: false, output: '', exitCode: 127, skipped: false },
+      { tag: '@regression', resolvedTag: '@regression', severity: 'blocker', optional: false, passed: false, output: '', exitCode: 127, skipped: false },
     ],
     hasBlockerFailures: true,
+    perIssueImages: [],
     resultsFilePath: join(proofDirectory, 'scenario_proof.md'),
     artifactsDir: join(proofDirectory, 'artifacts'),
   };
 }
 
 // The scenario test-and-fix loop hands the fix phase only a proof with a failed blocker tag.
-const fixFailedReviewProof: PhaseFn = (config) => executeScenarioFixPhase(config, failedReviewProof(config.adwId));
+const fixFailedRegressionProof: PhaseFn = (config) => executeScenarioFixPhase(config, failedRegressionProof(config.adwId));
 
 const ORCHESTRATORS: Readonly<Record<string, OrchestratorDefinition>> = {
   plan: { id: OrchestratorId.Plan, issueType: '/feature', phases: { plan: { fn: executePlanPhase } } },
@@ -123,7 +125,7 @@ const ORCHESTRATORS: Readonly<Record<string, OrchestratorDefinition>> = {
     phases: {
       alignment: { fn: executeAlignmentPhase },
       'scenario test': { fn: executeScenarioTestPhase },
-      'scenario fix': { fn: fixFailedReviewProof },
+      'scenario fix': { fn: fixFailedRegressionProof },
       review: { fn: reviewWithoutProof },
     },
   },
@@ -227,6 +229,10 @@ export function buildConfigFor(world: RegressionWorld, adwId: string, launch: Pi
   const orchestratorStatePath = AgentStateManager.initializeState(adwId, id);
   writeInitialTopLevelState(adwId, issue, id, branchName);
 
+  const projectConfig = loadProjectConfig(worktreePath);
+  const applicationProfile = declaredApplicationProfile(projectConfig);
+  assert.ok(applicationProfile, `The fixture's .adw/project.md declares no application type ADW knows (it declares ${JSON.stringify(projectConfig.applicationType)}), and initializeWorkflow would have parked the run`);
+
   return {
     issueNumber: issue.number,
     adwId,
@@ -242,7 +248,8 @@ export function buildConfigFor(world: RegressionWorld, adwId: string, launch: Pi
     branchName,
     applicationUrl: 'http://localhost:0',
     repoContext: mockForgeProviders(SURFACE_REPO, worktreePath),
-    projectConfig: loadProjectConfig(worktreePath),
+    projectConfig,
+    applicationProfile,
     adwYmlConfig: readAdwYmlConfig(worktreePath),
     topLevelStatePath: AgentStateManager.getTopLevelStatePath(adwId),
     gitContext,
