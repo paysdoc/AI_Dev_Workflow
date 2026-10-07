@@ -11,6 +11,7 @@ import {
   ADW_PLAYWRIGHT_TEMPLATE_DIR,
   ProjectFilePolicy,
 } from '../core/adwPlaywrightProject';
+import { REQUIRED_ADW_FILES } from '../phases/worktreeSetup';
 
 /**
  * `adw_init.md` is a prompt, so it cannot import the texts it must reproduce in a target
@@ -189,9 +190,11 @@ describe("adw_init.md installs ADW's Playwright project for a web repository", (
     expect(prompt()).not.toContain('tests/e2e/');
   });
 
-  it('no longer creates .adw/review_proof.md', () => {
-    expect(prompt()).not.toContain('Create `.adw/review_proof.md`');
-    expect(stepLines(readLines(ADW_INIT_PATH), 6).join('\n')).not.toContain('review_proof');
+  it('names no .adw/ file but those adw_init writes', () => {
+    const named = [...prompt().matchAll(/\.adw\/([\w-]+\.md)/g)].map((match) => match[1]);
+
+    expect(named.length).toBeGreaterThan(0);
+    for (const file of named) expect([...REQUIRED_ADW_FILES, 'coding_guidelines.md']).toContain(file);
   });
 
   it('no longer turns off the dev server of a repository whose own Playwright has a webServer block', () => {
@@ -209,11 +212,10 @@ describe("adw_init.md installs ADW's Playwright project for a web repository", (
     expect(step2).toContain('whatever test runners the repository has');
   });
 
-  it('reports the Playwright project in step 11, and no longer reports review_proof.md', () => {
+  it('reports the Playwright project in step 11', () => {
     const step11 = stepLines(readLines(ADW_INIT_PATH), 11).join('\n');
 
     expect(step11).toContain('Playwright project');
-    expect(step11).not.toContain('review_proof');
   });
 
   it('keeps the numbering of the steps, so that every reference to a step stays valid', () => {

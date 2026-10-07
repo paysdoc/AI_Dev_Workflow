@@ -67,14 +67,6 @@ describe('executeScenarioTestPhase — a cli repository runs the scenario runner
     expect(featureDirectory).toBe('e2e/features/');
   });
 
-  it('hands the run no tag configuration, because the tags are fixed', async () => {
-    mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-
-    await executeScenarioTestPhase(makeConfig({ applicationProfile: APPLICATION_TYPE_PROFILES.cli }));
-
-    expect(proofOptions()).not.toHaveProperty('reviewProofConfig');
-  });
-
   it('also hands the run the application address, which only adds a variable', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
 

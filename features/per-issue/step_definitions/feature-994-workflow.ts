@@ -26,6 +26,7 @@ import type { RepositoryType } from './feature-994-names.ts';
 import { createRunner, withRunnerOnPath, writeScript } from './feature-994-runner.ts';
 import { buildScript, writeWorktreeFile } from './feature-994-scenarios.ts';
 import { makeDirectory, requireStore, requireType, requireWorkflow, s } from './feature-994-world.ts';
+import { readReviewPrompt } from './feature-995-prompt.ts';
 
 function recordingIssueTracker(): Pick<IssueTracker, 'commentOnIssue' | 'fetchLabels'> {
   return {
@@ -139,13 +140,14 @@ function verdictOfReview(reviewNumber: number): string | null {
   return s.verdicts[Math.min(reviewNumber, s.verdicts.length) - 1];
 }
 
-/** The proof is read as the review agent is handed it, before the next scenario run resets the proof directory. */
+/** The proof and the prompt are read as the review agent is handed them, before the next scenario run resets the proof directory. */
 async function reviewProof(): Promise<void> {
   const { config, worktreePath } = requireWorkflow();
   assert.ok(s.proof, 'Expected the scenario test phase to have left a proof for the review phase to judge');
   s.reviewed.push({ path: s.proof.resultsFilePath, content: fs.readFileSync(s.proof.resultsFilePath, 'utf-8') });
   scriptVerdict(worktreePath, verdictOfReview(s.reviewed.length));
   await executeReviewPhase(config, s.proof.resultsFilePath);
+  s.prompts.push(readReviewPrompt(config));
 }
 
 /** The screenshot store and the review agent stand in for R2 and for Claude, for the run only. */
