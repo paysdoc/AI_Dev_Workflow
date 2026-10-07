@@ -1,4 +1,4 @@
-@adw-992 @adw-2u517h-feat-web-repositorie
+@adw-992 @adw-2u517h-feat-web-repositorie @promotion-suggested-2026-10-07
 Feature: A "web" repository runs its Gherkin on a Playwright project that ADW owns and the framework upgrade installs in "features/"
 
   ADW's Playwright project is "features/package.json" and "features/playwright.config.ts", written from ADW's templates.
