@@ -167,7 +167,11 @@
     - adws/phases/baselinePhase.ts
     - adws/phases/baseWorktree.ts
     - adws/phases/baseScenarioRerun.ts
+    - adws/phases/declaredDevServer.ts
     - adws/phases/preExistingRegressionGate.ts
+    - adws/phases/__tests__/declaredDevServer.test.ts
+    - adws/phases/__tests__/scenarioTestPhase*.test.ts
+    - adws/phases/__tests__/scenarioTestFixLoop*.test.ts
     - adws/triggers/continueHandler.ts
     - adws/core/__tests__/baselineGate*.test.ts
     - adws/core/__tests__/regressionTriage.test.ts
@@ -189,6 +193,7 @@
     - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
     - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
     - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
+    - When the scenario phase does not start its dev server, reports `devServer: failed`, or starts a server the repository did not declare (`readDeclaredDevServer`, `declaredDevServer.ts`, `ScenarioTestPhaseResult.devServer`), or the fix loop hands a failed start back instead of calling the scenario fix agent
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
   - Decisions:
     - 0014
@@ -199,6 +204,7 @@
     - 0058
     - 0059
     - 0060
+    - 0062
 
 - app_docs/feature-9gjajh-bdd-regression-suite.md
   - Owns:
@@ -814,6 +820,8 @@
 - app_docs/feature-9gjajh-dev-server-and-ports.md
   - Owns:
     - adws/core/devServerLifecycle.ts
+    - adws/core/devServerFailure.ts
+    - adws/core/__tests__/devServerFailure.test.ts
     - adws/core/portAllocator.ts
     - adws/core/remoteReconcile.ts
     - adws/core/targetRepoManager.ts
@@ -826,6 +834,7 @@
     - adws/core/__tests__/targetRepoManager.test.ts
   - Conditions:
     - When working on dev server lifecycle management, dynamic port allocation, remote repo reconciliation, or target repo cloning/updating
+    - When working on the dev-server start outcome (`DevServerStart`) or the review attempt counter rules (`countFailedStart`, `countStartedServer`, `countFailedReview`, `isReviewBudgetSpent`, `serverOutputTail` in `devServerFailure.ts`), or when `withHealthyDevServer` is the only server lifecycle (`withDevServer` is gone)
     - When working on `devServerLifecycle.ts`, `portAllocator.ts`, `remoteReconcile.ts`, or `targetRepoManager.ts`
     - When working on `convertToSshUrl` (`adws/core/sshCloneUrl.ts`, #844) — ADW-owned and host-neutral (`https://<host>/<owner>/<repo>[.git]` → `git@<host>:<owner>/<repo>.git`, anything else passed through), re-exported by `targetRepoManager.ts` at the stable import path; no longer the GitHub-only adapter helper
     - When working on Claude Code workspace trust (`ensureWorkspaceTrusted`, `adws/core/workspaceTrust.ts`, #846) — the once-per-repo `~/.claude.json` `projects[<workspacePath>].hasTrustDialogAccepted` write performed by `ensureTargetRepoWorkspace` on both the clone and fetch branches; atomic tmp+rename, exact-key, skip-and-warn on missing/corrupt/unwritable, never on the per-spawn `claudeAgent.ts` path
@@ -834,6 +843,7 @@
     - 0031
     - 0034
     - 0050
+    - 0062
 
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:
@@ -852,7 +862,7 @@
   - Conditions:
     - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwPromotionSweep`, `adwUpgrade`, `adwClearComments`
     - When working on top-level `adws/index.ts` exports or `adwBuildHelpers.ts`
-    - When working on `adwChore`'s diff-judge escalation, its failed-review stop (`review_failed`, no document/PR/approval), or its injectable entry point (`executeChore`, `ChorePhases`)
+    - When working on `adwChore`'s diff-judge escalation, its failed-review stop (`review_failed`, no document/PR/approval), or its injectable entry point (`executeChore`, `ChorePhases`), or a failed dev-server start that escalates a `safe` chore into the review loop
   - Decisions:
     - 0001
     - 0027
@@ -861,6 +871,7 @@
     - 0038
     - 0042
     - 0048
+    - 0062
 
 - app_docs/feature-9gjajh-freeze-and-coherence.md
   - Owns:
@@ -928,12 +939,16 @@
     - adws/phases/reviewPhase.ts
     - adws/phases/diffEvaluationPhase.ts
     - adws/phases/reviewPatchHelpers.ts
+    - adws/phases/reviewRetryLoop.ts
+    - adws/phases/__tests__/reviewRetryLoop*.test.ts
   - Conditions:
     - When working on the review phase, diff evaluation phase, or review patch helpers in `adws/phases/`
+    - When working on the shared review-retry loop (`runReviewRetryLoop`, `serverStartBlocker`, `recordFailedStartReview`, `scenarioOutcomeOf`), the review attempt counter and its reset, or a dev-server start failure that becomes a review blocker and reaches `review_failed` at the cap
   - Decisions:
     - 0027
     - 0031
     - 0038
+    - 0062
 
 - app_docs/feature-9gjajh-review-and-patch-agents.md
   - Owns:
@@ -975,6 +990,7 @@
   - Conditions:
     - When working on the top-level SDLC workflow orchestrators: `adwSdlc`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildReview`, `adwPlanBuildTest`, `adwPlanBuildTestReview`
     - When working on workflow-level phase sequencing in `workflowPhases.ts`
+    - When a dev-server start failure ends `adwPlanBuildTest` at `review_failed`, or the orchestrators use the shared `runReviewRetryLoop`
     - When working on the failed-review gate in `adwSdlc`, `adwPlanBuildReview` or `adwPlanBuildTestReview` (`decidePostReviewOutcome` → `review_failed` stop), or on their injectable entry points (`executePlanBuildReview`, `executePlanBuildTestReview`, `PlanBuildReviewPhases`, `PlanBuildTestReviewPhases`)
   - Decisions:
     - 0001
@@ -984,6 +1000,7 @@
     - 0031
     - 0045
     - 0048
+    - 0062
 
 - app_docs/feature-9gjajh-slack-and-logging.md
   - Owns:

@@ -16,6 +16,7 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 
 ## Contracts & Invariants
 
+- `adwChore` and `adwPrReview` run the shared `runReviewRetryLoop`. A failed dev-server start escalates a chore into the review loop even when the diff judge ruled `safe` (comment `## Chore Escalation: Dev Server Did Not Start`; the `regression_possible` text is unchanged); metadata `diffVerdict` is the judge's real verdict
 - Every orchestrator acquires a spawn lock (`runWithOrchestratorLifecycle` or `runWithRawOrchestratorLifecycle`) before doing any work; a second concurrent invocation for the same issue exits 0 immediately.
 - `adwBuild` hard-fails before acquiring the lock if `specs/issue-{number}-plan.md` does not exist in the worktree — it never creates the plan itself.
 - `adwMerge` reads `branchName` from the top-level state file first; the orchestrator state file is a fallback for older runs only.
@@ -57,3 +58,4 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 - [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
 - [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
 - [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review

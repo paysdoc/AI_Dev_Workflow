@@ -20,6 +20,7 @@ The SDLC Orchestrators module provides the top-level SDLC workflow drivers — `
 
 ## Contracts & Invariants
 
+- `adwSdlc`, `adwPlanBuildReview` and `adwPlanBuildTestReview` run the shared `runReviewRetryLoop` (no inline review loop); a dev-server start failure on the issue branch is a failed review that counts against the cap. `adwPlanBuildTest` has no review loop, so a failed start ends the run at `review_failed` (with the server output and `## Retry`), opens no PR and publishes no proof; its entry point is injectable (`executePlanBuildTest`, `PlanBuildTestPhases`)
 - `initializeWorkflow` runs the upgrade gate for target-repo workflows and parks the issue (exits 0) if the target's `.adw/` is stale
 - The spawn lock file persists on disk if `handleWorkflowError` or `handleAuthRequiredPause` exits via `process.exit`; the next caller reclaims it by detecting a dead PID or start-time mismatch
 - `adwSdlc` never calls `completeWorkflow`; it writes `awaiting_merge` directly and relies on `adwMerge.tsx` to advance to `completed`
@@ -63,3 +64,4 @@ Per-repo configuration (read from the worktree at init time):
 - [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
 - [ADR-0045](../specs/adr/0045-kpi-module-removed.md) — KPI module removed
 - [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
