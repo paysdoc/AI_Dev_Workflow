@@ -3,6 +3,7 @@ import { resolveScenarioRunner, type ScenarioRunnerConfig } from '../scenarioRun
 import { RunnerMode } from '../applicationType';
 import {
   ADW_PLAYWRIGHT_INSTALL_COMMAND,
+  ADW_PLAYWRIGHT_PROJECT_DIR,
   ADW_PLAYWRIGHT_RUN_BY_TAG,
   ADW_PLAYWRIGHT_STEP_DEF_DIR,
 } from '../adwPlaywrightProject';
@@ -63,6 +64,13 @@ describe('resolveScenarioRunner — descriptor mode', () => {
   it('passes an N/A command through, which only a descriptor runner can say', () => {
     expect(resolveScenarioRunner(RunnerMode.Descriptor, EMPTY_FRAMEWORK).runByTagCommand).toBe('N/A');
   });
+
+  it('reads its feature files from the scenario directory .adw/scenarios.md names', () => {
+    const custom = configWith({ runScenariosByTag: 'behave --tags @{tag}' }, { scenarioDirectory: 'e2e/features/', bddFramework: 'behave' });
+
+    expect(resolveScenarioRunner(RunnerMode.Descriptor, custom).featureDirectory).toBe('e2e/features/');
+    expect(resolveScenarioRunner(RunnerMode.Descriptor, CUCUMBER).featureDirectory).toBe('features/');
+  });
 });
 
 describe('resolveScenarioRunner — adw_playwright mode', () => {
@@ -73,6 +81,13 @@ describe('resolveScenarioRunner — adw_playwright mode', () => {
     expect(runner.stepDefDirectory).toBe(ADW_PLAYWRIGHT_STEP_DEF_DIR);
     expect(runner.stepDefExtensions).toEqual(['.ts']);
     expect(runner.installCommand).toBe(ADW_PLAYWRIGHT_INSTALL_COMMAND);
+  });
+
+  it("reads its feature files from the project's own directory, whatever scenario directory the descriptors name", () => {
+    const elsewhere = configWith({}, { scenarioDirectory: 'e2e/features/' });
+
+    expect(resolveScenarioRunner(RunnerMode.AdwPlaywright, elsewhere).featureDirectory).toBe(ADW_PLAYWRIGHT_PROJECT_DIR);
+    expect(resolveScenarioRunner(RunnerMode.AdwPlaywright, CUCUMBER).featureDirectory).toBe('features');
   });
 
   it('gives each tag its own proof directory, since Playwright empties its output directory at the start of a run', () => {
@@ -96,6 +111,7 @@ describe('one runner per mode', () => {
     expect(runner.runByTagCommand.length).toBeGreaterThan(0);
     expect(runner.stepDefDirectory.length).toBeGreaterThan(0);
     expect(runner.stepDefExtensions.length).toBeGreaterThan(0);
+    expect(runner.featureDirectory.length).toBeGreaterThan(0);
   });
 });
 

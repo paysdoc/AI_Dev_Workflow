@@ -140,6 +140,7 @@ describe('formatWorkflowComment — review comments embed screenshot URLs', () =
   const scenarioProof: ScenarioProofResult = {
     tagResults: [],
     hasBlockerFailures: false,
+    perIssueImages: [],
     resultsFilePath: '/tmp/scenario_proof.md',
     artifactsDir: '/tmp/artifacts',
   };

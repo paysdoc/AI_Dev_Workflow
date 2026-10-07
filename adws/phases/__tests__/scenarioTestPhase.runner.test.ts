@@ -51,6 +51,24 @@ describe('executeScenarioTestPhase — a cli repository runs the scenario runner
     expect(proofDirPerTag).toBe(false);
   });
 
+  it('hands the run the cli profile and the scenario directory the descriptors name, which hold its feature files', async () => {
+    mockRunScenarioProof.mockResolvedValueOnce(passingProof);
+
+    await executeScenarioTestPhase(makeConfig({ applicationProfile: APPLICATION_TYPE_PROFILES.cli, scenarioDirectory: 'e2e/features/' }));
+
+    const { applicationProfile, featureDirectory } = proofOptions();
+    expect(applicationProfile).toBe(APPLICATION_TYPE_PROFILES.cli);
+    expect(featureDirectory).toBe('e2e/features/');
+  });
+
+  it('hands the run no tag configuration, because the tags are fixed', async () => {
+    mockRunScenarioProof.mockResolvedValueOnce(passingProof);
+
+    await executeScenarioTestPhase(makeConfig({ applicationProfile: APPLICATION_TYPE_PROFILES.cli }));
+
+    expect(proofOptions()).not.toHaveProperty('reviewProofConfig');
+  });
+
   it('also hands the run the application address, which only adds a variable', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
 
@@ -75,6 +93,16 @@ describe("executeScenarioTestPhase — a web repository runs ADW's Playwright pr
     expect(stepDefDirectory).toBe('features/steps');
     expect(stepDefExtensions).toEqual(['.ts']);
     expect(proofDirPerTag).toBe(true);
+  });
+
+  it("hands the run the web profile and the Playwright project's directory, whatever scenario directory the descriptors name", async () => {
+    mockRunScenarioProof.mockResolvedValueOnce(passingProof);
+
+    await executeScenarioTestPhase(makeConfig({ applicationProfile: APPLICATION_TYPE_PROFILES.web, scenarioDirectory: 'e2e/features/' }));
+
+    const { applicationProfile, featureDirectory } = proofOptions();
+    expect(applicationProfile).toBe(APPLICATION_TYPE_PROFILES.web);
+    expect(featureDirectory).toBe('features');
   });
 
   it('hands the run the address of the dev server ADW starts', async () => {

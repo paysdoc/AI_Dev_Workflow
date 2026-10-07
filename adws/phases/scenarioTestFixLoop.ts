@@ -14,6 +14,7 @@ import { runScenarioFidelityAgent } from '../agents/scenarioFidelityAgent';
 import { OutputValidationError } from '../agents/commandAgent';
 import { DevServerStartStatus, NO_DEV_SERVER_START, type DevServerStart } from '../core/devServerFailure';
 import { computeResolveVerdict } from '../core/resolveVerdict';
+import { REGRESSION_SCENARIO_TAG } from '../proof/proofAssembler';
 import { executeScenarioTestPhase } from './scenarioTestPhase';
 import { executeScenarioFixPhase } from './scenarioFixPhase';
 import { createPreExistingRegressionGate, type PreExistingRegressionGate } from './preExistingRegressionGate';
@@ -79,7 +80,7 @@ export async function runScenarioTestFixLoop(
       }
 
       const regressionTagResult = scenarioProof?.tagResults.find(
-        r => r.resolvedTag === '@regression',
+        r => r.resolvedTag === REGRESSION_SCENARIO_TAG,
       );
       const regressionPass = !regressionTagResult ||
         regressionTagResult.passed ||
@@ -144,7 +145,7 @@ export async function runScenarioTestFixLoop(
     await parkOnPreExistingRegression(scenarioProof);
 
     const regressionTagResult = scenarioProof.tagResults.find(
-      r => r.resolvedTag === '@regression',
+      r => r.resolvedTag === REGRESSION_SCENARIO_TAG,
     );
     const regressionPass = !regressionTagResult ||
       regressionTagResult.passed ||

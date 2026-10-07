@@ -93,7 +93,7 @@ function settleProof(run: PhaseRun, scenarioProof: ScenarioProofResult, devServe
   log(`Scenario test phase: ${statusLabel}`, hasBlockerFailures ? 'error' : 'success');
   AgentStateManager.appendLog(
     config.orchestratorStatePath,
-    `Scenario test phase ${statusLabel}. Proof: ${scenarioProof.resultsFilePath}`,
+    `Scenario test phase ${statusLabel}. Proof: ${scenarioProof.resultsFilePath} (${scenarioProof.perIssueImages.length} per-issue image(s))`,
   );
 
   // Surface proof on context so executeProofPublishPhase can read it
@@ -153,8 +153,9 @@ export async function executeScenarioTestPhase(
   const { orchestratorStatePath, issueNumber, adwId, worktreePath, applicationUrl, logsDir, projectConfig } = config;
   const run: PhaseRun = { config, startedAt: Date.now(), modelUsage: emptyModelUsageMap() };
 
-  const { scenariosMd, reviewProofConfig } = projectConfig;
-  const runner = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, projectConfig);
+  const { scenariosMd } = projectConfig;
+  const applicationProfile = requireApplicationProfile(config);
+  const runner = resolveScenarioRunner(applicationProfile.runnerMode, projectConfig);
 
   if (!scenariosMd.trim() || runner.runByTagCommand.trim() === 'N/A') return skipPhase(run);
 
@@ -166,7 +167,6 @@ export async function executeScenarioTestPhase(
   const runProof = (): Promise<ScenarioProofResult> =>
     runScenarioProof({
       scenariosMd,
-      reviewProofConfig,
       runByTagCommand: runner.runByTagCommand,
       issueNumber,
       proofDir,
@@ -174,6 +174,8 @@ export async function executeScenarioTestPhase(
       stepDefDirectory: runner.stepDefDirectory,
       stepDefExtensions: [...runner.stepDefExtensions],
       proofDirPerTag: runner.proofDirPerTag,
+      applicationProfile,
+      featureDirectory: runner.featureDirectory,
       env: { ADW_APPLICATION_URL: applicationUrl },
     });
 
