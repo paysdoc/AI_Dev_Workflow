@@ -19,7 +19,7 @@ import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { setProofUploaderForTesting } from '../../../adws/proof/proofUploader.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
-import { REPO_ID, createScreenshotStore } from './feature-937-world.ts';
+import { REPO_ID, createScreenshotStore } from '../../regression/step_definitions/feature-937-world.ts';
 import { freshAdwFiles, setRunScenariosByTag, writeAdwFiles } from './feature-992-adw-files.ts';
 import { activateStandInAgent, deactivateStandInAgent, scriptVerdict } from './feature-994-agent.ts';
 import type { RepositoryType } from './feature-994-names.ts';

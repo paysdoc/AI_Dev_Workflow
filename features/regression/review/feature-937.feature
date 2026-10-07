@@ -1,4 +1,4 @@
-@adw-937 @adw-axbb2a-bug-review-checks-st @promotion-suggested-2026-10-04
+@regression @review-comment-screenshots
 Feature: The review comment on the issue shows the screenshots of the proof the review judged, each embedded from the URL its upload returned, and a screenshot never decides or blocks the review
 
   Issue #937 resolves two `## Divergence` items in `specs/adr/`. Those items are the specification:
@@ -186,11 +186,12 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
       of a listed screenshot. "received no upload": no upload was recorded.
     • "the review phase returned a {word} verdict": the phase did not throw, and `reviewPassed` is
       `true` for "passing" and `false` for "failing".
-    • HOOKS. Scope every hook to `@adw-937`. `After`: remove the stand-in store if a step left it
-      installed, restore `CLAUDE_CODE_PATH` and clear the CLI path cache, and remove
-      `agents/<adwId>` for every adwId used, and the throwaway worktrees.
-    • REUSED, NOT REDEFINED. G18 is defined in `features/step_definitions/`, and T22 in the
-      regression suite's `thenSteps.ts`. Redefining either is an AmbiguousStepDefinition.
+    • HOOKS. Every hook is scoped to `@review-comment-screenshots`, the tag only this feature
+      carries. `After`: remove the stand-in store if a step left it installed, restore
+      `CLAUDE_CODE_PATH` unless the `@regression` teardown already has, clear the CLI path
+      cache, and remove `agents/<adwId>` for every adwId used, and the throwaway worktrees.
+    • REUSED, NOT REDEFINED. G18 is defined in the regression suite's `givenSteps.ts`, and T22
+      in its `thenSteps.ts`. Redefining either is an AmbiguousStepDefinition.
 
   Vocabulary note. These registered phrases from `features/regression/vocabulary.md` are reused:
     • G18 `the ADW codebase is checked out`
@@ -206,11 +207,13 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
   No unregistered phrase from another per-issue feature is reused. feature-820's "object storage
   is configured with a recording uploader" and "the review phase reported the review as passed",
   and feature-929's "a comment headed {string} was posted on issue {int}", are bound to those
-  features' own worlds, so the wording here avoids them. The registry has no phrase for the
-  following, so novel phrasing is introduced for them: the review workflow; the proof run's
+  features' own worlds, so the wording here avoids them. The registry had no phrase for the
+  following, so novel phrasing was introduced for them: the review workflow; the proof run's
   screenshots and other files; the repository without scenarios; the stand-in review agent's
   verdict; the screenshot store; the scenario-and-review run; the review comment and the images it
-  embeds; the uploads the store received; and the review phase's verdict.
+  embeds; the uploads the store received; and the review phase's verdict. They are registered in
+  `features/regression/vocabulary.md` under `@review-comment-screenshots` (G-RS1–G-RS10,
+  W-RS1–W-RS3, T-RS1–T-RS7).
 
   Background:
     Given the ADW codebase is checked out
@@ -218,7 +221,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
 
   # ── §1 THE REVIEW COMMENT SHOWS THE SCREENSHOTS ────────────────────────────────────────────────
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: A passing review whose proof run left screenshots shows every one of them in its Review Passed comment on the issue, each embedded from a URL its upload returned
     Given a review workflow for issue 9371 under adwId "shots937-pass" whose issue tracker records every comment
     And the scenario run for that workflow leaves these screenshots in its proof directory:
@@ -238,7 +240,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
       | login/step-2.png  |
       | overview.png      |
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: A failing review whose proof run left screenshots shows them in its Review Failed comment on the issue and still lists its blocker
     Given a review workflow for issue 9372 under adwId "shots937-fail" whose issue tracker records every comment
     And the scenario run for that workflow leaves these screenshots in its proof directory:
@@ -257,7 +258,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
 
   # ── §2 THEY ARE THE SCREENSHOTS OF THE PROOF THE REVIEW JUDGED ─────────────────────────────────
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: Only the images the proof run left are uploaded and shown, not the scenario proof file the review agent lists as its proof artifact, nor a file in the proof directory that is not an image
     Given a review workflow for issue 9373 under adwId "only937-images" whose issue tracker records every comment
     And the scenario run for that workflow leaves these screenshots in its proof directory:
@@ -277,7 +277,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
       | login/step-1.png |
       | overview.png     |
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: After a failed review the re-test's proof run replaces the screenshots, and the next review comment shows the new run's screenshots and none of the earlier run's
     Given a review workflow for issue 9374 under adwId "retest937-shots" whose issue tracker records every comment
     And the scenario run for that workflow leaves these screenshots in its proof directory:
@@ -299,7 +298,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
 
   # ── §3 A SCREENSHOT NEVER DECIDES OR BLOCKS THE REVIEW ─────────────────────────────────────────
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: An upload the screenshot store refuses is left out, and the review comment is still posted with the other screenshots while the passing verdict stands
     Given a review workflow for issue 9375 under adwId "refused937-upload" whose issue tracker records every comment
     And the scenario run for that workflow leaves these screenshots in its proof directory:
@@ -316,7 +314,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
       | login/step-1.png |
       | overview.png     |
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: A proof run that leaves no screenshots gets the Review Passed comment it gets today, with no image, and nothing is uploaded
     Given a review workflow for issue 9376 under adwId "noshots937" whose issue tracker records every comment
     And the scenario run for that workflow leaves no screenshots in its proof directory
@@ -327,7 +324,6 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
     And the "Review Passed" comment on issue 9376 embeds no image
     And the screenshot store received no upload
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: A repository with no scenarios configured has no proof run, and its review runs and comments as today, with no image, and nothing is uploaded
     Given a review workflow for issue 9377 under adwId "noscen937" whose issue tracker records every comment
     And the repository of that workflow has no scenarios configured
@@ -340,6 +336,5 @@ Feature: The review comment on the issue shows the screenshots of the proof the 
 
   # ── §4 BACKSTOP ────────────────────────────────────────────────────────────────────────────────
 
-  @adw-937 @adw-axbb2a-bug-review-checks-st
   Scenario: TypeScript type-check passes with the proof screenshots wired into the review comment
     Then the ADW TypeScript type-check passes

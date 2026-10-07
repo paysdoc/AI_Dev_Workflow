@@ -1076,3 +1076,57 @@ checked out` (G18, Background), G-PQ14 (`another live process holds the spawn lo
 the repository {string}`; its holder process and lock are released by feature-911's exported
 `releaseHeldSpawnLocks`, which these hooks call), T1 (read from `agents/<adwId>/state.json`), T5 (the
 exit code W-DT4 records), T22, and the generic W16/T34 git/gh guard pair.
+
+---
+
+## Given/When/Then — Review Comment Screenshots (@review-comment-screenshots)
+
+These phrases drive the review phase's comment on the issue and the screenshots of the proof run the
+review judged. Every row is phase-import: the real `executeScenarioTestPhase` runs, then the real
+`executeReviewPhase`, over a `WorkflowConfig` built on a throwaway worktree under `os.tmpdir()`. Its
+recording `repoContext` for the fictional `acme/widgets` records every comment, and its hermetic
+scenario command copies a scripted proof run into `$ADW_PROOF_DIR` instead of starting a test suite.
+Two boundaries are replaced, and only for the When step's run: R2, by a stand-in screenshot store
+installed through `setProofUploaderForTesting` (`adws/proof/proofUploader.ts`), and the review agent,
+by the Claude CLI stub (`test/mocks/claude-cli-stub.ts`) answering a verdict the steps script through
+`<worktree>/.adw-stub-manifest.json`. No real agent runs, and nothing reaches R2 or GitHub. Each
+fixture file's bytes are unique to its relative path, so an upload is traced back to the file it
+carried; nothing decodes an image. Every assertion targets a runtime artefact: the comments the
+recording issue tracker received (a comment's heading is its first `## ` line, and its images are its
+Markdown image sources), the uploads the stand-in store received and the URL it answered each with,
+and what the review phase returned or threw. No step reads, greps or parses a source file, satisfying
+the Rot-Detection Rubric.
+
+The definitions live in `feature-937.steps.ts` (the hooks, Givens and Whens) and
+`feature-937-then.steps.ts` (the Thens), with their helpers in `feature-937-world.ts`,
+`feature-937-workflow.ts` and `feature-937-agent.ts`. The hooks are keyed on
+`@review-comment-screenshots`: `Before` resets the module-scoped world, and `After` removes the
+stand-in store, restores `CLAUDE_CODE_PATH` unless the `@regression` teardown already has, clears the
+cached CLI path, and removes `agents/<adwId>` for every adwId used and the throwaway directories. A
+scenario that uses these phrases must carry that tag and run G-RS1 in its Background.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RS1 | `the screenshot store records every upload and answers each with a public URL of its own` | Prepares the stand-in screenshot store, an `UploaderFn` that records the key and bytes of every upload and answers the n-th with `https://screenshots.example.test/<n>/<key>`; an upload it refuses is recorded with no URL and throws. It is only prepared: W-RS1 and W-RS3 install it through `setProofUploaderForTesting` for their run and remove it afterwards, so the real `uploadToR2` never runs and the store counts as configured without R2 credentials. The Background of every scenario using these phrases | phase-import | stand-in screenshot store (SUT boundary) |
+| G-RS2 | `a review workflow for issue {int} under adwId {string} whose issue tracker records every comment` | Removes any `agents/<adwId>` a crashed earlier run left, then builds a `WorkflowConfig` over a fresh throwaway worktree under `os.tmpdir()`: a recording `repoContext` for the fictional `acme/widgets` whose issue tracker records every `commentOnIssue` and answers `fetchLabels` with `[]` and whose code host records every call; no `ctx.prUrl`, since in `adwSdlc` the review runs before the pull request exists; no `gitContext`; the default project config with `startDevServer` `N/A`, a non-empty `scenariosMd`, one step-definition file in the worktree so the scenario test phase runs, and a hermetic `runScenariosByTag` that, whatever the tag, copies the scripted proof run into `$ADW_PROOF_DIR`, writes a passing JUnit report to `$ADW_JUNIT_REPORT_PATH` and prints `1 scenarios (1 passed)` | phase-import | workflow config + recording issue tracker (SUT input) |
+| G-RS3 | `the scenario run for that workflow leaves these screenshots in its proof directory:` | Replaces the workflow's proof run with the relative paths in the table's `screenshot` column, each written as a fixture file whose bytes are unique to its path (`fixture bytes of <path>`), keeping any other file G-RS5 named; on every run the scenario command copies them into `$ADW_PROOF_DIR` at their relative paths. Nothing decodes an image: the extension is the one named. Fails unless G-RS2 ran | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS4 | `the scenario run for that workflow leaves no screenshots in its proof directory` | As G-RS3 with no screenshot: the proof run holds only the other files G-RS5 named, if any | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS5 | `the scenario run for that workflow also leaves the file {string} in its proof directory` | Adds a file that is not an image at the relative path, its bytes unique to that path, to the proof run, keeping the screenshots already scripted | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS6 | `the repository of that workflow has no scenarios configured` | Empties the workflow's `scenariosMd`, so the real scenario test phase skips and returns no scenario proof, and the review is judged over an empty proof path | phase-import | workflow config (SUT input) |
+| G-RS7 | `the stand-in review agent passes the review` | Scripts the verdict the Claude CLI stub answers the next review with: `success: true`, no review issues, and an empty `screenshots` list unless G-RS9 ran. W-RS1 writes it into the stub's manifest marker; it satisfies the review agent's output parser at once, so no validation retry starts another agent. Also used after a When step, to script the next review | phase-import | stub behaviour (scripted review verdict) |
+| G-RS8 | `the stand-in review agent fails the review with the blocker {string}` | As G-RS7, with `success: false` and one review issue of severity `blocker` whose description is the text | phase-import | stub behaviour (scripted review verdict) |
+| G-RS9 | `the stand-in review agent's verdict lists the scenario proof file as its proof artifact` | Makes the scripted verdict's `screenshots` hold the absolute path of the `scenario_proof.md` the scenario test phase reported, as the review prompt's Strategy A tells the reviewer to; nothing is listed when the phase reported no proof | phase-import | stub behaviour (scripted review verdict) |
+| G-RS10 | `the screenshot store refuses the upload of {string}` | Makes the stand-in store throw for an upload carrying that screenshot's fixture bytes, recording it with no URL. Fails unless G-RS1 ran | phase-import | stand-in screenshot store (SUT boundary) |
+| W-RS1 | `the scenario tests run and the review phase judges their proof` | Installs the stand-in store through `setProofUploaderForTesting` and points `CLAUDE_CODE_PATH` at the Claude CLI stub, clearing the cached CLI path. Runs the real `executeScenarioTestPhase(config)`, writes the stub's manifest marker `<worktree>/.adw-stub-manifest.json` with the scripted verdict, then runs the real `executeReviewPhase(config, proofPath)`, `proofPath` being the `resultsFilePath` of the proof the scenario phase returned or `''` when it returned none, as `runScenarioTestFixLoop` hands the review. Records whether the review phase returned, with its `reviewPassed`, or threw, and removes the store and restores `CLAUDE_CODE_PATH` before it ends. Fails unless G-RS1, G-RS2 and G-RS7 or G-RS8 ran. 60 s timeout | phase-import | returned review verdict + recorded comments + recorded uploads |
+| W-RS2 | `the next scenario run for that workflow leaves only the screenshot {string} in its proof directory` | Replaces the proof run, from the next run on, with that one screenshot fixture and no other file. A When because it scripts the run between two reviews | phase-import | proof-run fixture (SUT input, not source) |
+| W-RS3 | `the scenario tests run again and the review phase judges their new proof` | W-RS1 again on the same workflow. The patch the orchestrators run between review attempts changes no screenshot and is left out | phase-import | returned review verdict + recorded comments + recorded uploads |
+| T-RS1 | `the review phase returned a {word} verdict` | Asserts the last run's review phase returned rather than threw (its error is shown otherwise) and that its `reviewPassed` is `true` for `passing` and `false` for `failing`; any other word fails the step | phase-import | returned review verdict |
+| T-RS2 | `issue {int} received a comment headed {string}` | Asserts the recording issue tracker received a comment on issue N whose heading, its first `## ` line, contains the text (the review comments put an emoji shortcode before the title); fails listing the headings of the issue's comments | phase-import | recorded issue comments |
+| T-RS3 | `the {string} comment on issue {int} shows exactly these screenshots, each embedded as an image from a URL its upload returned:` | Takes the last comment on issue N headed by the text and collects its Markdown image sources (`![…](source)`). Asserts that every screenshot in the table's `screenshot` column is embedded from a URL the stand-in store returned for an upload of its bytes, and that every image source is a URL returned for an upload of a listed screenshot | phase-import | recorded issue comments + recorded uploads |
+| T-RS4 | `the {string} comment on issue {int} still lists the blocker {string}` | Asserts the body of the last comment on issue N headed by the text contains the blocker's description | phase-import | recorded issue comments |
+| T-RS5 | `the {string} comment on issue {int} embeds no image` | Asserts the last comment on issue N headed by the text carries no Markdown image | phase-import | recorded issue comments |
+| T-RS6 | `the screenshot store received uploads of these screenshots and of nothing else:` | Asserts the bytes of every listed screenshot reached the stand-in store at least once, and that every upload it recorded, refused ones included, carries the bytes of a listed screenshot | phase-import | recorded uploads |
+| T-RS7 | `the screenshot store received no upload` | Asserts the stand-in store recorded no upload, refused or answered | phase-import | recorded uploads |
+
+This section also reuses already-registered phrases, so they need no new rows:
+`the ADW codebase is checked out` (G18, Background) and `the ADW TypeScript type-check passes` (T22).
