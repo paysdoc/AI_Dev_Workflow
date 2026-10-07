@@ -367,7 +367,7 @@ Then('the comment-clearing orchestrator reported the issue title {string}', func
   assert.strictEqual(s.clearCommentsResult!.issueTitle, title);
 });
 
-function buildScenarioProof(passed: number, failed: number, artifactsDir: string): ScenarioProofResult {
+function buildScenarioProof(passed: number, failed: number, perIssueImages: ScenarioProofResult['perIssueImages'], artifactsDir: string): ScenarioProofResult {
   return {
     tagResults: [
       {
@@ -383,6 +383,7 @@ function buildScenarioProof(passed: number, failed: number, artifactsDir: string
       },
     ],
     hasBlockerFailures: failed > 0,
+    perIssueImages,
     resultsFilePath: '',
     artifactsDir,
   };
@@ -391,7 +392,7 @@ function buildScenarioProof(passed: number, failed: number, artifactsDir: string
 Given('a scenario proof result reporting {int} passed and {int} failed with no artifacts', function (passed: number, failed: number) {
   const dir = mkdtempSync(path.join(tmpdir(), 'adw-820-artifacts-'));
   world796().tempDirs.push(dir);
-  s.scenarioProof = buildScenarioProof(passed, failed, dir);
+  s.scenarioProof = buildScenarioProof(passed, failed, [], dir);
 });
 
 Given(
@@ -401,8 +402,9 @@ Given(
     world796().tempDirs.push(dir);
     const scenarioDir = path.join(dir, 'MyScenario');
     fs.mkdirSync(scenarioDir, { recursive: true });
-    fs.writeFileSync(path.join(scenarioDir, 'screenshot.png'), Buffer.from([0]));
-    s.scenarioProof = buildScenarioProof(passed, failed, dir);
+    const absPath = path.join(scenarioDir, 'screenshot.png');
+    fs.writeFileSync(absPath, Buffer.from([0]));
+    s.scenarioProof = buildScenarioProof(passed, failed, [{ absPath, relPath: 'MyScenario/screenshot.png', scenario: 'MyScenario' }], dir);
   },
 );
 
@@ -418,7 +420,6 @@ When(
     const boundary = w.boundary;
     w.usedAdwIds.add(adwId);
     await publishPrProof({
-      artifactsDir: s.scenarioProof?.artifactsDir,
       scenarioProof: s.scenarioProof ?? undefined,
       prNumber,
       repoInfo: boundary.repoId,

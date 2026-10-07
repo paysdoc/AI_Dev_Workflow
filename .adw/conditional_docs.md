@@ -917,11 +917,16 @@
     - adws/phases/stackCoherenceReporter.ts
     - adws/proof/**
   - Conditions:
-    - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, scenario proof attachment, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
+    - When working on the proof assembler (`assembleScenarioProof`), fixed scenario tags (`@regression`, `@adw-{issueNumber}`), feature-file scenario indexing, or per-issue scenario image selection
+    - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page") or `runScenarioProof`
+    - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
     - 0022
     - 0043
+    - 0058
+    - 0061
+    - 0063
 
 - app_docs/feature-9gjajh-review-and-diff-phases.md
   - Owns:

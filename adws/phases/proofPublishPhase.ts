@@ -26,7 +26,6 @@ export async function executeProofPublishPhase(
     const prNumber = extractPrNumber(ctx.prUrl);
 
     await publishPrProof({
-      artifactsDir: scenarioProof?.artifactsDir,
       scenarioProof,
       prNumber,
       repoInfo: repoContext.repoId,

@@ -13,30 +13,26 @@ const configuredEnvironment = vi.hoisted(() => ({
 vi.mock('../../core/environment', () => configuredEnvironment);
 vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 vi.mock('../../r2/uploadService', () => ({ uploadToR2: vi.fn() }));
-vi.mock('../proofArtifactHarvester', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../proofArtifactHarvester')>();
-  return { harvestProofArtifacts: vi.fn(actual.harvestProofArtifacts) };
-});
 
-import { uploadProofArtifacts, setProofUploaderForTesting } from '../proofUploader';
-import { harvestProofArtifacts } from '../proofArtifactHarvester';
+import { uploadProofArtifacts, isProofUploadConfigured, setProofUploaderForTesting } from '../proofUploader';
 import { uploadToR2 } from '../../r2/uploadService';
 import { log } from '../../core/logger';
-import type { UploaderFn } from '../types';
+import type { PerIssueImage, UploaderFn } from '../types';
 
 const mockUploadToR2 = vi.mocked(uploadToR2);
-const mockHarvest = vi.mocked(harvestProofArtifacts);
 const mockLog = vi.mocked(log);
 
 const repoInfo = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub } as const;
-const adwId = 'adw-937';
+const adwId = 'adw-994';
 
 let artifactsDir: string;
 
-function writeArtifact(relPath: string): void {
-  const fullPath = path.join(artifactsDir, relPath);
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  fs.writeFileSync(fullPath, `bytes of ${relPath}`);
+/** An image the artifacts directory holds, which a scenario of the given name took. */
+function writeImage(relPath: string, scenario: string): PerIssueImage {
+  const absPath = path.join(artifactsDir, relPath);
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
+  fs.writeFileSync(absPath, `bytes of ${relPath}`);
+  return { absPath, relPath, scenario };
 }
 
 function recordingUploader(): { uploader: UploaderFn; calls: Parameters<UploaderFn>[0][] } {
@@ -48,9 +44,15 @@ function recordingUploader(): { uploader: UploaderFn; calls: Parameters<Uploader
   return { uploader, calls };
 }
 
+let images: PerIssueImage[];
+
 beforeEach(() => {
   artifactsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'proof-uploader-'));
-  ['login/step-1.png', 'checkout/step-2.jpg', 'flat.webp', 'notes.txt'].forEach(writeArtifact);
+  images = [
+    writeImage('adw-994/login/step-1.png', 'Login › The shopper signs in'),
+    writeImage('adw-994/checkout/step-2.jpg', 'Checkout › The shopper pays'),
+    writeImage('adw-994/flat.webp', 'Flat › Not in a folder'),
+  ];
   mockUploadToR2.mockReset();
   mockUploadToR2.mockImplementation(async (options) => ({
     url: `https://r2/${options.key}`,
@@ -66,38 +68,57 @@ afterEach(() => {
 });
 
 describe('uploadProofArtifacts — what is uploaded', () => {
-  it('uploads each image once, never the non-image file, under proof/{adwId}/{relPath} in sorted order', async () => {
+  it('uploads exactly the images it is given, in the order given, under proof/{adwId}/{relPath}', async () => {
     const { uploader, calls } = recordingUploader();
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });
+    await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
 
     expect(calls.map(c => c.key)).toEqual([
-      `proof/${adwId}/checkout/step-2.jpg`,
-      `proof/${adwId}/flat.webp`,
-      `proof/${adwId}/login/step-1.png`,
+      `proof/${adwId}/adw-994/login/step-1.png`,
+      `proof/${adwId}/adw-994/checkout/step-2.jpg`,
+      `proof/${adwId}/adw-994/flat.webp`,
     ]);
-    expect(calls.map(c => c.contentType)).toEqual(['image/jpeg', 'image/webp', 'image/png']);
+    expect(calls.map(c => c.contentType)).toEqual(['image/png', 'image/jpeg', 'image/webp']);
+  });
+
+  it('does not upload a file of the artifacts directory that it is not given', async () => {
+    writeImage('regression/cart-page/test-finished-1.png', 'Cart page');
+    const { uploader, calls } = recordingUploader();
+
+    await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
+
+    expect(calls.map(c => c.key).some(key => key.includes('regression'))).toBe(false);
+    expect(calls).toHaveLength(3);
   });
 
   it('uploads the bytes of the file under the repository named by repoInfo', async () => {
     const { uploader, calls } = recordingUploader();
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });
+    await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
 
     expect(calls.every(c => c.owner === 'acme' && c.repo === 'widgets')).toBe(true);
-    expect(Buffer.from(calls[2].body as Uint8Array).toString()).toBe('bytes of login/step-1.png');
+    expect(Buffer.from(calls[0].body as Uint8Array).toString()).toBe('bytes of adw-994/login/step-1.png');
   });
 
-  it('returns scenario, fileName and the uploader\'s url for each upload, in harvest order', async () => {
+  it('returns the scenario of each image, its file name and the uploader\'s url, in the order given', async () => {
     const { uploader } = recordingUploader();
 
-    const uploaded = await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });
+    const uploaded = await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
 
     expect(uploaded).toEqual([
-      { scenario: 'checkout', fileName: 'step-2.jpg', url: `https://fake/proof/${adwId}/checkout/step-2.jpg` },
-      { scenario: 'Screenshots', fileName: 'flat.webp', url: `https://fake/proof/${adwId}/flat.webp` },
-      { scenario: 'login', fileName: 'step-1.png', url: `https://fake/proof/${adwId}/login/step-1.png` },
+      { scenario: 'Login › The shopper signs in', fileName: 'step-1.png', url: `https://fake/proof/${adwId}/adw-994/login/step-1.png` },
+      { scenario: 'Checkout › The shopper pays', fileName: 'step-2.jpg', url: `https://fake/proof/${adwId}/adw-994/checkout/step-2.jpg` },
+      { scenario: 'Flat › Not in a folder', fileName: 'flat.webp', url: `https://fake/proof/${adwId}/adw-994/flat.webp` },
     ]);
+  });
+
+  it('uploads nothing, and resolves to [], for an empty list', async () => {
+    const { uploader, calls } = recordingUploader();
+
+    const uploaded = await uploadProofArtifacts({ images: [], repoInfo, adwId, uploader });
+
+    expect(uploaded).toEqual([]);
+    expect(calls).toHaveLength(0);
   });
 
   it('uploads one at a time, because the bucket is created lazily by the first upload', async () => {
@@ -111,62 +132,48 @@ describe('uploadProofArtifacts — what is uploaded', () => {
       return { url: `https://fake/${options.key}`, bucket: 'b', key: options.key };
     };
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });
+    await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
 
     expect(maxInFlight).toBe(1);
   });
 });
 
 describe('uploadProofArtifacts — an upload never throws', () => {
-  it('leaves out an artifact whose upload throws, uploads the rest, and resolves', async () => {
+  it('leaves out an image whose upload throws, uploads the rest, and resolves', async () => {
     const { uploader, calls } = recordingUploader();
     const refusingFirst: UploaderFn = async (options) => {
       if (options.key.endsWith('step-2.jpg')) throw new Error('bucket refused');
       return uploader(options);
     };
 
-    const uploaded = await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader: refusingFirst });
+    const uploaded = await uploadProofArtifacts({ images, repoInfo, adwId, uploader: refusingFirst });
 
-    expect(uploaded.map(a => a.fileName)).toEqual(['flat.webp', 'step-1.png']);
+    expect(uploaded.map(a => a.fileName)).toEqual(['step-1.png', 'flat.webp']);
     expect(calls).toHaveLength(2);
-    expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('checkout/step-2.jpg'), 'warn');
+    expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('adw-994/checkout/step-2.jpg'), 'warn');
   });
 
-  it('resolves to [] when the artifacts directory does not exist, without uploading', async () => {
+  it('leaves out an image whose file cannot be read, uploads the rest, and resolves', async () => {
     const { uploader, calls } = recordingUploader();
+    fs.rmSync(images[0].absPath);
 
-    const uploaded = await uploadProofArtifacts({
-      artifactsDir: path.join(artifactsDir, 'missing'),
-      repoInfo,
-      adwId,
-      uploader,
-    });
+    const uploaded = await uploadProofArtifacts({ images, repoInfo, adwId, uploader });
 
-    expect(uploaded).toEqual([]);
-    expect(calls).toHaveLength(0);
-  });
-
-  it('resolves to [] and warns when harvesting the directory fails unexpectedly', async () => {
-    mockHarvest.mockImplementationOnce(() => { throw new Error('disk gone'); });
-    const { uploader, calls } = recordingUploader();
-
-    const uploaded = await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader });
-
-    expect(uploaded).toEqual([]);
-    expect(calls).toHaveLength(0);
-    expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('disk gone'), 'warn');
+    expect(uploaded.map(a => a.fileName)).toEqual(['step-2.jpg', 'flat.webp']);
+    expect(calls).toHaveLength(2);
+    expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('adw-994/login/step-1.png'), 'warn');
   });
 });
 
 describe('uploadProofArtifacts — the uploader seam', () => {
   it('uploads to R2 when no uploader is injected or installed', async () => {
-    const uploaded = await uploadProofArtifacts({ artifactsDir, repoInfo, adwId });
+    const uploaded = await uploadProofArtifacts({ images, repoInfo, adwId });
 
     expect(mockUploadToR2).toHaveBeenCalledTimes(3);
     expect(uploaded.map(a => a.url)).toEqual([
-      `https://r2/proof/${adwId}/checkout/step-2.jpg`,
-      `https://r2/proof/${adwId}/flat.webp`,
-      `https://r2/proof/${adwId}/login/step-1.png`,
+      `https://r2/proof/${adwId}/adw-994/login/step-1.png`,
+      `https://r2/proof/${adwId}/adw-994/checkout/step-2.jpg`,
+      `https://r2/proof/${adwId}/adw-994/flat.webp`,
     ]);
   });
 
@@ -174,7 +181,7 @@ describe('uploadProofArtifacts — the uploader seam', () => {
     const installed = recordingUploader();
     setProofUploaderForTesting(installed.uploader);
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId });
+    await uploadProofArtifacts({ images, repoInfo, adwId });
 
     expect(installed.calls).toHaveLength(3);
     expect(mockUploadToR2).not.toHaveBeenCalled();
@@ -185,7 +192,7 @@ describe('uploadProofArtifacts — the uploader seam', () => {
     const injected = recordingUploader();
     setProofUploaderForTesting(installed.uploader);
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId, uploader: injected.uploader });
+    await uploadProofArtifacts({ images, repoInfo, adwId, uploader: injected.uploader });
 
     expect(injected.calls).toHaveLength(3);
     expect(installed.calls).toHaveLength(0);
@@ -196,7 +203,7 @@ describe('uploadProofArtifacts — the uploader seam', () => {
     setProofUploaderForTesting(installed.uploader);
     setProofUploaderForTesting(null);
 
-    await uploadProofArtifacts({ artifactsDir, repoInfo, adwId });
+    await uploadProofArtifacts({ images, repoInfo, adwId });
 
     expect(installed.calls).toHaveLength(0);
     expect(mockUploadToR2).toHaveBeenCalledTimes(3);
@@ -227,7 +234,7 @@ describe('uploadProofArtifacts — R2 is not configured', () => {
   it('uploads nothing and resolves to [] when neither an injected nor an installed uploader is set', async () => {
     const { uploadProofArtifacts: upload, uploadToR2: r2Upload } = await loadWithoutR2Credentials();
 
-    const uploaded = await upload({ artifactsDir, repoInfo, adwId });
+    const uploaded = await upload({ images, repoInfo, adwId });
 
     expect(uploaded).toEqual([]);
     expect(r2Upload).not.toHaveBeenCalled();
@@ -237,7 +244,7 @@ describe('uploadProofArtifacts — R2 is not configured', () => {
     const { uploadProofArtifacts: upload } = await loadWithoutR2Credentials();
     const injected = recordingUploader();
 
-    const uploaded = await upload({ artifactsDir, repoInfo, adwId, uploader: injected.uploader });
+    const uploaded = await upload({ images, repoInfo, adwId, uploader: injected.uploader });
 
     expect(injected.calls).toHaveLength(3);
     expect(uploaded).toHaveLength(3);
@@ -249,10 +256,42 @@ describe('uploadProofArtifacts — R2 is not configured', () => {
     const installed = recordingUploader();
     install(installed.uploader);
 
-    const uploaded = await upload({ artifactsDir, repoInfo, adwId });
+    const uploaded = await upload({ images, repoInfo, adwId });
 
     expect(installed.calls).toHaveLength(3);
     expect(uploaded).toHaveLength(3);
     expect(r2Upload).not.toHaveBeenCalled();
+  });
+});
+
+describe('isProofUploadConfigured', () => {
+  async function loadWithoutR2Credentials() {
+    vi.resetModules();
+    vi.doMock('../../core/environment', () => ({
+      CLOUDFLARE_ACCOUNT_ID: '',
+      R2_ACCESS_KEY_ID: '',
+      R2_SECRET_ACCESS_KEY: '',
+    }));
+    return import('../proofUploader');
+  }
+
+  it('is true when R2 has credentials', () => {
+    expect(isProofUploadConfigured()).toBe(true);
+  });
+
+  it('is false without credentials and without an installed uploader', async () => {
+    const { isProofUploadConfigured: configured } = await loadWithoutR2Credentials();
+
+    expect(configured()).toBe(false);
+  });
+
+  it('is true without credentials once an uploader is installed, and false again when it is removed', async () => {
+    const { isProofUploadConfigured: configured, setProofUploaderForTesting: install } = await loadWithoutR2Credentials();
+
+    install(recordingUploader().uploader);
+    expect(configured()).toBe(true);
+
+    install(null);
+    expect(configured()).toBe(false);
   });
 });

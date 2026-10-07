@@ -80,11 +80,12 @@ function approvePullRequestAfterReviewPass(repoContext: RepoContext, issueNumber
 }
 
 // Self-host has no repoContext and posts no issue comment, so an upload would show the images nowhere.
+// The images are the ones the scenario proof selected, not whatever the artifacts directory holds.
 async function uploadReviewedProofScreenshots(config: WorkflowConfig): Promise<string[]> {
-  const artifactsDir = config.ctx.scenarioProof?.artifactsDir;
-  if (!config.repoContext || !artifactsDir) return [];
+  const images = config.ctx.scenarioProof?.perIssueImages ?? [];
+  if (!config.repoContext || images.length === 0) return [];
   const uploaded = await uploadProofArtifacts({
-    artifactsDir,
+    images,
     repoInfo: config.repoContext.repoId,
     adwId: config.adwId,
   });
@@ -148,8 +149,8 @@ export async function executeReviewPhase(
   const reviewPassed = reviewAgentResult.passed;
   const reviewIssues = reviewAgentResult.reviewResult?.reviewIssues ?? [];
 
-  // Assigned on every attempt: the scenario tests re-run between attempts and empty the artifacts
-  // directory, so a list from an earlier attempt must not reach this attempt's comment.
+  // Assigned on every attempt: the scenario tests re-run between attempts and select their images anew,
+  // so a list from an earlier attempt must not reach this attempt's comment.
   ctx.screenshotUrls = await uploadReviewedProofScreenshots(config);
 
   if (reviewPassed) {

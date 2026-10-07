@@ -27,7 +27,7 @@ const PASSED_BASELINE: BaselineRecord = { status: BaselineStatus.Passed, baseBra
 const WAIVED_BASELINE: BaselineRecord = { status: BaselineStatus.Waived, waivedPark: 'baseline_red', recordedAt: '2026-10-04T10:00:00.000Z' };
 
 function testCase(name: string, status: TestCaseResult['status'], classname: string | null = FEATURE): TestCaseResult {
-  return { name, status, ...(classname === null ? {} : { classname }) };
+  return { name, status, attachments: [], ...(classname === null ? {} : { classname }) };
 }
 
 function tagResult(resolvedTag: string, overrides: Partial<TagProofResult> = {}): TagProofResult {
@@ -38,6 +38,7 @@ function proofOf(...tagResults: TagProofResult[]): ScenarioProofResult {
   return {
     tagResults,
     hasBlockerFailures: tagResults.some(result => result.severity === 'blocker' && !result.passed && !result.skipped),
+    perIssueImages: [],
     resultsFilePath: '/proof.md',
     artifactsDir: '/artifacts',
   };

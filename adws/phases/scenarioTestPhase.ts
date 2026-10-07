@@ -42,8 +42,9 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
   const modelUsage = emptyModelUsageMap();
 
   const { startDevServer, healthCheckPath } = projectConfig.commands;
-  const { scenariosMd, reviewProofConfig } = projectConfig;
-  const runner = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, projectConfig);
+  const { scenariosMd } = projectConfig;
+  const applicationProfile = requireApplicationProfile(config);
+  const runner = resolveScenarioRunner(applicationProfile.runnerMode, projectConfig);
 
   if (!scenariosMd.trim() || runner.runByTagCommand.trim() === 'N/A') {
     log('Scenario test phase: no scenarios configured — skipping', 'info');
@@ -71,7 +72,6 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
   const runProof = (): Promise<ScenarioProofResult> =>
     runScenarioProof({
       scenariosMd,
-      reviewProofConfig,
       runByTagCommand: runner.runByTagCommand,
       issueNumber,
       proofDir,
@@ -79,6 +79,8 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
       stepDefDirectory: runner.stepDefDirectory,
       stepDefExtensions: [...runner.stepDefExtensions],
       proofDirPerTag: runner.proofDirPerTag,
+      applicationProfile,
+      featureDirectory: runner.featureDirectory,
       env: { ADW_APPLICATION_URL: applicationUrl },
     });
 
@@ -107,7 +109,7 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
   log(`Scenario test phase: ${statusLabel}`, hasBlockerFailures ? 'error' : 'success');
   AgentStateManager.appendLog(
     orchestratorStatePath,
-    `Scenario test phase ${statusLabel}. Proof: ${scenarioProof.resultsFilePath}`,
+    `Scenario test phase ${statusLabel}. Proof: ${scenarioProof.resultsFilePath} (${scenarioProof.perIssueImages.length} per-issue image(s))`,
   );
 
   const phaseCostRecords = createPhaseCostRecords({

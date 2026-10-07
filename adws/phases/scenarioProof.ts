@@ -1,48 +1,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { runScenariosByTag } from '../agents/bddScenarioRunner';
-import type { ReviewProofConfig } from '../core/projectConfig';
-import { readJUnitReport, hasStepDefinitions } from '../core';
-import type { TestReport, TestCaseResult } from '../core';
-import type { BddScenarioResult } from '../agents/bddScenarioRunner';
+import { log, readJUnitReport, hasStepDefinitions } from '../core';
+import type { ApplicationProfile } from '../core/applicationType';
+import { readFeatureFiles } from '../proof/featureFileReader';
+import {
+  EMPTY_FEATURE_SCENARIO_INDEX,
+  indexFeatureScenarios,
+  type FeatureScenarioIndex,
+} from '../proof/featureScenarioIndex';
+import { harvestProofArtifacts } from '../proof/proofArtifactHarvester';
+import {
+  assembleScenarioProof,
+  fixedScenarioTags,
+  shouldRunTag,
+  type FixedScenarioTag,
+  type TagRunRecord,
+} from '../proof/proofAssembler';
+import type { ScenarioProofResult } from '../proof/types';
 
-const MAX_OUTPUT_LENGTH = 10_000;
-
-export interface TagProofResult {
-  /** Original tag pattern from config, e.g. `@review-proof`, `@adw-{issueNumber}`. */
-  tag: string;
-  /** Tag after `{issueNumber}` substitution, e.g. `@adw-273`. */
-  resolvedTag: string;
-  severity: 'blocker' | 'tech-debt';
-  optional: boolean;
-  /** False when skipped. */
-  passed: boolean;
-  /** Stdout from the scenario run (truncated if over 10,000 chars). */
-  output: string;
-  exitCode: number | null;
-  /** True when the tag is optional and no matching scenarios were found. */
-  skipped: boolean;
-  /**
-   * Optional explanation when scenario outcome and process exit code disagree —
-   * e.g. JUnit report is clean but the subprocess exited non-zero due to
-   * post-suite noise (D1 write failures, unhandled rejections in shutdown hooks).
-   */
-  warning?: string;
-  /** Structured tally from the JUnit report (when report was present and parsed). */
-  counts?: { total: number; passed: number; failed: number };
-  /** Per-case results from the JUnit report (when report was present and parsed). */
-  cases?: TestCaseResult[];
-}
-
-export interface ScenarioProofResult {
-  tagResults: TagProofResult[];
-  /** True when any non-skipped tag with severity `blocker` did not pass. */
-  hasBlockerFailures: boolean;
-  /** Absolute path to the written scenario proof markdown file. */
-  resultsFilePath: string;
-  /** Absolute path to the directory where BDD screenshot artifacts are written (ADW_PROOF_DIR). */
-  artifactsDir: string;
-}
+export type { TagProofResult, ScenarioProofResult } from '../proof/types';
 
 /**
  * Returns false when .adw/scenarios.md content is absent or empty — callers
@@ -52,130 +29,87 @@ export function shouldRunScenarioProof(scenariosMd: string): boolean {
   return scenariosMd.trim().length > 0;
 }
 
-function truncate(output: string): string {
-  if (output.length <= MAX_OUTPUT_LENGTH) return output;
-  return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
-}
-
-function isNoScenariosOutput(stdout: string): boolean {
-  return stdout.trim().length === 0 || /\b0 scenarios\b/i.test(stdout);
-}
-
 function sanitizeTagName(tagName: string): string {
   return tagName.replace(/[^A-Za-z0-9_-]/g, '-');
 }
 
-interface TagOutcome {
-  passed: boolean;
-  skipped: boolean;
-  warning?: string;
-  counts?: { total: number; passed: number; failed: number };
-  cases?: TestCaseResult[];
-}
-
-function deriveTagOutcome(
-  report: TestReport | null,
-  result: BddScenarioResult,
-  optional: boolean,
-): TagOutcome {
-  if (report !== null) {
-    if (report.total > 0) {
-      const passed = report.failed === 0;
-      let warning: string | undefined;
-      if (!result.allPassed && passed) {
-        warning =
-          `Process exited ${result.exitCode} but JUnit report is clean: ` +
-          `${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped of ${report.total}. ` +
-          `Treating as PASS — pending/undefined scenarios and post-suite noise (e.g. D1 writes, ` +
-          `shutdown-hook rejections) are preserved verbatim in the Output section below.`;
-      }
-      return {
-        passed,
-        skipped: false,
-        warning,
-        counts: { total: report.total, passed: report.passed, failed: report.failed },
-        cases: report.cases,
-      };
-    }
-
-    // report.total === 0: zero-testcase case
-    if (optional) {
-      return { passed: true, skipped: true };
-    }
-    return { passed: false, skipped: false };
-  }
-
-  // Report absent — fall back to process exit code; no stdout regex
-  const passed = result.allPassed;
-  if (optional && isNoScenariosOutput(result.stdout)) {
-    return { passed: true, skipped: true };
-  }
-  return { passed, skipped: false };
-}
-
-function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
-  const lines: string[] = [
-    '# Scenario Proof',
-    '',
-    `Generated at: ${new Date().toISOString()}`,
-    '',
-  ];
-
-  for (const result of tagResults) {
-    const statusLabel = result.skipped
-      ? '⏭️ SKIPPED (no matching scenarios)'
-      : result.passed
-        ? '✅ PASSED'
-        : '❌ FAILED';
-
-    lines.push(
-      `## ${result.resolvedTag} Scenarios (severity: ${result.severity})`,
-      '',
-      `**Status:** ${statusLabel}`,
-      `**Exit Code:** ${result.exitCode ?? 'null'}`,
-    );
-    if (result.warning) {
-      lines.push(`**Warning:** ${result.warning}`);
-    }
-    if (result.counts) {
-      lines.push(`**Report:** ${result.counts.passed} passed, ${result.counts.failed} failed of ${result.counts.total}`);
-    }
-    lines.push(
-      '',
-      '### Output',
-      '',
-      '```',
-      result.skipped ? '(skipped — no matching scenarios)' : (result.output || '(no output)'),
-      '```',
-      '',
-    );
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * @param options.scenariosMd - Raw content of .adw/scenarios.md (used for guard check only).
- * @param options.runByTagCommand - Command template with `{tag}` placeholder.
- * @param options.issueNumber - Current issue number for `{issueNumber}` substitution in tag patterns.
- * @param options.proofDir - Directory in which to write `scenario_proof.md`.
- * @param options.env - Extra variables for every run. `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR` always take ADW's own values.
- * @param options.proofDirPerTag - Gives each tag's run its own `ADW_PROOF_DIR` inside the artifacts directory.
- */
-export async function runScenarioProof(options: {
+export interface ScenarioProofOptions {
+  /** Raw content of .adw/scenarios.md (used for guard check only). */
   scenariosMd: string;
-  reviewProofConfig: ReviewProofConfig;
+  /** Command template with `{tag}` placeholder. */
   runByTagCommand: string;
+  /** Current issue number: it names the per-issue tag, `@adw-{issueNumber}`. */
   issueNumber: number;
+  /** Directory in which to write `scenario_proof.md`. */
   proofDir: string;
   cwd?: string;
   stepDefDirectory?: string;
   stepDefExtensions?: string[];
+  /** Extra variables for every run. `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR` always take ADW's own values. */
   env?: Readonly<Record<string, string>>;
+  /** Gives each tag's run its own `ADW_PROOF_DIR` inside the artifacts directory. */
   proofDirPerTag?: boolean;
-}): Promise<ScenarioProofResult> {
+  /** Decides whether the per-issue images are the evidence of the run. */
+  applicationProfile: ApplicationProfile;
+  /** Relative to `cwd`: the directory whose feature files say which scenarios carry which tag. */
+  featureDirectory: string;
+}
+
+interface TagRunSettings {
+  readonly runByTagCommand: string;
+  readonly cwd: string | undefined;
+  readonly env: Readonly<Record<string, string>>;
+  readonly proofDir: string;
+  readonly artifactsDir: string;
+  readonly proofDirPerTag: boolean;
+}
+
+function resetProofDirectories(proofDir: string, artifactsDir: string): void {
+  fs.mkdirSync(proofDir, { recursive: true });
+  fs.rmSync(artifactsDir, { recursive: true, force: true });
+  fs.mkdirSync(artifactsDir, { recursive: true });
+}
+
+function writeProofDocument(proofDir: string, document: string): string {
+  const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
+  fs.writeFileSync(resultsFilePath, document, 'utf-8');
+  return resultsFilePath;
+}
+
+async function runTag(tag: FixedScenarioTag, settings: TagRunSettings): Promise<TagRunRecord> {
+  const tagName = tag.tag.startsWith('@') ? tag.tag.slice(1) : tag.tag;
+  const safeTagName = sanitizeTagName(tagName);
+  const reportPath = path.resolve(settings.proofDir, `junit-${safeTagName}.xml`);
+
+  // Remove any stale report from a prior run
+  fs.rmSync(reportPath, { force: true });
+
+  const tagProofDir = settings.proofDirPerTag ? path.join(settings.artifactsDir, safeTagName) : settings.artifactsDir;
+  const result = await runScenariosByTag(settings.runByTagCommand, tagName, settings.cwd, {
+    ...settings.env,
+    ADW_JUNIT_REPORT_PATH: reportPath,
+    ADW_PROOF_DIR: tagProofDir,
+  });
+
+  return { tag, run: { exitCode: result.exitCode, stdout: result.stdout, report: readJUnitReport(reportPath), reportPath } };
+}
+
+async function runTags(index: FeatureScenarioIndex, tags: readonly FixedScenarioTag[], settings: TagRunSettings): Promise<TagRunRecord[]> {
+  const records: TagRunRecord[] = [];
+  for (const tag of tags) {
+    if (shouldRunTag(tag, index)) {
+      records.push(await runTag(tag, settings));
+      continue;
+    }
+    log(`No scenario in the feature files carries ${tag.tag}: the tag is not run`, 'info');
+    records.push({ tag, run: null });
+  }
+  return records;
+}
+
+/** Runs the fixed tags, `@regression` and `@adw-{issueNumber}`, and writes the proof the reviewer reads. */
+export async function runScenarioProof(options: ScenarioProofOptions): Promise<ScenarioProofResult> {
   const {
-    reviewProofConfig,
     runByTagCommand,
     issueNumber,
     proofDir,
@@ -184,75 +118,39 @@ export async function runScenarioProof(options: {
     stepDefExtensions = ['.ts'],
     env = {},
     proofDirPerTag = false,
+    applicationProfile,
+    featureDirectory,
   } = options;
 
   const effectiveCwd = cwd ?? process.cwd();
-
-  const hasStepDefs = hasStepDefinitions(stepDefDirectory, stepDefExtensions, effectiveCwd);
-
   const artifactsDir = path.resolve(proofDir, 'artifacts');
+  resetProofDirectories(proofDir, artifactsDir);
 
-  if (!hasStepDefs) {
-    const warningMsg = `No step definition files found in ${stepDefDirectory}/ — skipping BDD scenario proof`;
-    console.log(`⚠️  ${warningMsg}`);
-    fs.mkdirSync(proofDir, { recursive: true });
-    fs.rmSync(artifactsDir, { recursive: true, force: true });
-    fs.mkdirSync(artifactsDir, { recursive: true });
-    const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
-    fs.writeFileSync(
-      resultsFilePath,
-      `# Scenario Proof\n\nGenerated at: ${new Date().toISOString()}\n\n⚠️ ${warningMsg}\n`,
-      'utf-8',
-    );
-    return { tagResults: [], hasBlockerFailures: false, resultsFilePath, artifactsDir };
+  if (!hasStepDefinitions(stepDefDirectory, stepDefExtensions, effectiveCwd)) {
+    const notice = `No step definition files found in ${stepDefDirectory}/ — skipping BDD scenario proof`;
+    log(notice, 'warn');
+    const skipped = assembleScenarioProof({
+      runs: [],
+      scenarioIndex: EMPTY_FEATURE_SCENARIO_INDEX,
+      artifacts: [],
+      applicationProfile,
+      generatedAt: new Date().toISOString(),
+      notice,
+    });
+    const { tagResults, hasBlockerFailures, perIssueImages } = skipped;
+    return { tagResults, hasBlockerFailures, perIssueImages, resultsFilePath: writeProofDocument(proofDir, skipped.document), artifactsDir };
   }
 
-  fs.mkdirSync(proofDir, { recursive: true });
-  fs.rmSync(artifactsDir, { recursive: true, force: true });
-  fs.mkdirSync(artifactsDir, { recursive: true });
-  const tagResults: TagProofResult[] = [];
+  const index = indexFeatureScenarios(readFeatureFiles(path.resolve(effectiveCwd, featureDirectory)));
+  const runs = await runTags(index, fixedScenarioTags(issueNumber), { runByTagCommand, cwd, env, proofDir, artifactsDir, proofDirPerTag });
 
-  for (const entry of reviewProofConfig.tags) {
-    const resolvedTag = entry.tag.replace('{issueNumber}', String(issueNumber));
-    const tagName = resolvedTag.startsWith('@') ? resolvedTag.slice(1) : resolvedTag;
-    const safeTagName = sanitizeTagName(tagName);
-    const reportPath = path.resolve(proofDir, `junit-${safeTagName}.xml`);
-
-    // Remove any stale report from a prior run
-    fs.rmSync(reportPath, { force: true });
-
-    const tagProofDir = proofDirPerTag ? path.join(artifactsDir, safeTagName) : artifactsDir;
-
-    const result = await runScenariosByTag(runByTagCommand, tagName, cwd, {
-      ...env,
-      ADW_JUNIT_REPORT_PATH: reportPath,
-      ADW_PROOF_DIR: tagProofDir,
-    });
-
-    const report = readJUnitReport(reportPath);
-    const outcome = deriveTagOutcome(report, result, entry.optional ?? false);
-
-    tagResults.push({
-      tag: entry.tag,
-      resolvedTag,
-      severity: entry.severity,
-      optional: entry.optional ?? false,
-      passed: outcome.passed,
-      output: outcome.skipped ? '' : truncate(result.stdout),
-      exitCode: result.exitCode,
-      skipped: outcome.skipped,
-      warning: outcome.warning,
-      counts: outcome.counts,
-      cases: outcome.cases,
-    });
-  }
-
-  const hasBlockerFailures = tagResults.some(
-    r => r.severity === 'blocker' && !r.passed && !r.skipped,
-  );
-
-  const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
-  fs.writeFileSync(resultsFilePath, buildProofMarkdown(tagResults), 'utf-8');
-
-  return { tagResults, hasBlockerFailures, resultsFilePath, artifactsDir };
+  const assembled = assembleScenarioProof({
+    runs,
+    scenarioIndex: index,
+    artifacts: harvestProofArtifacts(artifactsDir),
+    applicationProfile,
+    generatedAt: new Date().toISOString(),
+  });
+  const { tagResults, hasBlockerFailures, perIssueImages } = assembled;
+  return { tagResults, hasBlockerFailures, perIssueImages, resultsFilePath: writeProofDocument(proofDir, assembled.document), artifactsDir };
 }

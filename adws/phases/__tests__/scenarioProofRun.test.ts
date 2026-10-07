@@ -1,62 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
-import { runScenarioProof } from '../scenarioProof';
-import { getDefaultReviewProofConfig } from '../../core/projectConfig';
+import { NO_PER_ISSUE_SCENARIOS } from '../../proof/proofDocument';
+import { makeSandbox, proofDocument, recordedFor, removeSandboxes, run, wasRun } from './scenarioProofRun.helpers';
 
-const tempDirs: string[] = [];
-
-function makeTempDir(prefix: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  tempDirs.push(dir);
-  return dir;
-}
-
-afterEach(() => {
-  for (const dir of tempDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
-});
-
-interface Sandbox {
-  readonly cwd: string;
-  readonly proofDir: string;
-  readonly recordsDir: string;
-  /** Records, for the tag it is run with, the variables the runner was given. */
-  readonly command: string;
-}
-
-function makeSandbox(): Sandbox {
-  const cwd = makeTempDir('adw-proof-run-cwd-');
-  fs.mkdirSync(path.join(cwd, 'features', 'step_definitions'), { recursive: true });
-  fs.writeFileSync(path.join(cwd, 'features', 'step_definitions', 'steps.ts'), '// steps\n');
-  const proofDir = makeTempDir('adw-proof-run-proof-');
-  const recordsDir = makeTempDir('adw-proof-run-records-');
-  const command = `printf '%s\\n' "$ADW_PROOF_DIR" "$ADW_JUNIT_REPORT_PATH" "$ADW_APPLICATION_URL" > '${recordsDir}/{tag}.txt'`;
-  return { cwd, proofDir, recordsDir, command };
-}
-
-interface Recorded {
-  readonly proofDir: string;
-  readonly reportPath: string;
-  readonly applicationUrl: string;
-}
-
-function recordedFor(sandbox: Sandbox, tag: string): Recorded {
-  const [proofDir, reportPath, applicationUrl] = fs.readFileSync(path.join(sandbox.recordsDir, `${tag}.txt`), 'utf-8').split('\n');
-  return { proofDir, reportPath, applicationUrl };
-}
-
-function run(sandbox: Sandbox, options: { env?: Record<string, string>; proofDirPerTag?: boolean }) {
-  return runScenarioProof({
-    scenariosMd: '# Scenarios\n',
-    reviewProofConfig: getDefaultReviewProofConfig(),
-    runByTagCommand: sandbox.command,
-    issueNumber: 9921,
-    proofDir: sandbox.proofDir,
-    cwd: sandbox.cwd,
-    ...options,
-  });
-}
+afterEach(removeSandboxes);
 
 describe('runScenarioProof — the environment of a run', () => {
   it('hands the extra variables to the command, for every tag', async () => {
@@ -129,5 +76,51 @@ describe('runScenarioProof — the proof directory of a run', () => {
 
     expect(sharedResult.artifactsDir).toBe(path.join(shared.proofDir, 'artifacts'));
     expect(perTagResult.artifactsDir).toBe(path.join(perTag.proofDir, 'artifacts'));
+  });
+});
+
+describe('runScenarioProof — the fixed tags', () => {
+  it('runs the regression tag and then the issue\'s tag, both as blockers', async () => {
+    const sandbox = makeSandbox();
+
+    const result = await run(sandbox, {});
+
+    expect(result.tagResults.map(({ tag, resolvedTag, severity }) => ({ tag, resolvedTag, severity }))).toEqual([
+      { tag: '@regression', resolvedTag: '@regression', severity: 'blocker' },
+      { tag: '@adw-{issueNumber}', resolvedTag: '@adw-9921', severity: 'blocker' },
+    ]);
+    expect(result.hasBlockerFailures).toBe(false);
+  });
+
+  it('does not run the per-issue tag when no scenario carries it, and the proof says so without failing', async () => {
+    const sandbox = makeSandbox({ perIssueScenarios: false });
+
+    const result = await run(sandbox, {});
+
+    expect(wasRun(sandbox, 'regression')).toBe(true);
+    expect(wasRun(sandbox, 'adw-9921')).toBe(false);
+    expect(result.tagResults[1]).toMatchObject({ resolvedTag: '@adw-9921', passed: true, skipped: true, exitCode: null });
+    expect(result.hasBlockerFailures).toBe(false);
+    expect(proofDocument(sandbox)).toContain(NO_PER_ISSUE_SCENARIOS);
+  });
+
+  it('does not run the per-issue tag when the feature directory does not exist, and still runs the regression tag', async () => {
+    const sandbox = makeSandbox();
+
+    const result = await run(sandbox, { featureDirectory: 'no/such/directory' });
+
+    expect(wasRun(sandbox, 'regression')).toBe(true);
+    expect(wasRun(sandbox, 'adw-9921')).toBe(false);
+    expect(result.tagResults[1]).toMatchObject({ passed: true, skipped: true });
+    expect(result.hasBlockerFailures).toBe(false);
+  });
+
+  it('fails the regression tag when its command fails, as a blocker', async () => {
+    const sandbox = makeSandbox();
+
+    const result = await run(sandbox, { command: 'exit 3' });
+
+    expect(result.tagResults[0]).toMatchObject({ resolvedTag: '@regression', passed: false, exitCode: 3 });
+    expect(result.hasBlockerFailures).toBe(true);
   });
 });

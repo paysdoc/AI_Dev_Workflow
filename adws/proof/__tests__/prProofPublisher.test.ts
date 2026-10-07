@@ -136,6 +136,18 @@ describe('formatPrProofComment', () => {
       expect(result).toContain('<summary>Login flow (1)</summary>');
     });
 
+    it('escapes the characters of a scenario name that would be read as markup in the summary', () => {
+      const result = formatPrProofComment({
+        tagResults: [makeTag()],
+        uploaded: [
+          makeUpload({ scenario: 'Product pages › The <product> page shows the price & the <b>stock</b>', url: 'https://screenshots.paysdoc.nl/a/1.png' }),
+        ],
+        r2Configured: true,
+      });
+      expect(result).toContain('<summary>Product pages › The &lt;product&gt; page shows the price &amp; the &lt;b&gt;stock&lt;/b&gt; (1)</summary>');
+      expect(result).not.toContain('<summary>Product pages › The <product>');
+    });
+
     it('creates separate <details> for each distinct scenario', () => {
       const result = formatPrProofComment({
         tagResults: [makeTag()],

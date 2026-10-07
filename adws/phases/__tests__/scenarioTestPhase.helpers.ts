@@ -8,6 +8,7 @@ export const passingProof = {
     { tag: '@regression', resolvedTag: '@regression', severity: 'blocker' as const, optional: true, passed: true, output: 'ok', exitCode: 0, skipped: false },
   ],
   hasBlockerFailures: false,
+  perIssueImages: [],
   resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
   artifactsDir: '/agents/test-id/scenario-test/artifacts',
 };
@@ -17,6 +18,7 @@ export const failingProof = {
     { tag: '@adw-{issueNumber}', resolvedTag: '@adw-42', severity: 'blocker' as const, optional: false, passed: false, output: 'FAILED', exitCode: 1, skipped: false },
   ],
   hasBlockerFailures: true,
+  perIssueImages: [],
   resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
   artifactsDir: '/agents/test-id/scenario-test/artifacts',
 };
@@ -26,6 +28,8 @@ export function makeConfig(overrides: {
   runScenariosByTag?: string;
   startDevServer?: string;
   healthCheckPath?: string;
+  /** What `.adw/scenarios.md` names as the scenario directory; defaults to `features`. */
+  scenarioDirectory?: string;
   /** Defaults to the cli profile; null leaves the config without one. */
   applicationProfile?: ApplicationProfile | null;
 } = {}): WorkflowConfig {
@@ -69,7 +73,7 @@ export function makeConfig(overrides: {
       reviewProofMd: '',
       hasAdwDir: true,
       providers: { codeHost: 'github', issueTracker: 'github' },
-      scenarios: { scenarioDirectory: 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
+      scenarios: { scenarioDirectory: overrides.scenarioDirectory ?? 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
       scenariosMd: overrides.scenariosMd ?? 'some scenario content',
       reviewProofConfig: {
         tags: [
