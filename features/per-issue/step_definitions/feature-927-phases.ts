@@ -7,6 +7,7 @@ import type { ChorePhases } from '../../../adws/adwChore.tsx';
 import type { PlanBuildReviewPhases } from '../../../adws/adwPlanBuildReview.tsx';
 import type { PlanBuildTestReviewPhases } from '../../../adws/adwPlanBuildTestReview.tsx';
 import type { ReviewIssue } from '../../../adws/agents/reviewAgent.ts';
+import { DevServerStartStatus } from '../../../adws/core/devServerFailure.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { world, type ReviewVerdict } from './feature-927-world.ts';
 
@@ -14,6 +15,7 @@ export type AllPhases = ChorePhases & PlanBuildReviewPhases & PlanBuildTestRevie
 
 // The scenarios name "review", "document", "pull request" and "proof publish"; the rest are free.
 const PHASE = {
+  baseline: 'baseline',
   install: 'install',
   plan: 'plan',
   scenario: 'scenario',
@@ -98,6 +100,7 @@ async function pullRequestPhase(config: WorkflowConfig): Promise<PhaseResult> {
 
 export function buildFakePhases(): AllPhases {
   return {
+    executeBaselinePhase: loggedPhase(PHASE.baseline),
     executeInstallPhase: loggedPhase(PHASE.install),
     executePlanPhase: loggedPhase(PHASE.plan),
     executeScenarioPhase: loggedPhase(PHASE.scenario),
@@ -105,8 +108,15 @@ export function buildFakePhases(): AllPhases {
     executeBuildPhase: loggedPhase(PHASE.build),
     executeStepDefPhase: loggedPhase(PHASE.stepDefinitions),
     executeUnitTestPhase: loggedPhase(PHASE.unitTests, () => ({ unitTestsPassed: true, totalRetries: 0 })),
-    runScenarioTestFixLoop: loggedPhase(PHASE.scenarioFixLoop, () => ({ scenarioProofPath: 'proof.md', scenarioRetries: 0 })),
-    executeScenarioTestPhase: loggedPhase(PHASE.scenarioTest, () => ({ scenarioProof: undefined })),
+    runScenarioTestFixLoop: loggedPhase(PHASE.scenarioFixLoop, () => ({
+      scenarioProofPath: 'proof.md',
+      scenarioRetries: 0,
+      devServer: { status: DevServerStartStatus.NotStarted },
+    })),
+    executeScenarioTestPhase: loggedPhase(PHASE.scenarioTest, () => ({
+      scenarioProof: undefined,
+      devServer: { status: DevServerStartStatus.NotStarted },
+    })),
     executeDiffEvaluationPhase: loggedPhase(PHASE.diffEvaluation, diffVerdict),
     executeReviewPhase: reviewPhase,
     executeReviewPatchCycle: loggedPhase(PHASE.patch),

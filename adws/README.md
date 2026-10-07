@@ -725,12 +725,14 @@ app_docs/                         # Generated documentation
 - `planPhase.ts` - Planning phase implementation
 - `planValidationPhase.ts` - Plan validation phase implementation (compares plan against BDD scenarios)
 - `buildPhase.ts` - Build phase implementation
-- `scenarioTestPhase.ts` - BDD scenario test phase (runs `@adw-{issueNumber}` and `@regression` scenarios)
+- `scenarioTestPhase.ts` - BDD scenario test phase (runs `@adw-{issueNumber}` and `@regression` scenarios under the dev server the repository declares; a server that does not start is a failed review, and no scenario runs)
+- `declaredDevServer.ts` - The dev server a repository declares in its raw `.adw/commands.md`, read the same way for the baseline and the scenario phase
 - `unitTestPhase.ts` - Unit test phase (opt-in; BDD scenarios moved to scenarioTestPhase)
 - `prPhase.ts` - PR creation phase implementation
 - `documentPhase.ts` - Documentation phase implementation
 - `prReviewPhase.ts` - PR review phase implementation
 - `reviewPhase.ts` - Passive judge review phase (reads scenario proof, no dev server)
+- `reviewRetryLoop.ts` - The review retry loop shared by every review orchestrator: the one owner of the review attempt counter, in which a failed dev-server start is a failed review that reaches the builder as a blocker with the server's output
 - `workflowInit.ts` - Workflow initialization (issue fetch, worktree setup, state init)
 - `workflowCompletion.ts` - Workflow completion and error handling
 - `worktreeSetup.ts` - Gitignore management and Claude commands copy
@@ -892,13 +894,15 @@ features/steps
 The scenario phase takes its runner from the application type's profile (`adws/core/scenarioRunner.ts`), not from these descriptors, so a `web` repository whose `.adw/` still names another runner runs on ADW's project all the same. In `web` mode the phase:
 
 - runs ADW's command from the worktree root: install `features/` from its lockfile when the worktree has no `node_modules`, `npx bddgen`, then `npx playwright test --grep "@<tag>\b"` (`\b` keeps `@adw-99` from selecting `@adw-992`);
-- starts the dev server through the usual lifecycle and passes `ADW_APPLICATION_URL`, the dev server's address, which `features/playwright.config.ts` reads as `use.baseURL`, next to `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`;
+- starts the dev server the repository declares through the usual lifecycle and passes `ADW_APPLICATION_URL`, the dev server's address, which `features/playwright.config.ts` reads as `use.baseURL`, next to `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`;
 - gives each tag its own `ADW_PROOF_DIR` inside the proof's artifacts directory, because Playwright empties its output directory at the start of every run;
 - reads step definitions from `features/steps/` (`.ts`).
 
 The unit-test phase installs the project the same way before the static checks, since the repository's own type check or lint may cover `features/**`. `generate_step_definitions` receives the runner mode (`adw_playwright`) and writes `createBdd()` steps from `playwright-bdd` that take the `page` fixture; the configuration takes an end-state screenshot of every scenario that uses `page`.
 
 `cli` repositories are unchanged: the scenario phase runs `.adw/commands.md`'s command, with the step-definition directory and extensions `.adw/scenarios.md` names, and `ADW_PROOF_DIR` as before. The one difference is the extra `ADW_APPLICATION_URL` variable.
+
+In both modes the phase starts only the dev server the repository declares: the `## Start Dev Server` of the worktree's raw `.adw/commands.md`, which is the one the baseline starts (`readDeclaredDevServer`, `adws/phases/declaredDevServer.ts`), and not the `bun run dev` that the parsed config falls back to. A server that does not start after the lifecycle's retries is a failed review (ADR-0062): no scenario runs, the phase reports the failed start with the server's output, and `runReviewRetryLoop` (`adws/phases/reviewRetryLoop.ts`) hands the builder a blocker that carries that output through the review patch loop. Each failed start uses one review attempt, up to `review_failed`; a start that follows a failed start sets the failed-review count back to zero. The baseline is unaffected: a base-branch start failure parks the issue as `base_server_down`.
 
 **`commands.md` additions:**
 

@@ -94,7 +94,7 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
       | cli  |
       | web  |
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
+  @adw-992 @adw-2u517h-feat-web-repositorie @adw-993
   Scenario: In a "web" repository the scenario test phase starts the dev server and runs "npx bddgen" and then "npx playwright test --grep" for the issue's tag in "features/", giving the run the dev server's address and ADW's report and proof paths
     Given a workflow for issue 9921 whose worktree's ".adw/project.md" declares the application type "web"
     And the worktree's ".adw/commands.md" starts a dev server that answers on its health check path

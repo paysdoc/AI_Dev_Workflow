@@ -10,6 +10,8 @@ export interface ToolConfig {
   readonly callsFile: string;
   /** Tags (without the `@`) whose JUnit report carries one failing scenario. */
   readonly failingTags: readonly string[];
+  /** Tags (without the `@`) whose scenarios fail, as the failingTags' do, unless the dev server answered when `npx playwright test` started. */
+  readonly serverTags: readonly string[];
   /** What `npx playwright test` exits with, whatever its report says. */
   readonly playwrightExitCode: number;
   /** The path `npx playwright test` asks the dev server for, before and after it holds. */
@@ -52,7 +54,7 @@ function packagesNamedIn(dir) {
 }
 
 function record(extra) {
-  var entry = Object.assign({ tool: tool, argv: args, cwd: process.cwd(), env: adwVariables(), packages: packagesNamedIn(process.cwd()) }, extra);
+  var entry = Object.assign({ tool: tool, argv: args, cwd: process.cwd(), env: adwVariables(), packages: packagesNamedIn(process.cwd()), at: Date.now() }, extra);
   fs.appendFileSync(CONFIG.callsFile, JSON.stringify(entry) + '\\n');
 }
 
@@ -103,8 +105,7 @@ function scenariosTagged(tag) {
   return names.length > 0 ? names : ['A scenario tagged @' + tag];
 }
 
-function writeReport(reportPath, proofDir, tag) {
-  var failing = CONFIG.failingTags.indexOf(tag) !== -1;
+function writeReport(reportPath, proofDir, tag, failing) {
   var cases = scenariosTagged(tag).map(function (name, index) {
     var failure = failing && index === 0 ? '<failure message="the stand-in was told to fail this scenario"/>' : '';
     var attachment = '';
@@ -170,15 +171,21 @@ function probe(phase, probes, done) {
   });
 }
 
+function answered(probes) {
+  return probes.length > 0 && probes[0].status !== null && probes[0].status < 400;
+}
+
 function playwrightTest() {
   var tag = grepTag();
   var probes = [];
   probe('start', probes, function () {
     setTimeout(function () {
-      writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, tag);
+      var serverFailure = CONFIG.serverTags.indexOf(tag) !== -1 && !answered(probes);
+      var failing = CONFIG.failingTags.indexOf(tag) !== -1 || serverFailure;
+      writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, tag, failing);
       probe('end', probes, function () {
-        record({ tag: tag, probes: probes });
-        process.exit(CONFIG.playwrightExitCode);
+        record({ tag: tag, probes: probes, passed: !failing });
+        process.exit(serverFailure && CONFIG.playwrightExitCode === 0 ? 1 : CONFIG.playwrightExitCode);
       });
     }, CONFIG.holdMs);
   });
@@ -194,7 +201,7 @@ function npx() {
 
 function scenarioCommand() {
   record({ tag: args[0] });
-  writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, args[0]);
+  writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, args[0], CONFIG.failingTags.indexOf(args[0]) !== -1);
   process.exit(0);
 }
 

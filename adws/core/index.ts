@@ -109,6 +109,9 @@ export { runStaticChecks, combinedCheckOutput, runShellCommand, isCheckConfigure
 export type { BaselineRecord, BaselineInput, BaselineVerdict, BaselineEvent, BaseCommandFailure, DevServerStartResult } from './baselineGate';
 export { BaselineStatus, isBaselineWaived, declaredDevServerCommand, runBaselineChecks, INSTALL_DEPENDENCIES_CHECK } from './baselineGate';
 
+export type { DevServerStart, FailedDevServerStart, ReviewAttempts } from './devServerFailure';
+export { DevServerStartStatus, NO_DEV_SERVER_START, NO_REVIEW_ATTEMPTS, SERVER_OUTPUT_TAIL_CHARS, countFailedStart, countStartedServer, countFailedReview, isReviewBudgetSpent, serverOutputTail } from './devServerFailure';
+
 export type { FailingScenario, ScenarioRerun, TriagedScenario, RegressionTriage } from './regressionTriage';
 export { BaseScenarioOutcome, triageRegressionFailures, scenarioMatchesCase, withRerunTag, describeFailingScenario } from './regressionTriage';
 
