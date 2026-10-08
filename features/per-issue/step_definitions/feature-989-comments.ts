@@ -3,7 +3,7 @@
 import assert from 'assert';
 
 import { isHeaded } from './feature-929-comments.ts';
-import { commentsOn } from './feature-929-workflow.ts';
+import { commentsOn } from '../../regression/step_definitions/feature-929-workflow.ts';
 
 const PARK_HEADING = 'ADW Parked';
 

@@ -20,8 +20,8 @@ import { createSubprocessHarness } from '../../regression/support/subprocessHarn
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 import { resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
-import type { ConfiguredCheck } from './feature-988-commands.ts';
-import { s as state988 } from './feature-988-world.ts';
+import type { ConfiguredCheck } from '../../regression/step_definitions/feature-988-commands.ts';
+import { s as state988 } from '../../regression/step_definitions/feature-988-world.ts';
 import { scratchPaths, type ScenarioOutcomes, type ScratchPaths } from './feature-990-scripts.ts';
 
 export const BASE_BRANCH = 'dev';

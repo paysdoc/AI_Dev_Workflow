@@ -11,7 +11,8 @@ import * as path from 'path';
  * scenarios step ends with Cucumber's exit status. The docker job installs on the runner first,
  * because the container's `node_modules` volume needs a mount point inside the read-only checkout,
  * and the image runs the suite in a `cp -R` copy of that checkout, which is writable and belongs
- * to the container user.
+ * to the container user. The Docker leg leaves the `@host-only` scenarios out of every container
+ * run, because the image holds neither the real npm nor a browser.
  */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -127,6 +128,28 @@ describe('the Docker leg', () => {
   it('mounts the checkout read-only and gives node_modules an anonymous volume, in the shell and the run path alike', () => {
     expect(countOf(dockerRunScript, '-v "${REPO_ROOT}:/workspace:ro"')).toBe(2);
     expect(countOf(dockerRunScript, '-v /workspace/node_modules')).toBe(2);
+  });
+
+  describe('the tag filter the container receives', () => {
+    /** Runs the script against a fake `docker` that records the arguments of `docker run`, one per line. */
+    function dockerRunArguments(...scriptArguments: string[]): string[] {
+      const argsFile = path.join(fakeBinDir, 'docker-run-args');
+      fs.writeFileSync(path.join(fakeBinDir, 'docker'), `#!/bin/sh\nif [ "$1" = run ]; then printf '%s\\n' "$@" > "${argsFile}"; fi\nexit 0\n`, { mode: 0o755 });
+      const run = spawnSync('bash', [path.join(REPO_ROOT, 'test/docker-run.sh'), ...scriptArguments], {
+        env: { PATH: `${fakeBinDir}${path.delimiter}${process.env.PATH ?? ''}` },
+        encoding: 'utf-8',
+      });
+      expect(run.status, run.stderr).toBe(0);
+      return fs.readFileSync(argsFile, 'utf-8').split('\n');
+    }
+
+    it.each(['@regression', '@web-playwright-project'])('is %s less the @host-only scenarios', tags => {
+      expect(dockerRunArguments('--tags', tags)).toContain(`BDD_TAGS=(${tags}) and not @host-only`);
+    });
+
+    it('is the same in the interactive shell', () => {
+      expect(dockerRunArguments('--tags', '@regression', '--shell')).toContain('BDD_TAGS=(@regression) and not @host-only');
+    });
   });
 
   describe('the image command', () => {

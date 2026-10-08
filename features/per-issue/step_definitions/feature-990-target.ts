@@ -12,9 +12,9 @@ import * as path from 'path';
 import { realGit } from '../../regression/support/fixtureWorktree.ts';
 import { ensureTargetWorkspace } from '../../regression/support/subprocessHarness.ts';
 
-import { configuredChecksFrom, type ConfiguredCheck } from './feature-988-commands.ts';
-import { projectMd } from './feature-991-project-md.ts';
-import { writeWebProject } from './feature-992-worktree.ts';
+import { configuredChecksFrom, type ConfiguredCheck } from '../../regression/step_definitions/feature-988-commands.ts';
+import { projectMd } from '../../regression/step_definitions/feature-991-project-md.ts';
+import { writeWebProject } from '../../regression/step_definitions/feature-992-worktree.ts';
 import type { ScenarioOutcomes } from './feature-990-scripts.ts';
 import { BASE_BRANCH, requireScratch, requireWorld, s, type ServerSetup } from './feature-990-world.ts';
 

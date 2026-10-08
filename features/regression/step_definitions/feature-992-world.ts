@@ -1,7 +1,8 @@
 /**
- * What the feature-992 scenarios share, and the hooks that reset and clean up around the scenarios that are only feature-992's.
- * A scenario that also carries another feature's tag (feature-989's protected-path outline, feature-991's upgrade outline) runs
- * that feature's hooks and none of these: they would reset the world those scenarios were built in.
+ * What the @web-playwright-project scenarios share, and the hooks that reset and clean up around them.
+ * The hooks are keyed on that tag alone, which only the promoted feature carries. A per-issue row of another feature that
+ * still carries the old per-issue tag (feature-989's protected-path outline, feature-991's upgrade outline) runs its own
+ * feature's hooks and none of these: they would reset the world those scenarios were built in.
  */
 
 import assert from 'assert';
@@ -53,7 +54,7 @@ export function registerDirectory(directory: string): void {
   workflowWorld.directories.push(directory);
 }
 
-const OWN_SCENARIOS = '@adw-992 and not @adw-988 and not @adw-989 and not @adw-991';
+const OWN_SCENARIOS = '@web-playwright-project';
 
 Before({ tags: OWN_SCENARIOS }, function () {
   beginScenario();

@@ -16,7 +16,7 @@ import { buildReviewPromptContext } from '../../../adws/phases/reviewPromptConte
 import { applyPatchBlocker } from '../../../adws/phases/reviewPatchHelpers.ts';
 import { requireWorkflowGitContext } from '../../../adws/phases/workflowRepoIdentity.ts';
 import type { AgentIdentifier } from '../../../adws/types/agentTypes.ts';
-import type { Workflow929 } from './feature-929-workflow.ts';
+import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
 
 /** Longest first, so the one parameter type never lets a shorter name shadow a longer one. */
 export const AGENT_NAMES = [

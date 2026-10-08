@@ -12,7 +12,7 @@ import { MAX_START_ATTEMPTS } from '../../../adws/core/devServerLifecycle.ts';
 
 import { agentStarts, isBaseWorktree, type AgentStart } from './feature-990-read.ts';
 import { requireScratch, requireWorkflowSetup } from './feature-990-world.ts';
-import { commandLine, recordedCalls, type RecordedCall } from './feature-992-standins.ts';
+import { commandLine, recordedCalls, type RecordedCall } from '../../regression/step_definitions/feature-992-standins.ts';
 
 export type ServerEvent = 'attempt' | 'started' | 'answered' | 'stopped';
 

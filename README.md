@@ -377,11 +377,15 @@ its runtime state (`agents/`, `logs/`) under the working directory. An anonymous
 `/workspace/node_modules` keeps the host's `node_modules` out of the copy.
 `TEST_RUNTIME=docker` is set automatically inside the container.
 
+Every container run leaves out the scenarios tagged `@host-only`, whatever `--tags` it is given:
+they install ADW's Playwright project from the npm registry with the real `npm` and `npx` and drive
+a real Chromium, which the image (Bun and Git only) cannot, so they run on the host only.
+
 ```bash
 # Build the image once (again after any change to test/Dockerfile)
 bun run test:docker:build
 
-# Run @regression scenarios inside the container (same results as host)
+# Run @regression scenarios inside the container (same results as host, less the @host-only scenarios)
 bun run test:docker
 
 # Run a specific tag inside the container
@@ -558,7 +562,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
-│   ├── reviewPromptArgs.ts  # Assembles the argument list passed to the /review slash command
+│   ├── reviewPromptArgs.ts  # ReviewIssueKind and ReviewPromptContext — the typed arguments the review prompt receives (guidance section, issue kind, scenario image paths)
 │   ├── rotAnalysisAgent.ts  # Per-phrase reuse/rot analysis for regression-promotion PRs
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── scenarioFidelityAgent.ts  # Compares frozen scenarios against issue body after resolve
@@ -935,11 +939,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── startupFailureLog.ts  # recordStartupFailure — writes a detached orchestrator's startup failure to its own execution log (never throws)
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
 │   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
+│   ├── reviewPromptContext.ts  # Builds the ReviewPromptContext for a workflow; reviewIssueKind maps issue type + labels (regression-promotion) to a ReviewIssueKind
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
 │   ├── rotAdvisoryFormat.ts  # Formats rotAnalysisAgent output into the advisory PR comment body
 │   ├── reviewRetryLoop.ts  # The review retry loop of every review orchestrator (runReviewRetryLoop): the one owner of the review attempt counter, in which a failed dev-server start is a failed review carrying the server's output (serverStartBlocker, recordFailedStartReview)
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server) — approval goes through repoContext.codeHost.approvePullRequest, not the adws/github approvePR free function (#796)
-│   ├── reviewPromptContext.ts  # Builds the review prompt context (guidance section and evidence for the repository's application type)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict; hands a dev server that did not start to the review loop
@@ -1252,6 +1256,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── plan-commit/    # Regression scenarios covering the plan commit that carries only the plan file, the plan-phase guard on .claude/ and .adw/, and worktree setup leaving the framework's own tracked Claude assets as the branch has them (#930)
+│   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
 │   ├── review/         # Regression scenarios covering the review comment on the issue: it shows the screenshots of the proof run the review judged, each embedded from the URL its upload returned, on a passing and a failing review, and a screenshot never decides or blocks the review (#937)

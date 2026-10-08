@@ -20,10 +20,10 @@ import type { runResolveTestAgent, TestResult } from '../../../adws/agents/testA
 import { StaticCheckName } from '../../../adws/core/checkRunner.ts';
 import { buildStaticCheckFixRoundPort } from '../../../adws/phases/staticCheckFixRound.ts';
 
-import { readRuns } from './feature-929-compacting-cli.ts';
-import type { Workflow929 } from './feature-929-workflow.ts';
-import { COMMANDS_FILE, parseOutcome, type CheckOutcome } from './feature-988-commands.ts';
-import { s } from './feature-988-world.ts';
+import { readRuns } from '../../regression/step_definitions/feature-929-compacting-cli.ts';
+import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
+import { COMMANDS_FILE, parseOutcome, type CheckOutcome } from '../../regression/step_definitions/feature-988-commands.ts';
+import { s } from '../../regression/step_definitions/feature-988-world.ts';
 import { commitSetup, prepareBranchAndOrigin } from './feature-989-git.ts';
 
 interface RoundChange {

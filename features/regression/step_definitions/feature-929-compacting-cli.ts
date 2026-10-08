@@ -150,8 +150,8 @@ function scriptSource(config: Record<string, unknown>): string {
 
 /**
  * Points CLAUDE_CODE_PATH at a freshly written script that behaves as `behaviour` says.
- * `restore()` puts the previous value back and clears the cached CLI path, as the
- * `@adw-929` After hook needs to do even when a scenario fails.
+ * `restore()` puts the previous value back unless something has replaced the script since, clears the
+ * cached CLI path, and is what the After hooks call even when a scenario fails.
  */
 export function installCompactingCli(behaviour: CliBehaviour): InstalledCli {
   const dir = fs.mkdtempSync(path.join(tmpdir(), 'adw-929-cli-'));
@@ -173,8 +173,11 @@ export function installCompactingCli(behaviour: CliBehaviour): InstalledCli {
     dir,
     runLogPath,
     restore: () => {
-      if (savedPath === undefined) delete process.env['CLAUDE_CODE_PATH'];
-      else process.env['CLAUDE_CODE_PATH'] = savedPath;
+      // After hooks run in reverse registration order and the @regression teardown registers after this file, so it may already have restored the variable; writing back the value saved at install would clobber that.
+      if (process.env['CLAUDE_CODE_PATH'] === scriptPath) {
+        if (savedPath === undefined) delete process.env['CLAUDE_CODE_PATH'];
+        else process.env['CLAUDE_CODE_PATH'] = savedPath;
+      }
       clearClaudeCodePathCache();
     },
   };

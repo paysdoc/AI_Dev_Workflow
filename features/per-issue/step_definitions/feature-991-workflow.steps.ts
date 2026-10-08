@@ -10,12 +10,12 @@ import assert from 'assert';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 
-import { commitFile, createWorkflow, type Workflow929 } from './feature-929-workflow.ts';
+import { commitFile, createWorkflow, type Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
 import { requireWorkflow } from './feature-988-phase.steps.ts';
-import { s as sharedWorld } from './feature-988-world.ts';
+import { s as sharedWorld } from '../../regression/step_definitions/feature-988-world.ts';
 import { parkCommentsOn, requireParkCommentOn } from './feature-989-comments.ts';
 import { commitToDefaultBranch, publishDefaultBranch } from './feature-991-git.ts';
-import { PROJECT_MD, assertApplicationTypeSection, assertProjectMdFile, projectMd } from './feature-991-project-md.ts';
+import { PROJECT_MD, assertApplicationTypeSection, assertProjectMdFile, projectMd } from '../../regression/step_definitions/feature-991-project-md.ts';
 import { describeStart, startWorkflow } from './feature-991-start.ts';
 import { s, type StartOutcome } from './feature-991-world.ts';
 

@@ -1,12 +1,13 @@
-@adw-992 @adw-2u517h-feat-web-repositorie @promotion-suggested-2026-10-07
+@regression @web-playwright-project
 Feature: A "web" repository runs its Gherkin on a Playwright project that ADW owns and the framework upgrade installs in "features/"
 
   ADW's Playwright project is "features/package.json" and "features/playwright.config.ts", written from ADW's templates.
+  The fresh-repository scenario installs that project from the npm registry with the real "npm" and "npx" and runs it
+  in a real Chromium, so it needs network access; it is tagged host-only, and the Docker leg, whose image has neither, leaves it out.
 
   Background:
     Given the ADW codebase is checked out
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario Outline: The framework upgrade of a <stack> repository never initialised by ADW, whose "/adw_init" agent declares it "web", installs ADW's Playwright project in "features/" and commits it with the configuration byte-identical to ADW's template
     Given a target repository never initialised by ADW whose only manifest is "<manifest>"
     And the "/adw_init" agent writes a complete ADW configuration whose ".adw/project.md" declares the application type "web"
@@ -23,7 +24,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
       | Node   | package.json   |
       | Python | pyproject.toml |
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: The framework upgrade of a "web" repository adds ADW's Playwright project beside the repository's own e2e setup and cucumber-js steps, and leaves their files as they were
     Given a target repository initialised by an older framework version
     And the target repository's default branch has these files of its own:
@@ -39,7 +39,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And the regen commit leaves each of those files as the default branch has it
     And the regen commit's "features/playwright.config.ts" is byte-identical to ADW's Playwright configuration template
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: The framework upgrade of a "web" repository whose "features/playwright.config.ts" was edited by hand overwrites it with ADW's template
     Given a target repository initialised by an older framework version
     And the target repository's default branch has this "features/playwright.config.ts":
@@ -58,7 +57,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     Then the upgrade commits the regenerated configuration
     And the regen commit's "features/playwright.config.ts" is byte-identical to ADW's Playwright configuration template
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: A change to ADW's Playwright configuration template changes the framework content hash, which decides when a repository is upgraded
     Given a fixture framework copied from the ADW framework under test
     When the framework content hash is computed for the fixture framework
@@ -66,7 +64,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And the framework content hash is computed for the fixture framework
     Then the recorded hashes are all different
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario Outline: The framework upgrade commits no Playwright project and installs nothing in "features/" when the ".adw/project.md" the "/adw_init" agent writes <declaration>
     Given a target repository never initialised by ADW
     And the "/adw_init" agent writes a complete ADW configuration whose ".adw/project.md" <declaration>
@@ -81,7 +78,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
       | declares the application type "cli"  |
       | has no "## Application Type" section |
 
-  @adw-992 @adw-2u517h-feat-web-repositorie @adw-995
   Scenario Outline: The framework upgrade of a "<type>" repository never initialised by ADW completes when the "/adw_init" agent writes no ".adw/review_proof.md", and commits none
     Given a target repository never initialised by ADW
     And the "/adw_init" agent writes an ADW configuration with no ".adw/review_proof.md", whose ".adw/project.md" declares the application type "<type>"
@@ -94,7 +90,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
       | cli  |
       | web  |
 
-  @adw-992 @adw-2u517h-feat-web-repositorie @adw-993
   Scenario: In a "web" repository the scenario test phase starts the dev server and runs "npx bddgen" and then "npx playwright test --grep" for the issue's tag in "features/", giving the run the dev server's address and ADW's report and proof paths
     Given a workflow for issue 9921 whose worktree's ".adw/project.md" declares the application type "web"
     And the worktree's ".adw/commands.md" starts a dev server that answers on its health check path
@@ -107,7 +102,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And the dev server ADW started answered throughout the run of "npx playwright test --grep" for the tag "@adw-9921", and was stopped by the end of the phase
     And the scenario proof records no blocker failures
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: In a "web" repository a scenario that fails in the JUnit report the Playwright run writes to ADW's path is a blocker failure for the issue's tag, although "npx playwright test" exits 0
     Given a workflow for issue 9922 whose worktree's ".adw/project.md" declares the application type "web"
     And the worktree's ".adw/commands.md" starts a dev server that answers on its health check path
@@ -116,7 +110,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     When the workflow's scenario test phase runs
     Then the scenario proof records a blocker failure for the tag "@adw-9922"
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: A "web" repository whose ".adw/" still names cucumber-js has its scenarios run on ADW's Playwright project, and cucumber-js is not run
     Given a workflow for issue 9923 whose worktree's ".adw/project.md" declares the application type "web"
     And the worktree's ".adw/commands.md" starts a dev server that answers on its health check path
@@ -128,7 +121,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     Then "npx bddgen" ran in "features/" before "npx playwright test --grep" ran there for the tag "@adw-9923"
     And "npx cucumber-js" was not run
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: In a "cli" repository the scenario test phase runs the scenario command ".adw/" configures for the issue's tag from the worktree's root, and runs neither "npx bddgen" nor "npx playwright test"
     Given a workflow for issue 9924 whose worktree's ".adw/project.md" declares the application type "cli"
     And the worktree's ".adw/" runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes
@@ -140,21 +132,19 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And "npx playwright test --grep" was not run
     And the scenario proof records no blocker failures
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: In a "web" repository the step-definition phase starts the generator in the mode for ADW's Playwright project
     Given a workflow for issue 9926 whose worktree's ".adw/project.md" declares the application type "web"
     When the workflow's step-definition phase runs
     Then the step-definition generator was started once, for issue 9926
     And the step-definition generator was started in the mode for ADW's Playwright project
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: In a "cli" repository the step-definition phase starts the generator in the mode for the scenario runner that ".adw/scenarios.md" describes
     Given a workflow for issue 9927 whose worktree's ".adw/project.md" declares the application type "cli"
     When the workflow's step-definition phase runs
     Then the step-definition generator was started once, for issue 9927
     And the step-definition generator was started in the mode for the scenario runner that ".adw/scenarios.md" describes
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
+  @host-only
   Scenario: In a fresh "web" repository the framework upgrade initialised, a per-issue scenario run writes its JUnit report to ADW's path and an end-state image for the scenario that opens a page, and none for the one that does not
     Given a web application repository never initialised by ADW, whose dev server serves a page titled "Widgets" at "/" and answers "/health" with status 200
     And the "/adw_init" agent writes a complete ADW configuration whose ".adw/project.md" declares the application type "web" and whose ".adw/commands.md" starts that dev server
@@ -174,6 +164,5 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And the JUnit report attaches no image to "The health endpoint answers"
     And the dev server ADW started served "/" during the run
 
-  @adw-992 @adw-2u517h-feat-web-repositorie
   Scenario: The ADW TypeScript type-check passes once web repositories run their scenarios on ADW's Playwright project
     Then the ADW TypeScript type-check passes
