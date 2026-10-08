@@ -62,6 +62,75 @@ describe('scanFiles — ALLOWLIST removed (#701)', () => {
   });
 });
 
+describe('scanFiles — git-gh-shellout rule over argv array literals', () => {
+  it("flags ctx.exec(['git', …]) with the command line the array spells, a non-literal element shown as ${...}", () => {
+    mockReadFileSync.mockReturnValue("ctx.exec(['git', 'push', branch], opts);\n");
+
+    const { violations } = scanFiles(['adws/vcs/pusher.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ rule: 'git-gh-shellout', command: 'git push ${...}', line: 1 });
+  });
+
+  it("flags spawnSync(['gh', …])", () => {
+    mockReadFileSync.mockReturnValue("spawnSync(['gh', 'pr', 'create']);\n");
+
+    const { violations } = scanFiles(['adws/triggers/opener.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ rule: 'git-gh-shellout', command: 'gh pr create' });
+  });
+
+  it('flags an argv whose element 0 is a template literal without substitutions', () => {
+    mockReadFileSync.mockReturnValue('run([`git`, `status`]);\n');
+
+    const { violations } = scanFiles(['adws/core/status.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ rule: 'git-gh-shellout', command: 'git status' });
+  });
+
+  it("permits an argv for another program: run(['bun', 'x'])", () => {
+    mockReadFileSync.mockReturnValue("run(['bun', 'x']);\n");
+
+    const { violations } = scanFiles(['adws/core/runner.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('permits an array whose element 0 is not a literal: foo([gitVar])', () => {
+    mockReadFileSync.mockReturnValue('foo([gitVar]);\n');
+
+    const { violations } = scanFiles(['adws/core/runner.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it("permits an element 0 that only starts with git: foo(['github'])", () => {
+    mockReadFileSync.mockReturnValue("foo(['github']);\n");
+
+    const { violations } = scanFiles(['adws/core/runner.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('permits an empty array literal', () => {
+    mockReadFileSync.mockReturnValue('foo([]);\n');
+
+    const { violations } = scanFiles(['adws/core/runner.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it("permits an argv array that is not the call's first argument", () => {
+    mockReadFileSync.mockReturnValue("foo(options, ['git', 'push']);\n");
+
+    const { violations } = scanFiles(['adws/core/runner.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+});
+
 describe('scanFiles — cwd-derived-identity rule (#769)', () => {
   it('flags an inline gitContextForRepo(getRepoInfo()) composite', () => {
     mockReadFileSync.mockReturnValue(

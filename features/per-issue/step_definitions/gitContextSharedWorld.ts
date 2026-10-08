@@ -10,7 +10,7 @@ export const TARGET_REPOS_ROOT = '/srv/adw/repos';
 export const FRAMEWORK_ROOT = '/srv/adw/framework';
 
 export interface SpyCall {
-  command: string;
+  argv: readonly string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
   input?: string;
@@ -51,9 +51,20 @@ export const W: SharedWorld = {
   lastError: null,
 };
 
+function findResponse(
+  responseMap: ReadonlyMap<string, string | Error>,
+  commandLine: string,
+): string | Error | undefined {
+  for (const [pattern, response] of responseMap) {
+    if (commandLine.includes(pattern)) return response;
+  }
+  return undefined;
+}
+
 /**
  * The spy reads `responseMap` at call time (by reference) so
  * Givens that run AFTER spy creation can still configure responses.
+ * Patterns match as substrings of the space-joined argv.
  * Falls back to `defaultStdout` when no pattern matches.
  */
 export function makeSpyExec(
@@ -61,15 +72,11 @@ export function makeSpyExec(
   defaultStdout = 'main\n',
 ): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: { ...options.env }, input: options.input });
-    for (const [pattern, response] of responseMap) {
-      if (command.includes(pattern)) {
-        if (response instanceof Error) throw response;
-        return response;
-      }
-    }
-    return defaultStdout;
+  const exec: ExecFn = (argv, options) => {
+    calls.push({ argv: [...argv], cwd: options.cwd, env: { ...options.env }, input: options.input });
+    const response = findResponse(responseMap, argv.join(' '));
+    if (response instanceof Error) throw response;
+    return response ?? defaultStdout;
   };
   return { exec, calls };
 }

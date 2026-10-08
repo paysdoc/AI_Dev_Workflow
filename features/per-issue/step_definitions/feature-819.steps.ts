@@ -36,7 +36,7 @@ interface ScriptedRule {
 }
 
 interface SpyCall {
-  command: string;
+  argv: readonly string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
   input?: string;
@@ -67,10 +67,17 @@ function ghFailure(message: string): Error {
   return Object.assign(new Error(message), { stderr: message });
 }
 
-function scriptedExec(command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }): string {
-  calls.push({ command, cwd: options.cwd, env: { ...options.env }, input: options.input });
+/** The space-joined argv: what step patterns match against and what failure messages display. */
+export function commandLine(call: SpyCall): string {
+  return call.argv.join(' ');
+}
+
+function scriptedExec(argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }): string {
+  const call: SpyCall = { argv: [...argv], cwd: options.cwd, env: { ...options.env }, input: options.input };
+  calls.push(call);
+  const line = commandLine(call);
   for (const rule of rules) {
-    if (!command.includes(rule.pattern)) continue;
+    if (!line.includes(rule.pattern)) continue;
     if (rule.kind === 'refuseOnce') {
       if (rule.consumed) continue;
       rule.consumed = true;
@@ -360,15 +367,15 @@ Then('every command the minted providers issued reached the recording gh seam', 
 
 Then('the driven operation issued a command matching {string}', function (pattern: string) {
   assert.ok(
-    calls.some((c) => c.command.includes(pattern)),
-    `Expected a command matching "${pattern}". Issued: ${calls.map((c) => c.command).join(' | ')}`,
+    calls.some((c) => commandLine(c).includes(pattern)),
+    `Expected a command matching "${pattern}". Issued: ${calls.map(commandLine).join(' | ')}`,
   );
 });
 
 Then('the driven operation issued no command matching {string}', function (pattern: string) {
   assert.ok(
-    !calls.some((c) => c.command.includes(pattern)),
-    `Expected no command matching "${pattern}". Issued: ${calls.map((c) => c.command).join(' | ')}`,
+    !calls.some((c) => commandLine(c).includes(pattern)),
+    `Expected no command matching "${pattern}". Issued: ${calls.map(commandLine).join(' | ')}`,
   );
 });
 
@@ -411,20 +418,20 @@ Then('the driven operation completed without throwing', function () {
 });
 
 Then('the driven operation issued a command matching {string} before a command matching {string}', function (before: string, after: string) {
-  const beforeIdx = calls.findIndex((c) => c.command.includes(before));
-  const afterIdx = calls.findIndex((c) => c.command.includes(after));
-  assert.ok(beforeIdx >= 0, `Expected a command matching "${before}". Issued: ${calls.map((c) => c.command).join(' | ')}`);
-  assert.ok(afterIdx >= 0, `Expected a command matching "${after}". Issued: ${calls.map((c) => c.command).join(' | ')}`);
+  const beforeIdx = calls.findIndex((c) => commandLine(c).includes(before));
+  const afterIdx = calls.findIndex((c) => commandLine(c).includes(after));
+  assert.ok(beforeIdx >= 0, `Expected a command matching "${before}". Issued: ${calls.map(commandLine).join(' | ')}`);
+  assert.ok(afterIdx >= 0, `Expected a command matching "${after}". Issued: ${calls.map(commandLine).join(' | ')}`);
   assert.ok(beforeIdx < afterIdx, `Expected "${before}" (index ${beforeIdx}) before "${after}" (index ${afterIdx})`);
 });
 
 Then('the driven operation issued {int} commands', function (count: number) {
-  assert.strictEqual(calls.length, count, `Issued: ${calls.map((c) => c.command).join(' | ')}`);
+  assert.strictEqual(calls.length, count, `Issued: ${calls.map(commandLine).join(' | ')}`);
 });
 
 Then('the command matching {string} carried the credential {string}', function (pattern: string, credential: string) {
-  const call = calls.find((c) => c.command.includes(pattern));
-  assert.ok(call, `Expected a command matching "${pattern}". Issued: ${calls.map((c) => c.command).join(' | ')}`);
+  const call = calls.find((c) => commandLine(c).includes(pattern));
+  assert.ok(call, `Expected a command matching "${pattern}". Issued: ${calls.map(commandLine).join(' | ')}`);
   assert.strictEqual(call!.env.GH_TOKEN, credential);
 });
 
@@ -440,8 +447,8 @@ Then('the minted providers issued no command outside the repository {string}', f
   const [owner, repo] = repoStr.split('/');
   assert.ok(calls.length > 0, 'Expected at least one recorded command');
   assert.ok(
-    calls.every((c) => c.command.includes(owner) && c.command.includes(repo)),
-    `Expected every command to address ${repoStr}. Got: ${calls.map((c) => c.command).join(' | ')}`,
+    calls.every((c) => commandLine(c).includes(owner) && commandLine(c).includes(repo)),
+    `Expected every command to address ${repoStr}. Got: ${calls.map(commandLine).join(' | ')}`,
   );
 });
 

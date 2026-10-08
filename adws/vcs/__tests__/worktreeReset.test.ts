@@ -5,7 +5,8 @@
 import { describe, it, expect } from 'vitest';
 import { worktreeResetOps } from '@paysdoc/devplatform/git';
 
-type Call = { command: string; cwd: string };
+type Run = (argv: readonly string[], cwd: string) => string;
+type Call = { argv: readonly string[]; cwd: string };
 
 interface FsSpy {
   existsSync: (p: string) => boolean;
@@ -25,13 +26,14 @@ function makeFsSpy(existsImpl: (p: string) => boolean = () => false): FsSpy {
   };
 }
 
-function makeRunner(gitDirResponse: string, extras: Map<string, string | Error> = new Map()): { run: (cmd: string, cwd: string) => string; calls: Call[] } {
+function makeRunner(gitDirResponse: string, extras: Map<string, string | Error> = new Map()): { run: Run; calls: Call[] } {
   const calls: Call[] = [];
   let firstCall = true;
-  const run = (command: string, cwd: string): string => {
-    calls.push({ command, cwd });
+  const run: Run = (argv, cwd) => {
+    calls.push({ argv: [...argv], cwd });
     if (firstCall) { firstCall = false; return gitDirResponse; }
-    const key = [...extras.keys()].find((k) => command.includes(k));
+    const commandLine = argv.join(' ');
+    const key = [...extras.keys()].find((k) => commandLine.includes(k));
     const val = key !== undefined ? extras.get(key) : '';
     if (val instanceof Error) throw val;
     return val ?? '';
@@ -46,18 +48,18 @@ describe('clean worktree — idempotent', () => {
 
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
-    const cmds = calls.map((c) => c.command);
-    expect(cmds[0]).toBe('git rev-parse --git-dir');
-    expect(cmds[1]).toBe('git fetch origin "main"');
-    expect(cmds[2]).toBe('git reset --hard "origin/main"');
-    expect(cmds[3]).toBe('git clean -fdx');
-    expect(cmds).toHaveLength(4);
+    const argvs = calls.map((c) => c.argv);
+    expect(argvs[0]).toEqual(['git', 'rev-parse', '--git-dir']);
+    expect(argvs[1]).toEqual(['git', 'fetch', 'origin', 'main']);
+    expect(argvs[2]).toEqual(['git', 'reset', '--hard', 'origin/main']);
+    expect(argvs[3]).toEqual(['git', 'clean', '-fdx']);
+    expect(argvs).toHaveLength(4);
     expect(fs.rmCalls).toHaveLength(0);
   });
 
   it('produces the same call sequence on a second invocation (idempotent)', () => {
     let callCount = 0;
-    const run = (_cmd: string, _cwd: string): string => {
+    const run: Run = () => {
       callCount++;
       if (callCount % 4 === 1) return '/wt/.git'; // git-dir per call
       return '';
@@ -82,9 +84,9 @@ describe('dirty tracked files', () => {
 
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
-    const resetCalls = calls.filter((c) => c.command.includes('reset --hard'));
+    const resetCalls = calls.filter((c) => c.argv.join(' ').includes('reset --hard'));
     expect(resetCalls).toHaveLength(1);
-    expect(resetCalls[0].command).toBe('git reset --hard "origin/main"');
+    expect(resetCalls[0].argv).toEqual(['git', 'reset', '--hard', 'origin/main']);
   });
 });
 
@@ -95,24 +97,24 @@ describe('in-progress merge — plumbing succeeds', () => {
 
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
-    const cmds = calls.map((c) => c.command);
-    expect(cmds[0]).toBe('git rev-parse --git-dir');
-    expect(cmds[1]).toBe('git merge --abort');
-    expect(cmds[2]).toBe('git fetch origin "main"');
-    expect(cmds[3]).toBe('git reset --hard "origin/main"');
-    expect(cmds[4]).toBe('git clean -fdx');
+    const argvs = calls.map((c) => c.argv);
+    expect(argvs[0]).toEqual(['git', 'rev-parse', '--git-dir']);
+    expect(argvs[1]).toEqual(['git', 'merge', '--abort']);
+    expect(argvs[2]).toEqual(['git', 'fetch', 'origin', 'main']);
+    expect(argvs[3]).toEqual(['git', 'reset', '--hard', 'origin/main']);
+    expect(argvs[4]).toEqual(['git', 'clean', '-fdx']);
     expect(fs.rmCalls).toHaveLength(0);
   });
 });
 
 describe('in-progress merge — plumbing fails', () => {
   it('removes MERGE_HEAD and continues to fetch/reset/clean', () => {
-    const cmds: string[] = [];
+    const argvs: Array<readonly string[]> = [];
     let first = true;
-    const run = (cmd: string, _cwd: string): string => {
-      cmds.push(cmd);
+    const run: Run = (argv) => {
+      argvs.push(argv);
       if (first) { first = false; return '/wt/.git'; }
-      if (cmd.includes('merge --abort')) throw new Error('not a merge');
+      if (argv.join(' ').includes('merge --abort')) throw new Error('not a merge');
       return '';
     };
     const fs = makeFsSpy((p) => p.endsWith('MERGE_HEAD'));
@@ -120,9 +122,9 @@ describe('in-progress merge — plumbing fails', () => {
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
     expect(fs.rmCalls.some(([p]) => p.endsWith('MERGE_HEAD'))).toBe(true);
-    expect(cmds).toContain('git fetch origin "main"');
-    expect(cmds).toContain('git reset --hard "origin/main"');
-    expect(cmds).toContain('git clean -fdx');
+    expect(argvs).toContainEqual(['git', 'fetch', 'origin', 'main']);
+    expect(argvs).toContainEqual(['git', 'reset', '--hard', 'origin/main']);
+    expect(argvs).toContainEqual(['git', 'clean', '-fdx']);
   });
 });
 
@@ -133,22 +135,22 @@ describe('in-progress rebase — plumbing succeeds', () => {
 
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
-    const cmds = calls.map((c) => c.command);
-    expect(cmds[0]).toBe('git rev-parse --git-dir');
-    expect(cmds[1]).toBe('git rebase --abort');
-    expect(cmds[2]).toBe('git fetch origin "main"');
+    const argvs = calls.map((c) => c.argv);
+    expect(argvs[0]).toEqual(['git', 'rev-parse', '--git-dir']);
+    expect(argvs[1]).toEqual(['git', 'rebase', '--abort']);
+    expect(argvs[2]).toEqual(['git', 'fetch', 'origin', 'main']);
     expect(fs.rmCalls).toHaveLength(0);
   });
 });
 
 describe('in-progress rebase — plumbing fails', () => {
   it('removes rebase-apply and rebase-merge dirs then continues', () => {
-    const cmds: string[] = [];
+    const argvs: Array<readonly string[]> = [];
     let first = true;
-    const run = (cmd: string, _cwd: string): string => {
-      cmds.push(cmd);
+    const run: Run = (argv) => {
+      argvs.push(argv);
       if (first) { first = false; return '/wt/.git'; }
-      if (cmd.includes('rebase --abort')) throw new Error('no rebase');
+      if (argv.join(' ').includes('rebase --abort')) throw new Error('no rebase');
       return '';
     };
     const fs = makeFsSpy((p) => p.endsWith('rebase-apply'));
@@ -157,7 +159,7 @@ describe('in-progress rebase — plumbing fails', () => {
 
     expect(fs.rmCalls.some(([p]) => p.endsWith('rebase-apply'))).toBe(true);
     expect(fs.rmCalls.some(([p]) => p.endsWith('rebase-merge'))).toBe(true);
-    expect(cmds).toContain('git fetch origin "main"');
+    expect(argvs).toContainEqual(['git', 'fetch', 'origin', 'main']);
   });
 });
 
@@ -168,9 +170,9 @@ describe('both merge and rebase markers present', () => {
 
     worktreeResetOps.resetWorktree(run, fs, '/wt', 'main');
 
-    const cmds = calls.map((c) => c.command);
-    const mergeIdx = cmds.indexOf('git merge --abort');
-    const rebaseIdx = cmds.indexOf('git rebase --abort');
+    const lines = calls.map((c) => c.argv.join(' '));
+    const mergeIdx = lines.indexOf('git merge --abort');
+    const rebaseIdx = lines.indexOf('git rebase --abort');
     expect(mergeIdx).not.toBe(-1);
     expect(rebaseIdx).not.toBe(-1);
     expect(mergeIdx).toBeLessThan(rebaseIdx);
@@ -199,43 +201,43 @@ describe('git-dir resolution', () => {
 
 describe('mandatory steps throw on failure', () => {
   it('throws when git fetch fails and does not call reset or clean', () => {
-    const cmds: string[] = [];
+    const argvs: Array<readonly string[]> = [];
     let first = true;
-    const run = (cmd: string, _cwd: string): string => {
-      cmds.push(cmd);
+    const run: Run = (argv) => {
+      argvs.push(argv);
       if (first) { first = false; return '/wt/.git'; }
-      if (cmd.includes('fetch')) throw new Error('offline');
+      if (argv.join(' ').includes('fetch')) throw new Error('offline');
       return '';
     };
     const fs = makeFsSpy(() => false);
 
     expect(() => worktreeResetOps.resetWorktree(run, fs, '/wt', 'main')).toThrow(/Failed to fetch origin\/main/);
-    expect(cmds).not.toContain('git reset --hard "origin/main"');
-    expect(cmds).not.toContain('git clean -fdx');
+    expect(argvs).not.toContainEqual(['git', 'reset', '--hard', 'origin/main']);
+    expect(argvs).not.toContainEqual(['git', 'clean', '-fdx']);
   });
 
   it('throws when git reset --hard fails and does not call clean', () => {
-    const cmds: string[] = [];
+    const argvs: Array<readonly string[]> = [];
     let first = true;
-    const run = (cmd: string, _cwd: string): string => {
-      cmds.push(cmd);
+    const run: Run = (argv) => {
+      argvs.push(argv);
       if (first) { first = false; return '/wt/.git'; }
-      if (cmd.includes('reset')) throw new Error('reset failed');
+      if (argv.join(' ').includes('reset')) throw new Error('reset failed');
       return '';
     };
     const fs = makeFsSpy(() => false);
 
     expect(() => worktreeResetOps.resetWorktree(run, fs, '/wt', 'main')).toThrow(/Failed to reset to origin\/main/);
-    expect(cmds).not.toContain('git clean -fdx');
+    expect(argvs).not.toContainEqual(['git', 'clean', '-fdx']);
   });
 
   it('throws when git clean -fdx fails', () => {
-    const cmds: string[] = [];
+    const argvs: Array<readonly string[]> = [];
     let first = true;
-    const run = (cmd: string, _cwd: string): string => {
-      cmds.push(cmd);
+    const run: Run = (argv) => {
+      argvs.push(argv);
       if (first) { first = false; return '/wt/.git'; }
-      if (cmd.includes('clean')) throw new Error('clean failed');
+      if (argv.join(' ').includes('clean')) throw new Error('clean failed');
       return '';
     };
     const fs = makeFsSpy(() => false);

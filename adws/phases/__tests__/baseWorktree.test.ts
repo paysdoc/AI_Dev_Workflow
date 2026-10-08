@@ -169,7 +169,7 @@ describe('buildBaseWorktreePort', () => {
 });
 
 function launchGitContext(worktreeList: string): GitContext {
-  const exec: ExecFn = (command) => (command.includes('worktree list --porcelain') ? worktreeList : '');
+  const exec: ExecFn = (argv) => (argv.join(' ').includes('worktree list --porcelain') ? worktreeList : '');
   return new GitContext(
     {
       owner: 'acme',
