@@ -1,7 +1,9 @@
 /**
  * Three independent rules:
  *
- *  - 'git-gh-shellout' — implemented in this file (`walkNode`/`extractGitGhCommand`).
+ *  - 'git-gh-shellout' — implemented in this file (`walkNode`/`extractGitGhCommand`). A call is
+ *    flagged when its first argument is a git/gh command string or an argv array literal whose
+ *    element 0 is `'git'` or `'gh'`.
  *  - 'cwd-derived-identity' — `adws/guard/identityRule.ts`.
  *  - 'unsanctioned-construction' — `adws/guard/constructionRule.ts`.
  *
@@ -124,7 +126,21 @@ function extractGitGhCommand(node: ts.Node): string | null {
   if (ts.isTemplateExpression(node) && GIT_GH_RE.test(node.head.text)) {
     return node.head.text + '${...}';
   }
+  if (ts.isArrayLiteralExpression(node)) return describeGitGhArgv(node);
   return null;
+}
+
+function literalText(node: ts.Node): string | null {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) ? node.text : null;
+}
+
+/** The command line an argv array literal spells when its element 0 is exactly `git` or `gh`; a non-literal element shows as `${...}`. */
+function describeGitGhArgv(node: ts.ArrayLiteralExpression): string | null {
+  if (node.elements.length === 0) return null;
+  const [program, ...args] = node.elements;
+  const programText = literalText(program);
+  if (programText !== 'git' && programText !== 'gh') return null;
+  return [programText, ...args.map((arg) => literalText(arg) ?? '${...}')].join(' ');
 }
 
 /** I/O: re-reads and re-parses every scanned file to test `hasGuardedConstruction`, kept separate from `scanFiles` so its `(relPaths, repoRoot)` signature never changes. */

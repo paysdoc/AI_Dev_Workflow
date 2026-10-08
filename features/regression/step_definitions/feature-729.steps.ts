@@ -3,7 +3,7 @@ import assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { copyAdwInitCommandToWorktree } from '../../../adws/phases/worktreeSetup.ts';
 import { commitOps } from '@paysdoc/devplatform/git';
 
@@ -17,8 +17,9 @@ function initGitRepo(dir: string): void {
   execSync('git config user.name "ADW Test"', { cwd: dir, stdio: 'pipe' });
 }
 
-function realRun(cmd: string, cwd: string): string {
-  return execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+function realRun(argv: readonly string[], cwd: string): string {
+  const [file, ...args] = argv;
+  return execFileSync(file, args, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 function currentHead(dir: string): string | null {

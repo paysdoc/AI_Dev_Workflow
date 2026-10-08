@@ -1,6 +1,8 @@
 /**
- * What a `gh` shadow handler returns and how it reads its argv. The argv is what `/bin/sh` left
- * after unquoting. A flag a handler does not name makes the whole call unsupported: the shadow
+ * What a `gh` shadow handler returns and how it reads its argv. The argv is exactly what the
+ * caller's argv array held: devplatform spawns `gh` without a shell, and the `/bin/sh` wrapper
+ * forwards it verbatim through `"$@"`, so a value arrives with its quotes, `$(...)` and backticks
+ * intact. A flag a handler does not name makes the whole call unsupported: the shadow
  * answers only the calls ADW makes, and refuses the rest rather than guess. Pure: no I/O.
  */
 
@@ -31,7 +33,7 @@ export interface GhOutcome {
 export interface GhContext {
   /** The whole argv, which a write's log entry carries. */
   argv: readonly string[];
-  /** Read only when a handler needs the body: `execSync` gives a call with no input an empty pipe. */
+  /** Read only when a handler needs the body: `execFileSync` gives a call with no input an empty pipe. */
   stdin: () => string;
   state: ForgeState;
   now: () => string;

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import { OrchestratorId, type IssueClassSlashCommand } from '../core';
+import { parseUnifiedDiff, touchedPaths } from '../core/unifiedDiff';
 import { buildCommitPrefix } from '../agents/gitAgent';
 
 /** Prompts and project configuration: a plan may call for changing them, but the planner must not make the change. */
@@ -90,17 +91,18 @@ export function changedFilePaths(
   return [...new Set([...createdOrModified, ...deleted])].sort();
 }
 
-function unquote(gitPath: string): string {
-  return gitPath.length >= 2 && gitPath.startsWith('"') && gitPath.endsWith('"') ? gitPath.slice(1, -1) : gitPath;
-}
-
-export function parseNameOnlyDiff(output: string): string[] {
-  return output.split('\n').map((line) => line.trim()).filter(Boolean).map(unquote);
-}
-
-/** A net tree difference: a path committed and then reverted within the phase leaves no trace here, nor in the hashes. */
+/**
+ * A net tree difference: a path committed and then reverted within the phase leaves no trace here, nor in the hashes.
+ * `GitContext.diff` hands its range to git as one argument, so there is no `--name-only`: the paths are read from the
+ * patch, and a diff that holds text but no file header is refused rather than taken for an empty one.
+ */
 export function committedPathsSince(gitCtx: GitContext, worktreePath: string, head: string): string[] {
-  return parseNameOnlyDiff(gitCtx.diff(`--name-only --no-renames ${head} HEAD`, worktreePath));
+  const patch = gitCtx.diff(`${head}..HEAD`, worktreePath);
+  const files = parseUnifiedDiff(patch);
+  if (files.length === 0 && patch !== '') {
+    throw new Error(`Plan phase guard: the diff since ${head} holds text but no file header, so the paths committed since then cannot be read`);
+  }
+  return files.flatMap(touchedPaths);
 }
 
 export function findOffLimitsChanges(baseline: PlanPhaseBaseline, current: OffLimitsState): string[] {

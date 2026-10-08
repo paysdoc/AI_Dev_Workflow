@@ -9,7 +9,7 @@ import assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'node:url';
 
 import { Platform } from '@paysdoc/devplatform';
@@ -91,8 +91,9 @@ export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-function runShell(command: string, cwd: string): string {
-  return execSync(command, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+function runArgv(argv: readonly string[], cwd: string): string {
+  const [file, ...args] = argv;
+  return execFileSync(file, args, { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 export function commitAll(dir: string, message: string): void {
@@ -167,7 +168,7 @@ function buildUpgradeDeps(): UpgradeDeps {
     runInitCommand: runAdwInitStub,
     copyInitCommandToWorktree: () => {},
     syncScenarioProject: syncProjectUnderToolchain,
-    commitChanges: (message, cwd, opts) => commitOps.commitChanges(runShell, message, cwd, opts),
+    commitChanges: (message, cwd, opts) => commitOps.commitChanges(runArgv, message, cwd, opts),
     pushBranch: () => {},
     createPullRequest: () => ({ url: `https://github.com/${REPO_ID.owner}/${REPO_ID.repo}/pull/1`, number: 1 }),
     commentOnIssue: (_issueNumber, body) => { w.issueComments.push(body); },

@@ -101,7 +101,8 @@ export function buildStaticCheckFixRoundPort(config: WorkflowConfig, deps: Parti
     log(`Static-check fix round ${round}: the fix agent ${agent.success ? 'finished' : 'reported a failure'}`, agent.success ? 'info' : 'warn');
     git.commitChanges(`${commitPrefix}: fix round ${round} for failing static checks (${failed.map(verdict => verdict.check).join(', ')})`, worktreePath);
     return {
-      diff: git.diff(`--no-renames ${base} HEAD`, worktreePath),
+      // The range is one argv element, so a flag such as `--no-renames` here would reach git as part of the revision.
+      diff: git.diff(`${base}..HEAD`, worktreePath),
       costUsd: agent.totalCostUsd ?? 0,
       modelUsage: mergeModelUsageMaps(emptyModelUsageMap(), agent.modelUsage ?? {}),
     };

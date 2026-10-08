@@ -161,14 +161,15 @@ function fieldResponseFor(status: string): string {
   return JSON.stringify({ data: { node: { field: { id: 'FIELD_1', options: [{ id: 'OPT_1', name: status }] } } } });
 }
 
-interface SpyCall { command: string; env: NodeJS.ProcessEnv }
+interface SpyCall { argv: readonly string[]; env: NodeJS.ProcessEnv }
 
 function makeSpyExec(responses: ReadonlyMap<string, string> = new Map()): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, env: { ...options.env } });
+  const exec: ExecFn = (argv, options) => {
+    calls.push({ argv: [...argv], env: { ...options.env } });
+    const commandLine = argv.join(' ');
     for (const [pattern, response] of responses) {
-      if (command.includes(pattern)) return response;
+      if (commandLine.includes(pattern)) return response;
     }
     return '';
   };
@@ -229,8 +230,8 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
   it('resolveLabelDefinition reaches the lazy-create path (adw:blocked -> b60205)', () => {
     const repoId = makeRepoId();
     let editCalls = 0;
-    const exec: ExecFn = (command) => {
-      if (command.includes('issue edit')) {
+    const exec: ExecFn = (argv) => {
+      if (argv[1] === 'issue' && argv[2] === 'edit') {
         editCalls += 1;
         if (editCalls === 1) throw new Error('label not found');
       }
