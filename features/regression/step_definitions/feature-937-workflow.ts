@@ -1,7 +1,7 @@
 /**
  * The workflow the feature-937 scenarios run the real scenario test phase and the real review phase
- * over: a throwaway worktree, a recording issue tracker, and a scenario command that copies a fixed
- * proof run into the proof directory instead of starting a test suite.
+ * over: a throwaway worktree of a `web` repository, a recording issue tracker, and a stand-in for the
+ * Playwright run that leaves a fixed proof run, attached to the issue's scenario, instead of starting a browser.
  */
 
 import * as fs from 'fs';
@@ -11,6 +11,7 @@ import type { RepoContext } from '@paysdoc/devplatform';
 
 import { AgentStateManager, detectRecoveryState } from '../../../adws/core/index.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
+import { ADW_PLAYWRIGHT_PROJECT_DIR, ADW_PLAYWRIGHT_STEP_DEF_DIR } from '../../../adws/core/adwPlaywrightProject.ts';
 import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
 import { getDefaultProjectConfig, type ProjectConfig } from '../../../adws/core/projectConfig.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
@@ -19,6 +20,7 @@ import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { setProofUploaderForTesting } from '../../../adws/proof/proofUploader.ts';
 import { activateStandInAgent, deactivateStandInAgent, scriptStandInVerdict } from './feature-937-agent.ts';
+import { ISSUE_FEATURE_FILE, installStandInNpx, issueFeature, withStandInNpxOnPath } from './feature-937-runner.ts';
 import {
   REPO_ID,
   fixtureBytes,
@@ -34,29 +36,13 @@ import {
 
 const SCENARIOS_MD = '# Scenarios\n\nThe BDD scenarios of the workflow\'s repository.\n';
 
-const PASSING_JUNIT_REPORT =
-  '<?xml version="1.0" encoding="UTF-8"?><testsuite name="cucumber-js" tests="1" failures="0" skipped="0">' +
-  '<testcase name="The proof run" classname="features.proof"/></testsuite>';
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-// Whatever the tag, the command leaves the proof run in $ADW_PROOF_DIR and reports one passing scenario.
-function proofRunCommand(proofRunDir: string): string {
-  return [
-    'mkdir -p "$ADW_PROOF_DIR"',
-    `cp -R ${shellQuote(`${proofRunDir}/.`)} "$ADW_PROOF_DIR/"`,
-    `printf '%s' ${shellQuote(PASSING_JUNIT_REPORT)} > "$ADW_JUNIT_REPORT_PATH"`,
-    'echo "1 scenarios (1 passed)"',
-  ].join(' && ');
-}
-
-function repositoryProjectConfig(proofRunDir: string): ProjectConfig {
+// Only a `web` repository's per-issue scenarios yield images that count as evidence, so only there does the review comment show any.
+function repositoryProjectConfig(): ProjectConfig {
   const defaults = getDefaultProjectConfig();
   return {
     ...defaults,
-    commands: { ...defaults.commands, startDevServer: 'N/A', runScenariosByTag: proofRunCommand(proofRunDir) },
+    applicationType: 'web',
+    commands: { ...defaults.commands, startDevServer: 'N/A' },
     scenariosMd: SCENARIOS_MD,
   };
 }
@@ -67,11 +53,18 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 
-// The scenario test phase only runs when the repository has step definitions in its step-definition directory.
-function writeStepDefinitionFile(worktreePath: string): void {
-  const stepDefinitionDir = path.join(worktreePath, 'features', 'step_definitions');
-  fs.mkdirSync(stepDefinitionDir, { recursive: true });
-  fs.writeFileSync(path.join(stepDefinitionDir, 'proof.steps.ts'), '// The repository\'s step definitions.\n');
+function writeWorktreeFile(worktreePath: string, relPath: string, content: string): void {
+  const fullPath = path.join(worktreePath, relPath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content);
+}
+
+// The scenario test phase only runs when the repository has step definitions where its runner looks for them, and the run
+// command installs the Playwright project unless the worktree already holds it, as it does once the unit-test phase has run.
+function writeWebRepository(worktreePath: string, issueNumber: number): void {
+  writeWorktreeFile(worktreePath, path.join(ADW_PLAYWRIGHT_STEP_DEF_DIR, 'proof.steps.ts'), '// The repository\'s step definitions.\n');
+  writeWorktreeFile(worktreePath, ISSUE_FEATURE_FILE, issueFeature(issueNumber));
+  fs.mkdirSync(path.join(worktreePath, ADW_PLAYWRIGHT_PROJECT_DIR, 'node_modules'), { recursive: true });
 }
 
 export function createReviewWorkflow(issueNumber: number, adwId: string): ReviewWorkflow {
@@ -82,7 +75,9 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
   const worktreePath = makeTempDir('adw-937-worktree-');
   const logsDir = makeTempDir('adw-937-logs-');
   const proofRunDir = makeTempDir('adw-937-proof-run-');
-  writeStepDefinitionFile(worktreePath);
+  const runnerBinDir = path.join(makeTempDir('adw-937-runner-'), 'bin');
+  writeWebRepository(worktreePath, issueNumber);
+  installStandInNpx(runnerBinDir, proofRunDir);
 
   const repoContext = {
     issueTracker: recordingIssueTracker(),
@@ -119,14 +114,14 @@ export function createReviewWorkflow(issueNumber: number, adwId: string): Review
     applicationUrl: 'http://localhost:0',
     targetRepo: undefined,
     repoContext,
-    projectConfig: repositoryProjectConfig(proofRunDir),
+    projectConfig: repositoryProjectConfig(),
     adwYmlConfig: { hitl: false, unitTests: false },
-    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
+    applicationProfile: APPLICATION_TYPE_PROFILES.web,
     topLevelStatePath: '',
     gitContext: undefined,
   } as unknown as WorkflowConfig;
 
-  return { config, issueNumber, adwId, worktreePath, proofRunDir };
+  return { config, issueNumber, adwId, worktreePath, proofRunDir, runnerBinDir };
 }
 
 function writeFixture(dir: string, relPath: string): void {
@@ -135,7 +130,7 @@ function writeFixture(dir: string, relPath: string): void {
   fs.writeFileSync(fullPath, fixtureBytes(relPath));
 }
 
-/** Changes what the scenario command copies into the proof directory from the next run on. */
+/** Changes what the stand-in Playwright run copies into the proof directory, and attaches, from the next run on. */
 export function setProofRun(proofRun: ProofRun): void {
   const { proofRunDir } = requireWorkflow();
   fs.rmSync(proofRunDir, { recursive: true, force: true });
@@ -164,14 +159,15 @@ async function judgeProof(config: WorkflowConfig, proofPath: string): Promise<Re
 
 /**
  * Runs the scenario tests, then the review over the proof they reported (an empty path when they
- * reported none), as the orchestrators do. The stand-in store and agent are installed for the run only.
+ * reported none), as the orchestrators do. The stand-in store and agent are installed for the run only,
+ * and the stand-in Playwright run for the scenario tests only.
  */
 export async function runScenarioTestsThenReview(): Promise<void> {
-  const { config, worktreePath } = requireWorkflow();
+  const { config, worktreePath, runnerBinDir } = requireWorkflow();
   setProofUploaderForTesting(requireStore().uploader);
   activateStandInAgent();
   try {
-    const { scenarioProof } = await executeScenarioTestPhase(config);
+    const { scenarioProof } = await withStandInNpxOnPath(runnerBinDir, () => executeScenarioTestPhase(config));
     const proofPath = scenarioProof?.resultsFilePath ?? '';
     scriptStandInVerdict(worktreePath, proofPath);
     world.outcome = await judgeProof(config, proofPath);
