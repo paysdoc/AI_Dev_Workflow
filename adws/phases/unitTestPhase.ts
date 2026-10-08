@@ -10,6 +10,9 @@ import {
   computeTestVerdict,
   ADW_UNVERIFIED_LABEL,
 } from '../core';
+import { runShellCommand, type ProcessOutcome, type ProcessRunner } from '../core/checkRunner';
+import { resolveScenarioRunner } from '../core/scenarioRunner';
+import type { FixRoundPort } from '../core/staticCheckFixLoop';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -18,27 +21,167 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
 import { BoardStatus } from '@paysdoc/devplatform';
+import { requireApplicationProfile } from './applicationTypeGate';
 import { reportStackCoherence } from './stackCoherenceReporter';
+import { runStaticCheckGate } from './staticCheckGate';
+
+export interface UnitTestPhaseDeps {
+  readonly runProcess: ProcessRunner;
+  readonly runUnitTestsWithRetry: typeof runUnitTestsWithRetry;
+  readonly fixRounds: FixRoundPort;
+}
+
+interface TestRunOutcome {
+  readonly costUsd: number;
+  readonly modelUsage: ModelUsageMap;
+  readonly totalRetries: number;
+  readonly contextResetCount: number;
+}
+
+function endRunOnFailedGate(config: WorkflowConfig, errorMsg: string, costUsd: number): never {
+  const { orchestratorStatePath, issueNumber, ctx, repoContext } = config;
+  log(errorMsg, 'error');
+  AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
+  ctx.errorMessage = errorMsg;
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+  }
+
+  AgentStateManager.writeState(orchestratorStatePath, {
+    execution: AgentStateManager.completeExecution(
+      AgentStateManager.createExecutionState('running'),
+      false,
+      errorMsg
+    ),
+    metadata: { totalCostUsd: costUsd, unitTestsPassed: false },
+  });
+  process.exit(1);
+}
+
+function recordTestCompaction(config: WorkflowConfig, continuationNumber: number): void {
+  const { orchestratorStatePath, issueNumber, ctx, repoContext } = config;
+  ctx.tokenContinuationNumber = continuationNumber;
+  log(`Test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, `Test phase context compacted (continuation ${continuationNumber})`);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'test_compaction_recovery', ctx);
+  }
+}
+
+function markUnitTestsUnverified(config: WorkflowConfig, reason: string): void {
+  const { orchestratorStatePath, issueNumber, ctx, repoContext } = config;
+  const warnMsg = `Unit tests unverified: ${reason}`;
+  log(warnMsg, 'warn');
+  AgentStateManager.appendLog(orchestratorStatePath, warnMsg);
+  // Marking unverified is advisory metadata — it must never crash the
+  // workflow. App-token auth lacks label-write permission ("Resource not
+  // accessible by integration"), so applyLabel can throw; swallow it,
+  // mirroring stackCoherenceReporter.
+  try {
+    if (repoContext) {
+      repoContext.issueTracker.applyLabel(issueNumber, ADW_UNVERIFIED_LABEL);
+      postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
+    } else {
+      log('Unit test phase: no repo context — adw:unverified not applied', 'warn');
+    }
+  } catch (e) {
+    log(`Failed to mark unit tests unverified (non-fatal): ${e}`, 'error');
+  }
+}
+
+async function runUnitTestSuite(
+  config: WorkflowConfig,
+  runTests: UnitTestPhaseDeps['runUnitTestsWithRetry'] = runUnitTestsWithRetry,
+): Promise<TestRunOutcome> {
+  const { orchestratorStatePath, issue, logsDir, worktreePath } = config;
+  log('Phase: Unit Tests', 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: Unit Tests');
+
+  const unitReportPath = path.join(logsDir, 'junit-unit.xml');
+  process.env.ADW_UNIT_TEST_REPORT_PATH = unitReportPath;
+  fs.rmSync(unitReportPath, { force: true });
+
+  const unitTestsResult = await runTests({
+    logsDir,
+    orchestratorStatePath,
+    maxRetries: MAX_TEST_RETRY_ATTEMPTS,
+    unitReportPath,
+    runTestsCommand: config.projectConfig.commands.runTests ?? 'bun run test:unit',
+    cwd: worktreePath,
+    issueBody: issue.body,
+    launchContext: workflowLaunchContext(config),
+    onCompactionDetected: (continuationNumber) => recordTestCompaction(config, continuationNumber),
+  });
+
+  const { reportPresent, hasFailures, testcaseCount } = unitTestsResult;
+  const verdictResult = computeTestVerdict({
+    enabled: true,
+    reportPresent,
+    hasFailures,
+    testcaseCount,
+  });
+
+  if (verdictResult.verdict === 'hard-fail') {
+    endRunOnFailedGate(config, `Unit tests hard-failed: ${verdictResult.reason}. No PR was created.`, unitTestsResult.costUsd);
+  }
+
+  if (verdictResult.verdict === 'warn') {
+    markUnitTestsUnverified(config, verdictResult.reason);
+  } else {
+    log('Unit tests passed!', 'success');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
+  }
+
+  return {
+    costUsd: unitTestsResult.costUsd,
+    modelUsage: mergeModelUsageMaps(emptyModelUsageMap(), unitTestsResult.modelUsage),
+    totalRetries: unitTestsResult.totalRetries,
+    contextResetCount: unitTestsResult.contextResetCount,
+  };
+}
+
+async function runInstall(command: string, worktreePath: string, runProcess: ProcessRunner): Promise<ProcessOutcome> {
+  try {
+    return await runProcess(command, worktreePath);
+  } catch (error) {
+    return { exitCode: null, output: String(error) };
+  }
+}
+
+/** A failed install is logged and the checks run either way: a repository whose checks do not reach the project does not need it. */
+async function installScenarioProject(config: WorkflowConfig, runProcess: ProcessRunner): Promise<void> {
+  const { installCommand } = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, config.projectConfig);
+  if (installCommand === null) return;
+
+  const { exitCode, output } = await runInstall(installCommand, config.worktreePath, runProcess);
+  const installed = exitCode === 0;
+  const message = installed
+    ? `Scenario project installed (${installCommand})`
+    : `Scenario project install failed (non-fatal, exit ${exitCode ?? 'none'}): ${output}`;
+  log(message, installed ? 'info' : 'warn');
+  AgentStateManager.appendLog(config.orchestratorStatePath, message);
+}
+
+function skipUnitTestRun(config: WorkflowConfig): TestRunOutcome {
+  log('Unit tests disabled — skipping the test run', 'info');
+  AgentStateManager.appendLog(config.orchestratorStatePath, 'Unit tests disabled — skipping the test run');
+  return { costUsd: 0, modelUsage: emptyModelUsageMap(), totalRetries: 0, contextResetCount: 0 };
+}
 
 /**
- * Unit tests are skipped when `.github/adw.yml` has `unitTests: false` (opt-out).
- * Default when absent or key omitted: unit tests run (enabled).
- *
- * BDD scenarios are now run in the Review phase after step definitions are generated.
+ * The static checks always run first. A red check goes to the static-check fix loop, and a loop that stops
+ * making progress parks the workflow as `human_gated`. `unitTests: false` in `.github/adw.yml` (opt-out,
+ * default enabled) skips only the unit-test run that follows them.
  */
-export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
+export async function executeUnitTestPhase(config: WorkflowConfig, deps: Partial<UnitTestPhaseDeps> = {}): Promise<{
   costUsd: number;
   modelUsage: ModelUsageMap;
   unitTestsPassed: boolean;
   totalRetries: number;
   phaseCostRecords: PhaseCostRecord[];
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, adwYmlConfig, adwId } = config;
+  const { issueNumber, repoContext, adwYmlConfig, adwId } = config;
   const phaseStartTime = Date.now();
-  let costUsd = 0;
-  let modelUsage = emptyModelUsageMap();
-  let totalRetries = 0;
-  let phaseContextResetCount = 0;
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -46,110 +189,33 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
 
   reportStackCoherence(config);
 
-  const unitTestsEnabled = adwYmlConfig.unitTests;
+  const runProcess = deps.runProcess ?? runShellCommand;
+  // Before the checks: the repository's own type check and lint may cover features/**, whose imports resolve only from features/node_modules.
+  await installScenarioProject(config, runProcess);
 
-  if (unitTestsEnabled) {
-    log('Phase: Unit Tests', 'info');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: Unit Tests');
+  const gate = await runStaticCheckGate(config, { runProcess, fixRounds: deps.fixRounds });
 
-    const unitReportPath = path.join(logsDir, 'junit-unit.xml');
-    process.env.ADW_UNIT_TEST_REPORT_PATH = unitReportPath;
-    fs.rmSync(unitReportPath, { force: true });
-
-    const unitTestsResult = await runUnitTestsWithRetry({
-      logsDir,
-      orchestratorStatePath,
-      maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-      unitReportPath,
-      runTestsCommand: config.projectConfig.commands.runTests ?? 'bun run test:unit',
-      cwd: worktreePath,
-      issueBody: issue.body,
-      launchContext: workflowLaunchContext(config),
-      onCompactionDetected: (continuationNumber) => {
-        ctx.tokenContinuationNumber = continuationNumber;
-        log(`Test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
-        AgentStateManager.appendLog(orchestratorStatePath, `Test phase context compacted (continuation ${continuationNumber})`);
-        if (repoContext) {
-          postIssueStageComment(repoContext, issueNumber, 'test_compaction_recovery', ctx);
-        }
-      },
-    });
-    costUsd += unitTestsResult.costUsd;
-    modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
-    totalRetries += unitTestsResult.totalRetries;
-    phaseContextResetCount = unitTestsResult.contextResetCount;
-
-    const { reportPresent, hasFailures, testcaseCount } = unitTestsResult;
-    const verdictResult = computeTestVerdict({
-      enabled: true,
-      reportPresent,
-      hasFailures,
-      testcaseCount,
-    });
-
-    if (verdictResult.verdict === 'hard-fail') {
-      const errorMsg = `Unit tests hard-failed: ${verdictResult.reason}. No PR was created.`;
-      log(errorMsg, 'error');
-      AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-      ctx.errorMessage = errorMsg;
-      if (repoContext) {
-        postIssueStageComment(repoContext, issueNumber, 'error', ctx);
-      }
-
-      AgentStateManager.writeState(orchestratorStatePath, {
-        execution: AgentStateManager.completeExecution(
-          AgentStateManager.createExecutionState('running'),
-          false,
-          errorMsg
-        ),
-        metadata: { totalCostUsd: costUsd, unitTestsPassed: false },
-      });
-      process.exit(1);
-    }
-
-    if (verdictResult.verdict === 'warn') {
-      const warnMsg = `Unit tests unverified: ${verdictResult.reason}`;
-      log(warnMsg, 'warn');
-      AgentStateManager.appendLog(orchestratorStatePath, warnMsg);
-      // Marking unverified is advisory metadata — it must never crash the
-      // workflow. App-token auth lacks label-write permission ("Resource not
-      // accessible by integration"), so applyLabel can throw; swallow it,
-      // mirroring stackCoherenceReporter.
-      try {
-        if (repoContext) {
-          repoContext.issueTracker.applyLabel(issueNumber, ADW_UNVERIFIED_LABEL);
-          postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
-        } else {
-          log('Unit test phase: no repo context — adw:unverified not applied', 'warn');
-        }
-      } catch (e) {
-        log(`Failed to mark unit tests unverified (non-fatal): ${e}`, 'error');
-      }
-    } else {
-      log('Unit tests passed!', 'success');
-      AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
-    }
-  } else {
-    log('Unit tests disabled — skipping', 'info');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
-  }
+  const testRun = adwYmlConfig.unitTests
+    ? await runUnitTestSuite(config, deps.runUnitTestsWithRetry)
+    : skipUnitTestRun(config);
+  const modelUsage = mergeModelUsageMaps(gate.modelUsage, testRun.modelUsage);
 
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,
     issueNumber,
     phase: 'test',
     status: PhaseCostStatus.Success,
-    retryCount: totalRetries,
-    contextResetCount: phaseContextResetCount,
+    retryCount: testRun.totalRetries,
+    contextResetCount: testRun.contextResetCount,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });
 
   return {
-    costUsd,
+    costUsd: gate.costUsd + testRun.costUsd,
     modelUsage,
     unitTestsPassed: true,
-    totalRetries,
+    totalRetries: testRun.totalRetries,
     phaseCostRecords,
   };
 }

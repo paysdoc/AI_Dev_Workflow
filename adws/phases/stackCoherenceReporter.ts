@@ -1,16 +1,17 @@
 import { log, AgentStateManager, stackCoherenceCheck, ADW_UNVERIFIED_LABEL } from '../core';
+import { resolveScenarioRunner } from '../core/scenarioRunner';
+import { requireApplicationProfile } from './applicationTypeGate';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import type { WorkflowConfig } from './workflowInit';
 
 export function reportStackCoherence(config: WorkflowConfig): void {
-  const commands = config.projectConfig.commands;
-  const scenarios = config.projectConfig.scenarios;
+  const { commands } = config.projectConfig;
+  const runner = resolveScenarioRunner(requireApplicationProfile(config).runnerMode, config.projectConfig);
 
   const result = stackCoherenceCheck({
     testFramework: commands.testFramework,
-    bddFramework: scenarios.bddFramework,
     runTests: commands.runTests,
-    runScenariosByTag: commands.runScenariosByTag,
+    ...runner.stackSignals,
   });
 
   if (result.ok) return;

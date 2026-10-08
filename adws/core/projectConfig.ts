@@ -2,8 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from './conditionalDocsRegistry';
 
-export type ApplicationType = 'cli' | 'web';
-
 export interface CommandsConfig {
   packageManager: string;
   installDeps: string;
@@ -20,6 +18,8 @@ export interface CommandsConfig {
   runRegressionScenarios: string;
   testDirectory: string;
   testFramework: string;
+  /** The raw body of `## Suppression Patterns`: the repository's own additions to the fix-round guard's framework table. */
+  suppressionPatterns: string;
 }
 
 export interface ScenariosConfig {
@@ -46,37 +46,17 @@ export interface ProvidersConfig {
   issueTrackerProjectKey?: string;
 }
 
-export interface ReviewTagEntry {
-  tag: string;
-  severity: 'blocker' | 'tech-debt';
-  /** When true, gracefully skip if no matching scenarios exist. */
-  optional?: boolean;
-}
-
-export interface SupplementaryCheck {
-  name: string;
-  command: string;
-  severity: 'blocker' | 'tech-debt';
-}
-
-export interface ReviewProofConfig {
-  tags: ReviewTagEntry[];
-  supplementaryChecks: SupplementaryCheck[];
-}
-
 export interface ProjectConfig {
   commands: CommandsConfig;
   projectMd: string;
   conditionalDocsMd: string;
   conditionalDocs: ConditionalDocsRegistry;
-  reviewProofMd: string;
   hasAdwDir: boolean;
   providers: ProvidersConfig;
   scenarios: ScenariosConfig;
   scenariosMd: string;
-  reviewProofConfig: ReviewProofConfig;
-  /** Defaults to `'cli'`. */
-  applicationType: ApplicationType;
+  /** Absent or empty ⇒ `null`. Decisions read it only through `resolveApplicationType`, which alone says what a value means. */
+  applicationType: string | null;
 }
 
 const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
@@ -115,6 +95,7 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'run regression scenarios': 'runRegressionScenarios',
   'test directory': 'testDirectory',
   'test framework': 'testFramework',
+  'suppression patterns': 'suppressionPatterns',
 };
 
 export function getDefaultCommandsConfig(): CommandsConfig {
@@ -134,6 +115,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     runRegressionScenarios: 'cucumber-js --tags "@regression"',
     testDirectory: 'src',
     testFramework: '',
+    suppressionPatterns: '',
   };
 }
 
@@ -154,29 +136,17 @@ export function getDefaultProvidersConfig(): ProvidersConfig {
   };
 }
 
-export function getDefaultReviewProofConfig(): ReviewProofConfig {
-  return {
-    tags: [
-      { tag: '@regression', severity: 'blocker', optional: false },
-      { tag: '@adw-{issueNumber}', severity: 'blocker', optional: true },
-    ],
-    supplementaryChecks: [],
-  };
-}
-
 export function getDefaultProjectConfig(): ProjectConfig {
   return {
     commands: getDefaultCommandsConfig(),
     projectMd: '',
     conditionalDocsMd: '',
     conditionalDocs: parseConditionalDocs(''),
-    reviewProofMd: '',
     hasAdwDir: false,
     providers: getDefaultProvidersConfig(),
     scenarios: getDefaultScenariosConfig(),
     scenariosMd: '',
-    reviewProofConfig: getDefaultReviewProofConfig(),
-    applicationType: 'cli',
+    applicationType: null,
   };
 }
 
@@ -212,15 +182,11 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   return sections;
 }
 
-/**
- * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
- * Defaults to `'cli'` when the section is absent or has any other value.
- */
-export function parseApplicationType(projectMd: string): ApplicationType {
+/** The section's value as written, comments stripped and trimmed; `null` when the section is absent or empty. */
+export function parseApplicationType(projectMd: string): string | null {
   const sections = parseMarkdownSections(projectMd);
-  const value = sections['application type'];
-  if (value !== undefined && value.trim().toLowerCase() === 'web') return 'web';
-  return 'cli';
+  const value = stripHtmlComments(sections['application type'] ?? '');
+  return value === '' ? null : value;
 }
 
 export function parseCommandsMd(content: string): CommandsConfig {
@@ -280,52 +246,13 @@ export function parseScenariosMd(content: string): ScenariosConfig {
   return result;
 }
 
-function isSeparatorRow(line: string): boolean {
-  return /^[|:\-\s]+$/.test(line);
-}
-
-/** Parses a markdown table body into an array of cell arrays, skipping the header and separator rows. */
-function parseMarkdownTableRows(content: string): string[][] {
-  const dataRows = content
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.startsWith('|') && !isSeparatorRow(line))
-    .map(line => line.split('|').slice(1, -1).map(cell => cell.trim()));
-  return dataRows.slice(1);
-}
-
-function parseTagsTable(content: string): ReviewTagEntry[] {
-  return parseMarkdownTableRows(content)
-    .filter(cells => cells.length >= 2 && cells[0])
-    .map(cells => {
-      const severity = cells[1] === 'tech-debt' ? 'tech-debt' : 'blocker';
-      return { tag: cells[0], severity, optional: cells[2]?.toLowerCase() === 'yes' };
-    });
-}
-
-function parseSupplementaryChecksTable(content: string): SupplementaryCheck[] {
-  return parseMarkdownTableRows(content)
-    .filter(cells => cells.length >= 3 && cells[0] && cells[1])
-    .map(cells => {
-      const severity = cells[2] === 'tech-debt' ? 'tech-debt' : 'blocker';
-      return { name: cells[0], command: cells[1], severity };
-    });
-}
-
-/** Falls back to defaults when the file is absent, empty, or has no `## Tags` section. */
-export function parseReviewProofMd(content: string): ReviewProofConfig {
-  const defaults = getDefaultReviewProofConfig();
-  if (!content.trim()) return defaults;
-
-  const sections = parseMarkdownSections(content);
-  if (!('tags' in sections)) return defaults;
-
-  const tags = parseTagsTable(sections['tags'] ?? '');
-  const supplementaryChecks = 'supplementary checks' in sections
-    ? parseSupplementaryChecksTable(sections['supplementary checks'] ?? '')
-    : [];
-
-  return { tags, supplementaryChecks };
+/** The file's text, or '' when it is absent or unreadable: each parser turns '' into its defaults. */
+function readAdwFile(adwDir: string, fileName: string): string {
+  try {
+    return fs.readFileSync(path.join(adwDir, fileName), 'utf-8');
+  } catch {
+    return '';
+  }
 }
 
 export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
@@ -335,70 +262,19 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     return getDefaultProjectConfig();
   }
 
-  const commandsPath = path.join(adwDir, 'commands.md');
-  let commands: CommandsConfig;
-  try {
-    const raw = fs.readFileSync(commandsPath, 'utf-8');
-    commands = parseCommandsMd(raw);
-  } catch {
-    commands = getDefaultCommandsConfig();
-  }
-
-  const projectPath = path.join(adwDir, 'project.md');
-  let projectMd = '';
-  try {
-    projectMd = fs.readFileSync(projectPath, 'utf-8');
-  } catch {
-    // default above already covers a missing file
-  }
-
-  const conditionalDocsPath = path.join(adwDir, 'conditional_docs.md');
-  let conditionalDocsMd = '';
-  try {
-    conditionalDocsMd = fs.readFileSync(conditionalDocsPath, 'utf-8');
-  } catch {
-    // default above already covers a missing file
-  }
-
-  const reviewProofPath = path.join(adwDir, 'review_proof.md');
-  let reviewProofMd = '';
-  try {
-    reviewProofMd = fs.readFileSync(reviewProofPath, 'utf-8');
-  } catch {
-    // default above already covers a missing file
-  }
-  const reviewProofConfig = parseReviewProofMd(reviewProofMd);
-
-  const providersPath = path.join(adwDir, 'providers.md');
-  let providers: ProvidersConfig;
-  try {
-    const raw = fs.readFileSync(providersPath, 'utf-8');
-    providers = parseProvidersMd(raw);
-  } catch {
-    providers = getDefaultProvidersConfig();
-  }
-
-  const scenariosPath = path.join(adwDir, 'scenarios.md');
-  let scenarios: ScenariosConfig;
-  let scenariosMd = '';
-  try {
-    scenariosMd = fs.readFileSync(scenariosPath, 'utf-8');
-    scenarios = parseScenariosMd(scenariosMd);
-  } catch {
-    scenarios = getDefaultScenariosConfig();
-  }
+  const projectMd = readAdwFile(adwDir, 'project.md');
+  const conditionalDocsMd = readAdwFile(adwDir, 'conditional_docs.md');
+  const scenariosMd = readAdwFile(adwDir, 'scenarios.md');
 
   return {
-    commands,
+    commands: parseCommandsMd(readAdwFile(adwDir, 'commands.md')),
     projectMd,
     conditionalDocsMd,
     conditionalDocs: parseConditionalDocs(conditionalDocsMd),
-    reviewProofMd,
     hasAdwDir: true,
-    providers,
-    scenarios,
+    providers: parseProvidersMd(readAdwFile(adwDir, 'providers.md')),
+    scenarios: parseScenariosMd(scenariosMd),
     scenariosMd,
-    reviewProofConfig,
     applicationType: parseApplicationType(projectMd),
   };
 }

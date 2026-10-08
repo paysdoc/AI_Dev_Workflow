@@ -109,6 +109,21 @@ vi.mock('../upgradeGate', () => ({
   buildDefaultUpgradeGateDeps: vi.fn(),
 }));
 
+// The worktree below has no .adw/, so the real gate would park. Each test that wants the real one says so.
+vi.mock('../applicationTypeGate', async (importOriginal) => {
+  const { APPLICATION_TYPE_PROFILES } = await import('../../core/applicationType');
+  return {
+    ...(await importOriginal<typeof import('../applicationTypeGate')>()),
+    runApplicationTypeGate: vi.fn((_config: unknown, projectConfig: ProjectConfig) => ({ projectConfig, applicationProfile: APPLICATION_TYPE_PROFILES.cli })),
+    buildApplicationTypeGateDeps: vi.fn(() => ({})),
+  };
+});
+
+vi.mock('../../core/projectConfig', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/projectConfig')>();
+  return { ...actual, loadProjectConfig: vi.fn(actual.loadProjectConfig) };
+});
+
 vi.mock('../../core/portAllocator', () => ({
   allocateRandomPort: vi.fn().mockResolvedValue(3000),
   isPortAvailable: vi.fn().mockResolvedValue(true),
@@ -134,9 +149,17 @@ import { classifyGitHubIssue } from '../../core/issueClassifier';
 import { bindWorkspaceContext } from '../../core/workspaceBinding';
 import { buildLaunchBoundary } from '../../core/launchGitContext';
 import type { LaunchBoundary } from '../../core/launchGitContext';
+import { allocateRandomPort } from '../../core/portAllocator';
+import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
+import { getDefaultProjectConfig, loadProjectConfig, type ProjectConfig } from '../../core/projectConfig';
+import { runApplicationTypeGate, buildApplicationTypeGateDeps } from '../applicationTypeGate';
 import { Platform } from '@paysdoc/devplatform';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
+const mockGate = vi.mocked(runApplicationTypeGate);
+const mockBuildGateDeps = vi.mocked(buildApplicationTypeGateDeps);
+const mockLoadProjectConfig = vi.mocked(loadProjectConfig);
+const mockAllocateRandomPort = vi.mocked(allocateRandomPort);
 const mockFetchIssue = vi.mocked(fetchIssueRecord);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
 const mockClassify = vi.mocked(classifyGitHubIssue);
@@ -351,6 +374,76 @@ describe('initializeWorkflow: boundary-providers passthrough to bindWorkspaceCon
   });
 });
 
+describe('initializeWorkflow: the application-type gate', () => {
+  const adwId = `${BASE_ADW_ID}-apptype`;
+
+  beforeEach(() => {
+    mockAgent.mockResolvedValue({ ...baseAgentResult, branchName: 'feature-issue-9000-apptype' });
+  });
+
+  afterEach(() => cleanupAdwId(adwId));
+
+  it('hands the gate the run, its worktree, its default branch and the config read from that worktree', async () => {
+    const loaded = { ...getDefaultProjectConfig(), projectMd: 'read from the worktree' };
+    mockLoadProjectConfig.mockReturnValueOnce(loaded);
+
+    const config = await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockLoadProjectConfig).toHaveBeenCalledWith(FAKE_WORKTREE_PATH);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+    const [gateConfig, gateProjectConfig] = mockGate.mock.calls[0];
+    expect(gateConfig).toMatchObject({
+      adwId,
+      issueNumber: ISSUE_NUMBER,
+      orchestratorStatePath: config.orchestratorStatePath,
+      worktreePath: FAKE_WORKTREE_PATH,
+      defaultBranch: 'main',
+    });
+    expect(gateProjectConfig).toBe(loaded);
+  });
+
+  it('builds the gate its real dependencies from the launch GitContext', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    const deps = { marker: 'gate deps' } as unknown as ReturnType<typeof buildApplicationTypeGateDeps>;
+    mockBuildGateDeps.mockReturnValueOnce(deps);
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockBuildGateDeps).toHaveBeenCalledWith(boundary.gitContext);
+    expect(mockGate.mock.calls[0][2]).toBe(deps);
+  });
+
+  it('returns the profile the gate resolved, and the config the gate returned, which a merge can have changed', async () => {
+    const reloaded = { ...getDefaultProjectConfig(), applicationType: 'web' };
+    mockGate.mockReturnValueOnce({ projectConfig: reloaded, applicationProfile: APPLICATION_TYPE_PROFILES.web });
+
+    const config = await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(config.applicationProfile).toBe(APPLICATION_TYPE_PROFILES.web);
+    expect(config.projectConfig).toBe(reloaded);
+  });
+
+  it('runs the gate before it allocates a port', async () => {
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockAllocateRandomPort).toHaveBeenCalledTimes(1);
+    expect(mockGate.mock.invocationCallOrder[0]).toBeLessThan(mockAllocateRandomPort.mock.invocationCallOrder[0]);
+  });
+
+  it('allocates no port when the gate stops the run', async () => {
+    mockGate.mockImplementationOnce(() => {
+      throw new Error('the gate parked the workflow');
+    });
+
+    await expect(
+      initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' }),
+    ).rejects.toThrow('the gate parked the workflow');
+
+    expect(mockAllocateRandomPort).not.toHaveBeenCalled();
+  });
+});
+
 describe('initializeWorkflow: a startup failure is written to the orchestrator execution log', () => {
   const adwId = `${BASE_ADW_ID}-startup-failure`;
   const executionLogOf = (id: string) => join(AGENTS_STATE_DIR, id, 'orchestrator', 'execution.log');
@@ -457,6 +550,16 @@ describe('initializeWorkflow: the top-level starting state records its owner', (
     expect(state?.pid).toBe(process.pid);
     expect(state?.pidStartedAt).toBeUndefined();
     expect(Date.parse(state?.lastSeenAt ?? '')).toBeGreaterThanOrEqual(beforeInit);
+  });
+
+  it('drops the park a previous run left, since a starting run is no longer parked', async () => {
+    AgentStateManager.writeTopLevelState(adwId, { adwId, workflowStage: 'phase_timeout', parkReason: 'baseline_red' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.workflowStage).toBe('starting');
+    expect(state).not.toHaveProperty('parkReason');
   });
 
   it('still writes the orchestrator\'s own sub-state pid', async () => {

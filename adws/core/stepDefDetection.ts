@@ -10,6 +10,7 @@ const FRAMEWORK_EXTENSION_MAP: Record<string, string[]> = {
   'godog': ['.go'],
   'cucumber-rs': ['.rs'],
   'cucumber-ruby': ['.rb'],
+  'playwright-bdd': ['.ts'],
 };
 
 export function stepDefExtensionsFor(bddFramework: string): string[] {

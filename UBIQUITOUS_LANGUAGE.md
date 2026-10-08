@@ -44,10 +44,10 @@
 |------|-----------|-----------------|
 | **Scenario** | A BDD test written in Gherkin syntax (`.feature` file), tagged with `@adw-{issueNumber}` to link it to an Issue | Test case, spec, acceptance test |
 | **Step Definition** | The executable implementation of a Gherkin step (Given/When/Then) | Step implementation, glue code |
-| **Scenario Proof** | The execution of tagged Scenarios during Review to validate that the implementation satisfies behavioral requirements | Scenario run, BDD proof |
+| **Scenario Proof** | The proof document the scenario test phase writes from the `@regression` and `@adw-{issueNumber}` runs, which the Review Agent reads | Scenario run, BDD proof |
 | **Plan Validation** | A multi-round process comparing Plan behaviors against Scenario coverage, using Validation and Resolution Agents to reconcile mismatches | Plan check, plan verification |
 | **Alignment** | A single-pass reconciliation of Plan and Scenarios that flags unresolvable conflicts as warnings rather than halting | Sync, reconciliation, validation (when single-pass is meant) |
-| **Review** | A Phase where up to three parallel Review Agents validate the implementation against the Plan, run Scenario Proofs, and capture screenshots | Code review, inspection |
+| **Review** | A Phase where the Review Agent judges the change against the issue and its evidence, running nothing | Code review, inspection |
 | **Blocker** | A Review finding severe enough to prevent merging; triggers the Patch Agent for auto-resolution | Critical issue, showstopper |
 | **Tech Debt** | A Review finding logged for future attention but not blocking merge | Warning, non-critical issue |
 
@@ -128,7 +128,6 @@
 |------|-----------|-----------------|
 | **Project Config** | The collection of `.adw/` files in a target repository that configure ADW behavior for that project | Settings, project settings |
 | **Commands Config** | The `.adw/commands.md` file mapping build/test/lint/install commands for a target project | Build config, toolchain config |
-| **Review Proof Config** | The `.adw/review_proof.md` file defining which Scenario tags and supplementary checks are required during Review | Review rules, review config |
 
 ## Relationships
 

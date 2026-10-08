@@ -80,9 +80,52 @@ export {
 
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
 export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
+export type { ApplicationProfile, ApplicationProfiles, ApplicationType, ApplicationTypeResolution } from './applicationType';
+export { APPLICATION_TYPE_PROFILES, RunnerMode, EvidenceKind, resolveApplicationType, describeApplicationProfile } from './applicationType';
+
+export type { AdwPlaywrightProjectFile, ProjectFileAction, ProjectFileOutcome } from './adwPlaywrightProject';
+export {
+  ADW_PLAYWRIGHT_PROJECT_DIR,
+  ADW_PLAYWRIGHT_STEP_DEF_DIR,
+  ADW_PLAYWRIGHT_TEMPLATE_DIR,
+  ADW_PLAYWRIGHT_SETUP_COMMAND,
+  ADW_PLAYWRIGHT_INSTALL_COMMAND,
+  ADW_PLAYWRIGHT_RUN_BY_TAG,
+  ADW_PLAYWRIGHT_PROJECT_FILES,
+  ProjectFilePolicy,
+  appendMissingLines,
+  syncAdwPlaywrightProject,
+} from './adwPlaywrightProject';
+
+export type { ScenarioRunner, ScenarioRunnerConfig } from './scenarioRunner';
+export { resolveScenarioRunner } from './scenarioRunner';
 
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
+
+export type { CheckVerdict, ProcessOutcome, ProcessRunner, StaticCheckCommands } from './checkRunner';
+export { runStaticChecks, combinedCheckOutput, runShellCommand, isCheckConfigured, STATIC_CHECKS, StaticCheckName, CheckStatus } from './checkRunner';
+
+export type { BaselineRecord, BaselineInput, BaselineVerdict, BaselineEvent, BaseCommandFailure, DevServerStartResult } from './baselineGate';
+export { BaselineStatus, isBaselineWaived, declaredDevServerCommand, runBaselineChecks, INSTALL_DEPENDENCIES_CHECK } from './baselineGate';
+
+export type { DevServerStart, FailedDevServerStart, ReviewAttempts } from './devServerFailure';
+export { DevServerStartStatus, NO_DEV_SERVER_START, NO_REVIEW_ATTEMPTS, SERVER_OUTPUT_TAIL_CHARS, countFailedStart, countStartedServer, countFailedReview, isReviewBudgetSpent, serverOutputTail } from './devServerFailure';
+
+export type { FailingScenario, ScenarioRerun, TriagedScenario, RegressionTriage } from './regressionTriage';
+export { BaseScenarioOutcome, triageRegressionFailures, scenarioMatchesCase, withRerunTag, describeFailingScenario } from './regressionTriage';
+
+export type { DiffFile } from './unifiedDiff';
+export { parseUnifiedDiff } from './unifiedDiff';
+
+export type { SuppressionPatternEntry, ProtectedPathRule } from './fixRoundGuardTable';
+export { FRAMEWORK_SUPPRESSION_PATTERNS, PROTECTED_PATH_RULES, ProtectedPathCategory, PathScope } from './fixRoundGuardTable';
+
+export type { FixRoundGuardConfig, FixRoundVerdict, GuardRejection, GuardPattern } from './fixRoundGuard';
+export { buildFixRoundGuardConfig, parseSuppressionPatternAdditions, evaluateFixRound, describeGuardRejection, PatternSource } from './fixRoundGuard';
+
+export type { FixRoundResult, FixRoundPort, FixLoopEvent, StaticCheckFixLoopResult, StaticCheckFixLoopInput } from './staticCheckFixLoop';
+export { runStaticCheckFixLoop, FixLoopStall } from './staticCheckFixLoop';
 
 export type { DocSize, BloatFlag, RegrowthFlag, GuardFlags } from './docsGuards';
 export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, runDocsGuards } from './docsGuards';
@@ -107,8 +150,8 @@ export { parseJUnitXml, readJUnitReport } from './testReportParser';
 
 export { stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework } from './stepDefDetection';
 
-export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, StackCoherenceWarningCode } from './stackCoherenceCheck';
-export { stackCoherenceCheck } from './stackCoherenceCheck';
+export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, StackCoherenceWarningCode, StackLanguage } from './stackCoherenceCheck';
+export { stackCoherenceCheck, inferStackLanguages } from './stackCoherenceCheck';
 
 export type { IssueClassificationResult, ClassifiableIssue, ClassifyIssueForTriggerDeps } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';

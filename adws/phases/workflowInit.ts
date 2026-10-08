@@ -33,6 +33,7 @@ import {
   isGitHubAppConfigured,
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
+import type { ApplicationProfile } from '../core/applicationType';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { GITHUB_PAT } from '../core/environment';
@@ -45,6 +46,7 @@ import { copyClaudeAssetsToWorktree } from './worktreeSetup';
 import { recordStartupFailure } from './startupFailureLog';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
+import { runApplicationTypeGate, buildApplicationTypeGateDeps } from './applicationTypeGate';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -79,6 +81,11 @@ export interface WorkflowConfig {
    *  production by initializeWorkflow/initializePRReviewWorkflow; optional only
    *  so phase-test fixtures using `as unknown as WorkflowConfig` keep compiling. */
   gitContext?: GitContext;
+  /** What the application type decides: always set in production by
+   *  initializeWorkflow/initializePRReviewWorkflow; optional only so phase-test
+   *  fixtures using `as unknown as WorkflowConfig` keep compiling. Read it through
+   *  `requireApplicationProfile`, which never defaults. */
+  applicationProfile?: ApplicationProfile;
 }
 
 /**
@@ -342,6 +349,8 @@ async function initializeWorkflowSteps(
     pid: process.pid,
     // Always written, even as undefined: the shallow merge would otherwise pair this pid with a previous run's start time.
     pidStartedAt: getProcessStartTime(process.pid) ?? undefined,
+    // Written as undefined so the shallow merge drops a previous run's park: a starting run is no longer parked.
+    parkReason: undefined,
     // The heartbeat's first beat lands one interval after the lifecycle lock; until then a resumed run's old value reads as hung.
     lastSeenAt: new Date().toISOString(),
   });
@@ -430,12 +439,19 @@ async function initializeWorkflowSteps(
     }
   }
 
-  const projectConfig = loadProjectConfig(worktreePath);
-  if (projectConfig.hasAdwDir) {
+  const loadedProjectConfig = loadProjectConfig(worktreePath);
+  if (loadedProjectConfig.hasAdwDir) {
     log('Loaded project config from .adw/ directory', 'info');
   } else {
     log('No .adw/ directory found, using default project config', 'info');
   }
+
+  // Before the port is allocated: a run that parks on a missing application type holds no port.
+  const { projectConfig, applicationProfile } = runApplicationTypeGate(
+    { adwId: resolvedAdwId, issueNumber, orchestratorStatePath, repoContext, worktreePath, defaultBranch },
+    loadedProjectConfig,
+    buildApplicationTypeGateDeps(gitCtx),
+  );
 
   const adwYmlConfig = readAdwYmlConfig(worktreePath);
   log(`adw.yml unit-test gate: ${adwYmlConfig.unitTests ? 'enabled' : 'disabled'}`, 'info');
@@ -462,6 +478,7 @@ async function initializeWorkflowSteps(
     targetRepo,
     repoContext,
     projectConfig,
+    applicationProfile,
     adwYmlConfig,
     completedPhases,
     topLevelStatePath,

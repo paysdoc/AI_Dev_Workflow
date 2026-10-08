@@ -30,6 +30,7 @@ vi.mock('../phaseCommentHelpers', () => ({
 import { executeReviewPhase } from '../reviewPhase';
 import { log } from '../../core';
 import { runReviewAgent } from '../../agents/reviewAgent';
+import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import type { WorkflowConfig } from '../workflowInit';
 
 const mockLog = vi.mocked(log);
@@ -98,6 +99,8 @@ function makeConfig(opts: MakeConfigOptions = {}) {
       createdAt: '2026-01-01T00:00:00Z',
       url: 'https://github.com/test/repo/issues/42',
     },
+    issueType: '/feature',
+    applicationProfile: APPLICATION_TYPE_PROFILES.cli,
     ctx: prUrl ? { prUrl } : {},
     logsDir: '/tmp/logs',
     worktreePath: '/tmp/worktree',

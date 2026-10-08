@@ -10,10 +10,11 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -27,8 +28,8 @@ import {
   executeProofPublishPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
+  runReviewRetryLoop,
   handleWorkflowError,
-  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
@@ -40,6 +41,7 @@ import { executeSdlcReviewFailedHandoff } from './phases/sdlcReviewHandoff';
 
 /** Injectable so tests can drive the review loop and what follows it without starting agents. */
 export interface PlanBuildTestReviewPhases {
+  readonly executeBaselinePhase: typeof executeBaselinePhase;
   readonly executeInstallPhase: typeof executeInstallPhase;
   readonly executePlanPhase: typeof executePlanPhase;
   readonly executeScenarioPhase: typeof executeScenarioPhase;
@@ -56,6 +58,7 @@ export interface PlanBuildTestReviewPhases {
 }
 
 const PLAN_BUILD_TEST_REVIEW_PHASES: PlanBuildTestReviewPhases = {
+  executeBaselinePhase,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -76,6 +79,7 @@ async function runPlanBuildTestReviewPhases(
   tracker: CostTracker,
   phases: PlanBuildTestReviewPhases,
 ): Promise<void> {
+  await runPhase(config, tracker, phases.executeBaselinePhase, 'baseline');
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhasesParallel(config, tracker, [phases.executePlanPhase, phases.executeScenarioPhase]);
   await runPhase(config, tracker, phases.executeAlignmentPhase);
@@ -83,27 +87,10 @@ async function runPlanBuildTestReviewPhases(
   await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
-  const { scenarioProofPath, scenarioRetries } = await phases.runScenarioTestFixLoop(config, tracker);
+  const scenarios = await phases.runScenarioTestFixLoop(config, tracker);
+  const { scenarioRetries } = scenarios;
 
-  let reviewRetries = 0;
-  let proofPath = scenarioProofPath;
-  let reviewPassed = false;
-  let reviewBlockers: ReviewIssue[] = [];
-  for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-    const reviewFn = (cfg: WorkflowConfig) => phases.executeReviewPhase(cfg, proofPath);
-    const reviewResult = await runPhase(config, tracker, reviewFn);
-    reviewPassed = reviewResult.reviewPassed;
-    reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-    if (reviewPassed) break;
-    reviewRetries++;
-    if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-      const patchWrapper = (cfg: WorkflowConfig) =>
-        phases.executeReviewPatchCycle(cfg, reviewBlockers);
-      await runPhase(config, tracker, patchWrapper);
-      const retestResult = await runPhase(config, tracker, phases.executeScenarioTestPhase);
-      proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-    }
-  }
+  const { reviewPassed, reviewRetries } = await runReviewRetryLoop(config, tracker, scenarios, phases);
 
   const outcome = decidePostReviewOutcome(reviewPassed);
 

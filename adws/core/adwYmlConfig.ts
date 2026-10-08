@@ -8,8 +8,8 @@
  *   - `hitl: false`         → hitl: false
  *   - No `hitl:` key        → hitl: false (file is not malformed, key just omitted)
  *   - Malformed `hitl` value → hitl: false + warn log
- *   - `unitTests: false`    → unitTests: false (opt-out; gate disabled)
- *   - `unitTests: true`     → unitTests: true (gate enabled)
+ *   - `unitTests: false`    → unitTests: false (opt-out; skips only the unit-test run, the static checks still run)
+ *   - `unitTests: true`     → unitTests: true (unit-test run enabled)
  *   - No `unitTests:` key   → unitTests: true (absent → enabled; opt-out default)
  *   - Malformed `unitTests` → unitTests: true + warn log (fails safe toward enabled)
  *   - Any other key         → ignored without a log line (a `guardrails:` line left from the retired opt-in is one)
@@ -28,7 +28,8 @@ export const ADW_YML_RELATIVE_PATH = path.join('.github', 'adw.yml');
  * `hitl: true` means the upgrade PR requires human review (no auto-merge).
  * Default is `false` (auto-merge).
  *
- * `unitTests: false` opts out of the unit-test phase gate; default `true` (enabled, opt-out).
+ * `unitTests: false` skips only the unit-test run. The unit-test phase still runs the static checks
+ * (type check, additional type checks, lint, build) first; default `true` (enabled, opt-out).
  */
 export interface AdwYmlConfig {
   readonly hitl: boolean;

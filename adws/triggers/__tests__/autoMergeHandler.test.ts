@@ -35,9 +35,13 @@ const fakeCodeHost: Pick<CodeHost, 'mergePullRequest'> = { mergePullRequest: moc
 const mockedAgent = vi.mocked(runClaudeAgentWithCommand);
 
 interface SpyCall {
-  command: string;
+  argv: readonly string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
+}
+
+function isConflictingMerge(argv: readonly string[]): boolean {
+  return argv[1] === 'merge' && (argv.includes('--no-commit') || argv.includes('--no-edit'));
 }
 
 function makeSpyExec(
@@ -45,9 +49,9 @@ function makeSpyExec(
   conflictOnMerge = false,
 ): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: options.env });
-    if (conflictOnMerge && command.includes('git merge') && (command.includes('--no-commit') || command.includes('--no-edit'))) {
+  const exec: ExecFn = (argv, options) => {
+    calls.push({ argv: [...argv], cwd: options.cwd, env: options.env });
+    if (conflictOnMerge && isConflictingMerge(argv)) {
       throw Object.assign(new Error('CONFLICT (content)'), { status: 1 });
     }
     return stdout;
@@ -200,10 +204,9 @@ describe('mergeWithConflictResolution', () => {
 
     await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
-    const commands = calls.map((c) => c.command);
-    expect(commands[0]).toContain(`git fetch origin "${HEAD_BRANCH}"`);
-    expect(commands[1]).toContain(`git reset --hard "origin/${HEAD_BRANCH}"`);
-    const firstMergeIdx = commands.findIndex((c) => c.includes('git merge'));
+    expect(calls[0].argv).toEqual(['git', 'fetch', 'origin', HEAD_BRANCH]);
+    expect(calls[1].argv).toEqual(['git', 'reset', '--hard', `origin/${HEAD_BRANCH}`]);
+    const firstMergeIdx = calls.findIndex((c) => c.argv[1] === 'merge');
     expect(firstMergeIdx).toBeGreaterThan(1);
   });
 });

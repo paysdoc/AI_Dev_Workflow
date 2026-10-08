@@ -5,7 +5,7 @@ vi.mock('../core', async (importOriginal) => {
   return {
     ...actual,
     MAX_REVIEW_RETRY_ATTEMPTS: 3,
-    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn() },
+    AgentStateManager: { writeTopLevelState: vi.fn(), writeState: vi.fn(), appendLog: vi.fn() },
     log: vi.fn(),
   };
 });
@@ -26,8 +26,20 @@ vi.mock('../cost', async (importOriginal) => {
   return { ...actual, persistTokenCounts: vi.fn() };
 });
 
+// A park ends the process, so it never reaches an error handler; the sentinel a test throws for it must not either.
+vi.mock('../workflowPhases', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../workflowPhases')>();
+  return {
+    ...actual,
+    handleWorkflowError: vi.fn((_config: unknown, error: unknown) => {
+      throw error;
+    }),
+  };
+});
+
 import { executePlanBuildTestReview, type PlanBuildTestReviewPhases } from '../adwPlanBuildTestReview';
 import { AgentStateManager } from '../core';
+import { runPhase } from '../core/phaseRunner';
 import { persistTokenCounts } from '../cost';
 import type { WorkflowConfig } from '../phases';
 
@@ -45,14 +57,28 @@ const FAILED_REVIEW = { reviewPassed: false, reviewIssues: [BLOCKER] };
 const PASSED_REVIEW = { reviewPassed: true, reviewIssues: [] };
 type ReviewVerdict = typeof FAILED_REVIEW | typeof PASSED_REVIEW;
 
+const SERVER_OUTPUT = "Error: Cannot find module './routes'";
+const NOT_STARTED = { status: 'not_started' };
+const STARTED = { status: 'started' };
+const FAILED_START = { status: 'failed', command: 'bun run dev --port 4567', healthUrl: 'http://localhost:4567/', output: SERVER_OUTPUT };
+type DevServerStart = typeof NOT_STARTED | typeof STARTED | typeof FAILED_START;
+
+/** Answers with each scripted start in turn, then repeats the last one; the fix loop's run is the first. */
+function scriptedStarts(starts: DevServerStart[]) {
+  let run = 0;
+  return () => starts[Math.min(run++, starts.length - 1)];
+}
+
 /** Answers with each scripted verdict in turn, then repeats the last one. */
 function scriptedReview(verdicts: ReviewVerdict[]) {
   let attempt = 0;
   return vi.fn(async () => ({ ...ZERO_COST, ...verdicts[Math.min(attempt++, verdicts.length - 1)] }));
 }
 
-function makePhases(verdicts: ReviewVerdict[]) {
+function makePhases(verdicts: ReviewVerdict[], starts: DevServerStart[] = [NOT_STARTED]) {
+  const nextStart = scriptedStarts(starts);
   return {
+    executeBaselinePhase: vi.fn(async () => ZERO_COST),
     executeInstallPhase: vi.fn(async () => ZERO_COST),
     executePlanPhase: vi.fn(async () => ZERO_COST),
     executeScenarioPhase: vi.fn(async () => ZERO_COST),
@@ -60,10 +86,10 @@ function makePhases(verdicts: ReviewVerdict[]) {
     executeBuildPhase: vi.fn(async () => ZERO_COST),
     executeStepDefPhase: vi.fn(async () => ZERO_COST),
     executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
-    runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: SCENARIO_RETRIES })),
-    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined })),
+    runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: SCENARIO_RETRIES, devServer: nextStart() })),
+    executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined, devServer: nextStart() })),
     executeReviewPhase: scriptedReview(verdicts),
-    executeReviewPatchCycle: vi.fn(async () => ZERO_COST),
+    executeReviewPatchCycle: vi.fn(async (_config: unknown, _blockers: Array<{ issueDescription: string }>) => ZERO_COST),
     executePRPhase: vi.fn(async () => ZERO_COST),
     executeProofPublishPhase: vi.fn(async () => ZERO_COST),
   };
@@ -82,8 +108,12 @@ function makeConfig() {
 }
 
 async function runWithReviews(...verdicts: ReviewVerdict[]) {
+  return runWithStarts([NOT_STARTED], ...verdicts);
+}
+
+async function runWithStarts(starts: DevServerStart[], ...verdicts: ReviewVerdict[]) {
   const { config, commentOnIssue } = makeConfig();
-  const phases = makePhases(verdicts);
+  const phases = makePhases(verdicts, starts);
   await executePlanBuildTestReview(config, phases as unknown as PlanBuildTestReviewPhases);
   return { config, commentOnIssue, phases };
 }
@@ -159,5 +189,101 @@ describe('executePlanBuildTestReview — the review passes', () => {
     expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
     expect(phases.executeProofPublishPhase).toHaveBeenCalledTimes(1);
     expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+});
+
+describe('executePlanBuildTestReview — the dev server does not start on the issue branch', () => {
+  it('never runs the review agent, and hands the patch cycle the server blocker once for each failed start but the last', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executeReviewPhase).not.toHaveBeenCalled();
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(2);
+    phases.executeReviewPatchCycle.mock.calls.forEach(([, blockers]) => {
+      expect(blockers).toHaveLength(1);
+      expect(blockers[0].issueDescription).toContain(SERVER_OUTPUT);
+    });
+  });
+
+  it('starts the server again after each patch: one scenario run per patch', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executeScenarioTestPhase).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops at review_failed and never writes awaiting_merge', async () => {
+    await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(writtenStages()).toEqual(['review_failed']);
+  });
+
+  it('opens no pull request and publishes no proof', async () => {
+    const { phases } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(phases.executePRPhase).not.toHaveBeenCalled();
+    expect(phases.executeProofPublishPhase).not.toHaveBeenCalled();
+  });
+
+  it('records each failed start as a failed review in the orchestrator metadata', async () => {
+    const { config } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    expect(AgentStateManager.writeState).toHaveBeenCalledWith(config.orchestratorStatePath, {
+      metadata: expect.objectContaining({ reviewPassed: false, totalReviewRetries: 3, scenarioRetries: SCENARIO_RETRIES }),
+    });
+  });
+
+  it('puts the server output in the issue comments, with the branch and ## Retry in the last one', async () => {
+    const { commentOnIssue } = await runWithStarts([FAILED_START], PASSED_REVIEW);
+
+    const comments = commentOnIssue.mock.calls.map(([, body]) => String(body));
+    expect(comments.length).toBeGreaterThan(0);
+    comments.forEach(body => expect(body).toContain(SERVER_OUTPUT));
+    const last = comments[comments.length - 1];
+    expect(last).toContain('## Retry');
+    expect(last).toContain(BRANCH);
+  });
+
+  it('carries on to the pull request when the server starts again after two failed starts and the review passes', async () => {
+    const { phases } = await runWithStarts([FAILED_START, FAILED_START, STARTED], PASSED_REVIEW);
+
+    expect(phases.executeReviewPatchCycle).toHaveBeenCalledTimes(2);
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(1);
+    expect(phases.executePRPhase).toHaveBeenCalledTimes(1);
+    expect(phases.executeProofPublishPhase).toHaveBeenCalledTimes(1);
+    expect(writtenStages()).toEqual(['awaiting_merge']);
+  });
+
+  it('gives a review that fails after the server started again the whole budget, counting the failed starts in the retries', async () => {
+    const { phases, config } = await runWithStarts([FAILED_START, STARTED], FAILED_REVIEW);
+
+    expect(phases.executeReviewPhase).toHaveBeenCalledTimes(3);
+    expect(writtenStages()).toEqual(['review_failed']);
+    expect(AgentStateManager.writeState).toHaveBeenCalledWith(config.orchestratorStatePath, {
+      metadata: expect.objectContaining({ reviewPassed: false, totalReviewRetries: 4 }),
+    });
+  });
+});
+
+class ParkedSignal extends Error {}
+
+describe('executePlanBuildTestReview — the baseline', () => {
+  it('runs first, as the phase named baseline, before the install phase and the plan phase', async () => {
+    const { config, phases } = await runWithReviews(PASSED_REVIEW);
+
+    const baseline = phases.executeBaselinePhase.mock.invocationCallOrder[0];
+    expect(baseline).toBeLessThan(phases.executeInstallPhase.mock.invocationCallOrder[0]);
+    expect(baseline).toBeLessThan(phases.executePlanPhase.mock.invocationCallOrder[0]);
+    expect(vi.mocked(runPhase)).toHaveBeenNthCalledWith(1, config, expect.anything(), phases.executeBaselinePhase, 'baseline');
+  });
+
+  it('stops the run before any plan is written when it parks the workflow', async () => {
+    const { config } = makeConfig();
+    const phases = makePhases([PASSED_REVIEW]);
+    phases.executeBaselinePhase.mockRejectedValueOnce(new ParkedSignal());
+
+    await expect(executePlanBuildTestReview(config, phases as unknown as PlanBuildTestReviewPhases)).rejects.toBeInstanceOf(ParkedSignal);
+
+    expect(phases.executeInstallPhase).not.toHaveBeenCalled();
+    expect(phases.executePlanPhase).not.toHaveBeenCalled();
+    expect(phases.executeBuildPhase).not.toHaveBeenCalled();
   });
 });

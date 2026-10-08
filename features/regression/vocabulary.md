@@ -66,7 +66,7 @@ Scenarios in this repo can assert against the following observable surfaces:
 | G16 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` | For multi-scenario files: targets the scenario whose `Scenario:` line matches the given name and inserts `@promotion-suggested-<today>` | subprocess | worktree artefact |
 | G17 | `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` | Multi-scenario variant for N-days-ago pre-tagging | subprocess | worktree artefact |
 | G18 | `the ADW codebase is checked out` | Background no-op; codebase is always present in the test environment. Defined in `features/regression/step_definitions/givenSteps.ts`. | mock-query | test environment state |
-| G19 | `the cron is polling the target repository {string} from a host checked out at {string}` | Sets up two-repo world in World; seeds targetRepo and hostRepo paths | mock-query | test harness world state |
+| G19 | `the cron is polling the target repository {string} from a host checked out at {string}` | Builds the handling cron's own launch inputs for the named target repository: its `--target-repo` args (`buildCronTargetRepoArgs`) and a launch boundary for it (`buildLaunchBoundary`), which W-RD1 hands to the Retry handler. The host is the ADW checkout the scenario runs in, so its repository needs no setup. Defined in `features/regression/step_definitions/feature-908.steps.ts` | phase-import | handler input (SUT input) |
 | G20 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}` | Seeds a pause-queue entry for the target repo with the given issue number | mock-query / subprocess | pause-queue state artefact |
 | G21 | `a workflow for issue {int} is paused in the rate-limit queue for the target repository {string}, with its worktree remote pointing at {string}` | Seeds a pause-queue entry for the target repo with correct git remote configured in the fixture worktree | subprocess | pause-queue + worktree artefacts |
 | G22 | `the rate-limit probe reports the limit has cleared` | Stubs the Claude CLI probe to return exit 0 / no rate-limit text | subprocess | stub behaviour |
@@ -123,7 +123,7 @@ W2–W8 and W11 are retired: no scenario ever ran them. Phases are driven by W-S
 | T24 | `the resume does not authenticate against the cron host's own repository {string}` | Inverse of T23: asserts no auth call for the cron host's own repository | mock-query / phase-import | recorded auth calls |
 | T25 | `the resumed comment is recorded on issue {int} in the target repository {string}` | Asserts a POST to `/repos/{owner}/{repo}/issues/{n}/comments` was captured on the target repo | mock-query | recorded requests |
 | T26 | `the resume completes without a remote-owner-mismatch failure between the target worktree and the declared repository` | Asserts no error thrown / no error comment recorded during resume | phase-import / mock-query | error state + recorded requests |
-| T27 | `the mock harness recorded zero comment posts on issue {int} in the cron host's own repository {string}` | Asserts no comment recorded for the cron host's own repository | mock-query | recorded requests |
+| T27 | `the mock harness recorded zero comment posts on issue {int} in the cron host's own repository {string}` | Queries recorded requests; asserts no POST to `/repos/<owner>/<repo>/issues/N/comments` was captured for the cron host's own repository. Defined in `features/regression/step_definitions/feature-908.steps.ts` | mock-query | recorded requests |
 | T28 | `GitHub App authentication is re-asserted for the target repository {string} before any issues are fetched` | Asserts `ensureAppAuthForRepo(targetOwner, targetRepo)` recorded before the first `GET /repos/.../issues` call | mock-query | recorded auth + fetch call order |
 | T29 | `the poll batch fetches open issues from the target repository {string}` | Asserts a `GET /repos/{owner}/{repo}/issues` recorded | mock-query | recorded requests |
 | T30 | `the target repository's open issue {int} is visible to the poller` | Asserts the fetched issue list contains issue N | mock-query | recorded requests / response |
@@ -309,6 +309,199 @@ No step reads a source file, satisfying the Rot-Detection Rubric.
 This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
 is checked out` (G18, Background), G1, G20, G22, T2, T14, T22, T25, and the generic W16/T34 above.
 
+## Given/When/Then — Retry Directive (@retry-directive)
+
+These phrases drive the `## Retry` directive handler in-process (phase-import pattern). The cron
+path calls the real `handleRetryDirective` with the issue's seeded comments plus a trailing
+`## Retry` comment and `buildRetryHandlerDeps` over the launch boundary and `--target-repo` args
+G19 builds, with only its `spawnDetached` seam replaced by a recorder. The webhook path dispatches a
+real `issue_comment` through `dispatchWebhookEvent`, whose launch is the real one, so the state it
+resumes names a throwaway recording fixture orchestrator; every pause-queue entry seeded here names
+such a fixture too, so anything that resumes from an entry launches only the fixture. `gh` is
+shadowed on `PATH` and its `gh issue comment` posts are replayed against the mock GitHub API, and the
+GitHub App variables and `GITHUB_WEBHOOK_SECRET` are blanked, so no post reaches a real repository.
+The real `agents/paused_queue.json` and `agents/.auth_gate` are saved before each scenario and
+restored after it. Every assertion targets a runtime artefact: the launches recorded at the spawn
+seam, the fixture orchestrators' invocation logs, the pause-queue state file
+(`agents/paused_queue.json`), the top-level state file (`agents/<adwId>/state.json`), the requests
+the mock GitHub API recorded, or the logger output captured while the directive is handled. No step
+reads, greps or parses a source file, satisfying the Rot-Detection Rubric. The definitions, G19 and
+T27 among them, live in `feature-908.steps.ts`, whose `@retry-directive` hooks set up and restore
+all of the above.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RD1 | `the latest ADW workflow comment on issue {int} names adwId {string}` | Adds a comment carrying the `**ADW ID:**` marker and the adwId in backticks, the form the handler extracts an adwId from, to the issue's comment list that W-RD1 and W-RD3 hand the handler. Uses only lowercase letters, digits and hyphens in an adwId, or the handler extracts none and a no-op row passes vacuously | phase-import | handler input (SUT input) |
+| G-RD2 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with orchestrator script {string}` | Writes `agents/<adwId>/state.json` through `AgentStateManager.writeTopLevelState` with the adwId, the issue number, the stage, the `orchestratorScript` and `repoIdentity` `acme/widgets`; the After hook removes `agents/<adwId>/` | phase-import | state file artefact (SUT input) |
+| G-RD3 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with no orchestrator script` | As G-RD2 with no `orchestratorScript`, the shape of a state written before orchestrator scripts were recorded | phase-import | state file artefact (SUT input) |
+| G-RD4 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a merge retry count of {int}` | As G-RD2 with `mergeRetryCount` set and no `orchestratorScript` | phase-import | state file artefact (SUT input) |
+| G-RD5 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a resume attempt count of {int}` | As G-RD2 with `resumeAttempts` set and no `orchestratorScript` | phase-import | state file artefact (SUT input) |
+| G-RD6 | `the top-level state for adwId {string} records issue {int} at workflowStage {string} with a recording fixture as its orchestrator script` | Writes a throwaway fixture orchestrator under `os.tmpdir()` that appends its argv to an invocation log and stays alive, then writes the state as G-RD2 does with the fixture's absolute path as `orchestratorScript`, so a real launch from that state runs only the fixture; the After hook kills it and removes its directory | phase-import | state file artefact + fixture orchestrator (SUT input) |
+| G-RD7 | `the rate-limit pause queue holds no entry for adwId {string}` | Removes any entry for the adwId from the real pause-queue state file `agents/paused_queue.json`, which the Before hook saved and cleared and the After hook restores | phase-import | pause-queue state artefact |
+| G-RD8 | `the rate-limit pause queue holds an entry for adwId {string} on issue {int}` | Appends a `rate_limited` entry for the adwId and issue to the real pause-queue state file, with a temporary worktree, `--target-repo acme/widgets` and a throwaway recording fixture as `orchestratorScript`, so anything that resumes from the entry (the scanner, or a handler that delegates to it) launches only the fixture | phase-import | pause-queue state artefact |
+| W-RD1 | `the cron handles the ## Retry directive on issue {int}` | Calls the real `handleRetryDirective` in-process as `trigger_cron.ts` does: the issue's seeded comments plus a trailing `## Retry` comment, and `buildRetryHandlerDeps` over G19's launch boundary and `--target-repo` args with only `spawnDetached` replaced by a recorder of each launch's command and argv. Captures the logger's output during the call, then replays the shadowed `gh issue comment` posts against the mock GitHub API | phase-import | recorded launches + state file + queue state + recorded requests + log stream |
+| W-RD2 | `the pause-queue scanner then runs a probe cycle in which the rate limit has cleared` | Runs the real `scanPauseQueue` once, at `PROBE_INTERVAL_CYCLES`, as the cron polling `acme/widgets` (the owner of every entry G-RD8 seeds) with a probe that answers `clear`, then replays the shadowed comment posts | phase-import | queue state + fixture launches + recorded requests |
+| W-RD3 | `the webhook receives a {string} comment on issue {int} from the repository {string}` | Registers this process as the repository's running cron (`writeCronPid`) so no cron is spawned, then dispatches an unsigned `issue_comment` `created` payload carrying the comment through the real `dispatchWebhookEvent`, with an event-boundary minter whose tracker serves the issue's seeded comments. Its launch is the real one, so only G-RD6's fixture can run | phase-import | fixture launches |
+| T-RD1 | `exactly one orchestrator was launched for issue {int}` | Counts the launches W-RD1 recorded for the issue plus the launches the issue's G-RD8 fixture recorded, and asserts the count is 1 | phase-import | recorded launches + fixture invocation log |
+| T-RD2 | `no orchestrator was launched for issue {int}` | Waits briefly for an asynchronous fixture launch, then asserts the count T-RD1 takes is 0 | phase-import | recorded launches + fixture invocation log |
+| T-RD3 | `the orchestrator launched for issue {int} runs {string} under adwId {string}` | Asserts the launch W-RD1 recorded for the issue runs the given script, as the handler resolved it, under the given adwId | phase-import | recorded launch argv |
+| T-RD4 | `the orchestrator launched for issue {int} targets the repository {string}` | Asserts the launch W-RD1 recorded for the issue carries `--target-repo <repository>` in its argv | phase-import | recorded launch argv |
+| T-RD5 | `no entry for adwId {string} was added to the rate-limit pause queue` | Reads the pause-queue state file; asserts no entry carries the adwId | phase-import | pause-queue state artefact |
+| T-RD6 | `the rate-limit pause queue no longer holds an entry for adwId {string}` | Reads the pause-queue state file; asserts the entry G-RD8 seeded for the adwId is gone | phase-import | pause-queue state artefact |
+| T-RD7 | `the rate-limit pause queue still holds the entry for adwId {string}` | Reads the pause-queue state file; asserts an entry still carries the adwId | phase-import | pause-queue state artefact |
+| T-RD8 | `the pause-queue scanner relaunched nothing for issue {int}` | Asserts the invocation log of the issue's G-RD8 fixture orchestrator holds no launch | phase-import | fixture invocation log |
+| T-RD9 | `the Retry handling logged that issue {int} is paused_auth and left to the auth queue` | Asserts a line of the logger output W-RD1 captured names `#<issue>`, `paused_auth` and the auth queue (`auth queue`, `auth-queue` or `authQueue`, any case) | phase-import | log stream |
+| T-RD10 | `the top-level state for adwId {string} records a merge retry count of {int}` | Reads `agents/<adwId>/state.json`; asserts its `mergeRetryCount` | phase-import | state file artefact |
+| T-RD11 | `the top-level state for adwId {string} records a resume attempt count of {int}` | Reads `agents/<adwId>/state.json`; asserts its `resumeAttempts` | phase-import | state file artefact |
+| T-RD12 | `no orchestrator was launched for issue {int} without the target repository {string}` | Waits briefly, then asserts every launch G-RD6's fixture recorded for the issue carries `--target-repo <repository>`; holds when nothing was launched, since leaving a paused workflow to the cron is legitimate | phase-import | fixture invocation log |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase
+is checked out` (G18, Background), G19 (Background) and T27, both defined in `feature-908.steps.ts`,
+G1, T1, T14, T22, T25, and the git/gh guard pair W16/T34.
+
+## Given/When/Then — Pause-Queue Rate-Limit Probe (@pause-queue-probe)
+
+These phrases drive the pause queue's rate-limit probe in-process (phase-import): the real
+`probeRateLimit` (`adws/triggers/rateLimitProbe.ts`), called with the pause-queue harness's injected
+exec seam (`probeStub.exec` in `feature-902.steps.ts`) in place of a spawned Claude CLI. The seam
+records the arguments of every call. Every assertion targets a runtime artefact: the invocation the
+probe made at that seam, which is what the system asked of its dependency. No step reads, greps or
+parses a source file, satisfying the Rot-Detection Rubric. Both definitions live in
+`feature-902.steps.ts`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| T-PP1 | `the rate-limit probe requested {string} output from the Claude CLI` | Reads the arguments the probe passed on its last call to the injected exec seam; asserts `--output-format` is among them and is followed by the given format. Fails when the probe never called the seam | phase-import | recorded probe invocation (argv) |
+| T-PP2 | `the rate-limit probe requested verbose output from the Claude CLI` | Asserts the arguments the probe passed on its last call to the injected exec seam include `--verbose`. Fails when the probe never called the seam | phase-import | recorded probe invocation (argv) |
+
+The rest of `features/regression/pause-queue/feature-902.feature` reuses already-registered phrases,
+so they need no new rows:
+
+- generic: G1, G18, G20, T2, T3, T14 and T22;
+- `@pause-queue-reset-time`: G-PQ8, G-PQ10, W-PQ5, T-PQ7–T-PQ11 and T-PQ18, which the
+  `@pause-queue-ownership` section registers again under its own numbers;
+- `@envelope-conformance`: W-EC6, W-EC7, T-EC14 and T-EC15.
+
+The probe and pause-queue phrases are defined in the pause-queue harness (`feature-902.steps.ts`,
+`feature-902-queue.steps.ts`). The harness's hooks reset the probe stub, set up the mock GitHub API and
+the `gh` shadow, and save, clear and restore `agents/paused_queue.json`. They run only for scenarios
+that carry `@pause-queue-probe`, `@pause-queue-reset-time` or `@pause-queue-ownership`, or one of the
+per-issue tags `@adw-907`, `@adw-910` or `@adw-911` while per-issue rows still carry them. A new
+scenario that reuses these phrases must carry one of those tags, or reset the probe stub itself as the
+`@envelope-conformance` hook does.
+
+---
+
+## Given/When/Then — Rate-Limit In-Process Wait (@rate-limit-in-process-wait)
+
+These phrases drive the in-process wait for a five-hour rate limit (phase-import): the real pure wait
+policy (`decideRateLimitWait`, `adws/core/rateLimitWaitPolicy.ts`), the real phase runner (`runPhase`)
+over a scripted fake phase function, and the real takeover handler (`evaluateCandidate`) and
+hung-orchestrator detector (`findHungOrchestrators`). The phase runner is given an injected orchestrator
+clock, whose every wait advances the pinned instant to the wait's end while keeping the runner
+suspended for a short real delay, and a comment seam that records every comment it posts; `process.exit`
+is trapped for the When step. The orchestrator a scenario sets up holds the real spawn lock and runs the
+real heartbeat on a 20 ms tick — timers are never faked. Every assertion targets a runtime artefact: the
+decision the policy returns; the attempts, waits and comments recorded at those seams, in one ordered
+event log; the trapped exit code; the top-level state file `agents/<adwId>/state.json`, sampled when
+every wait begins and ends; the pause-queue state file `agents/paused_queue.json`; and the decisions the
+takeover handler and the detector reach. No step reads a source file, satisfying the Rot-Detection
+Rubric. The definitions live in `feature-912.steps.ts`. Its hooks are keyed on
+`@rate-limit-in-process-wait`: they reset its module-scoped world, save, clear and restore the pause
+queue, and stop the heartbeat and remove the state directories, the `acme/widgets` spawn locks and the
+throwaway worktree. A scenario that uses these phrases must carry that tag and name `acme/widgets`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RW1 | `rate-limit facts with a {string} limit that resets at {string}` | Builds the wait policy's input facts as `RateLimitError` carries them: `rateLimitType` as given and `resetsAt` as the epoch seconds of the given ISO 8601 instant | phase-import | wait-policy input (SUT input) |
+| G-RW2 | `rate-limit facts with a {string} limit and no reset time` | As G-RW1, with no `resetsAt` key | phase-import | wait-policy input (SUT input) |
+| G-RW3 | `rate-limit facts with no limit type and a reset time of {string}` | As G-RW1, with no `rateLimitType` key | phase-import | wait-policy input (SUT input) |
+| G-RW4 | `rate-limit facts with no limit type and no reset time` | Empty facts, as an overload or server error carries | phase-import | wait-policy input (SUT input) |
+| G-RW5 | `the orchestrator's clock reads {string}` | Pins the phase runner's injected clock (`WaitClock.now`) to the instant; each wait advances it to the wait's end. Not the scanner's clock (`the cron host's clock reads {string}`) | phase-import | phase-runner clock seam (SUT input) |
+| G-RW6 | `an orchestrator for issue {int} in the target repository {string} is running under adwId {string}` | Mirrors `runWithOrchestratorLifecycle`: writes the top-level state `agents/<adwId>/state.json` (stage `starting`, this process's `pid` and `pidStartedAt`, a `lastSeenAt`), takes the real spawn lock for `<repo>#<issue>` under this process, starts the real heartbeat on a 20 ms tick, and builds a `WorkflowConfig` over a throwaway worktree with no repo context. Use `acme/widgets`: the `After` hook releases that repository's spawn locks | phase-import | state file + spawn-lock artefacts |
+| G-RW7 | `the {string} phase meets these outcomes, attempt by attempt:` | Scripts the fake phase function from the table (`attempt`, `outcome`, `limit type`, `resets at`): `rate-limited` throws `RateLimitError(<phase>, facts)` with `resetsAt` in epoch seconds and an empty cell left out of the facts; `succeeds` returns a zero-cost `PhaseResult`. Each attempt records the orchestrator clock reading at its start | phase-import | phase function (SUT input) |
+| G-RW8 | `the {string} phase is rejected by {int} five-hour limits in a row, the first resetting at {string} and each later one five hours after the one before, and then succeeds` | Scripts N `five_hour` rejections resetting at X, X + 5 h, X + 10 h, …, then one success | phase-import | phase function (SUT input) |
+| G-RW9 | `a candidate arrives at issue {int} during every wait` | Makes every wait run the real `evaluateCandidate` for the issue (real spawn-gate functions, inert stubs for the rest) and record the decision | phase-import | takeover decisions (artefact) |
+| G-RW10 | `the orchestrator process dies during its first wait` | Makes the first wait never resolve; the phase-runner When then returns once that wait has begun, stops the heartbeat, and points the top-level state's and the spawn lock's `pid`/`pidStartedAt` at a child process that has really exited | phase-import | state file + spawn-lock artefacts |
+| W-RW1 | `the rate-limit wait policy decides at {string}` | Calls the real pure `decideRateLimitWait` with the facts and the given instant; records the returned decision | phase-import | returned decision (artefact) |
+| W-RW2 | `the phase runner runs the {string} phase` | Runs the real `runPhase` under the phase name over the scripted phase function, with the orchestrator clock and the recording comment seam injected and `process.exit` replaced, for the call, by a recorder that throws a sentinel the step catches. Every wait records its end, samples the top-level state when it begins and ends, runs the hung-orchestrator detector at its end, and stays suspended in real time for longer than the detector's threshold. Stops the heartbeat when the run ends | phase-import | attempt log + wait log + recorded comments + trapped exit + state file |
+| W-RW3 | `the phase runner runs the {string} phase anonymously` | As W-RW2 with no phase name, as the orchestrators run most of their phases | phase-import | attempt log + wait log + recorded comments + trapped exit + state file |
+| W-RW4 | `the next candidate arrives at issue {int}` | Runs the real `evaluateCandidate` for the issue with the real spawn-gate functions, the real top-level state and real process liveness, resolving the adwId with `extractLatestAdwId` over the workflow's starting comment followed by the recorded comments; records the decision | phase-import | takeover decision (artefact) |
+| T-RW1 | `the wait policy decides to wait in-process until {string}` | Asserts the decision's kind is `wait_in_process` and its `until` is the given instant | phase-import | returned decision (artefact) |
+| T-RW2 | `the wait policy decides to enqueue with the reset time {string}` | Asserts kind `enqueue` and a `resetsAt` (epoch seconds) that is the given instant | phase-import | returned decision (artefact) |
+| T-RW3 | `the wait policy decides to enqueue with no reset time` | Asserts kind `enqueue` and no `resetsAt`; `null` or a defaulted value fails | phase-import | returned decision (artefact) |
+| T-RW4 | `the {string} phase ran {int} time(s)` | Asserts the number of attempts recorded at the scripted phase function | phase-import | recorded attempts (artefact) |
+| T-RW5 | `the orchestrator waited in-process until each of these times, in order:` | Asserts the recorded wait ends equal the `waits until` column, in order | phase-import | recorded waits at the clock seam |
+| T-RW6 | `the orchestrator waited in-process {int} times, each until the reset time reported by the rejection before it` | Asserts N recorded waits, wait k ending at the reset time scripted attempt k's rejection reported | phase-import | recorded waits at the clock seam |
+| T-RW7 | `the orchestrator did not wait in-process` | Asserts no wait was recorded | phase-import | recorded waits at the clock seam |
+| T-RW8 | `no re-run of the {string} phase started before the reset time it waited for` | Asserts an attempt follows every wait and that attempt k + 1 started at an orchestrator clock reading no earlier than wait k's end | phase-import | recorded attempts + waits |
+| T-RW9 | `the orchestrator never exited` | Asserts the trapped `process.exit` recorded no call | phase-import | trapped exit (artefact) |
+| T-RW10 | `the orchestrator exited with code {int}` | Asserts the trapped `process.exit` was called with the code | phase-import | trapped exit code (artefact) |
+| T-RW11 | `the state file for adwId {string} recorded workflowStage {string} throughout every wait` | Asserts at least one wait happened and that the top-level state sampled when every wait began and ended records the stage | phase-import | state file artefact (sampled in each wait) |
+| T-RW12 | `the heartbeat advanced lastSeenAt in the state file for adwId {string} during every wait` | Asserts at least one wait happened and that in every wait the end sample's `lastSeenAt` is a strictly later instant than the begin sample's | phase-import | state file artefact (sampled in each wait) |
+| T-RW13 | `the hung-orchestrator detector did not report adwId {string} at the end of any wait` | Asserts at least one wait happened and that the real `findHungOrchestrators`, run at the end of each wait over the real top-level state and real process liveness with a threshold of six test heartbeat ticks, did not report the adwId | phase-import | detector report (artefact) |
+| T-RW14 | `every candidate that arrived at issue {int} during a wait was deferred to the waiting orchestrator` | Asserts at least one candidate decision was recorded and that every one is `defer_live_holder` naming this process's pid | phase-import | takeover decisions (artefact) |
+| T-RW15 | `the candidate takes the workflow over under adwId {string}` | Asserts the decision W-RW4 recorded is `take_over_adwId` for the adwId | phase-import | takeover decision (artefact) |
+| T-RW16 | `exactly {int} wait comment(s) was/were posted on issue {int}` | Asserts the number of comments the phase runner posted for the issue at the injected comment seam | phase-import | recorded comments |
+| T-RW17 | `no wait comment was posted on issue {int}` | Asserts the phase runner posted no comment for the issue at the injected comment seam | phase-import | recorded comments |
+| T-RW18 | `the wait comments on issue {int} name these attempts and wait-until times in UTC, in order:` | Asserts as many comments as table rows, comment k carrying `**Attempt:** <attempt>`, the `waits until` instant in ISO 8601 (`toISOString()`) and `(UTC)` | phase-import | recorded comment bodies |
+| T-RW19 | `each wait comment on issue {int} was posted before the wait it announces began` | Asserts one comment per wait, comment k recorded before wait k in the event log the comment and clock seams share | phase-import | recorded event order |
+| T-RW20 | `every wait comment on issue {int} says the workflow is waiting for a rate limit to reset` | Asserts at least one comment and that every body names a rate limit, case-insensitively: "rate limit" (space, underscore or hyphen optional), "five hour", "5 hour", "session limit" or "usage limit" | phase-import | recorded comment bodies |
+| T-RW21 | `every wait comment on issue {int} is recognised by ADW as its own comment` | Asserts at least one comment and that `isAdwComment(body)` holds for every one | phase-import | recorded comment bodies |
+| T-RW22 | `the wait comments on issue {int} carry the attempt numbers 1 to {int}, in order` | Asserts exactly N comments, comment k carrying `**Attempt:** k` | phase-import | recorded comment bodies |
+| T-RW23 | `the pause queue does not hold adwId {string}` | Reads `agents/paused_queue.json` (saved, cleared and restored around the scenario); asserts no entry for the adwId | phase-import | pause-queue state artefact |
+| T-RW24 | `the pause queue holds adwId {string} with a {string} limit that resets at {string}` | Asserts the adwId's entry carries the `rateLimitType` verbatim and a `resetsAt` that is the given instant | phase-import | pause-queue state artefact |
+| T-RW25 | `the pause queue holds adwId {string} with a {string} limit and no reset time` | Asserts the adwId's entry carries the `rateLimitType` verbatim and no `resetsAt` key | phase-import | pause-queue state artefact |
+| T-RW26 | `the pause queue holds adwId {string} with no limit type and no reset time` | Asserts the adwId's entry has neither `rateLimitType` nor `resetsAt` | phase-import | pause-queue state artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), T1 (read from `agents/<adwId>/state.json`; one scenario also uses it as
+a Given, to confirm the stage the orchestrator was seeded with), T22, and the generic W16/T34 git/gh
+guard pair.
+
+---
+
+## Given/When/Then — Rate-Limit Detection (@rate-limit-detection)
+
+These phrases prove that ADW's rate-limit decisions rest on structured stream-json facts end to end
+(phase-import). One stubbed Claude CLI reply, set with `the Claude CLI answers the rate-limit probe
+with exit code {int} and {word}:`, is fed to three consumers: the real rate-limit probe
+(`probeRateLimit`, through the pause-queue harness's injected exec seam `probeStub`, W-EC6), the real
+`handleAgentProcess` on a fake child process (W-EC7), and the real `runClaudeAgentWithCommand`, which
+spawns a throwaway executable that replays the same output and exit code (W-RD1). The real Claude CLI
+is never spawned. Every assertion targets a runtime artefact: the classification the probe returns
+(verdict, limit type, reset time), the error the agent command throws and the limit facts it carries,
+the `authExpired`/`rateLimited` outcome of the agent run, and the log lines written while the scenario
+ran. No step reads a source file, satisfying the Rot-Detection Rubric. The definitions live in
+`feature-907.steps.ts`. Its hooks are keyed on `@rate-limit-detection`: they clear the recorded error,
+capture `console.log` for the scenario and restore it, and clear the CLI path cache. The pause-queue
+harness hooks in `feature-902.steps.ts` and `feature-902-queue.steps.ts` also run for that tag: they
+reset the probe stub and its recorded results, set up the mock GitHub API and the `gh` shadow, and save,
+clear and restore the pause queue. A scenario that uses these phrases must carry the tag.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| W-RD1 | `an agent command runs against the same Claude CLI output` | Writes a throwaway executable that prints the probe exec seam's stubbed stdout and stderr, each newline-terminated, and exits with the stubbed code; points `CLAUDE_CODE_PATH` at it for this step only, putting the previous value back before the step returns; runs the real `runClaudeAgentWithCommand` with no state path and a throwaway output file and cwd; records the error it throws | phase-import | thrown agent error (artefact) |
+| T-RD1 | `the rate-limit probe reports a {string} limit that resets at {string}` | Asserts the classification W-EC6 recorded carries the limit type verbatim and a `resetsAt` (epoch seconds, as the CLI emits it) that is the given ISO 8601 instant | phase-import | returned probe classification |
+| T-RD2 | `the rate-limit probe reports a {string} limit with no reset time` | As T-RD1, with `resetsAt` absent; a defaulted value fails | phase-import | returned probe classification |
+| T-RD3 | `the rate-limit probe reports no limit type and no reset time` | Asserts the classification carries neither `rateLimitType` nor `resetsAt` | phase-import | returned probe classification |
+| T-RD4 | `the rate-limit probe reports a confirmed non-rate-limit failure` | Asserts the classification's verdict is none of `clear`, `limited` or `unknown`; `unknown` is reserved for output with no JSON | phase-import | returned probe classification |
+| T-RD5 | `the rate-limit probe logged a warning quoting {string}` | Asserts a line of the `console.log` output captured during the scenario, where the probe's `log()` writes its unknown-result warning, contains the given text | phase-import | log stream (captured console output) |
+| T-RD6 | `the agent command fails with a rate-limit error` | Asserts the error W-RD1 recorded is a `RateLimitError` | phase-import | thrown agent error (artefact) |
+| T-RD7 | `the rate-limit error carries a {string} limit that resets at {string}` | Asserts the `RateLimitError` carries the limit type verbatim and a `resetsAt` (epoch seconds) that is the given ISO 8601 instant | phase-import | thrown agent error (artefact) |
+| T-RD8 | `the rate-limit error carries a {string} limit with no reset time` | As T-RD7, with `resetsAt` absent; a defaulted value fails | phase-import | thrown agent error (artefact) |
+| T-RD9 | `the rate-limit error carries no limit type and no reset time` | Asserts the `RateLimitError` carries neither `rateLimitType` nor `resetsAt` | phase-import | thrown agent error (artefact) |
+| T-RD10 | `the agent run ends with an authentication failure` | Asserts the `AgentResult` W-EC7 recorded has `authExpired: true` | phase-import | returned agent result |
+| T-RD11 | `the agent run does not end rate-limited` | Asserts the `AgentResult` W-EC7 recorded does not have `rateLimited: true` | phase-import | returned agent result |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G1, G20, T2, T22, the probe reply `the Claude CLI answers the
+rate-limit probe with exit code {int} and {word}:` (G-PQ10), the scanner and queue phrases W-PQ5,
+T-PQ8 and T-PQ10 (`@pause-queue-reset-time`), and the probe and agent-run phrases W-EC6, W-EC7 and
+T-EC15 (`@envelope-conformance`).
+
+---
+
 ## Given/When/Then — Surface phases and lifecycles
 
 These rows run in-process (phase-import) through `features/regression/support/phaseRun.ts`. A phase,
@@ -436,6 +629,70 @@ carries no `pid`), G-WH3 (the webhook secret) and T14 (no comment posted).
 
 ---
 
+## Given/When/Then — ADW Labels: Opt-Out, Routing and Provisioning (@label-routing)
+
+These phrases drive the trigger paths in-process (phase-import pattern) against a recording launch
+boundary. It is a real `LaunchBoundary` built by `buildLaunchBoundary` over throwaway directories.
+Its issue tracker, code host and board manager are recording fakes that answer from the issues a
+scenario seeds and log every call. The webhook rows call the real exported `dispatchWebhookEvent`
+with that boundary as the minted event boundary; the cron rows call the real exported
+`checkAndTrigger(boundary)`. Nothing they launch runs. A `bunx` shadow put first on `PATH` records
+each orchestrator launch's argv and exits at once. A recording wrapper around
+`test/mocks/claude-cli-stub.ts` goes on `CLAUDE_CODE_PATH` at dispatch time, after the `@regression`
+hooks have pointed it at the plain stub. Two rows start one real
+`adws/triggers/trigger_cron.ts --target-repo` process with a recording `gh` shadow first on its
+`PATH`. The fixture repositories (`adw-fixture/…-932`) do not exist, so a call that escapes the
+harness fails fast.
+
+Every assertion targets a runtime artefact: the launches the `bunx` shadow recorded, the Claude CLI
+invocations the wrapper recorded, the recording providers' call log, the `gh label create`
+invocations the `gh` shadow recorded, or the cron process's output. No step reads, greps or parses a
+source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-932.steps.ts` (hooks and Givens), `feature-932-drive.steps.ts` (the
+dispatches and the tick), `feature-932-observe.steps.ts` (the Thens and the real cron) and
+`feature-932-world.ts` (recorders and shared state). They build on the recording boundary of
+`feature-796.steps.ts` (G-LR1, T-LR6 to T-LR9) and the tracker Givens of `feature-820.steps.ts`
+(G-LR2, G-LR3, G-LR5). Around every scenario the `@label-routing` hooks reset the shared world and
+save, clear and restore `GITHUB_WEBHOOK_SECRET`, `agents/.auth_gate` and `agents/paused_queue.json`.
+Afterwards they kill the real cron and remove the cron registrations, spawn locks and
+`agents/<adwId>/` state the scenario created.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-LR1 | `a launch boundary for the repository {string} whose providers record every call` | Builds a real launch boundary (`buildLaunchBoundary`) for the named repository over throwaway framework and target-repos directories. Its issue tracker, code host and board manager are recording fakes that answer from what the scenario seeds and log every call they receive | phase-import | recording providers' call log |
+| G-LR2 | `issue {int} in the recording tracker carries the label {string}` | Seeds issue N with exactly that label. The recording tracker serves it to `fetchIssue`, `fetchLabels` and `listIssues`, and the W-LR webhook payloads carry it | mock-query | recording tracker state |
+| G-LR3 | `issue {int} in the recording tracker carries the labels {string} and {string}` | As G-LR2, with exactly those two labels | mock-query | recording tracker state |
+| G-LR4 | `issue {int} in the recording tracker carries the labels {string}, {string} and {string}` | As G-LR2, with exactly those three labels | mock-query | recording tracker state |
+| G-LR5 | `issue {int} in the recording tracker is titled {string}` | Seeds issue N's title, served by `fetchIssue` and `listIssues` and carried by the webhook payloads | mock-query | recording tracker state |
+| G-LR6 | `the body of issue {int} in the recording tracker reads:` | Seeds issue N's body from the doc string, served by `fetchIssue` and `listIssues` and carried by the webhook payloads. A `Blocked by #M` line makes N a dependent of M | mock-query | recording tracker state |
+| G-LR7 | `issue {int} in the recording tracker is in state {string}` | Seeds issue N's state, served by `getIssueState` and `fetchIssue`. `listIssues`, an open-issue listing, leaves out an issue in state `CLOSED` | mock-query | recording tracker state |
+| G-LR8 | `issue {int} has an earlier ADW workflow under adw id {string} recorded at workflowStage {string} running {string}` | Adds to issue N a comment that names the adwId as ADW's workflow comments do (`**ADW ID:**` and the adwId in backticks), with no stage heading. `fetchComments`, `fetchIssue` and `listIssues` all serve it. Also writes the adwId's top-level state file `agents/<adwId>/state.json`: the issue, the stage, the orchestrator script and the boundary's repository, with no phases, pid or branch name. The adwId is lowercase letters, digits and hyphens; its state and log directories are removed after the scenario | phase-import | recording tracker state + top-level state file artefact |
+| G-LR9 | `the forge refuses to create labels` | Makes the `gh` shadow that W-LR6 installs record every `gh label create` and exit 1 with an HTTP 403 message, as a forge that refuses label creation does | subprocess | `gh` shadow behaviour |
+| W-LR1 | `the webhook dispatches the opening of issue {int} from that boundary` | Dispatches an unsigned `issues` `opened` event through the real `dispatchWebhookEvent`, with the boundary as the minted event boundary. The event names the boundary's repository and carries the issue's seeded title, body and labels. The test process is first registered as the repository's running cron, so the webhook launches none, and the `bunx` and Claude CLI recorders go on `PATH` and `CLAUDE_CODE_PATH`. Fails unless the webhook answers `processing`. Then waits (bounded, 20 s) until the call log and the recorders have been quiet for 750 ms with no classification running | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR2 | `the webhook dispatches the opening of issue {int} from that boundary with no labels in the event` | As W-LR1, but the event's label list is empty while the tracker still holds the seeded labels: a label applied just after the issue was opened | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR3 | `the webhook dispatches a {string} comment on issue {int} from that boundary` | As W-LR1 for an `issue_comment` `created` event whose comment body is the given text | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR4 | `the webhook dispatches the closing of issue {int} from that boundary` | As W-LR1 for an `issues` `closed` event, which re-evaluates the seeded issues whose body names the closed issue as a blocker | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR5 | `the cron tick runs once from that boundary` | Dates every seeded issue's creation and last update a day back, past the cron's grace period. Puts the recorders in place, runs the real exported `checkAndTrigger(boundary)` once, and waits for the handling to settle as W-LR1 does. The tick's pause-queue scan sees an empty queue, which is saved and restored around the scenario | phase-import | launch records + recorded Claude CLI invocations + recording providers' call log |
+| W-LR6 | `a cron trigger process is launched with --target-repo {string}` | Starts a real `bunx tsx adws/triggers/trigger_cron.ts --target-repo <repo>` process (`spawnRealCron`) with a throwaway `TARGET_REPOS_DIR` and a recording `gh` shadow first on its `PATH`. The shadow answers `gh auth token` with a fake token, records every `gh label create`, and exits 0 for everything else. Fails if the `bunx` recorder is on `PATH`, since it would swallow the launch. The process group is killed after the scenario | subprocess | recorded `gh` invocations + process output |
+| T-LR1 | `no ADW run was started for issue {int}` | Asserts the `bunx` recorder holds no launch whose argument after the orchestrator script is N. Read after a W-LR dispatch or tick has settled | mock-query | launch records |
+| T-LR2 | `exactly one ADW run was started for issue {int}` | Waits (bounded, 10 s) for a launch of issue N, then asserts the recorder holds exactly one | mock-query | launch records |
+| T-LR3 | `the ADW run started for issue {int} runs the orchestrator {string}` | Asserts issue N's recorded launch runs the named script, compared relative to the checkout root | mock-query | launch records |
+| T-LR4 | `the issue classifier was consulted for issue {int}` | Waits (bounded, 10 s) until the Claude CLI recorder holds an invocation whose prompt, its last argument, names `/classify_issue` and `#N:` | mock-query | recorded Claude CLI invocations |
+| T-LR5 | `the issue classifier was not consulted for issue {int}` | Asserts the Claude CLI recorder holds no such invocation | mock-query | recorded Claude CLI invocations |
+| T-LR6 | `the boundary's issue tracker recorded no comment` | Asserts the call log holds no `commentOnIssue` call | mock-query | recording providers' call log |
+| T-LR7 | `the boundary's issue tracker recorded a comment on issue {int}` | Asserts the call log holds a `commentOnIssue` call for issue N | mock-query | recording providers' call log |
+| T-LR8 | `the recorded comment on issue {int} contains {string}` | Asserts the body of issue N's recorded `commentOnIssue` call contains the text | mock-query | recording providers' call log |
+| T-LR9 | `the boundary's providers recorded no label applied to issue {int}` | Asserts the call log holds no `applyLabel` or `addLabel` call for issue N | mock-query | recording providers' call log |
+| T-LR10 | `the repository {string} has each of these labels:` | Waits (bounded, 20 s) until the `gh` shadow has recorded `gh label create '<label>' --repo <repo> … --force` for every row of the one-column `label` table | subprocess | recorded `gh` invocations |
+| T-LR11 | `the forge was asked to create each of these labels on the repository {string}:` | The same wait and record as T-LR10, whether or not the shadow refused the creations (G-LR9) | subprocess | recorded `gh` invocations |
+| T-LR12 | `the cron trigger process launched with --target-repo {string} completes its first poll tick` | Asserts the cron W-LR6 launched is the one for that repository. Waits (bounded) for its startup line `CRON trigger (backlog sweeper) started`, then for its first `POLL:` or `checkAndTrigger: tick failed` line | subprocess | log stream (process stdout) |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), T22, and the generic W16/T34.
+
+---
+
 ## Given/When/Then — Smoke processes (@subprocess)
 
 These rows run a real ADW process as a child of the Cucumber process, through the hermetic
@@ -560,3 +817,320 @@ checked out` (G18, Background), G3 (its manifest is delivered as the marker abov
 issue, labelled `adw:feature` and old enough for the cron's grace period), G7 (keeps the issues G4
 seeded), G10 (marks the PR merged in place), W1, W9, W10, T1, T2, T3, T5, T7, T8, T9, T12, T14, T-S6,
 and T18 and T19 (the marker the sweep lands, read in the workspace W1 registered under the adwId).
+
+## Given/When/Then — Envelope Conformance Gate and Rate-Limited Claude CLI Stub (@envelope-conformance)
+
+These phrases drive ADW's stream-json envelope conformance gate (`adws/jsonl/`) and the regression
+suite's Claude CLI stub (`test/mocks/claude-cli-stub.ts`). The gate runs as a subprocess through its
+package script (`bun run jsonl:check`, exactly as CI runs it) and in-process (phase-import) through
+`checkConformance`, `updateFixtureEnvelopes` and `probeClaudeJsonlSchema` over throwaway inputs. The
+stub runs as a subprocess the way an agent spawns the CLI. The real Claude CLI is never spawned: the
+schema probe gets a throwaway fake CLI on `CLAUDE_CODE_PATH`, and the rate-limit probe and the agent
+run get the pause-queue harness's injected exec seam and a fake child process. Every input is a
+throwaway copy under `os.tmpdir()`: committed fixtures are read or copied, never modified, and the
+probe writes a throwaway copy of the schema, never `adws/jsonl/schema.json`. Every assertion targets a
+runtime artefact: the gate's exit code and report, the per-fixture results `checkConformance` returns
+(pass or fail, missing required fields by dot-path, informational unknown fields), the copy the
+fixture updater rewrote, the argv the fake CLI recorded, the stub's stdout and exit code, the
+rate-limit probe's classification and the agent run's result. No step reads, greps or parses a source
+file, satisfying the Rot-Detection Rubric. The definitions live in `feature-909.steps.ts` and
+`feature-909-tooling.steps.ts`; W-EC6, W-EC7, T-EC14 and T-EC15 live in the pause-queue harness's
+`feature-902.steps.ts`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-EC1 | `a copy of the committed JSONL fixture captured from a real rate limit` | Copies the committed capture of a real rate-limited session (`adws/jsonl/fixtures/session-rate-limited.jsonl`, one message per line) into a fresh throwaway directory under `os.tmpdir()`; later steps mutate and check only that copy | phase-import | fixture input (SUT input, not source) |
+| G-EC2 | `a copy of the committed JSONL error-result fixture` | Copies the committed error-result fixture (`adws/jsonl/fixtures/result-error.jsonl`) into a fresh throwaway directory and records the `result` value of the copy's first message as the baseline T-EC8 compares against | phase-import | fixture input (SUT input, not source) |
+| G-EC3 | `in that copy the {string} message no longer carries the field {string}` | Deletes the field, a dot-path such as `rate_limit_info.status`, from every message of the given `type` in the throwaway copy and rewrites the copy one message per line: a single-field drift, the way a CLI change arrives | phase-import | fixture input (SUT input, not source) |
+| G-EC4 | `in that copy the {string} message carries {string} under its stale name {string}` | Moves the field's value to its stale name (such as `is_error` to `isError`) on every message of the given `type` in the throwaway copy that carries the field | phase-import | fixture input (SUT input, not source) |
+| G-EC5 | `a copy of the api_retry system message the Claude CLI documents:` | Writes the DocString, one `system`/`api_retry` JSON line as the Claude CLI's headless documentation publishes it, as `system-api-retry.jsonl` in a fresh throwaway directory | phase-import | fixture input (SUT input, not source) |
+| G-EC6 | `the Claude CLI answers the schema probe with:` | Writes a throwaway fake Claude CLI that appends its argv to a record file and prints the DocString as its stream-json output, points `CLAUDE_CODE_PATH` at it (the previous value is put back after the scenario) and copies the committed schema to a throwaway path for the probe to write. The record path is baked into the script rather than passed in a `MOCK_*` variable, which the probe's spawn environment drops | phase-import | stub behaviour (fake Claude CLI) |
+| G-EC7 | `the Claude CLI stub is asked for its rate-limited response` | Arms the next W-EC5 run with the stub's on-demand switch, `MOCK_RESPONSE=rate-limited` | subprocess | stub behaviour |
+| G-EC8 | `a copy of the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub as W-EC5 does, with `MOCK_RESPONSE=rate-limited`, and writes its stdout as a JSONL file in a fresh throwaway directory, for the gate to check like any fixture | subprocess | fixture input (stub output, SUT input) |
+| G-EC9 | `the Claude CLI answers the rate-limit probe with the committed JSONL fixture captured from a real rate limit` | Sets the rate-limit probe exec seam's reply (`probeStub.result`, from `feature-902.steps.ts`) to the committed rate-limited capture on `stdout` with exit code 1 | phase-import | stub behaviour (probe exec seam) |
+| G-EC10 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's rate-limited response` | Runs the Claude CLI stub with `MOCK_RESPONSE=rate-limited` and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| G-EC11 | `the Claude CLI answers the rate-limit probe with the Claude CLI stub's default response` | Runs the Claude CLI stub with no response switch and sets the probe exec seam's reply to its stdout and exit code | subprocess | stub behaviour (probe exec seam) |
+| W-EC1 | `the envelope conformance gate is run through its package script entry point` | Runs `bun run jsonl:check` from the ADW checkout root as a subprocess, exactly as CI runs the gate over the committed fixtures, the committed schema and ADW's stream parser; records its exit status and stdout | subprocess | exit code + log stream |
+| W-EC2 | `the envelope conformance gate checks that copy` | Calls the gate's check in-process, `checkConformance(<committed schema>, <throwaway directory>)`, over the copy's directory; records the per-fixture results: pass or fail, missing required fields by dot-path, informational unknown fields, parser and extractor errors | phase-import | returned conformance results |
+| W-EC3 | `the fixture updater runs over that copy` | Calls `updateFixtureEnvelopes(<committed schema>, <throwaway directory>)` in-process, the updater behind `bun run jsonl:update` that a failing gate report points to; it rewrites the copy in place | phase-import | fixture copy rewritten by the updater |
+| W-EC4 | `the schema probe runs` | Calls `probeClaudeJsonlSchema(<throwaway schema path>)` in-process; the probe spawns the fake Claude CLI G-EC6 installed, which records the argv it receives | phase-import | recorded argv |
+| W-EC5 | `the Claude CLI stub is run` | Spawns `test/mocks/claude-cli-stub.ts` the way an agent spawns the CLI (`--print --verbose --output-format stream-json` and a prompt, no stream delay), with G-EC7's switch when armed; records its stdout and exit code | subprocess | log stream + exit code |
+| W-EC6 | `the rate-limit probe runs` | Calls the real `probeRateLimit` with the injected exec seam (`probeStub.exec`, never a spawned CLI) and records its classification. Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+| W-EC7 | `the same Claude CLI output is streamed through an agent run` | Streams the probe exec seam's stdout, newline-terminated, through the real `handleAgentProcess` on a fake child process (one `data` event, then `close`) and records the `AgentResult`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC1 | `the envelope conformance gate exits 0` | Asserts the exit status W-EC1 recorded is 0; the gate's stdout is shown on failure | subprocess | exit code |
+| T-EC2 | `the envelope conformance gate reports no failing fixture` | Asserts W-EC1's stdout carries no failing-fixture marker (`✗`) | subprocess | log stream |
+| T-EC3 | `the envelope conformance gate fails` | Asserts at least one result W-EC2 recorded did not pass | phase-import | returned conformance results |
+| T-EC4 | `the envelope conformance gate passes` | Asserts every result W-EC2 recorded passed | phase-import | returned conformance results |
+| T-EC5 | `the envelope conformance gate reports {string} missing from the {string} message` | Asserts one of W-EC2's missing-required-field reports names the field's dot-path for that message `type`; a report with no message prefix also counts | phase-import | returned conformance results |
+| T-EC6 | `the envelope conformance gate flags no field of the {string} message as unknown` | Asserts none of W-EC2's informational unknown-field reports (extra fields, or "no schema coverage") belongs to that message `type` | phase-import | returned conformance results |
+| T-EC7 | `the envelope conformance gate flags none of these fields of the {string} message as unknown:` | For each `field` row of the data table, asserts no unknown-field report W-EC2 recorded for that message `type` names the field | phase-import | returned conformance results |
+| T-EC8 | `that copy's {string} message keeps its original {string} value` | Reads the copy W-EC3 rewrote and asserts the message's field still equals the baseline G-EC2 recorded | phase-import | fixture copy rewritten by the updater |
+| T-EC9 | `the schema probe requested {string} output from the Claude CLI` | Reads the argv the fake Claude CLI recorded for the probe's last invocation; asserts `--output-format` is followed by the given format | phase-import | recorded argv |
+| T-EC10 | `the schema probe requested verbose output from the Claude CLI` | Asserts the argv recorded for the probe's last invocation includes `--verbose` | phase-import | recorded argv |
+| T-EC11 | `the stub's output carries a rate_limit_event that rejects the request` | Parses W-EC5's stdout line by line; asserts a `rate_limit_event` whose `rate_limit_info.status` is `rejected` | subprocess | log stream |
+| T-EC12 | `the stub's rate_limit_event names a reset time that has not yet passed` | Asserts that event's `rate_limit_info.resetsAt`, in epoch seconds like the real capture, is later than now | subprocess | log stream |
+| T-EC13 | `the stub's output ends with a result whose api_error_status is {int} and whose is_error is {word}` | Asserts the last line of W-EC5's stdout is a `result` carrying that `api_error_status` and that `is_error`. Defined as a regex whose last group accepts only `true` or `false` | subprocess | log stream |
+| T-EC14 | `the agent run ends rate-limited` | Asserts the `AgentResult` W-EC7 recorded has `rateLimited: true`. Defined in `feature-902.steps.ts` | phase-import | returned agent result |
+| T-EC15 | `the rate-limit probe reports {string}` | Asserts the verdict of the classification W-EC6 recorded (`clear`, `limited`, `failed` or `unknown`). Defined in `feature-902.steps.ts` | phase-import | returned probe classification |
+
+G-EC9, G-EC10 and G-EC11 are literal phrases on purpose: a single parameterised phrase would collide
+with `the Claude CLI answers the rate-limit probe with exit code {int} and {word}:`. The scenario's
+`<reply>` outline column expands to G-EC9 and G-EC10. This section also reuses already-registered
+phrases, so they need no new rows: `the ADW codebase is checked out` (G18), `the ADW TypeScript
+type-check passes` (T22) and the git/gh guard pair W16/T34.
+
+---
+
+## Given/When/Then — Plan Commit Guard and Worktree Setup (@plan-commit-guard)
+
+These phrases drive three production entry points in-process (phase-import pattern): the plan phase
+(`executePlanPhase`), the commit agent (`runCommitAgent`) and worktree setup's copy of the
+framework's Claude assets (`copyClaudeAssetsToWorktree`). Their inputs are fixtures the steps build
+under `os.tmpdir()`: real git repositories with a real `GitContext`, a fixture framework checkout
+handed to worktree setup as its `frameworkRepoRoot`, and the Claude CLI stub
+(`test/mocks/claude-cli-stub.ts`) behind a wrapper whose manifest lives outside the worktree, so the
+stub's own files never ride in a commit that stages everything. The stub stages and commits every
+change whenever it is asked to commit, as `/commit` does, so only the plan phase's own code can keep
+the plan commit to the plan file. Every assertion targets a runtime artefact: the error the phase
+threw, or its absence; the commits the worktree branch gained since the When step recorded its head;
+the worktree's `git status`; git's ignored and untracked listings; and a worktree file compared with
+the blob its branch records. No step reads, greps or parses a source file, satisfying the
+Rot-Detection Rubric. The definitions live in `feature-930.steps.ts` and
+`feature-930-worktree-setup.steps.ts`, over the fixtures in `feature-930-fixtures.ts` and
+`feature-930-plan-fixture.ts`; their `Before`/`After` hooks are keyed on `@plan-commit-guard`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-PC1 | `a worktree for a workflow on issue {int} in the target repository {string}` | Makes a throwaway root under `os.tmpdir()` holding a real git repository, `worktree/`, on the branch `feature-issue-<N>-plan-commit` with one empty commit under a fixed test identity, and a real `GitContext` for the given `owner/repo` (not self-host, a literal token, the throwaway root as framework root and target-repos directory). Picks a fresh adwId, whose plan file is `specs/issue-<N>-adw-<adwId>-sdlc_planner-plan-only.md`. The After hook removes the root and the adwId's `agents/` and `logs/` directories | phase-import | worktree artefact (throwaway git repository) |
+| G-PC2 | `the worktree's branch tracks these files:` | Writes each `path` row as `<path> as the branch has it` and commits them all in one commit on the worktree's branch | phase-import | git artefact (commit on the worktree branch) |
+| G-PC3 | `the worktree has uncommitted changes to these files:` | Appends a line to each `path` row's file, leaving an unstaged change to a file the branch tracks | phase-import | worktree artefact (uncommitted change) |
+| G-PC4 | `the Claude CLI is a stand-in that stages every change in the worktree and commits it whenever it is asked to commit` | Points `CLAUDE_CODE_PATH` at a `/bin/sh` wrapper in the throwaway root that runs the Claude CLI stub with no stream delay and a manifest kept outside the worktree, named in the wrapper because the agent runner drops `MOCK_*` variables. The manifest carries the planner's payload (`test/fixtures/jsonl/payloads/plan-agent.json`), the edits, deletions and stagings the planner Givens add, and `onCommitCommand: stage-all-and-commit`, so every `/commit` stages every change in the worktree and commits it. Clears the CLI path cache; the After hook puts the previous value back unless the `@regression` After hook already has | phase-import | stub behaviour (SUT input) |
+| G-PC5 | `the planner writes the plan file and makes these changes in the worktree:` | Adds the plan file to the stand-in's edits, then one change per `change`/`path` row: `creates` writes a new file, `modifies` appends to the file, `modifies and stages` also stages it, `deletes` removes it. The stand-in makes them when the plan phase runs the planner | phase-import | stub behaviour (SUT input) |
+| G-PC6 | `worktree setup has left these changes in the worktree:` | Makes each `change`/`path` row's change in the worktree before the plan phase, as worktree setup's copy would: `creates` writes a new file, `modifies` appends a stale-copy line to a tracked one. Any other change fails the step | phase-import | worktree artefact (uncommitted change) |
+| G-PC7 | `the planner writes only the plan file` | Adds the plan file, and nothing else, to the stand-in's edits | phase-import | stub behaviour (SUT input) |
+| G-PC8 | `the planner writes the plan file, modifies {string} and commits everything itself` | Adds the plan file and a modification of the named path to the stand-in's edits, and has the stand-in stage and commit everything in the worktree during the planner's own run, before the plan phase commits anything | phase-import | stub behaviour (SUT input) |
+| G-PC9 | `a worktree of the framework's own repository whose branch carries a newer {string} than the framework checkout running the workflow` | Makes a throwaway root holding a worktree repository whose one commit carries the named path (`target: false` frontmatter, a body naming it the branch's newer copy), and a fixture framework checkout: a git repository on `main` with the `origin` `https://github.com/acme/framework.git`, holding older copies of `.claude/commands/scenario_writer.md` and `.claude/skills/tdd/SKILL.md`, plus `.claude/commands/feature.md` (`target: false`) and `.claude/commands/install.md` (`target: true`). The worktree's `GitContext` is for `acme/framework`, the framework's own repository. The After hook removes the root | phase-import | worktree artefact (throwaway git repositories) |
+| G-PC10 | `a worktree of a target repository that tracks nothing under {string}` | As G-PC9, but the worktree's one commit carries only `README.md` and its `GitContext` is for `acme/widgets`, a repository other than the framework's. The argument is not read: tracking only `README.md`, the worktree tracks nothing under the directory the scenario names | phase-import | worktree artefact (throwaway git repositories) |
+| W-PC1 | `the plan phase runs` | Writes the stand-in's manifest, records the branch head (`git rev-parse HEAD`) as the baseline for the commit Thens, and calls the real `executePlanPhase` in-process with a `WorkflowConfig` for the worktree, the adwId, the issue, `/feature`, the fixture `GitContext` and no repo context, so nothing is posted. Records the error it throws, if any | phase-import | phase outcome + git artefacts |
+| W-PC2 | `the {string} commits its work through the commit agent, as its phase does` | Writes the stand-in's manifest, records the branch head as the baseline, and calls the real `runCommitAgent` in-process under the given agent name, as that agent's phase calls it: `/feature`, the issue, the worktree as cwd and the fixture `GitContext`'s command environment. The stand-in answers the `/commit` | phase-import | git artefact (commit on the worktree branch) |
+| W-PC3 | `worktree setup copies the framework's Claude assets into the worktree` | Calls the real `copyClaudeAssetsToWorktree` in-process with the worktree, its `GitContext` and the fixture framework checkout as `frameworkRepoRoot`, so neither the real checkout nor its origin plays a part | phase-import | worktree + git artefacts |
+| T-PC1 | `the plan phase completes` | Asserts W-PC1 recorded no error; fails giving the error's message | phase-import | phase run outcome |
+| T-PC2 | `the commits added during the plan phase carry the plan file and no other path` | Asserts the branch gained at least one commit since the baseline (`git rev-list <baseline>..HEAD`) and that the paths those commits carry (`git show --name-only --no-renames`) are exactly the plan file | phase-import | git artefact (commits on the worktree branch) |
+| T-PC3 | `the worktree still has uncommitted changes to these files:` | Asserts each `path` row is among the worktree's staged, unstaged and untracked paths (`git status --porcelain --untracked-files=all`); fails listing them | phase-import | git artefact (worktree status) |
+| T-PC4 | `the plan phase fails with an error that names {string}` | Asserts W-PC1 recorded an error whose message contains the path | phase-import | phase run outcome (raised error) |
+| T-PC5 | `no commit added during the plan phase carries {string}` | Asserts none of the commits the branch gained since the baseline carries the path | phase-import | git artefact (commits on the worktree branch) |
+| T-PC6 | `the commit recorded on the worktree branch carries these files:` | Asserts the branch gained exactly one commit since the baseline and that it carries every `path` row | phase-import | git artefact (commit on the worktree branch) |
+| T-PC7 | `the worktree's {string} is the copy its branch carries` | Asserts the worktree's file at the path has the content the branch's HEAD records for it (`git show HEAD:<path>`). The file is what worktree setup left in the worktree, an artefact; no source file is read | phase-import | worktree artefact + git artefact (HEAD blob) |
+| T-PC8 | `the worktree has no uncommitted change to {string}` | Asserts `git status --porcelain -- <path>` in the worktree prints nothing | phase-import | git artefact (worktree status) |
+| T-PC9 | `git lists {string} among the worktree's ignored files` | Asserts the path is among `git ls-files --others --ignored --exclude-standard` in the worktree: the ignore entry worktree setup wrote covers it | phase-import | git artefact (ignored-file listing) |
+| T-PC10 | `git lists {string} among the worktree's untracked files that are not ignored` | Asserts the path is among `git ls-files --others --exclude-standard` in the worktree: worktree setup copied it and wrote no ignore entry for it | phase-import | git artefact (untracked-file listing) |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), `the ADW TypeScript type-check passes` (T22) and the git/gh guard
+pair W16/T34.
+
+---
+
+## Given/When/Then — Cost Records, the Cost API and Worker Deploy Detection (@cost-records)
+
+These phrases drive three things. First, the real `handleAgentProcess` (phase-import): a fake Claude
+CLI child emits the JSONL a scenario describes (assistant turns, and a `result` message whose
+`modelUsage` carries each model's tokens and `costUSD`), and the phase's records are built with the
+real `createPhaseCostRecords`, several runs folded with `mergeModelUsageMaps`, as the phases build
+them; the divergence check is the real `checkDivergence`. The completion comment's cost section is
+rendered by the real `formatCostCommentSection` in a child process
+(`features/regression/drivers/feature-936-cost-section-driver.ts`), because `SHOW_COST_IN_COMMENTS` is
+bound when `adws/core/config.ts` is imported. Second, the cost API: a local HTTP server records what
+the real `CostTracker.commit` posts from a child process
+(`features/regression/drivers/feature-936-commit-driver.ts`, since `COST_API_URL` is bound at import),
+and the cost-api Worker's real ingest and query handlers answer in-process from an in-memory SQLite
+database (`node:sqlite`) that carries the Worker's real migrations. Third, the deploy workflow's change
+detection: a throwaway git repository laid out like ADW's (a default branch, a release branch, both
+Workers' files and a copy of `.github/workflows/deploy-workers.yml`) receives a release merge, and a
+port of `dorny/paths-filter`'s push-event path runs in a checkout of it. The workflow file is the
+system under test's configuration: its push trigger and the `dorny/paths-filter` step's inputs and
+filters are executed against the push, never asserted on. Every git command runs with the host's git
+configuration switched off and through the `PATH` captured when the module loads, so the `@regression`
+git-mock, which turns `clone` and `fetch` into no-ops, never intercepts it.
+
+Every assertion targets a runtime artefact: the cost records the phase built, the divergence verdict,
+the cost section the driver printed, the requests the recording cost API received, the Worker's query
+responses, git's diff of the throwaway repository, or the change detection's outcome. No step reads,
+greps or parses a source file to assert on it, satisfying the Rot-Detection Rubric. Costs are compared
+at four decimals, the precision the cost section shows. The definitions live in
+`feature-936-costRecords.steps.ts`, `feature-936-costApi.steps.ts` and `feature-936-deploy.steps.ts`,
+with their helpers `feature-936-costRun.ts`, `feature-936-usd.ts`, `feature-936-costApiWorker.ts`,
+`feature-936-throwawayRepo.ts`, `feature-936-pathsFilter.ts` and `feature-936-workflowConfig.ts`. Their
+state is module-scoped and is reset or released by hooks keyed on `@cost-records`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-CR1 | `cost comments are enabled` | Sets `SHOW_COST_IN_COMMENTS=true` in the environment the cost-section driver runs with; otherwise the driver runs with it set empty, since dotenv never overrides a variable that is already set. Reset before every scenario | subprocess | cost-section driver environment (SUT input) |
+| G-CR2 | `an agent run of the {string} phase whose Claude CLI result message reports:` | Describes a run of the phase that streams no assistant turn and ends with a `result/success` message: one `modelUsage` entry per row (`model`, `input`, `output`, `cache_read`, `cache_write`, `costUSD`), with `total_cost_usd` the rows' sum | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR3 | `a first/second agent run of the {string} phase whose Claude CLI result message reports:` | As G-CR2, for another run of the same phase; W-CR1 folds every run of the phase | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR4 | `that result message reports a total cost of ${float}` | Sets the last described result message's `total_cost_usd` to the figure, apart from its per-model `costUSD` figures | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR5 | `an agent run of the {string} phase that streams these assistant turns for model {string}:` | Describes a run that streams one `assistant` message per row for the model: the row's message id, `input_tokens`, `cache_creation_input_tokens` and `cache_read_input_tokens`, and a text block of the given character count. It has no result message until G-CR7 adds one | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR6 | `an agent run of the {string} phase that streams these assistant turns for model {string} and is stopped before the Claude CLI writes its result message:` | As G-CR5; the fake CLI child then closes with no exit code and never writes a result message | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR7 | `the agent run ends with a Claude CLI result message that reports:` | Ends the last described run with a result message, as G-CR2 describes one | phase-import | fake Claude CLI stream (SUT input) |
+| G-CR8 | `a cost API that records the cost records posted to it` | Starts a local HTTP server on `127.0.0.1` (ephemeral port) that records each request's method, path, `Authorization` header and JSON body and answers 201; the `@cost-records` After hook stops it | mock-query | recording cost API (mock HTTP server) |
+| G-CR9 | `the cost API stores for project {string} a {string} record of issue {int} for model {string} with computed_cost_usd {float} and reported_cost_usd {float}` | Ingests one record (fixed token usage, provider `anthropic`) for the project through the cost-api Worker's real `handleIngest`, running in-process against an in-memory SQLite database that carries the Worker's real migrations; fails unless the Worker answers 201 | phase-import | Worker ingest response (artefact) |
+| G-CR10 | `a throwaway repository whose default branch is {string} and whose {string} holds the previous release` | Creates a git repository in a temp directory on the default branch, holding a README, each Worker's `wrangler.toml` and a source file, and a copy of the checkout's `.github/workflows/deploy-workers.yml`; commits it as the previous release and branches the release branch from it. The `@cost-records` After hook removes it | phase-import | git artefact (throwaway repository) |
+| G-CR11 | `a commit on {string} that is not yet on {string} changes {string}` | Fails unless the two names are the repository's default and release branches, then commits a change to the file on the default branch | phase-import | git artefact (throwaway repository) |
+| G-CR12 | `a( later) pull request that changes {string} has been merged into {string} with a merge commit` | Fails unless the name is the default branch, then commits the change on a fresh `feature-<n>` branch off it and merges that branch back with `--no-ff`, as a pull-request merge lands | phase-import | git artefact (throwaway repository) |
+| W-CR1 | `the {string} phase builds its cost records from its agent run(s)` | Feeds each described run of the phase, in order, to the real `handleAgentProcess` through a fake CLI child, then builds the phase's records with the real `createPhaseCostRecords` (several runs folded with `mergeModelUsageMaps`), with status `success` only when every run's cost came from a finalized result message | phase-import | built cost records (artefact) |
+| W-CR2 | `the phase runner posts the {string} phase's cost records to the cost API` | Runs `features/regression/drivers/feature-936-commit-driver.ts` as a child process with `COST_API_URL` set to G-CR8's server and a scenario token; the driver commits the phase's built records through the real `CostTracker.commit`. Fails unless the driver exits 0 | subprocess | exit code + recorded requests |
+| W-CR3 | `the cost breakdown and the per-issue costs of project {string} are requested from the cost API` | Calls the Worker's real `handleGetProjects`, `handleGetCostBreakdown` and `handleGetCostIssues` for the project against G-CR9's database and records the cost breakdown and the per-issue costs they answer | phase-import | Worker query responses (artefact) |
+| W-CR4 | `{string} is merged into {string} with a merge commit, the way releases are merged` | Fails unless the two names are the default and release branches, then merges the default branch into the release branch with `--no-ff` and records the push: the release branch's commit before and after the merge | phase-import | git artefact (merge commit) |
+| W-CR5 | `the change-detection step of the deploy workflow runs for the push of that merge to {string}` | Fails unless the name is the release branch, then clones the throwaway repository and runs the deploy workflow's change detection in the clone for the recorded push: the workflow's push trigger decides whether it fires, then the port of `dorny/paths-filter`'s push-event path evaluates the step's `base` and `ref` inputs against the push event, finds the changed files (git fetches, merge-base deepening, `git diff --name-only`) and matches them against the step's filters. Records `not-triggered`, `failed` (a git command or ref the action would fail on) or `completed` with each Worker marked or not | phase-import | change-detection outcome (artefact) |
+| W-CR6 | `the change-detection step of the deploy workflow runs for the push of that merge to {string} in a checkout that holds only the pushed commit` | As W-CR5, in a checkout that holds only the pushed commit, fetched at depth 1, as `actions/checkout` makes by default | phase-import | change-detection outcome (artefact) |
+| T-CR1 | `the {string} cost record for model {string} holds a reported cost of ${float}` | Asserts the built record's `reportedCostUsd` equals the figure at four decimals; fails when it is absent | phase-import | built cost record (artefact) |
+| T-CR2 | `the {string} cost record for model {string} holds a computed cost of ${float}` | Asserts the built record's `computedCostUsd` equals the figure at four decimals | phase-import | built cost record (artefact) |
+| T-CR3 | `the {string} cost record for model {string} holds no reported cost` | Asserts the built record has no `reportedCostUsd` | phase-import | built cost record (artefact) |
+| T-CR4 | `the {string} cost record for model {string} carries estimated tokens:` | Asserts the built record's `estimatedTokens` equal the table row (`input`, `output`, `cache_read`, `cache_write`) | phase-import | built cost record (artefact) |
+| T-CR5 | `the {string} cost record for model {string} carries actual tokens:` | Asserts the built record's `actualTokens` equal the table row | phase-import | built cost record (artefact) |
+| T-CR6 | `the {string} cost record for model {string} carries no actual tokens` | Asserts the built record has no `actualTokens` | phase-import | built cost record (artefact) |
+| T-CR7 | `the divergence check fires for the {string} cost record for model {string}` | Asserts the real `checkDivergence` over the record's computed and reported costs reports a divergence, a difference of more than 5% | phase-import | divergence verdict (artefact) |
+| T-CR8 | `the divergence check does not fire for the {string} cost record for model {string}` | Asserts `checkDivergence` reports no divergence; a record with no reported cost never diverges | phase-import | divergence verdict (artefact) |
+| T-CR9 | `the divergence check fires for no {string} cost record` | Asserts the phase built records and `checkDivergence` reports a divergence for none of them | phase-import | divergence verdict (artefact) |
+| T-CR10 | `the completion comment's cost section warns that {string} on {string} computed ${float} against a reported ${float}, a {float}% difference` | Renders the section once per scenario: `features/regression/drivers/feature-936-cost-section-driver.ts` runs as a child with the built records on stdin, `COST_REPORT_CURRENCIES=USD` and G-CR1's setting, and prints what the real `formatCostCommentSection` returns. Asserts the output carries `Cost Divergence Detected` and the item `**<phase>** (<model>): computed $<computed> vs reported $<reported> (<percent>% diff)` | subprocess | rendered cost section (driver stdout) |
+| T-CR11 | `the completion comment's cost section carries no cost divergence warning` | Asserts the section, rendered as T-CR10 renders it, carries `Cost Breakdown` and no `Cost Divergence Detected` | subprocess | rendered cost section (driver stdout) |
+| T-CR12 | `the completion comment's cost section reports estimated against actual tokens for {string} on {string}:` | For each row of the table, asserts the rendered section's `Estimate vs Actual Tokens` table holds a row of the phase, the model, the token type and its estimated, actual, delta and delta % figures, exactly as the row gives them | subprocess | rendered cost section (driver stdout) |
+| T-CR13 | `the completion comment's cost section reports no estimated against actual tokens for {string} on {string}` | Asserts the rendered section carries `Cost Breakdown` and its `Estimate vs Actual Tokens` table holds no row for the phase and model | subprocess | rendered cost section (driver stdout) |
+| T-CR14 | `the cost API received a {string} record for model {string} with reported_cost_usd {float} and computed_cost_usd {float}` | Among the records of every `POST /api/cost` G-CR8's server recorded, finds the phase's record for the model; asserts its `reported_cost_usd` equals the figure and its `computed_cost_usd` lies within 1e-9 of the figure | mock-query | recorded requests |
+| T-CR15 | `the cost API's cost breakdown gives model {string} a cost of ${float}` | Asserts the cost breakdown W-CR3 recorded lists the model with a `totalCost` equal to the figure at four decimals | phase-import | Worker query response (artefact) |
+| T-CR16 | `the cost API's per-issue costs give the {string} phase of issue {int} a cost of ${float}` | Asserts the per-issue costs W-CR3 recorded list the issue, and that the issue's phase has a `cost` equal to the figure at four decimals | phase-import | Worker query response (artefact) |
+| T-CR17 | `a comparison of {string} with the default branch {string} finds no changed file` | Fails unless the two names are the release and default branches, then asserts `git diff --name-only <default>...<release>` in the throwaway repository lists no file | phase-import | git artefact (diff) |
+| T-CR18 | `the change detection marks the {string} Worker for deployment` | Asserts the outcome W-CR5 or W-CR6 recorded is `completed` with the Worker's filter marked | phase-import | change-detection outcome (artefact) |
+| T-CR19 | `the change detection leaves the {string} Worker out of the deployment` | Asserts the workflow was not triggered, or the outcome is `completed` with the Worker's filter not marked | phase-import | change-detection outcome (artefact) |
+| T-CR20 | `the change detection either fails or marks the {string} Worker for deployment` | Asserts the outcome is `failed`, or `completed` with the Worker marked: never a silent skip | phase-import | change-detection outcome (artefact) |
+
+This scenario also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18), `the ADW TypeScript type-check passes` (T22) and the git/gh guard pair W16/T34.
+
+---
+
+## Given/When/Then — Dead-Orchestrator Takeover and Startup-Failure Logging (@dead-orchestrator-takeover)
+
+These phrases drive how ADW recovers a workflow whose orchestrator died, and what an orchestrator that
+dies during startup leaves behind. The cron rows are phase-import: one poll is the real
+`runHungDetectorSweep` over the scenario's own adwIds, then one real `checkAndTrigger(boundary)` from
+feature-796's recording launch boundary. The boundary's issue tracker and code host answer from an
+in-memory fixture and record every call, and its git context records every worktree reset and answers
+every other git call benignly. `bunx` is shadowed on `PATH` by a recorder that logs each launch's argv
+and exits, so no orchestrator ever starts from a cron row. The stand-ins for orchestrators are real
+throwaway child processes whose pid and start token are captured while they live: a made-up pid is never
+written anywhere. The startup rows are subprocess: they launch the real orchestrator script the way the
+cron does, with a Claude CLI that exists but is not executable. Every assertion targets a runtime
+artefact: the launches the cron recorded; the top-level state file `agents/<adwId>/state.json`; the
+spawn-lock records under `agents/spawn_locks/`; the liveness of the stand-in processes; the worktree
+resets recorded at the boundary's git context; the orchestrator's execution log
+`agents/<adwId>/<orchestrator>/execution.log`; and the launched orchestrator's exit code. No step reads,
+greps or parses a source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-959-workflow.steps.ts`, `feature-959-cron.steps.ts`,
+`feature-959-pr-review.steps.ts` and `feature-959-startup.steps.ts`, with their helpers in
+`feature-959-world.ts`, `feature-959-boundary.ts`, `feature-959-orchestrator.ts` and
+`feature-959-processes.ts`; G-DT1 is defined in `feature-796.steps.ts`, and G-DT2 and G-DT3 in
+`feature-820.steps.ts`. The cron rows share the `bunx` launch recorder of `feature-932-world.ts`. The
+hooks in `feature-959.steps.ts` are keyed on `@dead-orchestrator-takeover`: they set up the mock
+infrastructure, save, clear and restore `agents/paused_queue.json` and `agents/.auth_gate`, kill the
+stand-ins and end the in-process PR review, release the issues' spawn locks under both the boundary's
+and the checkout's repository, and remove each adwId's state and log directories. A scenario that uses
+these phrases must carry that tag. Issue numbers must be distinct across the run, because launches,
+locks and the cron's `processedSpawns` are keyed by issue. An adwId uses only lowercase letters, digits
+and hyphens. The repository the boundary names must not exist (`adw-fixture/void-959`); the startup
+rows' target is the fictional `acme/widgets`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-DT1 | `a launch boundary for the repository {string} whose providers record every call` | Builds the recording launch boundary through the real `buildLaunchBoundary`. Its issue tracker and code host answer from an in-memory fixture (issues, labels, comments, states, created and updated times, pull requests) and record every call, and no call reaches a forge. Defined in `feature-796.steps.ts` | phase-import | recording providers (SUT input) |
+| G-DT2 | `issue {int} in the recording tracker carries the label {string}` | Sets the issue's labels in the recording tracker's fixture to that one label. Fails unless G-DT1 ran first. Defined in `feature-820.steps.ts` | phase-import | recording tracker fixture (SUT input) |
+| G-DT3 | `issue {int} in the recording tracker carries the labels {string} and {string}` | As G-DT2, with both labels. Defined in `feature-820.steps.ts` | phase-import | recording tracker fixture (SUT input) |
+| G-DT4 | `issue {int} has an ADW workflow under adwId {string} that runs {string}, whose last run stopped at {string} half an hour ago` | Seeds the issue in the recording tracker, created and updated long before the cron's grace period, with an `**ADW ID:**` comment naming the adwId; it keeps any labels another step gave the issue. Writes the top-level state a run leaves, through `AgentStateManager.writeTopLevelState`: the adwId and the issue, the stage, the script as `orchestratorScript`, the boundary's repository, a branch name, a `lastSeenAt` half an hour old, a completed `plan` phase older still, and no `pid` and no `resumeAttempts`. Wraps the boundary's git context so that a worktree reset is recorded and does nothing, and every other git call a take-over makes gets a benign answer | phase-import | state file artefact + recording tracker fixture |
+| G-DT5 | `a relaunched orchestrator for workflow {string} recorded "starting" and died before its first phase` | Starts a throwaway child and captures its pid and start token, then writes what `initializeWorkflow` has written once it records `starting`: in the top-level state the stage `starting`, the script, repository and branch, the child's `pid` and `pidStartedAt` and a fresh `lastSeenAt`; the orchestrator sub-state `agents/<adwId>/<orchestrator>/state.json` with the child's pid; and the execution log's startup lines, ending `Allocated port 57665 for dev server`. Then kills the child and waits until it has exited | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| G-DT6 | `the orchestrator of workflow {string} died at workflowStage {string} ten minutes ago, leaving the issue's spawn lock behind` | Writes what G-DT5 writes for a live child, then the stage (for `<phase>_running` also a `running` entry for the phase, started more than ten minutes ago), a `lastSeenAt` ten minutes old, and the real spawn lock for the issue under the boundary's repository, recording the child's pid and start token. Then kills the child and waits until it has exited | phase-import | state file + spawn-lock artefacts |
+| G-DT7 | `a relaunched orchestrator for workflow {string} is alive and still starting up, past recording "starting" but before its first phase` | As G-DT5, but the child stays alive until the `After` hook kills it | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| G-DT8 | `a relaunched orchestrator for workflow {string} is alive and records "starting" between the cron's filtering of the issue and its takeover decision` | Starts a live child and arms a one-shot trigger on the recording tracker's issue listing. It fires on the first listing that does not ask for labels after the cron's own listing, which does: the concurrency check's listing, after the poll's filter has run and before the takeover handler reads the state. When it fires it writes what G-DT7 writes. W-DT1 fails the poll unless the trigger fired | phase-import | state file artefacts written mid-poll |
+| G-DT9 | `the orchestrator of workflow {string} is alive at workflowStage {string}, holding the issue's spawn lock and heartbeating` | As G-DT6 with a live child: writes what G-DT7 writes, then the stage (for `<phase>_running` also a `running` phase entry started more than ten minutes ago), a `lastSeenAt` of now, and the spawn lock under the child's pid. The child stays alive until the `After` hook kills it | phase-import | state file + spawn-lock artefacts |
+| G-DT10 | `the cron's own process holds the spawn lock for issue {int} in the repository {string}` | Takes the real spawn lock for `<repo>#<issue>` under this process's pid, because the cron runs in this process. Does nothing when this pid already holds the lock, as it does after a poll took the workflow over | phase-import | spawn-lock artefact |
+| G-DT11 | `the SDLC run of workflow {string} has exited, leaving its pid in the state` | Starts and kills a throwaway child, then writes its pid and start token into the workflow's top-level state as `pid` and `pidStartedAt` | phase-import | state file artefact |
+| G-DT12 | `a PR review of workflow {string} has started up on the issue's pull request and has stood at workflowStage {string} for ten minutes` | In order: seeds an open pull request for the workflow's branch in the recording code host, linked to the issue; declares application type `cli` in the PR worktree's `.adw/project.md`, under a directory the scenario removes; runs the real `initializePRReviewWorkflow` against the boundary under the issue's adwId and records `adws/adwPrReview.tsx` as the script; holds the real `runWithOrchestratorLifecycle` (spawn lock and heartbeat) in this process until the `After` hook ends it; and writes the stage with a `lastSeenAt` of now and, for a `<phase>_running` stage, a `running` phase entry started more than ten minutes ago | phase-import | state file + spawn-lock artefacts |
+| G-DT13 | `the Claude CLI that ADW is configured to run exists but is not executable` | Writes a shell script without the execute bit into a temporary directory. W-DT4 hands its absolute path to the launched orchestrator as `CLAUDE_CODE_PATH`, so the pre-flight check rejects it | subprocess | launched orchestrator environment (SUT input) |
+| G-DT14 | `the execution log of the {string} for adwId {string} already ends with the line {string}` | Initialises the orchestrator's state and appends the line to `agents/<adwId>/<orchestrator>/execution.log` through `AgentStateManager.appendLog`, as an earlier run would have written it | phase-import | execution log artefact |
+| W-DT1 | `the cron polls from that boundary, with its hung-orchestrator sweep due` | Runs the real `runHungDetectorSweep` over this scenario's adwIds only, with production state reads and liveness, then one real `checkAndTrigger` from the boundary with `bunx` shadowed on `PATH` by the launch recorder. Fails if an armed G-DT8 trigger did not fire. The cron module's state (`processedSpawns`, the tick counter) lives on across polls in the same process | phase-import | recorded launches + state file + spawn-lock + recorded resets |
+| W-DT2 | `the same cron polls again from that boundary, with its hung-orchestrator sweep due` | W-DT1 again in the same process, so the cron is never restarted between the polls | phase-import | recorded launches + state file + spawn-lock + recorded resets |
+| W-DT3 | `the orchestrator the cron relaunched for workflow {string} records "starting" exactly as #935's relaunched orchestrator did, and dies before its first phase` | Starts a throwaway child and writes what `initializeWorkflow` wrote before the fix: in the top-level state the stage `starting`, the script, repository and branch merged over the previous state (its `lastSeenAt` stays), and no `pid` or `pidStartedAt`; the orchestrator sub-state with the child's pid; and the execution log's startup lines, ending `Allocated port 57665 for dev server`. Takes no spawn lock. Then kills the child and waits until it has exited | phase-import | state file + orchestrator sub-state + execution log artefacts |
+| W-DT4 | `the orchestrator {string} is launched as the cron launches it, for issue {int} under adwId {string} and the target repository {string}, with its output discarded` | Spawns the real orchestrator script from the ADW checkout as `bunx tsx <script> <issue> <adwId> --target-repo <repo>`, detached, with its stdio ignored, G-DT13's CLI as `CLAUDE_CODE_PATH` and the GitHub App variables blanked. Removes `agents/<adwId>` first unless G-DT14 seeded its log. Waits, bounded, for the child to exit and records its exit code in `World.lastExitCode`, which T5 reads | subprocess | exit code + execution log artefact |
+| T-DT1 | `the cron has launched {int} orchestrator(s) for issue {int}` | Waits, bounded, until the launch recorder holds N launches whose first argument after the script is the issue, then waits a quiet second and asserts exactly N | phase-import | recorded launches |
+| T-DT2 | `the cron launched no orchestrator for issue {int}` | Waits a quiet second, then asserts the recorder holds no launch for the issue | phase-import | recorded launches |
+| T-DT3 | `every orchestrator the cron launched for issue {int} runs {string} under adwId {string}` | Asserts at least one launch for the issue and that every one runs the script (compared repo-relative) under the adwId | phase-import | recorded launches |
+| T-DT4 | `the orchestrator process of workflow {string} is still alive` | Asserts the workflow's stand-in process is alive by pid and start token (`isProcessLive`); fails if no stand-in was started | phase-import | process table |
+| T-DT5 | `the worktree of workflow {string} was not reset` | Asserts the boundary's git context recorded no worktree reset of the workflow's branch or worktree path | mock-query | recorded worktree resets |
+| T-DT6 | `nothing but the orchestrator of workflow {string} holds the issue's spawn lock` | Checks two repositories, the boundary's and the checkout's own (the identity the cron module releases under); for each, asserts the issue's spawn-lock record is absent or records the workflow's stand-in pid | phase-import | spawn-lock artefact |
+| T-DT7 | `the execution log of the {string} for adwId {string} records the error that stopped its startup` | Reads `agents/<adwId>/<orchestrator>/execution.log` and asserts it holds a line, timestamped at or after the launch, that names G-DT13's non-executable path: the path the pre-flight check rejected | subprocess | execution log artefact |
+| T-DT8 | `the execution log of the {string} for adwId {string} still holds the line {string}` | Reads the execution log and asserts it still holds the line | subprocess | execution log artefact |
+| T-DT9 | `the execution log of the {string} for adwId {string} records the error that stopped its startup, after the line {string}` | As T-DT7, and asserts the given line is in the log and the startup error's line comes after it | subprocess | execution log artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G-PQ14 (`another live process holds the spawn lock for issue {int} in
+the repository {string}`; its holder process and lock are released by feature-911's exported
+`releaseHeldSpawnLocks`, which these hooks call), T1 (read from `agents/<adwId>/state.json`), T5 (the
+exit code W-DT4 records), T22, and the generic W16/T34 git/gh guard pair.
+
+---
+
+## Given/When/Then — Review Comment Screenshots (@review-comment-screenshots)
+
+These phrases drive the review phase's comment on the issue and the screenshots of the proof run the
+review judged. Every row is phase-import: the real `executeScenarioTestPhase` runs, then the real
+`executeReviewPhase`, over a `WorkflowConfig` built on a throwaway worktree under `os.tmpdir()`. Its
+recording `repoContext` for the fictional `acme/widgets` records every comment. The repository is of
+type `web`, because only there are the images of the issue's own scenarios the evidence a review
+comment shows (ADR-0063), and its one scenario carries `@adw-{issueNumber}`. Three boundaries are
+replaced, and only for the When step's run: the Playwright run, by a stand-in `npx` first on `PATH`
+during the scenario tests, which copies a scripted proof run into `$ADW_PROOF_DIR` and attaches it to
+the issue's scenario in its JUnit report instead of starting a browser; R2, by a stand-in screenshot
+store installed through `setProofUploaderForTesting` (`adws/proof/proofUploader.ts`); and the review
+agent, by the Claude CLI stub (`test/mocks/claude-cli-stub.ts`) answering a verdict the steps script
+through `<worktree>/.adw-stub-manifest.json`. No real agent or browser runs, and nothing reaches R2 or
+GitHub. Each
+fixture file's bytes are unique to its relative path, so an upload is traced back to the file it
+carried; nothing decodes an image. Every assertion targets a runtime artefact: the comments the
+recording issue tracker received (a comment's heading is its first `## ` line, and its images are its
+Markdown image sources), the uploads the stand-in store received and the URL it answered each with,
+and what the review phase returned or threw. No step reads, greps or parses a source file, satisfying
+the Rot-Detection Rubric.
+
+The definitions live in `feature-937.steps.ts` (the hooks, Givens and Whens) and
+`feature-937-then.steps.ts` (the Thens), with their helpers in `feature-937-world.ts`,
+`feature-937-workflow.ts`, `feature-937-runner.ts` and `feature-937-agent.ts`. The hooks are keyed on
+`@review-comment-screenshots`: `Before` resets the module-scoped world, and `After` removes the
+stand-in store, restores `CLAUDE_CODE_PATH` unless the `@regression` teardown already has, clears the
+cached CLI path, and removes `agents/<adwId>` for every adwId used and the throwaway directories. A
+scenario that uses these phrases must carry that tag and run G-RS1 in its Background.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-RS1 | `the screenshot store records every upload and answers each with a public URL of its own` | Prepares the stand-in screenshot store, an `UploaderFn` that records the key and bytes of every upload and answers the n-th with `https://screenshots.example.test/<n>/<key>`; an upload it refuses is recorded with no URL and throws. It is only prepared: W-RS1 and W-RS3 install it through `setProofUploaderForTesting` for their run and remove it afterwards, so the real `uploadToR2` never runs and the store counts as configured without R2 credentials. The Background of every scenario using these phrases | phase-import | stand-in screenshot store (SUT boundary) |
+| G-RS2 | `a review workflow for issue {int} under adwId {string} whose issue tracker records every comment` | Removes any `agents/<adwId>` a crashed earlier run left, then builds a `WorkflowConfig` over a fresh throwaway worktree under `os.tmpdir()`: a recording `repoContext` for the fictional `acme/widgets` whose issue tracker records every `commentOnIssue` and answers `fetchLabels` with `[]` and whose code host records every call; no `ctx.prUrl`, since in `adwSdlc` the review runs before the pull request exists; no `gitContext`; the application profile of type `web` and the default project config declaring that type, with `startDevServer` `N/A` and a non-empty `scenariosMd`. The worktree holds what an initialised `web` repository holds once its unit-test phase installed the ADW Playwright project: one step-definition file under `features/steps/` so the scenario test phase runs, `features/node_modules/` so the run command's install guard installs nothing, and `features/issue.feature`, whose one scenario carries `@adw-{issueNumber}`. A stand-in `npx` (POSIX sh, so that no Node child inherits the Cucumber run's loader) succeeds for `bddgen` and, for `playwright test` whatever the tag, copies the scripted proof run into `$ADW_PROOF_DIR`, writes a passing JUnit report to `$ADW_JUNIT_REPORT_PATH` whose one test case, the issue's scenario named as ADW's Playwright project names it, attaches every copied file relative to the report's directory, and prints `1 passed` | phase-import | workflow config + recording issue tracker (SUT input) |
+| G-RS3 | `the scenario run for that workflow leaves these screenshots in its proof directory:` | Replaces the workflow's proof run with the relative paths in the table's `screenshot` column, each written as a fixture file whose bytes are unique to its path (`fixture bytes of <path>`), keeping any other file G-RS5 named; on every run the stand-in Playwright run copies them into `$ADW_PROOF_DIR` at their relative paths and attaches each to the issue's scenario. Nothing decodes an image: the extension is the one named. Fails unless G-RS2 ran | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS4 | `the scenario run for that workflow leaves no screenshots in its proof directory` | As G-RS3 with no screenshot: the proof run holds only the other files G-RS5 named, if any | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS5 | `the scenario run for that workflow also leaves the file {string} in its proof directory` | Adds a file that is not an image at the relative path, its bytes unique to that path, to the proof run, keeping the screenshots already scripted | phase-import | proof-run fixture (SUT input, not source) |
+| G-RS6 | `the repository of that workflow has no scenarios configured` | Empties the workflow's `scenariosMd`, so the real scenario test phase skips and returns no scenario proof, and the review is judged over an empty proof path | phase-import | workflow config (SUT input) |
+| G-RS7 | `the stand-in review agent passes the review` | Scripts the verdict the Claude CLI stub answers the next review with: `success: true`, no review issues, and an empty `screenshots` list unless G-RS9 ran. W-RS1 writes it into the stub's manifest marker; it satisfies the review agent's output parser at once, so no validation retry starts another agent. Also used after a When step, to script the next review | phase-import | stub behaviour (scripted review verdict) |
+| G-RS8 | `the stand-in review agent fails the review with the blocker {string}` | As G-RS7, with `success: false` and one review issue of severity `blocker` whose description is the text | phase-import | stub behaviour (scripted review verdict) |
+| G-RS9 | `the stand-in review agent's verdict lists the scenario proof file as its proof artifact` | Makes the scripted verdict's `screenshots` hold the absolute path of the `scenario_proof.md` the scenario test phase reported, as the review prompt's Strategy A tells the reviewer to; nothing is listed when the phase reported no proof | phase-import | stub behaviour (scripted review verdict) |
+| G-RS10 | `the screenshot store refuses the upload of {string}` | Makes the stand-in store throw for an upload carrying that screenshot's fixture bytes, recording it with no URL. Fails unless G-RS1 ran | phase-import | stand-in screenshot store (SUT boundary) |
+| W-RS1 | `the scenario tests run and the review phase judges their proof` | Installs the stand-in store through `setProofUploaderForTesting` and points `CLAUDE_CODE_PATH` at the Claude CLI stub, clearing the cached CLI path. Runs the real `executeScenarioTestPhase(config)` with the stand-in `npx` first on `PATH` for that phase only, writes the stub's manifest marker `<worktree>/.adw-stub-manifest.json` with the scripted verdict, then runs the real `executeReviewPhase(config, proofPath)`, `proofPath` being the `resultsFilePath` of the proof the scenario phase returned or `''` when it returned none, as `runScenarioTestFixLoop` hands the review. Records whether the review phase returned, with its `reviewPassed`, or threw, and removes the store and restores `CLAUDE_CODE_PATH` before it ends. Fails unless G-RS1, G-RS2 and G-RS7 or G-RS8 ran. 60 s timeout | phase-import | returned review verdict + recorded comments + recorded uploads |
+| W-RS2 | `the next scenario run for that workflow leaves only the screenshot {string} in its proof directory` | Replaces the proof run, from the next run on, with that one screenshot fixture and no other file. A When because it scripts the run between two reviews | phase-import | proof-run fixture (SUT input, not source) |
+| W-RS3 | `the scenario tests run again and the review phase judges their new proof` | W-RS1 again on the same workflow. The patch the orchestrators run between review attempts changes no screenshot and is left out | phase-import | returned review verdict + recorded comments + recorded uploads |
+| T-RS1 | `the review phase returned a {word} verdict` | Asserts the last run's review phase returned rather than threw (its error is shown otherwise) and that its `reviewPassed` is `true` for `passing` and `false` for `failing`; any other word fails the step | phase-import | returned review verdict |
+| T-RS2 | `issue {int} received a comment headed {string}` | Asserts the recording issue tracker received a comment on issue N whose heading, its first `## ` line, contains the text (the review comments put an emoji shortcode before the title); fails listing the headings of the issue's comments | phase-import | recorded issue comments |
+| T-RS3 | `the {string} comment on issue {int} shows exactly these screenshots, each embedded as an image from a URL its upload returned:` | Takes the last comment on issue N headed by the text and collects its Markdown image sources (`![…](source)`). Asserts that every screenshot in the table's `screenshot` column is embedded from a URL the stand-in store returned for an upload of its bytes, and that every image source is a URL returned for an upload of a listed screenshot | phase-import | recorded issue comments + recorded uploads |
+| T-RS4 | `the {string} comment on issue {int} still lists the blocker {string}` | Asserts the body of the last comment on issue N headed by the text contains the blocker's description | phase-import | recorded issue comments |
+| T-RS5 | `the {string} comment on issue {int} embeds no image` | Asserts the last comment on issue N headed by the text carries no Markdown image | phase-import | recorded issue comments |
+| T-RS6 | `the screenshot store received uploads of these screenshots and of nothing else:` | Asserts the bytes of every listed screenshot reached the stand-in store at least once, and that every upload it recorded, refused ones included, carries the bytes of a listed screenshot | phase-import | recorded uploads |
+| T-RS7 | `the screenshot store received no upload` | Asserts the stand-in store recorded no upload, refused or answered | phase-import | recorded uploads |
+
+This section also reuses already-registered phrases, so they need no new rows:
+`the ADW codebase is checked out` (G18, Background) and `the ADW TypeScript type-check passes` (T22).

@@ -69,6 +69,11 @@ vi.mock('../cancelHandler', () => ({
   handleCancelDirective: vi.fn(),
 }));
 
+vi.mock('../continueHandler', () => ({
+  handleContinueDirective: vi.fn(() => false),
+  buildContinueHandlerDeps: vi.fn(() => ({ readTopLevelState: vi.fn(), writeTopLevelState: vi.fn(), now: vi.fn() })),
+}));
+
 vi.mock('../issueEligibility', () => ({
   checkIssueEligibility: vi.fn(() => Promise.resolve({ eligible: false, reason: 'test' })),
 }));
@@ -117,8 +122,10 @@ vi.mock('../../core', async (importOriginal) => {
 
 import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
 import { evaluateCandidate, type CandidateDecision } from '../takeoverHandler';
+import { buildContinueHandlerDeps, handleContinueDirective } from '../continueHandler';
 import { releaseIssueSpawnLock } from '../spawnGate';
 import { filterEligibleIssues, type EligibleIssue } from '../cronIssueFilter';
+import type { RawIssue } from '../cronIssueListing';
 import { checkIssueEligibility } from '../issueEligibility';
 import { spawnDetached } from '../webhookGatekeeper';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
@@ -509,5 +516,53 @@ describe('checkAndTrigger — the takeover decision for each candidate', () => {
     expect(vi.mocked(spawnDetached).mock.calls[0][1]).toContain('9604');
     expect(releaseIssueSpawnLock).toHaveBeenCalledTimes(1);
     expect(releaseIssueSpawnLock).toHaveBeenCalledWith(expect.anything(), 9604);
+  });
+});
+
+describe('checkAndTrigger — the ## Continue directive scan', () => {
+  const ADW_COMMENT = '**ADW ID:** `adw-parked`';
+
+  function issueWithComments(issueNumber: number, ...bodies: string[]): RawIssue {
+    return { number: issueNumber, title: '', body: '', comments: bodies.map((body) => ({ body })), createdAt: '', updatedAt: '', labels: [] };
+  }
+
+  async function scan(...issues: RawIssue[]): Promise<void> {
+    vi.mocked(filterEligibleIssues).mockReturnValueOnce({ eligible: [], filteredAnnotations: [], overlapDeferrals: [] });
+    const boundary = {
+      repoId: { owner: 'test-owner', repo: 'test-repo' },
+      providers: { issueTracker: { listIssues: () => issues }, codeHost: {} },
+    } as unknown as LaunchBoundary;
+    await checkAndTrigger(boundary);
+  }
+
+  beforeEach(() => {
+    vi.mocked(handleContinueDirective).mockClear();
+    vi.mocked(buildContinueHandlerDeps).mockClear();
+    vi.mocked(filterEligibleIssues).mockClear();
+  });
+
+  it('hands an issue whose latest comment is ## Continue to the waiver handler, with its comments', async () => {
+    const parked = issueWithComments(9701, ADW_COMMENT, '## Continue');
+
+    await scan(parked);
+
+    expect(handleContinueDirective).toHaveBeenCalledOnce();
+    expect(handleContinueDirective).toHaveBeenCalledWith(9701, parked.comments, vi.mocked(buildContinueHandlerDeps).mock.results[0].value);
+  });
+
+  it('leaves the issue out of the cancelled set, so the re-armed stage is picked up in the same cycle', async () => {
+    await scan(issueWithComments(9702, ADW_COMMENT, '## Continue'));
+
+    expect(vi.mocked(filterEligibleIssues).mock.calls[0][5]).toEqual(new Set());
+  });
+
+  it('reads only the latest comment of each issue', async () => {
+    await scan(
+      issueWithComments(9703, '## Continue', ADW_COMMENT),
+      issueWithComments(9704, ADW_COMMENT, 'looks fine'),
+      issueWithComments(9705),
+    );
+
+    expect(handleContinueDirective).not.toHaveBeenCalled();
   });
 });

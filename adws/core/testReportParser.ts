@@ -7,6 +7,8 @@ export interface TestCaseResult {
   status: 'passed' | 'failed' | 'skipped';
   /** Message from `<failure message="…">` or text body; undefined for passed/skipped cases. */
   failureMessage?: string;
+  /** Paths from the case's `[[ATTACHMENT|<path>]]` lines in `<system-out>`, as written: relative to the report's directory. */
+  attachments: string[];
 }
 
 export interface TestReport {
@@ -70,6 +72,25 @@ function extractFailureMessage(tc: Record<string, unknown>): string | undefined 
   return undefined;
 }
 
+const ATTACHMENT_LINE = /\[\[ATTACHMENT\|([^\]]+)\]\]/g;
+
+/** One `<system-out>` is a string (CDATA is merged into the text) or an object with `#text`; a repeated element is an array of them. */
+function textOfNode(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (node === null || typeof node !== 'object') return '';
+  return String((node as Record<string, unknown>)['#text'] ?? '');
+}
+
+function systemOutText(tc: Record<string, unknown>): string {
+  const systemOut = tc['system-out'];
+  const nodes = Array.isArray(systemOut) ? systemOut : [systemOut];
+  return nodes.map(textOfNode).join('\n');
+}
+
+function extractAttachments(tc: Record<string, unknown>): string[] {
+  return [...systemOutText(tc).matchAll(ATTACHMENT_LINE)].map(match => match[1]);
+}
+
 function buildCase(tc: Record<string, unknown>): TestCaseResult {
   const status = classifyTestCase(tc);
   return {
@@ -77,6 +98,7 @@ function buildCase(tc: Record<string, unknown>): TestCaseResult {
     classname: tc['@_classname'] !== undefined ? String(tc['@_classname']) : undefined,
     status,
     failureMessage: status === 'failed' ? extractFailureMessage(tc) : undefined,
+    attachments: extractAttachments(tc),
   };
 }
 

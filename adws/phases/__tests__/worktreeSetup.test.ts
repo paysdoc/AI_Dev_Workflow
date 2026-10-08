@@ -158,6 +158,22 @@ describe('verifyAdwRegen', () => {
     expect(result.missing).toHaveLength(0);
   });
 
+  it('a worktree whose .adw/ holds exactly the files /adw_init writes → ok:true', () => {
+    const adwDir = path.join(verifyDir, '.adw');
+    fs.mkdirSync(adwDir, { recursive: true });
+    for (const file of ['commands.md', 'project.md', 'conditional_docs.md', 'providers.md', 'scenarios.md']) {
+      fs.writeFileSync(path.join(adwDir, file), `# ${file}\nfixture\n`);
+    }
+    fs.mkdirSync(path.join(verifyDir, 'features', 'regression'), { recursive: true });
+    fs.writeFileSync(path.join(verifyDir, 'features', 'regression', 'vocabulary.md'), '# Vocabulary\nfixture\n');
+
+    expect(verifyAdwRegen(verifyDir)).toEqual({ ok: true, missing: [] });
+  });
+
+  it('lists exactly the five files /adw_init writes', () => {
+    expect(REQUIRED_ADW_FILES).toEqual(['commands.md', 'project.md', 'conditional_docs.md', 'providers.md', 'scenarios.md']);
+  });
+
   it('missing required .adw/ file → ok:false and reports the file', () => {
     seedAndCommit();
     fs.unlinkSync(path.join(verifyDir, '.adw', 'project.md'));

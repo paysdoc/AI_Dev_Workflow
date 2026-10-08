@@ -1,5 +1,6 @@
 import type { IssueClassSlashCommand, SlashCommand } from './issueTypes';
 import type { OrchestratorIdType } from '../core/constants';
+import type { BaselineRecord } from '../core/baselineGate';
 import type { LegacyModelUsageMap } from '../cost/types';
 
 /**
@@ -174,6 +175,7 @@ export type AgentIdentifier =
   | 'dependency-extraction-agent'
   | 'review-patch'
   | 'scenario-fix'
+  | 'static-check-fix-agent'
   | 'refactor-agent';
 
 export type AgentExecutionStatus =
@@ -252,6 +254,10 @@ export interface AgentState {
    * `MAX_RESUME_ATTEMPTS`; cleared (re-armed) on `## Retry`.
    */
   resumeAttempts?: number;
+  /** A `ParkReason` value: the park the workflow waits in. Absent once a run starts, since a starting run is no longer parked. */
+  parkReason?: string;
+  /** Written by the baseline phase when the base branch is green, and by `## Continue` when it waives a base-branch park. */
+  baseline?: BaselineRecord;
   phases?: Record<string, PhaseExecutionState>;
   /**
    * Repo identity (owner/repo) recorded at workflow init from the launch

@@ -76,7 +76,8 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
         guard, which runs over the rewritten scanner.
 
   Changes to feature-902 and feature-907. Their scanner rows now run through the decider. The
-  rows that pin behaviour this slice must keep carry `@adw-910`:
+  rows that pin behaviour this slice must keep carry `@adw-910`, or `@pause-queue-reset-time` in
+  the promoted feature-902:
     • modified: feature-902's unknown-drop row. #908 left it asserting the old eviction text on
       purpose, because this slice was expected to change that text. The row is renamed. It keeps
       its "failed to resume after 3 probe attempts" assertion and now also requires the comment
@@ -111,9 +112,10 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
   limit, a five-hour limit without a reset time, or no facts at all. Those are exactly the
   rejections #912 still enqueues. The four rows are the guard that the enqueue branch keeps
   recording the limit facts. They carry no `@adw-912` tag, because a promoted scenario drops its
-  `@adw-` tags. #912's hooks are scoped to `@adw-912 and not @adw-910`, so they never run for
-  these rows, which run under `@regression` with this file's harness alone. The rest of #912's
-  behaviour is specified in `features/per-issue/feature-912.feature`.
+  `@adw-` tags. #912's hooks are scoped to `@rate-limit-in-process-wait`, which these rows do not
+  carry, so they never run for them; these rows run under `@regression` with this file's harness
+  alone. The rest of #912's behaviour is specified in
+  `features/regression/rate-limit/feature-912.feature`.
 
   How these scenarios observe the system. Every assertion targets a runtime artefact:
     • the action the pure decider returns for a given entry, classification and clock;
