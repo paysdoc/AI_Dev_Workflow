@@ -29,27 +29,33 @@ export function validOptions(overrides: Partial<GitContextOptions> = {}): GitCon
 }
 
 export interface SpyCall {
-  command: string;
+  argv: readonly string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
   input?: string;
 }
 
-/** A spy `exec` that answers by first-matching command substring, or `defaultStdout` when nothing matches. */
+function findResponse(
+  responses: ReadonlyMap<string, string | Error>,
+  commandLine: string,
+): string | Error | undefined {
+  for (const [pattern, response] of responses) {
+    if (commandLine.includes(pattern)) return response;
+  }
+  return undefined;
+}
+
+/** A spy `exec` that answers by first-matching substring of the space-joined argv, or `defaultStdout` when nothing matches. */
 export function makeSpyExec(
   responses: ReadonlyMap<string, string | Error> = new Map(),
   defaultStdout = '',
 ): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: { ...options.env }, input: options.input });
-    for (const [pattern, response] of responses) {
-      if (command.includes(pattern)) {
-        if (response instanceof Error) throw response;
-        return response;
-      }
-    }
-    return defaultStdout;
+  const exec: ExecFn = (argv, options) => {
+    calls.push({ argv: [...argv], cwd: options.cwd, env: { ...options.env }, input: options.input });
+    const response = findResponse(responses, argv.join(' '));
+    if (response instanceof Error) throw response;
+    return response ?? defaultStdout;
   };
   return { exec, calls };
 }

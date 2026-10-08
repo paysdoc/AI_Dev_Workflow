@@ -55,12 +55,12 @@ function tokenForPayload(payload: Record<string, unknown>): string {
   return token || 'test-gh-token';
 }
 
-type RecordedCall = { command: string; cwd: string; env: NodeJS.ProcessEnv };
+type RecordedCall = { argv: readonly string[]; cwd: string; env: NodeJS.ProcessEnv };
 
 function recordingExec(): { exec: ExecFn; calls: RecordedCall[] } {
   const calls: RecordedCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: { ...options.env } });
+  const exec: ExecFn = (argv, options) => {
+    calls.push({ argv: [...argv], cwd: options.cwd, env: { ...options.env } });
     // Canned success output for gh repo view
     return 'main';
   };

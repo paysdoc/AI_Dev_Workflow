@@ -10,7 +10,7 @@ export interface PromotionStatsLoaderDeps {
   /** One merge time per promotion issue whose pull request merged — a promotion with several merged pull requests counts once. */
   listPromotionMergeDates: () => readonly Date[];
   now: () => Date;
-  /** A plain directory: the library puts the pathspec unquoted into a shell command, so a glob would be shell-expanded and must not be used. */
+  /** A plain directory, which git matches recursively: the library hands the pathspec to git verbatim, so no glob is needed and no quoting applies. */
   perIssueDir: string;
   log?: (msg: string, level?: LogLevel) => void;
 }

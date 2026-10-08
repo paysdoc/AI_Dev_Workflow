@@ -2,7 +2,7 @@ import { When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 
 import { splitRepo, w823 } from './feature-823.steps.ts';
-import { getRecordingSeam } from './feature-819.steps.ts';
+import { commandLine, getRecordingSeam } from './feature-819.steps.ts';
 import { getCapturedProviders } from './feature-794.steps.ts';
 
 import { forgeProviders } from '@paysdoc/devplatform/providers';
@@ -53,7 +53,7 @@ Then('the recording gh seam recorded no command', function () {
   const seam = getRecordingSeam();
   assert.strictEqual(
     seam.calls.length, 0,
-    `Expected no recorded commands, got: ${seam.calls.map((c) => c.command).join(' | ')}`,
+    `Expected no recorded commands, got: ${seam.calls.map(commandLine).join(' | ')}`,
   );
 });
 

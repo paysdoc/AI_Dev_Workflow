@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
 import { splitRepo, w823 } from './feature-823.steps.ts';
-import { getRecordingSeam } from './feature-819.steps.ts';
+import { commandLine, getRecordingSeam } from './feature-819.steps.ts';
 
 import { bindWorkspaceContext } from '../../../adws/core/workspaceBinding.ts';
 import type { BoundProviders } from '@paysdoc/devplatform';
@@ -29,8 +29,8 @@ When('a workspace is bound to that git context for the identity {string}', funct
 Then('the remote read reached the recording gh seam', function () {
   const seam = getRecordingSeam();
   assert.ok(
-    seam.calls.some((c) => c.command.includes('remote get-url')),
-    `Expected a "remote get-url" command among: ${seam.calls.map((c) => c.command).join(' | ')}`,
+    seam.calls.some((c) => commandLine(c).includes('remote get-url')),
+    `Expected a "remote get-url" command among: ${seam.calls.map(commandLine).join(' | ')}`,
   );
 });
 

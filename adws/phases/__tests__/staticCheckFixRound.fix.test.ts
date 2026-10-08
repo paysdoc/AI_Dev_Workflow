@@ -26,7 +26,7 @@ describe('buildStaticCheckFixRoundPort — fix', () => {
     expect(calls[1]).toBe('pushBranch feature-issue-989-fix-loop /worktrees/fix-round');
     expect(calls[2]).toBe('agent');
     expect(calls[3]).toMatch(/^commitChanges .* @ \/worktrees\/fix-round$/);
-    expect(calls[4]).toBe('diff --no-renames abc1234 HEAD @ /worktrees/fix-round');
+    expect(calls[4]).toBe('diff abc1234..HEAD @ /worktrees/fix-round');
     expect(calls).toHaveLength(5);
     expect(result.diff).toBe('THE DIFF');
   });
@@ -117,8 +117,8 @@ describe('buildStaticCheckFixRoundPort — fix', () => {
     await port.fix([LINT], 2);
 
     expect(calls.filter(call => call.startsWith('diff'))).toEqual([
-      'diff --no-renames 1111111 HEAD @ /worktrees/fix-round',
-      'diff --no-renames 2222222 HEAD @ /worktrees/fix-round',
+      'diff 1111111..HEAD @ /worktrees/fix-round',
+      'diff 2222222..HEAD @ /worktrees/fix-round',
     ]);
   });
 });

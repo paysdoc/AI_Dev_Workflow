@@ -1,15 +1,16 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import type { GitContext } from '@paysdoc/devplatform/git';
 import {
   buildPlanCommitMessage,
   changedFilePaths,
   commitPlanFileOnly,
+  committedPathsSince,
   findOffLimitsChanges,
   hashOffLimitsFiles,
   isOffLimitsToPlanner,
-  parseNameOnlyDiff,
 } from '../planCommitGuard.ts';
 import {
   PLAN_FILE, ctx, filesInHead, git, repo, setupPlanGuardRepo, statusLines, write,
@@ -112,14 +113,52 @@ describe('changedFilePaths', () => {
   });
 });
 
-describe('parseNameOnlyDiff', () => {
-  it('splits lines, trims them, drops empty ones and strips the quotes git puts around unusual paths', () => {
-    const output = '.claude/a.md\n  .adw/b.md  \n\n".claude/with space.md"\n';
-    expect(parseNameOnlyDiff(output)).toEqual(['.claude/a.md', '.adw/b.md', '.claude/with space.md']);
+describe('committedPathsSince — over a GitContext whose diff is a canned patch', () => {
+  const RENAME_AND_EDIT = [
+    'diff --git a/.claude/commands/install.md b/docs-install.md',
+    'similarity index 100%',
+    'rename from .claude/commands/install.md',
+    'rename to docs-install.md',
+    'diff --git a/README.md b/README.md',
+    'index 1111111..2222222 100644',
+    '--- a/README.md',
+    '+++ b/README.md',
+    '@@ -1 +1 @@',
+    '-old',
+    '+new',
+  ].join('\n');
+
+  function gitContextWhoseDiffIs(patch: string): { gitCtx: GitContext; diff: ReturnType<typeof vi.fn> } {
+    const diff = vi.fn((_range: string, _cwd: string) => patch);
+    return { gitCtx: { diff } as unknown as GitContext, diff };
+  }
+
+  it('asks for one range argument, which git receives as a single argv element and never as flags', () => {
+    const { gitCtx, diff } = gitContextWhoseDiffIs('');
+
+    committedPathsSince(gitCtx, '/wt', 'abc1234');
+
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(diff).toHaveBeenCalledWith('abc1234..HEAD', '/wt');
   });
 
-  it('returns an empty list for empty output', () => {
-    expect(parseNameOnlyDiff('')).toEqual([]);
+  it('reads both sides of a rename and every other touched path from the patch', () => {
+    const { gitCtx } = gitContextWhoseDiffIs(RENAME_AND_EDIT);
+
+    expect(committedPathsSince(gitCtx, '/wt', 'abc1234').sort()).toEqual(['.claude/commands/install.md', 'README.md', 'docs-install.md']);
+  });
+
+  it('is empty for an empty diff', () => {
+    const { gitCtx } = gitContextWhoseDiffIs('');
+
+    expect(committedPathsSince(gitCtx, '/wt', 'abc1234')).toEqual([]);
+  });
+
+  it('refuses a diff that holds text but no file header instead of reading it as empty', () => {
+    const colouredHeader = '\u001b[1mdiff --git a/.claude/x.md b/.claude/x.md\u001b[m';
+    const { gitCtx } = gitContextWhoseDiffIs(colouredHeader);
+
+    expect(() => committedPathsSince(gitCtx, '/wt', 'abc1234')).toThrow(/no file header/);
   });
 });
 
