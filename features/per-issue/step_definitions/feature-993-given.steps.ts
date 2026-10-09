@@ -11,7 +11,7 @@ import assert from 'assert';
 
 import { describeWorkflow } from './feature-990-run.ts';
 import { s, type ServerEffect } from './feature-990-world.ts';
-import { assertProjectMdFile } from './feature-991-project-md.ts';
+import { assertProjectMdFile } from '../../regression/step_definitions/feature-991-project-md.ts';
 
 const WEB = 'web';
 const SERVER_EXIT_CODE = 1;

@@ -16,10 +16,10 @@ import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../../../adws/core/config.ts';
 import { handleRetryDirective, type RetryHandlerDeps } from '../../../adws/triggers/retryHandler.ts';
 
-import { emptyBehaviour } from './feature-929-compacting-cli.ts';
-import { commentsOn, commitFile } from './feature-929-workflow.ts';
+import { emptyBehaviour } from '../../regression/step_definitions/feature-929-compacting-cli.ts';
+import { commentsOn, commitFile } from '../../regression/step_definitions/feature-929-workflow.ts';
 import { describeEnd, requirePhase, requireWorkflow, runWorkflowUnitTestPhase, startedAgents } from './feature-988-phase.steps.ts';
-import { beginScenario, endScenario, s } from './feature-988-world.ts';
+import { beginScenario, endScenario, s } from '../../regression/step_definitions/feature-988-world.ts';
 import { assertDirectiveSays, parkCommentsOn, requireParkCommentOn } from './feature-989-comments.ts';
 import { fixAgentStarts, outputHandedFor, scriptFixAgent } from './feature-989-fix-agent.ts';
 import { linesOfWorktreeFile, prepareBranchAndOrigin } from './feature-989-git.ts';

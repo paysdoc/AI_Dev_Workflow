@@ -11,7 +11,7 @@ import * as path from 'path';
 
 import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 
-import { ADW_DIRECTORY, freshAdwFiles, writeAdwFiles } from './feature-992-adw-files.ts';
+import { ADW_DIRECTORY, freshAdwFiles, writeAdwFiles } from '../../regression/step_definitions/feature-992-adw-files.ts';
 import { makeDirectory, s } from './feature-995-world.ts';
 
 const PROVIDERS_MD = '# ADW Providers\n\n## Code Host\ngithub\n\n## Issue Tracker\ngithub\n';

@@ -9,8 +9,8 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 
-import type { Workflow929 } from './feature-929-workflow.ts';
-import { s as sharedWorld } from './feature-988-world.ts';
+import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
+import { s as sharedWorld } from '../../regression/step_definitions/feature-988-world.ts';
 import { prepareBranchAndOrigin } from './feature-989-git.ts';
 
 const IDENTITY_OPTIONS = ['-c', 'user.name=ADW BDD', '-c', 'user.email=bdd@adw.invalid', '-c', 'commit.gpgsign=false'];

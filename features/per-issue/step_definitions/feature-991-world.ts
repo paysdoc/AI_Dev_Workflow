@@ -9,7 +9,7 @@ import { After, Before } from '@cucumber/cucumber';
 import type { ApplicationProfile, ApplicationTypeResolution } from '../../../adws/core/applicationType.ts';
 import type { ProjectConfig } from '../../../adws/core/projectConfig.ts';
 
-import { beginScenario, endScenario } from './feature-988-world.ts';
+import { beginScenario, endScenario } from '../../regression/step_definitions/feature-988-world.ts';
 
 /** How the application-type step of a workflow's start ended: it returned a profile, or it called `process.exit`. */
 export interface StartOutcome {

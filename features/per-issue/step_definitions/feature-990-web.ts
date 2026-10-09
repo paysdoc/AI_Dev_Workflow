@@ -10,7 +10,7 @@ import * as path from 'path';
 
 import { requireHarness } from '../../regression/support/subprocessHarness.ts';
 
-import { disposeToolchain, toolchain, writeStandIns } from './feature-992-standins.ts';
+import { disposeToolchain, toolchain, writeStandIns } from '../../regression/step_definitions/feature-992-standins.ts';
 import { requireWorld, s } from './feature-990-world.ts';
 
 /** The tag the stand-in `npx playwright test` is asked for: the issue's own, without the `@`. */

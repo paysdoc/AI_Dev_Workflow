@@ -8,7 +8,7 @@
 import { Given, When, type DataTable } from '@cucumber/cucumber';
 import assert from 'assert';
 
-import { configuredChecksFrom } from './feature-988-commands.ts';
+import { configuredChecksFrom } from '../../regression/step_definitions/feature-988-commands.ts';
 import { parkCommentsOn, requireParkCommentOn } from './feature-989-comments.ts';
 import { ownerComments, describeWorkflow, runWorkflow, STEP_TIMEOUT_MS } from './feature-990-run.ts';
 import type { ScenarioOutcomes } from './feature-990-scripts.ts';

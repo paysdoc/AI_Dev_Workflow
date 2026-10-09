@@ -1134,3 +1134,100 @@ scenario that uses these phrases must carry that tag and run G-RS1 in its Backgr
 
 This section also reuses already-registered phrases, so they need no new rows:
 `the ADW codebase is checked out` (G18, Background) and `the ADW TypeScript type-check passes` (T22).
+
+---
+
+## Given/When/Then — Web Repositories on ADW's Playwright Project (@web-playwright-project)
+
+These phrases drive the three real code paths that put a `web` repository's Gherkin on the Playwright
+project ADW owns (`features/package.json` and `features/playwright.config.ts`, written from
+`templates/playwright/`). Every row is phase-import, over throwaway fixtures under `os.tmpdir()`:
+
+1. `executeUpgrade` over a throwaway target repository. The `/adw_init` agent is stubbed to write the
+   `.adw/` files a row scripts, and every forge, push and pull-request dependency is a recorder. The
+   real `syncDeclaredScenarioProject` syncs and installs ADW's Playwright project with stand-in `npm`
+   and `npx` leading `PATH`.
+2. `executeScenarioTestPhase` over a throwaway workflow worktree whose `.adw/` the rows describe. The
+   stand-in `npm`, `npx`, scenario command and dev server record every run: its argv, working directory
+   and `ADW_` variables, the packages the adjacent `package.json` names, and the dev server's answers
+   before and after the run.
+3. `executeStepDefPhase` with a throwaway Claude CLI that records each run's prompt.
+
+The hash rows hash a throwaway copy of the framework's `.claude/commands/` and `templates/`. Only the
+fresh-repository scenario, tagged `@host-only`, uses the real `npm` and `npx`, the npm registry and a
+real Chromium; it needs network access, so the Docker leg leaves it out and only the host job runs it.
+Every assertion targets a runtime artefact: the regen commit's tree and blobs, the upgrade's result,
+the stand-ins' call log, the scenario proof the phase returned, the JUnit report a run wrote, the dev
+server's request log, and the throwaway CLI's run log. The Playwright template, the fixture framework
+copy and the `.adw/` files a row writes are inputs to the system under test. No step asserts on a
+source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-931.steps.ts` (the upgrade harness: G-WP1, G-WP3, G-WP5, W-WP1,
+T-WP1), `feature-991-upgrade.steps.ts` (G-WP6 and G-WP7), and `feature-992-upgrade.steps.ts`,
+`feature-992-phase.steps.ts` and `feature-992-fresh.steps.ts` (the rest), with their helpers in the
+other `feature-992-*` files, `feature-929-workflow.ts`, `feature-929-compacting-cli.ts`,
+`feature-988-world.ts`, `feature-988-commands.ts` and `feature-991-project-md.ts`. The hooks are keyed
+on `@web-playwright-project`, so a scenario that uses these phrases must carry that tag. `Before`
+resets the upgrade world, the shared workflow world and this feature's state; `After` restores
+`CLAUDE_CODE_PATH` unless the `@regression` teardown already has, disposes of the stand-ins, and removes
+the throwaway directories and `agents/<adwId>`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-WP1 | `a target repository never initialised by ADW` | Creates a throwaway git repository on `main` holding a `package.json` and a README in one commit, with no `.adw/` and no `.adw-version` | phase-import | target repository fixture (SUT input) |
+| G-WP2 | `a target repository never initialised by ADW whose only manifest is {string}` | As G-WP1 with the named manifest (`package.json` or `pyproject.toml`) as its only manifest; any other name fails the step | phase-import | target repository fixture (SUT input) |
+| G-WP3 | `a target repository initialised by an older framework version` | As G-WP1, plus every required `.adw/` file with older-version content and an `.adw-version` holding an older framework hash, committed | phase-import | target repository fixture (SUT input) |
+| G-WP4 | `the target repository's default branch has these files of its own:` | Writes each path in the table's `file` column with content of the repository's own (its own `package.json`, Playwright configuration, e2e spec, cucumber-js feature and steps), commits them on the default branch and remembers them for T-WP7 | phase-import | target repository fixture (SUT input) |
+| G-WP5 | `the target repository's default branch has this {string}:` | Writes the doc string at the path and commits it on the default branch | phase-import | target repository fixture (SUT input) |
+| G-WP6 | `the {string} agent writes a complete ADW configuration whose {string} declares the application type {string}` | Scripts the stubbed `/adw_init` agent the upgrade runs: it writes every required `.adw/` file and the vocabulary registry, its `.adw/project.md` declaring the type under `## Application Type`. The file named must be `.adw/project.md` | phase-import | stub behaviour (scripted init agent) |
+| G-WP7 | `the {string} agent writes a complete ADW configuration whose {string} has no {string} section` | As G-WP6 with no `## Application Type` section; the section named must be that one | phase-import | stub behaviour (scripted init agent) |
+| G-WP8 | `the {string} agent writes an ADW configuration with no {string}, whose {string} declares the application type {string}` | As G-WP6; fails if the absent file is one the stubbed agent writes, so the scripted output provably omits it | phase-import | stub behaviour (scripted init agent) |
+| G-WP9 | `a fixture framework copied from the ADW framework under test` | Copies the framework's `.claude/commands/` and `templates/` into a throwaway directory and makes it the fixture framework W-HC1 hashes, with an empty list of recorded hashes | phase-import | fixture input (SUT input, not source) |
+| G-WP10 | `a workflow for issue {int} whose worktree's {string} declares the application type {string}` | Builds a throwaway workflow for the issue: a `WorkflowConfig` over a fresh temp git worktree whose recording launch boundary stands for the fictional `adw-fixture/void-992`. It models the `.adw/` `adw_init` writes for the type, written just before the phase runs. For a type whose runner mode is ADW's Playwright project it also writes that project's files and a lockfile with no `node_modules`, as a checkout of a regen commit holds them. The file named must be `.adw/project.md` | phase-import | workflow config + worktree fixture (SUT input) |
+| G-WP11 | `the worktree's {string} starts a dev server that answers on its health check path` | Sets `.adw/commands.md`'s `## Start Dev Server` to the stand-in dev server, a Node program on `{PORT}` that logs `listening <port>`, each `GET <path>` and `stopped`, and sets its `## Health Check Path` | phase-import | workflow config (SUT input) |
+| G-WP12 | `the worktree's {string} runs scenarios by tag with {string}` | Sets `## Run Scenarios by Tag` to the command in both `.adw/commands.md` and `.adw/scenarios.md`, as `adw_init` writes it to both | phase-import | workflow config (SUT input) |
+| G-WP13 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes` | As G-WP12 with the stand-in scenario command, which records its run (tag, working directory, `ADW_` variables) and writes a passing JUnit report to `$ADW_JUNIT_REPORT_PATH` | phase-import | workflow config (SUT input) |
+| G-WP14 | `the worktree's {string} names the BDD framework {string} and the step definition directory {string}` | Sets `.adw/scenarios.md`'s `## BDD Framework` and `## Step Def Directory` | phase-import | workflow config (SUT input) |
+| G-WP15 | `the worktree holds a feature tagged {string} in {string} and steps for it in {string}` | Writes a one-scenario feature carrying the tag in the feature directory and a step file for it in the step directory, so the phase finds scenarios and step definitions for the tag | phase-import | worktree fixture (SUT input) |
+| G-WP16 | `the worktree holds a feature tagged {string} and steps for it in the step definition directory {string} names` | As G-WP15, with the feature in `features/` and the steps in the step-definition directory `.adw/scenarios.md` names | phase-import | worktree fixture (SUT input) |
+| G-WP17 | `{string} is a stand-in that records each run and writes a JUnit report in which every scenario passes` | Scripts the stand-in `npx` (only `npx` is accepted). Each run records argv, working directory, `ADW_` variables and the packages named beside it. As `npx playwright test --grep` it asks the dev server for its health path before and after it holds, writes a JUnit report at `$ADW_JUNIT_REPORT_PATH` in which every scenario passes, and exits 0. The stand-ins lead `PATH` only while the phase runs | phase-import | stub behaviour (stand-in toolchain) |
+| G-WP18 | `{string} is a stand-in that records each run, exits 0, and writes a JUnit report in which one scenario fails` | As G-WP17, except that the report for the workflow's issue tag carries one failing scenario while the process still exits 0 | phase-import | stub behaviour (stand-in toolchain) |
+| G-WP19 | `{string} is a stand-in that records each run` | As G-WP17 with its default behaviour; used where the rows assert the stand-in stays unrun | phase-import | stub behaviour (stand-in toolchain) |
+| G-WP20 | `a web application repository never initialised by ADW, whose dev server serves a page titled {string} at {string} and answers {string} with status {int}` | Creates a throwaway repository whose `package.json` and dev-server program, a small Node HTTP server serving an HTML page with the title at `/` and the status at the health path, are committed. Switches the scenario to the real `npm` and `npx`, which needs network access (`@host-only`) | phase-import | target repository fixture (SUT input) |
+| G-WP21 | `the {string} agent writes a complete ADW configuration whose {string} declares the application type {string} and whose {string} starts that dev server` | As G-WP6, the agent also writing `.adw/commands.md` and `.adw/scenarios.md` as `adw_init` would for the type, with `## Start Dev Server` running G-WP20's dev server on `{PORT}` | phase-import | stub behaviour (scripted init agent) |
+| G-WP22 | `the framework upgrade has regenerated the repository's ADW configuration` | W-WP1 as a precondition with the real toolchain. The upgrade runs the real `npm install` and `npx playwright install chromium` in `features/`, and the step fails unless the upgrade completed. 600 s timeout | phase-import | upgrade result |
+| G-WP23 | `a workflow for issue {int} has a worktree checked out fresh from the regen commit` | Builds the throwaway workflow and points it at a fresh clone of the repository at the regen commit. The clone uses the real git, since the `@regression` git mock no-ops `clone`. Fails unless the clone holds `features/package-lock.json` and no `features/node_modules` | phase-import | workflow config + git artefact (clone) |
+| G-WP24 | `the worktree holds a feature tagged {string} in {string} with these scenarios, and steps for them in {string} written with {string} from {string}:` | Writes a feature with one scenario per table row, and a step file whose steps use the registration function (`createBdd()`) from the library (`playwright-bdd`): the `page` fixture opens a path and expects a title, or the `request` fixture requests a path and expects a status | phase-import | worktree fixture (SUT input) |
+| W-WP1 | `the framework upgrade regenerates the target repository's ADW configuration` | Records HEAD, then runs the real `executeUpgrade` over the target repository. The `/adw_init` agent is stubbed and the forge, push and pull-request dependencies are recorders. ADW's Playwright project is synced and installed by `syncDeclaredScenarioProject` under the stand-in `npm` and `npx`. Records the result and the comments posted. 60 s timeout | phase-import | upgrade result + regen commit (git artefact) |
+| W-WP2 | `ADW's Playwright configuration template in the fixture framework is modified by a single byte` | Flips the first byte of the fixture framework's copy of `templates/playwright/playwright.config.ts.template` | phase-import | fixture input (SUT input, not source) |
+| W-WP3 | `the workflow's scenario test phase runs` | Writes the worktree's `.adw/` files. Loads the project config and the application profile the declared type maps to, as `initializeWorkflow` does, and allocates a port for `applicationUrl`. Runs the real `executeScenarioTestPhase(config)` with the stand-ins leading `PATH` (the real toolchain for the `@host-only` row) and `NODE_OPTIONS` cleared. Records the scenario proof it returned. 300 s timeout | phase-import | returned scenario proof + stand-in call log |
+| W-WP4 | `the workflow's step-definition phase runs` | Prepares the config as W-WP3, points `CLAUDE_CODE_PATH` at a throwaway Claude CLI that records each run's prompt, then runs the real `executeStepDefPhase(config)`. 300 s timeout | phase-import | throwaway CLI run log |
+| T-WP1 | `the upgrade commits the regenerated configuration` | Asserts the upgrade's result is `completed`, showing its outcome, reason and posted comments otherwise, and that HEAD moved past the commit recorded before the run | phase-import | upgrade result + git artefact (HEAD) |
+| T-WP2 | `the regen commit's {string} is byte-identical to ADW's Playwright configuration template` | Asserts the path is the file ADW writes from its Playwright configuration template, and that the regen commit's blob at that path has exactly the template's bytes, the template being the upgrade's input | phase-import | git artefact (regen commit blob) |
+| T-WP3 | `the regen commit's {string} depends on {string} and {string}` | Parses the regen commit's blob of the manifest and asserts its `dependencies`/`devDependencies` name both packages | phase-import | git artefact (regen commit blob) |
+| T-WP4 | `the upgrade installed the packages {string} names, and the Playwright browser, in {string}` | From the stand-ins' call log: asserts `npm install` ran in the directory and found exactly the packages the regen commit's manifest names, and that `npx playwright install` ran there after it | phase-import | recorded stand-in calls + git artefact |
+| T-WP5 | `the regen commit holds nothing under {string}` | Asserts no path in the regen commit's tree starts with the directory | phase-import | git artefact (commit tree) |
+| T-WP6 | `the regen commit leaves {string} as the default branch has it` | Asserts the file's blob at HEAD equals its blob at the commit recorded before the upgrade | phase-import | git artefact (blobs) |
+| T-WP7 | `the regen commit leaves each of those files as the default branch has it` | T-WP6 for every file G-WP4 added, also asserting the default branch held the repository's own content | phase-import | git artefact (blobs) |
+| T-WP8 | `the regen commit holds no {string}` | Asserts the path is not in the regen commit's tree | phase-import | git artefact (commit tree) |
+| T-WP9 | `the upgrade installed nothing in {string}` | Asserts the stand-ins recorded no run in the directory and that it holds no `node_modules` | phase-import | recorded stand-in calls + install artefact |
+| T-WP10 | `{string} ran in {string} before {string} ran there for the tag {string}` | From the call log: asserts the second command ran in the worktree directory for the tag, and that the first ran there before it | phase-import | recorded stand-in calls |
+| T-WP11 | `the run of {string} for the tag {string} was given {string} holding the address of the dev server ADW started` | Asserts the dev server listened on the port the workflow was given (its log's last `listening` line), and that the command's run for the tag received the variable holding `http://localhost:<port>` | phase-import | recorded stand-in calls + dev server log |
+| T-WP12 | `the run of {string} for the tag {string} was given {string} holding the scenario proof's report path for that tag, and {string} holding a directory of that tag's own inside the scenario proof's artifacts directory` | Asserts the first variable holds the returned proof's report path for the tag (`junit-<tag>.xml` beside the proof file). Asserts the second names a directory inside the proof's `artifactsDir` that no other tag's run was given | phase-import | recorded stand-in calls + returned scenario proof |
+| T-WP13 | `the dev server ADW started answered throughout the run of {string} for the tag {string}, and was stopped by the end of the phase` | Asserts the run's recorded health probes answered 200 at its start and its end, then polls until the dev server's port is free again (up to 6 s) | phase-import | recorded probes + port state |
+| T-WP14 | `{string} was not run` | Asserts the call log holds no run of the command | phase-import | recorded stand-in calls |
+| T-WP15 | `the scenario command {string} configures ran in the worktree's root for the tag {string}` | Asserts the stand-in scenario command ran for the tag with the worktree's root as its working directory | phase-import | recorded stand-in calls |
+| T-WP16 | `the step-definition generator was started once, for issue {int}` | From the throwaway CLI's run log: asserts exactly one `/generate_step_definitions` run, whose first quoted argument is the issue number | phase-import | recorded CLI runs |
+| T-WP17 | `the step-definition generator was started in the mode for ADW's Playwright project` | Asserts that run's third quoted argument is the `adw_playwright` runner mode | phase-import | recorded CLI runs |
+| T-WP18 | `the step-definition generator was started in the mode for the scenario runner that {string} describes` | Asserts that run's third quoted argument is the `descriptor` runner mode; the file named must be `.adw/scenarios.md` | phase-import | recorded CLI runs |
+| T-WP19 | `the scenario proof records the tag {string} as passed` | Asserts the returned proof ran the tag and that its result passed and was not skipped, showing the run's exit code and output otherwise | phase-import | returned scenario proof |
+| T-WP20 | `the JUnit report of the run for the tag {string} is at the path ADW gave it, and records these scenarios as passed:` | Asserts the report exists at the proof's report path for the tag and records every scenario in the table as passed. Playwright names a case `<feature> › <scenario>` | phase-import | JUnit report (run artefact) |
+| T-WP21 | `the JUnit report attaches exactly one image to {string}, and that image is in the scenario proof's artifacts directory` | Asserts the scenario's case lists exactly one image attachment, that the image exists, and that it lies inside the proof's `artifactsDir` | phase-import | JUnit report + proof artefacts |
+| T-WP22 | `the JUnit report attaches no image to {string}` | Asserts the scenario's case lists no image attachment | phase-import | JUnit report (run artefact) |
+| T-WP23 | `the dev server ADW started served {string} during the run` | Asserts the dev server's request log holds `GET <path>` | phase-import | dev server log |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), `the framework content hash is computed for the fixture framework`
+(W-HC1), `the recorded hashes are all different` (T-HC3), `the scenario proof records no blocker
+failures` (T-PY3), `the scenario proof records a blocker failure for the tag {string}` (T-S12) and `the
+ADW TypeScript type-check passes` (T22).

@@ -10,7 +10,7 @@ import { Then } from '@cucumber/cucumber';
 import assert from 'assert';
 
 import { isHeaded } from './feature-929-comments.ts';
-import { commentsOn } from './feature-929-workflow.ts';
+import { commentsOn } from '../../regression/step_definitions/feature-929-workflow.ts';
 import type { AgentStart } from './feature-990-read.ts';
 import { requireWorkflowSetup } from './feature-990-world.ts';
 import {
@@ -25,7 +25,7 @@ import {
   reviewPatchAgentStarts,
   type ServerLogEntry,
 } from './feature-993-read.ts';
-import type { RecordedCall } from './feature-992-standins.ts';
+import type { RecordedCall } from '../../regression/step_definitions/feature-992-standins.ts';
 
 /** The comments a scenario names by the stage that posts them, and the heading each has. */
 const COMMENT_HEADINGS: Readonly<Record<string, string>> = { review_failed: 'Review Failed' };

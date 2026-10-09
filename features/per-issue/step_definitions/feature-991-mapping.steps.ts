@@ -20,8 +20,8 @@ import {
 import { REPO_ROOT } from '../../../adws/core/config.ts';
 import { loadProjectConfig, type ProjectConfig } from '../../../adws/core/projectConfig.ts';
 
-import { s as sharedWorld } from './feature-988-world.ts';
-import { assertApplicationTypeSection, assertProjectMdFile, projectMd } from './feature-991-project-md.ts';
+import { s as sharedWorld } from '../../regression/step_definitions/feature-988-world.ts';
+import { assertApplicationTypeSection, assertProjectMdFile, projectMd } from '../../regression/step_definitions/feature-991-project-md.ts';
 import { s } from './feature-991-world.ts';
 
 const SCENARIOS_MD = '.adw/scenarios.md';
