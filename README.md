@@ -629,6 +629,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── projectConfigCommands.test.ts
+│   │   ├── projectConfigDeviceSource.test.ts
 │   │   ├── projectConfigLoad.test.ts
 │   │   ├── providerConfig.test.ts
 │   │   ├── prReviewInvocation.test.ts
@@ -894,6 +895,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.deviceSource.test.ts
 │   │   ├── scenarioTestPhase.helpers.ts
 │   │   ├── scenarioTestPhase.runner.test.ts
 │   │   ├── scenarioTestPhase.server.test.ts
