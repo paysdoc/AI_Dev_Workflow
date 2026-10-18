@@ -68,7 +68,9 @@ So that I decide which images and devices my scenarios run on, and never debug a
   - A thrown error is how a phase fails in this codebase. `runPhase` rethrows it, and every orchestrator's `catch` calls `handleWorkflowError`: an error comment with `String(error)`, board status Blocked, stage `abandoned`, and no park.
   - A result status would be wrong. The fix loop would read it as a failing scenario and send it to the fix agent. The review loop would read it as a failed dev-server start and spend a review attempt.
 - **No consumer learns the type's name.** The resolver takes `platforms`, and the message names the platforms (`android, ios`), never `mobile:kotlincm`. This keeps the guard test that allows only `core/projectConfig.ts` and `phases/applicationTypeGate.ts` to name `applicationType`.
-- **Scenario fixtures stay true to what `adw_init` writes.** The shared fixture `freshAdwFiles` writes the four sections, with sample values, for a type whose profile has platforms. Without that, the merged `@adw-1043` scenarios that run the real scenario phase on a `mobile:kotlincm` worktree would start failing.
+- **Scenario fixtures stay true to what `adw_init` writes.** The shared fixture `freshAdwFiles` writes the four sections, with sample values, for a type whose profile has platforms. Steps can set, empty or remove each section, for any type.
+  - The scenario writer has already edited the merged `@adw-1043` scenarios that run the real scenario phase on a `mobile:kotlincm` worktree.
+  - They now also carry `@adw-1045`, and each names its device sources with an explicit step. This build defines those steps (Task 7).
 
 ## Relevant Files
 Use these files to implement the feature:
@@ -108,13 +110,35 @@ Use these files to implement the feature:
 - `adws/phases/applicationTypeGate.ts` — read only. `requireApplicationProfile` (used by the phase) and `declaredApplicationProfile` (used by the fixtures).
 - `features/regression/step_definitions/feature-992-adw-files.ts` — the shared fixture: `freshAdwFiles`, `renderAdwFiles` and `writeAdwFiles` write a worktree's `.adw/` "as `adw_init` would". It gains the device-source sections for a type whose profile has platforms.
 - `features/regression/step_definitions/feature-991-project-md.ts` — read only. `projectMd(applicationType)`, the `.adw/project.md` body that `renderAdwFiles` writes.
-- `features/regression/step_definitions/feature-992-phase.steps.ts` — shared steps that #1045's scenarios will likely reuse:
+- `features/regression/step_definitions/feature-992-phase.steps.ts` — shared steps that #1045's scenarios reuse:
   - `a workflow for issue {int} whose worktree's {string} declares the application type {string}`;
-  - the stand-in run-by-tag steps;
+  - the BDD-framework step and the stand-in run-by-tag steps;
+  - the steps that put a feature and its steps in the worktree, and the web steps (`{string} is a stand-in that records each run and writes a JUnit report in which every scenario passes`, `{string} ran in {string} before {string} ran there for the tag {string}`);
   - `When the workflow's scenario test phase runs`, which rethrows a phase error;
+  - `the scenario command {string} configures ran in the worktree's root for the tag {string}` and `the scenario proof records the tag {string} as passed`;
   - the recorded stand-in calls.
-- `features/per-issue/step_definitions/feature-994-workflow.ts` — read only. Its `prepareWorkflow` also writes `.adw/` through `freshAdwFiles` and `writeAdwFiles` (the `@adw-1043` review scenario 104313).
-- `features/per-issue/feature-1043.feature` — read only. The scenarios that run the real scenario test phase on a `mobile:kotlincm` worktree (issues 104308, 104309, 104310 and 104313). Task 6 keeps them green.
+
+  Its `prepareWorkflow` is private. Export it for the new "attempted" step (Task 7).
+- `features/per-issue/step_definitions/feature-994-workflow.ts` — read only. Its `prepareWorkflow` also writes `.adw/` through `freshAdwFiles` and `writeAdwFiles` (the `@adw-1043` review outline 104313–104315). Then it writes the files of feature-994's `s.adwFiles` (`feature-994-world.ts`) over them. The review outline's new step `the workflow's {string} names …` puts its `.adw/project.md` there (Task 7).
+- `features/per-issue/feature-1043.feature` — the scenario writer has already edited it for this issue. Keep those edits and make no others. Its scenarios that run the real scenario test phase on a `mobile:kotlincm` worktree now also carry `@adw-1045`: 104308 and 104309, 104310, and the review outline 104313–104315. Each names its device sources:
+  - `And the worktree's ".adw/project.md" names every device source` (104308, 104309, 104310);
+  - `And the workflow's ".adw/project.md" names <device sources>`: `every device source` for `mobile:kotlincm` (104313), and `no device source` for `cli` (104314) and `web` (104315).
+
+  Task 7 defines both steps. Tasks 6 and 7 keep these scenarios green.
+- `features/per-issue/feature-1045.feature` — the `@adw-1045` scenarios, written by the scenario writer. They cover:
+  - **The parser, read through the project configuration.** Values are as written, with comments stripped and whitespace trimmed. A missing, empty or comment-only section reads as none. No default is filled in, also for a repository with no `.adw/` directory.
+  - **The resolver.** All four sections resolve. Each missing section is named, and of several missing sections, the first.
+  - **A `mobile:kotlincm` worktree with a missing or empty section (104501–104503).** The scenario test phase fails naming the section, runs no scenario command and does not park.
+  - **`cli` and `web` worktrees.** The phase runs as before for a `cli` worktree with none or some of the sections (104504, 104505), and for a `web` worktree with none (104506).
+  - **The type check.**
+- `features/per-issue/step_definitions/feature-991-mapping.steps.ts` and `feature-991-world.ts` — read only, except for exports.
+  - The parser and resolver scenarios reuse two of its steps: `a repository that has no {string} directory` and `ADW reads the repository's project configuration`.
+  - The second runs `loadProjectConfig` over a throwaway repository and keeps the result in feature-991's `s.projectConfig`.
+  - Export `makeRepository` and `requireProjectConfig` rather than copying them.
+  - The world's hooks run only for `@adw-991`.
+- `features/per-issue/step_definitions/feature-1043-world.ts` — read only. Prior art for the `@adw-1045` hooks. It brings up the worlds of features 988, 991, 992 and 994, and every reset in it is safe to run twice.
+- `features/per-issue/step_definitions/feature-1043-proof.steps.ts` — read only. Defines `the worktree holds a feature tagged {string} in the scenario directory {string} names, and steps for it in the file {string}`, which 104501–104503 reuse.
+- `features/per-issue/step_definitions/feature-991-workflow.steps.ts` and `feature-989-phase.steps.ts` — read only. Define `the workflow for issue {int} is not parked` and `no park comment was posted on issue {int}`. Both read feature-988's shared workflow, which feature-992's workflow step sets.
 
 ### New Files
 - `adws/core/markdownSections.ts` — pure. Holds:
@@ -126,7 +150,7 @@ Use these files to implement the feature:
   - `DeviceSourceResolution` and `resolveDeviceSource`;
   - `DeviceSourceConfigError`.
 - `adws/core/__tests__/deviceSourceConfig.test.ts` — unit tests for the parser and the resolver (PRD Testing Decisions 2).
-- `features/per-issue/step_definitions/feature-1045-*.ts` — the step definitions that the `@adw-1045` scenarios need (Task 7).
+- `features/per-issue/step_definitions/feature-1045-*.ts` — the step definitions that the `@adw-1045` scenarios need, and a `feature-1045-world.ts` with the `@adw-1045` hooks (Task 7).
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -149,7 +173,7 @@ Then expose `ProjectConfig.deviceSources` from `loadProjectConfig` and `getDefau
   - runs no scenario command and starts no dev server.
 
   `cli` and `web` are untouched.
-- **Fixtures.** The shared `.adw/` fixture writes the four sections for a profile with platforms, so the `@adw-1043` scenarios stay green and the `@adw-1045` scenarios can leave a section out.
+- **Fixtures.** The shared `.adw/` fixture writes the four sections for a profile with platforms. Its setters let a step name, for any type, every section, none, all but one, or all with one left empty. The `@adw-1045` scenarios and the edited `@adw-1043` scenarios name their device sources through those setters.
 - **Step definitions and README.** Write the step definitions for `@adw-1045`, then update the README.
 
 ## Step by Step Tasks
@@ -276,32 +300,78 @@ Run the file and see it fail, because the module does not exist yet.
 - Run `bunx vitest run adws/phases/__tests__/scenarioTestPhase.test.ts adws/phases/__tests__/scenarioTestPhase.runner.test.ts adws/phases/__tests__/scenarioTestPhase.server.test.ts adws/core/__tests__/applicationType.test.ts`. All pass.
 
 ### 6. Keep the shared `.adw/` fixture faithful to a repository with platforms
-- **Why.** The merged `@adw-1043` scenarios 104308, 104309, 104310 and 104313 run the real scenario test phase on a `mobile:kotlincm` worktree. The worktree is written by `freshAdwFiles`, `renderAdwFiles` and `writeAdwFiles`, through feature-992's `prepareWorkflow` and feature-994's `prepareWorkflow`. Its `.adw/project.md` has no device-source sections, so after Task 5 the phase would throw and those scenarios would fail. A real `mobile:kotlincm` repository has these sections, because `adw_init` writes them (#1044).
+- **Why.**
+  - The merged `@adw-1043` scenarios 104308, 104309, 104310 and 104313 run the real scenario test phase on a `mobile:kotlincm` worktree.
+  - The worktree is written by `freshAdwFiles`, `renderAdwFiles` and `writeAdwFiles`, through feature-992's `prepareWorkflow` and feature-994's `prepareWorkflow`.
+  - Today its `.adw/project.md` has no device-source sections, so after Task 5 the phase would throw.
+  - The scenario writer has made those scenarios name their device sources (`… names every device source`).
+  - The `@adw-1045` scenarios name every section, none, all but one, or all with one left empty, also for a `cli` worktree (104505).
+  - So the fixture needs a model of those sections that steps can change.
+  - Its default for a type whose profile has platforms stays what a real `mobile:kotlincm` repository holds, because `adw_init` writes these sections (#1044).
 - **Changes to `features/regression/step_definitions/feature-992-adw-files.ts`:**
   - `AdwFiles` gains `readonly project: Map<string, string>`: the sections of `.adw/project.md` beside the application type, by heading.
   - `freshAdwFiles(applicationType)` fills `project` with the four device-source sections, using headings from `DEVICE_SOURCE_SECTION_TITLES` and sample values, when the type's profile has platforms: `(declaredApplicationProfile({ applicationType })?.platforms.length ?? 0) > 0`. Otherwise `project` stays empty.
-  - `renderAdwFiles` appends each `project` section to `projectMd(files.applicationType)` as `## <heading>\n<body>`. For `cli`, `web` and an unknown type, the rendered `.adw/project.md` is byte-for-byte what it is today.
-  - Export small setters for the `@adw-1045` steps, so that a scenario can leave a section out, empty it, or leave only a comment in it. For example: `setProjectSection(files, heading, body)` and `removeProjectSection(files, heading)`.
+  - `renderAdwFiles` appends each `project` section to `projectMd(files.applicationType)` as `## <heading>\n<body>`. For `cli`, `web` and an unknown type, the rendered `.adw/project.md` is byte-for-byte what it is today, unless a step names device sources.
+  - Export small setters for the device-source steps. They work for any type, whatever the default:
+    - `setProjectSection(files, heading, body)` and `removeProjectSection(files, heading)`;
+    - helpers for "every device source" (all four sample values) and "no device source" (none of the four).
+
+    An empty body gives an empty section (104503). A body that holds only a comment works the same way.
 - **Sample values.** These are fixture values only; `adw_init`'s defaults belong to #1044:
   - `system-images;android-35;google_apis;arm64-v8a`
   - `pixel_8`
   - `com.apple.CoreSimulator.SimDeviceType.iPhone-16`
   - `com.apple.CoreSimulator.SimRuntime.iOS-18-2`
-- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"`. Every scenario passes.
+- The `@adw-1043` run moves to the end of Task 7. Six of its scenario rows (104308–104310 and 104313–104315) use the device-source steps that Task 7 defines, so until then they are undefined.
 
 ### 7. Write the step definitions the `@adw-1045` scenarios need
-The scenario writer writes `features/per-issue/feature-1045*.feature`. Its scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
+The scenario writer has written `features/per-issue/feature-1045.feature`. It has also tagged three scenarios of `features/per-issue/feature-1043.feature` with `@adw-1045` (see Relevant Files). These scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --tags "@adw-1045"` to list the undefined steps.
 - Reuse every phrase that already has a definition, and register no pattern twice. New phrases go in `features/per-issue/step_definitions/feature-1045-*.ts`.
 
-Likely building blocks:
-- **The worktree.** Reuse feature-992's `a workflow for issue {int} whose worktree's {string} declares the application type {string}`, its stand-in run-by-tag step ("…a stand-in that records each run and writes a JUnit report in which every scenario passes"), and `the worktree holds a feature tagged …`. To leave out, empty or comment out a section, use Task 6's setters on the workflow's `AdwFiles`, before `prepareWorkflow` writes them.
-- **A phase that fails.** The shared `When the workflow's scenario test phase runs` lets a thrown error fail the step. For scenarios that expect the phase to fail, add a step that runs `executeScenarioTestPhase` the same way and keeps the error in the world: the same `prepareWorkflow`, the same stand-ins. Export what you need from `feature-992-phase.steps.ts` rather than copying it. Then add `Then` steps that read the error's message and its `DeviceSourceConfigError` type. Leave the shared step unchanged.
-- **No scenario command.** Read feature-992's recorded stand-in calls, as the existing `'{string} was not run'` and `the scenario proof ran no tag` steps do.
-- **`cli` and `web` unaffected.** The existing steps already run the phase and assert that the scenario command ran and that the proof passed.
-- **Pure parser and resolver.** For scenarios about the functions themselves, call `parseDeviceSourceSections` and `resolveDeviceSource` directly, with `APPLICATION_TYPE_PROFILES[...].platforms`.
+Building blocks:
+- **Hooks.** `feature-1045-world.ts` registers `Before` and `After` on `@adw-1045`, following `feature-1043-world.ts`. They call:
+  - feature-988's `beginScenario` and `endScenario`, which also remove the throwaway repositories;
+  - the `resetState` of features 991 and 992, and `disposeToolchain`;
+  - `setUpWorld994` and `tearDownWorld994`.
 
-Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"`. Every scenario passes and none is undefined.
+  The three feature-1043 scenarios carry both tags and run both features' hooks, so every reset must be safe to run twice.
+- **A repository's project configuration.** Reuse feature-991's `a repository that has no {string} directory` and `ADW reads the repository's project configuration`. The second runs the real `loadProjectConfig` over a throwaway repository and keeps the result in feature-991's `s.projectConfig`. New steps write that repository's `.adw/project.md`, through feature-991's `makeRepository` (exported):
+  - `a repository whose {string} holds:` writes the doc string as it is.
+  - Three steps write `projectMd(type)` (feature-991) followed by the named sections:
+    - `a repository whose {string} declares the application type {string} and names these device sources:`;
+    - `… and names no device source`;
+    - `… and names every device source but {string}`.
+- **What the configuration names.**
+  - `the project configuration names these device sources, and no other:` maps each `## <title>` row to its `deviceSources` field through `DEVICE_SOURCE_SECTION_TITLES`. It checks each named field's value and that every other field is `null`.
+  - `the project configuration names no device source`: all four fields are `null`.
+- **Resolving.**
+  - `the device sources are resolved from that project configuration` calls `resolveDeviceSource(projectConfig.deviceSources, platforms)` and keeps the resolution in the world. `platforms` comes from `declaredApplicationProfile(projectConfig)`.
+  - `the device sources resolve to:` expects `resolved` and checks each field.
+  - `resolving the device sources fails with an error that names {string}` expects `missing`: its `section` is the heading, and its `message` contains it. This `missing` resolution is the issue's "error naming the first missing section". The resolver itself never throws.
+  - `that error does not name {string}`: the message does not contain the heading.
+- **The worktree.** Reuse these steps:
+  - feature-992's `a workflow for issue {int} whose worktree's {string} declares the application type {string}`;
+  - its BDD-framework step and its stand-in run-by-tag step ("…a stand-in that records each run and writes a JUnit report in which every scenario passes");
+  - its `the worktree holds a feature tagged {string} and steps for it in the step definition directory {string} names`, and its web steps;
+  - feature-1043's `the worktree holds a feature tagged {string} in the scenario directory {string} names, and steps for it in the file {string}`.
+
+  New steps name the device sources with Task 6's setters on feature-992's `s.adwFiles`, before `prepareWorkflow` writes them. They work for any type:
+  - `the worktree's {string} names every device source`;
+  - `… names no device source`;
+  - `… names every device source but {string}`;
+  - `… names every device source, but its {string} section is empty`.
+- **Feature-994's review workflow.** Two new steps: `the workflow's {string} names every device source` and `… names no device source`.
+  - Each renders the worktree's `.adw/project.md` with Task 6's fixture: `freshAdwFiles` of the workflow's type, with the four sections set or removed.
+  - It puts that file in feature-994's `s.adwFiles`, which feature-994's `prepareWorkflow` writes over `adw_init`'s files. `feature-994-workflow.ts` stays unchanged.
+- **A phase that fails.** The shared `When the workflow's scenario test phase runs` lets a thrown error fail the step. Leave it unchanged.
+  - Add `When the workflow's scenario test phase is attempted`. It runs `executeScenarioTestPhase` the same way, with the same `prepareWorkflow` and the same stand-ins, and keeps the error in the world. Export what you need from `feature-992-phase.steps.ts` rather than copying it.
+  - `the scenario test phase failed with an error that names {string}` checks that the error is a `DeviceSourceConfigError` and that its message names the heading.
+- **No scenario command.** `the scenario command {string} configures was not run` reads feature-992's recorded stand-in calls and expects no run of the stand-in scenario command, as the existing `'{string} was not run'` and `the scenario proof ran no tag` steps do.
+- **Not parked.** Reuse `the workflow for issue {int} is not parked` (feature-991) and `no park comment was posted on issue {int}` (feature-989). Both read feature-988's shared workflow, which feature-992's workflow step sets.
+- **`cli` and `web` unaffected.** The existing steps already run the phase and assert that the scenario command ran and that the proof passed.
+
+Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"`. Every scenario passes and none is undefined, in `feature-1045.feature` and in the three scenarios tagged in `feature-1043.feature`. Then run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` (moved here from Task 6). Every scenario passes.
 
 ### 8. Update the README
 - **"Application type decides the evidence" bullet.** Add one sentence: a profile with platforms also reads four device-source sections from `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`; `adws/core/deviceSourceConfig.ts`). The scenario phase fails, naming the first one that is missing or empty, before it runs anything, and the issue is not parked. `cli` and `web` ignore the sections.
@@ -350,6 +420,25 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   - `scenarioTestPhase.runner.test.ts` and `scenarioTestPhase.server.test.ts`
   - `scenarioTestFixLoop*.test.ts` and `reviewRetryLoop*.test.ts`
 
+### BDD Scenarios
+`@adw-1045` selects `features/per-issue/feature-1045.feature` and three scenarios of `feature-1043.feature`. It covers:
+- **The project configuration** (`loadProjectConfig` over a throwaway repository):
+  - values as written, with comments stripped and whitespace trimmed;
+  - missing, empty and comment-only sections as none, beside a section that is read;
+  - no default device source, for a `mobile:kotlincm` repository with no sections and for one with no `.adw/` directory.
+- **The resolver:**
+  - all four sections resolve;
+  - each missing section is named, and all four missing names `## Android System Image`;
+  - with `## Android Device Profile` and `## iOS Runtime` missing, only the first is named.
+- **The scenario test phase:**
+  - `mobile:kotlincm` with no section, without `## iOS Runtime`, or with an empty `## Android Device Profile` fails naming the section, runs no scenario command and does not park (104501–104503);
+  - `cli` with none or three of the sections runs the scenario command and passes (104504, 104505);
+  - `web` with none runs on ADW's Playwright project and passes (104506).
+- **Feature-1043's scenarios** that run the phase on `mobile:kotlincm`, and its review outline, with their device sources named.
+- **The type check.**
+
+The exact message, the run-log line, the dev server not starting and the order before the skip checks are pinned by the unit tests only.
+
 ### Edge Cases
 - **Comments.** A section whose value carries an HTML comment above it, after it on the same line, below it, or across several lines gives the value only. A section that holds only a comment is `null`.
 - **Empty bodies.** A heading followed directly by another heading, or a body of blank lines only, is `null`.
@@ -380,7 +469,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
 - For `cli` and `web` worktrees with none of the sections, `executeScenarioTestPhase` behaves as before.
 - `adws/core/projectConfig.ts`, `adws/core/deviceSourceConfig.ts`, `adws/core/markdownSections.ts` and `adws/phases/scenarioTestPhase.ts` are each under 300 lines.
 - Only `core/projectConfig.ts` and `phases/applicationTypeGate.ts` use the identifier `applicationType`, so the guard test passes.
-- The `@adw-1045` scenarios pass, the `@adw-1043` scenarios still pass, and the `@regression` suite passes.
+- The `@adw-1045` scenarios pass, including the three feature-1043 scenarios tagged `@adw-1045`. The `@adw-1043` scenarios still pass, with the scenario writer's edits to `feature-1043.feature` kept, and the `@regression` suite passes.
 - Unit tests, lint, both type checks and the build pass.
 
 ## Validation Commands
@@ -395,8 +484,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run build` — the build.
 - `bun run test:unit` — the full unit suite, with zero regressions.
 - `wc -l adws/core/projectConfig.ts adws/core/deviceSourceConfig.ts adws/core/markdownSections.ts adws/phases/scenarioTestPhase.ts` — each under 300 lines.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"` — this issue's scenarios, none of them undefined.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` — the `mobile:kotlincm` scenarios that run the real scenario phase still pass with the fixture's device-source sections.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"` — this issue's scenarios, including the three feature-1043 scenarios tagged `@adw-1045`, none of them undefined.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` — the `mobile:kotlincm` scenarios that run the real scenario phase still pass, with the device sources they now name.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite, with zero regressions.
 
 ## Notes

@@ -527,6 +527,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── reviewPrompt.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -539,6 +540,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
+│   │   ├── reviewPromptArgs.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
 │   │   ├── scenarioFidelityAgent.test.ts
 │   │   ├── testAgent.test.ts
@@ -653,6 +655,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the fix-loop tests
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
+│   │   ├── testReportParser.attachments.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
@@ -874,11 +877,15 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
+│   │   ├── reviewPhaseEvidence.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
+│   │   ├── reviewPromptContext.test.ts
 │   │   ├── reviewRetryLoop.blocker.test.ts
 │   │   ├── reviewRetryLoop.counter.test.ts
 │   │   ├── reviewRetryLoop.test.ts
 │   │   ├── scenarioProjectSetup.test.ts
+│   │   ├── scenarioProofRun.evidence.test.ts
+│   │   ├── scenarioProofRun.helpers.ts
 │   │   ├── scenarioProofRun.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.regression.test.ts
@@ -1093,8 +1100,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts        # Shared types (VocabularyEntry, ScoreResult, PromotionStats, etc.)
 ├── proof/              # PR proof publishing module
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── featureFileReader.test.ts
+│   │   ├── featureScenarioIndex.examples.test.ts
+│   │   ├── featureScenarioIndex.lookup.test.ts
+│   │   ├── featureScenarioIndex.test.ts
+│   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts
+│   │   ├── proofAssembler.helpers.ts
+│   │   ├── proofAssembler.images.test.ts
+│   │   ├── proofAssembler.scenarios.test.ts
+│   │   ├── proofAssembler.test.ts
 │   │   └── proofUploader.test.ts
 │   ├── featureFileReader.ts    # Reads a per-issue `.feature` file for the proof assembler
 │   ├── featureScenarioIndex.ts # Indexes a feature file's scenarios so proof images can be matched to them
