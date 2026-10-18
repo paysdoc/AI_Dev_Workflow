@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
+import { APPLICATION_TYPE_PROFILES, Platform } from '../../core/applicationType';
 import { NO_SCENARIO_OPENED_A_PAGE } from '../proofDocument';
 import {
+  MOBILE_PROFILE,
   NOT_RUN,
   PER_ISSUE,
   PER_ISSUE_FEATURE,
   PROOF_DIR,
   REGRESSION,
+  SIGN_IN_FEATURE,
   artifact,
   assemble,
   attachment,
@@ -49,7 +51,7 @@ Feature: Cart page
 
     const proof = assemble({ runs: [regressionRun, perIssueRun], scenarioIndex: index, artifacts });
 
-    expect(proof.perIssueImages).toEqual([
+    expect(proof.perIssueImages).toStrictEqual([
       {
         absPath: `${PROOF_DIR}/artifacts/adw-42/cart-total/test-finished-1.png`,
         relPath: 'adw-42/cart-total/test-finished-1.png',
@@ -160,5 +162,80 @@ describe('assembleScenarioProof — an application that expects no images', () =
     expect(proof.perIssueImages).toEqual([]);
     expect(proof.document).not.toContain('## Evidence');
     expect(proof.document).not.toContain(NO_SCENARIO_OPENED_A_PAGE);
+  });
+});
+
+describe('assembleScenarioProof — the platform of each image, for a profile with platforms', () => {
+  const mobile = { applicationProfile: MOBILE_PROFILE, scenarioIndex: indexOf(SIGN_IN_FEATURE) };
+
+  it('selects the images of both platform runs of one scenario, which report the same title, each with its platform', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(
+      testCase('The user signs in', [attachment('android/sign-in.png')]),
+      testCase('The user signs in', [attachment('ios/sign-in.png')]),
+    ));
+
+    const proof = assemble({
+      ...mobile,
+      runs: [NOT_RUN(REGRESSION), perIssueRun],
+      artifacts: [artifact('android/sign-in.png'), artifact('ios/sign-in.png')],
+    });
+
+    expect(proof.perIssueImages).toStrictEqual([
+      { absPath: `${PROOF_DIR}/artifacts/android/sign-in.png`, relPath: 'android/sign-in.png', scenario: 'The user signs in', platform: Platform.Android },
+      { absPath: `${PROOF_DIR}/artifacts/ios/sign-in.png`, relPath: 'ios/sign-in.png', scenario: 'The user signs in', platform: Platform.Ios },
+    ]);
+  });
+
+  it('never selects an image of the issue\'s scenarios that lies in no platform directory', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(
+      testCase('The user signs in', [attachment('sign-in.png'), attachment('linux/sign-in.png'), attachment('android/sign-in.png')]),
+    ));
+
+    const proof = assemble({
+      ...mobile,
+      runs: [NOT_RUN(REGRESSION), perIssueRun],
+      artifacts: [artifact('sign-in.png'), artifact('linux/sign-in.png'), artifact('android/sign-in.png')],
+    });
+
+    expect(proof.perIssueImages.map(image => image.relPath)).toEqual(['android/sign-in.png']);
+    expect(proof.document).not.toContain(`${PROOF_DIR}/artifacts/sign-in.png`);
+    expect(proof.document).not.toContain(`${PROOF_DIR}/artifacts/linux/sign-in.png`);
+  });
+
+  it('keeps the images of a failed scenario, with their platform', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(testCase('The user signs in', [attachment('android/sign-in.png')], 'failed')));
+
+    const proof = assemble({ ...mobile, runs: [NOT_RUN(REGRESSION), perIssueRun], artifacts: [artifact('android/sign-in.png')] });
+
+    expect(proof.perIssueImages.map(image => image.platform)).toEqual([Platform.Android]);
+  });
+
+  it('leaves out the directory of a platform the profile does not have', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(
+      testCase('The user signs in', [attachment('android/sign-in.png'), attachment('ios/sign-in.png')]),
+    ));
+
+    const proof = assemble({
+      ...mobile,
+      applicationProfile: { ...MOBILE_PROFILE, platforms: [Platform.Android] },
+      runs: [NOT_RUN(REGRESSION), perIssueRun],
+      artifacts: [artifact('android/sign-in.png'), artifact('ios/sign-in.png')],
+    });
+
+    expect(proof.perIssueImages.map(image => image.relPath)).toEqual(['android/sign-in.png']);
+  });
+
+  it('never gives a platform to an image of a web repository, whatever its directory', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(testCase('Cart › The cart shows the total', [attachment('android/a.png')])));
+
+    const proof = assemble({
+      runs: [NOT_RUN(REGRESSION), perIssueRun],
+      scenarioIndex: indexOf(PER_ISSUE_FEATURE),
+      artifacts: [artifact('android/a.png')],
+    });
+
+    expect(proof.perIssueImages).toStrictEqual([
+      { absPath: `${PROOF_DIR}/artifacts/android/a.png`, relPath: 'android/a.png', scenario: 'Cart › The cart shows the total' },
+    ]);
   });
 });

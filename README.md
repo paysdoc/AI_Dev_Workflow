@@ -1098,6 +1098,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   └── proofUploader.test.ts
 │   ├── featureFileReader.ts    # Reads a per-issue `.feature` file for the proof assembler
 │   ├── featureScenarioIndex.ts # Indexes a feature file's scenarios so proof images can be matched to them
+│   ├── imagePlatform.ts        # Reads a per-issue image's platform from its first directory (android/, ios/) and each scenario's platform coverage
 │   ├── index.ts
 │   ├── prProofPublisher.ts     # Formats JUnit summary + screenshots and posts proof comment to PR
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
