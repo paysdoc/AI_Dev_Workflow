@@ -13,7 +13,7 @@ This feature changes only prompts and their tests:
 - **Step 1** of `adw_init.md` still detects only `cli` and `web` and never names `mobile:kotlincm`. A mobile app (one that runs on Android or iOS) is now undecided rather than `cli`, so detection never guesses a mobile repository into a type.
 - **Step 2.** When the type step 3 writes is `mobile:kotlincm`, step 2 writes these to `.adw/commands.md`, whatever the manifests show and also when there are none:
   - a Gradle unit-test command that writes the JUnit report to `$ADW_UNIT_TEST_REPORT_PATH`;
-  - a Gradle build command;
+  - a Gradle build command that passes while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green;
   - `N/A` for the dev server;
   - the `:scenarios` run-by-tag and regression commands.
 - **Step 3.** It writes the four device-source sections to `.adw/project.md`. Each gets its default when absent and keeps the owner's value when set.
@@ -81,7 +81,13 @@ Decisions, each with its reason:
   - `--continue` lets every module's tests run, so the report is complete.
   - The variable is `exit_code` because `status` is read-only in zsh, the shell the `/test` agent's Bash tool may use.
   - With no test results at all, the empty wrapper parses to `null`. The verdict is then `warn` (`unverified`), never a zero-case hard-fail.
-- **`## Run Build`**: `./gradlew build -x test`. This is Gradle's `build` without any project's `test` task. Without `-x test`, a failing unit test would surface as a build failure, and `:scenarios:test` would run there too.
+- **`## Run Build`**:
+  ```
+  if [ -e gradlew ] || [ -e settings.gradle.kts ] || [ -e settings.gradle ]; then ./gradlew build -x test; else echo 'No Gradle build yet: nothing to build'; fi
+  ```
+  - `./gradlew build -x test` is Gradle's `build` without any project's `test` task. Without `-x test`, a failing unit test would surface as a build failure, and `:scenarios:test` would run there too.
+  - The guard exists because of the baseline. The baseline runs the base branch's `## Run Build` before any work starts (`runBaselineChecks`), and a failing check parks the workflow as `baseline_red`. A bootstrap issue's base branch holds the regenerated `.adw/` but no Gradle build yet. There, a bare `./gradlew` fails (`./gradlew: No such file or directory`) and parks the bootstrap issue. The PRD's Reeve bootstrap sequence has no room for that park. With no `gradlew`, `settings.gradle.kts` or `settings.gradle`, the command passes with a note, and the plan phase runs.
+  - The guard looks for the build's settings files as well as the wrapper. So a fix round that deletes `gradlew` but leaves the build still fails the build check (exit 127).
 - **`## Run Scenarios by Tag`**: `./gradlew :scenarios:test --rerun -Dcucumber.filter.tags="@{tag}"`. **`## Run Regression Scenarios`**: the same command with `@regression`.
   - The command keeps the shape the #1043 stack-coherence tests already use.
   - `--rerun` (Gradle 7.6 and later) is needed because `runTag` deletes `junit-<tag>.xml` before every run, and each run gets new devices and a new `ADW_PROOF_DIR`, none of which Gradle tracks as inputs. An up-to-date skip would leave no report, which fails the tag.
@@ -140,7 +146,10 @@ Use these files to implement the feature:
   - A case name without ` › ` is matched to the scenario title.
   - Outline rows are named by the playwright-bdd rules: a filled `<column>` template, else `Example #<n>`.
   - Images are `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` under `ADW_PROOF_DIR`.
-- `adws/phases/baselinePhase.ts`, `adws/core/baselineGate.ts`, `adws/forge/parkComment.ts` — the baseline runs the base branch's own `.adw/commands.md`, and `## Continue` waives a `baseline_red` park. See Notes for the bootstrap consequence.
+- `adws/phases/baselinePhase.ts`, `adws/core/baselineGate.ts`, `adws/core/checkRunner.ts`, `adws/forge/parkComment.ts`
+  - The baseline runs the base branch's own `.adw/commands.md`: its install, then the static checks (type check, additional type checks, lint, build) through `runShellCommand`.
+  - An `N/A` check is skipped. A failing one parks the workflow as `baseline_red`.
+  - See Notes for the bootstrap issue's baseline.
 - `adws/phases/worktreeSetup.ts` — `REQUIRED_ADW_FILES`, which the test "names no `.adw/` file" checks against.
 - `adws/core/__tests__/stackCoherenceCheck.test.ts` — prior art for the Gradle command shapes, such as `./gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"`.
 - `adws/__tests__/adwChore.helpers.ts` — precedent for a shared `*.helpers.ts` beside the tests in `adws/__tests__/`.
@@ -171,6 +180,7 @@ Then write the `generate_step_definitions.md` tests (red) and the descriptor-mod
 
 ### Phase 3: Integration
 Check the mobile descriptors against the code that consumes them:
+- the baseline's shell runner passes the build command in a checkout with no Gradle build yet, and fails it in one that has a settings file but no wrapper;
 - the stack-coherence check reads them as one JVM stack;
 - the step-definition registry finds `.kt` files;
 - the JUnit parser reads the documented attachment syntax;
@@ -225,7 +235,7 @@ Define these constants (a template literal, or `String.raw`, holds the unit-test
 ```ts
 const MOBILE = 'mobile:kotlincm';
 const GRADLE_RUN_TESTS = `./gradlew test -x :scenarios:test --continue; exit_code=$?; { echo '<testsuites>'; find . -path ./scenarios -prune -o -path '*/build/test-results/*' -name 'TEST-*.xml' -exec sed 's/<?xml[^?]*?>//' {} +; echo '</testsuites>'; } > "$ADW_UNIT_TEST_REPORT_PATH"; exit $exit_code`;
-const GRADLE_RUN_BUILD = './gradlew build -x test';
+const GRADLE_RUN_BUILD = "if [ -e gradlew ] || [ -e settings.gradle.kts ] || [ -e settings.gradle ]; then ./gradlew build -x test; else echo 'No Gradle build yet: nothing to build'; fi";
 const GRADLE_RUN_BY_TAG = './gradlew :scenarios:test --rerun -Dcucumber.filter.tags="@{tag}"';
 const GRADLE_RUN_REGRESSION = GRADLE_RUN_BY_TAG.replace('{tag}', 'regression');
 const BDD_FRAMEWORK = 'cucumber-jvm';
@@ -248,6 +258,9 @@ Write these tests. A failure message should name the step and the section.
     - `GRADLE_RUN_TESTS` itself contains `"$ADW_UNIT_TEST_REPORT_PATH"` and `-x :scenarios:test`.
   - **An earlier `N/A` is replaced.** Step 2 matches `/no command but `N\/A`/` and still contains `preserve it verbatim`.
   - **The build command.** The step-2 line that holds `GRADLE_RUN_BUILD` also holds `` `mobile:kotlincm` ``.
+  - **The build command passes before the repository has a Gradle build, and only then.** This uses `runShellCommand`, the runner of the baseline's static checks, in a fresh temporary directory (as `checkRunner.integration.test.ts` does).
+    - With nothing in the directory, `GRADLE_RUN_BUILD` exits `0`.
+    - After an empty `settings.gradle.kts` is added, it exits non-zero, because the wrapper is missing.
   - **The dev server.**
     - Step 2 contains `the application type step 3 writes`.
     - The step-2 line that holds `` → `N/A` `` and `` `cli` `` also holds `` `mobile:kotlincm` ``.
@@ -275,7 +288,7 @@ Write these tests. A failure message should name the step and the section.
   - **The planner is pointed at the contract.** Step 3 has a line under `## Relevant Files` that holds both `` `.adw/scenarios.md` `` and `` `${SCENARIO_RUN_CONTRACT_SECTION}` ``.
 - **The report.** Step 11 names `` `mobile:kotlincm` ``, each of the four device-source headings, and both `default` and `preserved`.
 
-Import `parseMarkdownSections` from `../core/projectConfig`, `parseJUnitXml` from `../core/testReportParser`, `stackCoherenceCheck` and `inferStackLanguages` from `../core/stackCoherenceCheck`, `isGherkinFramework` and `stepDefExtensionsFor` from `../core/stepDefDetection`, and `APPLICATION_TYPE_PROFILES` and `Platform` from `../core/applicationType`. Import the modules directly, not through the `../core` barrel. Keep the file under 300 lines. Run it: red.
+Import `parseMarkdownSections` from `../core/projectConfig`, `parseJUnitXml` from `../core/testReportParser`, `runShellCommand` from `../core/checkRunner`, `stackCoherenceCheck` and `inferStackLanguages` from `../core/stackCoherenceCheck`, `isGherkinFramework` and `stepDefExtensionsFor` from `../core/stepDefDetection`, and `APPLICATION_TYPE_PROFILES` and `Platform` from `../core/applicationType`. Import the modules directly, not through the `../core` barrel. Keep the file under 300 lines. Run it: red.
 
 ### 6. Step 2 of `adw_init.md`: the Gradle commands and the dev server of a `mobile:kotlincm` repository
 - **`## Run Tests`**
@@ -289,7 +302,7 @@ Import `parseMarkdownSections` from `../core/projectConfig`, `parseJUnitXml` fro
     ```
 - **`## Run Build`**: add the sub-bullet:
   ```md
-         - **`mobile:kotlincm`**, whatever the manifests show and also when there is none yet → `./gradlew build -x test`: Gradle's `build` without its `test` tasks, because the unit-test phase runs the unit tests and the scenario phase runs `:scenarios:test` on the devices ADW boots.
+         - **`mobile:kotlincm`**, whatever the manifests show and also when there is none yet → `if [ -e gradlew ] || [ -e settings.gradle.kts ] || [ -e settings.gradle ]; then ./gradlew build -x test; else echo 'No Gradle build yet: nothing to build'; fi`, alone in the section and exactly as written. It runs Gradle's `build` without its `test` tasks, because the unit-test phase runs the unit tests and the scenario phase runs `:scenarios:test` on the devices ADW boots. Until the repository has a Gradle wrapper or settings file there is nothing to build, and the command passes: ADW checks the base branch before any work starts, and the base branch of the issue that bootstraps the repository holds no Gradle build yet.
   ```
 - **`## Start Dev Server`**
   - Replace `Determine the correct value from the application type decided in step 1:` with `Determine the correct value from the application type step 3 writes (the type it preserves, or the one step 1 detects):`.
@@ -395,7 +408,7 @@ Insert the branch directly after the `web` branch's last bullet (`` `## Step Def
 ### 11. Update the README
 - After `A value set by hand survives regeneration.` in the `adw_init` paragraph (line ~259), add:
   ```md
-  When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and `./gradlew build -x test`, `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
+  When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
   ```
 - In the `adws/__tests__/` listing, add `adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests` and `adwInitPrompt.mobile.test.ts`, in alphabetical order beside `adwInitPrompt.test.ts`.
 
@@ -419,7 +432,12 @@ Run every command in `Validation Commands`. Fix any failure before finishing.
     - the step-3 preserve rule names every key of `APPLICATION_TYPE_PROFILES`;
     - `hashInputs` lists `.claude/commands/adw_init.md` itself.
 - `adws/__tests__/adwInitPrompt.mobile.test.ts`:
-  - **`commands.md`**: the Gradle unit-test command with `$ADW_UNIT_TEST_REPORT_PATH` and `-x :scenarios:test`; the `N/A` carve-out; `./gradlew build -x test`; `N/A` for the dev server, keyed on the type step 3 writes; the scenario-command note.
+  - **`commands.md`**:
+    - the Gradle unit-test command with `$ADW_UNIT_TEST_REPORT_PATH` and `-x :scenarios:test`;
+    - the `N/A` carve-out;
+    - the guarded Gradle build command. `runShellCommand` passes it in a directory with no Gradle build and fails it in one with `settings.gradle.kts` but no wrapper;
+    - `N/A` for the dev server, keyed on the type step 3 writes;
+    - the scenario-command note.
   - **`scenarios.md`**: `cucumber-jvm`, `scenarios/src/test/kotlin`, both Gradle scenario commands; the branch order; the contract's variables, attachment line, identical-title rule and one directory per `Platform`.
   - **`project.md`**: a default for each device-source section, the preserve rule, nothing for other types, and the `## Relevant Files` pointer.
   - **Step 11**: the report.
@@ -438,10 +456,22 @@ Run every command in `Validation Commands`. Fix any failure before finishing.
 - Unchanged, and still green: `adws/core/__tests__/stackCoherenceCheck.test.ts`, `stepDefDetection.test.ts`, `applicationType.test.ts` and `adws/__tests__/reviewPrompt.test.ts`.
 
 ### BDD Scenarios
-The pipeline's scenario writer writes `features/per-issue/feature-1044.feature` (`@adw-1044`) separately. Step 12 covers its step definitions. `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1044"` must report no undefined or failing step, and `@regression` must stay green: no regression feature reads the edited prompt text. `@framework-hash` (feature-537) asserts only a well-formed, stable digest.
+The pipeline's scenario writer writes `features/per-issue/feature-1044.feature` (`@adw-1044`) separately. Step 12 covers its step definitions. Its scenarios run ADW's own code on the `.adw/` that `adw_init.md` tells the agent to write for `mobile:kotlincm`. A Given that builds that `.adw/` therefore takes its commands from the prompt. None of the scenarios needs an ADW TypeScript change:
+- **The framework hash.** Editing `/adw_init` below its frontmatter changes the framework content hash.
+- **The upgrade.** The regen runs the agent in a worktree that holds the owner's `## Application Type` and device sources, and commits what the agent writes. It installs no Playwright project (`scenarioProjectSetup` skips the descriptor runner). ADW reads `mobile:kotlincm` back from the regen commit.
+- **The bootstrap issue's baseline.** The base branch has that `.adw/` and no manifest or Gradle wrapper. The build check passes with the Gradle command, no dev server starts, nothing parks, and the plan phase runs. This is what the guarded `## Run Build` is for.
+- **The scenario proof.**
+  - With no Kotlin step definition, it runs no tag and records no blocker.
+  - With step definitions, `./gradlew :scenarios:test` runs from the worktree's root once per tag filter (`@adw-<issue>` and `@regression`), with ADW's `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`.
+  - `android/` and `ios/` screenshots, attached under one title from the report's directory, give the per-issue scenario both images.
+- **The type check.**
+
+`NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1044"` must report no undefined or failing step, and `@regression` must stay green: no regression feature reads the edited prompt text. `@framework-hash` (feature-537) asserts only a well-formed, stable digest.
 
 ### Edge Cases
 - **A hand-set `mobile:kotlincm` with no manifest (Reeve).** Step 2 writes the Gradle commands and step 8 the mobile descriptors and the contract. Step 3 writes the four device-source defaults, and `## Start Dev Server` is `N/A`.
+- **The bootstrap issue's baseline, on a base branch with that `.adw/` and no Gradle build.** The install and every other static check are `N/A` and skipped. The build check passes with its note, and no dev server is declared. So the baseline is green and the plan phase runs, with no `baseline_red` park and no `## Continue`.
+- **A fix round deletes `gradlew` but leaves `settings.gradle.kts`.** The build check still runs `./gradlew` and fails. Only a checkout with no wrapper and no settings file counts as "no Gradle build yet".
 - **An earlier manifest-less run left `# JUnit emission is not configured …` and `N/A` under `## Run Tests`.** For `mobile:kotlincm` the section is replaced, comment line included. A real custom command is preserved verbatim for every type, `mobile:kotlincm` included.
 - **The owner changed `## iOS Runtime`.** The upgrade keeps the value. An empty or absent section gets the default.
 - **`cli` and `web` repositories.** No device-source section and no contract. Their `.adw/` output is unchanged, apart from the dev-server rule now keying on the type step 3 writes, which a hand-set `web` that detection would miss also benefits from.
@@ -458,7 +488,7 @@ The pipeline's scenario writer writes `features/per-issue/feature-1044.feature` 
 - Step 1 of `adw_init.md` lists detection signals only for `cli` and `web`, never names `mobile:kotlincm`, and treats a mobile app as undecided. Step 3 preserves `cli`, `web` or `mobile:kotlincm` verbatim.
 - For a `mobile:kotlincm` that step 3 writes, with or without a manifest, step 2 writes to `.adw/commands.md`:
   - `## Run Tests`: the Gradle unit-test command that writes `$ADW_UNIT_TEST_REPORT_PATH` and excludes `:scenarios:test`, replacing an `N/A` and preserving a custom command;
-  - `## Run Build`: `./gradlew build -x test`;
+  - `## Run Build`: the Gradle build command. It runs `./gradlew build -x test` once the checkout has a Gradle wrapper or settings file, and passes with a note before then. So the baseline of the issue that bootstraps the repository is green;
   - `## Start Dev Server`: `N/A`;
   - `## Run Scenarios by Tag` and `## Run Regression Scenarios`: the Gradle scenario commands.
 - Step 8 writes to `.adw/scenarios.md` `## Scenario Directory` `features/`, `## BDD Framework` `cucumber-jvm`, `## Step Def Directory` `scenarios/src/test/kotlin`, `./gradlew :scenarios:test --rerun -Dcucumber.filter.tags="@{tag}"` and its `@regression` twin, and the verbatim `## Scenario Run Contract`. The contract documents:
@@ -494,11 +524,13 @@ Execute every command to validate the feature works correctly with zero regressi
   - no restating comments.
 - No new library. `.adw/commands.md` names `bun add <package>` should one ever be needed.
 - **The framework hash.** `.claude/commands/adw_init.md` is a `hashInputs:` file, so merging bumps the framework hash. Every registered target repository, ADW included, then regenerates `.adw/` on its next workflow. For `cli` and `web` repositories the output is unchanged, apart from the dev-server rule now keying on the type step 3 writes, which steps 6 and 8 already did.
-- **A consequence for the Reeve bootstrap that the PRD does not name.** The baseline phase runs the base branch's own `.adw/commands.md`.
-  - Once this regen is on Reeve's default branch, the bootstrap issue's baseline runs `./gradlew build -x test` in a checkout with no Gradle wrapper. That fails (`./gradlew: No such file or directory`) and parks the issue as `baseline_red`.
-  - `## Continue` on that park "waives the baseline, so that this run fixes the pre-existing failures too", which is exactly the bootstrap's situation.
-  - The commands are deliberately not guarded on `gradlew` existing: such a guard would also pass a static check after a fix round that deletes the wrapper.
-  - The PRD's Reeve sequence should gain the `## Continue` step, or a follow-up can teach the baseline about a base branch with no build yet.
+- **The bootstrap issue's baseline.** The baseline phase runs the base branch's own `.adw/commands.md`.
+  - Once this regen is on Reeve's default branch, the bootstrap issue's baseline runs `## Run Build` in a checkout with no Gradle wrapper and no settings file. The guarded command passes there with its note.
+  - Every other static check and the install are `N/A`, and no dev server is declared. So the baseline is green, and issue #1 goes on to its plan phase, as the PRD's Reeve bootstrap sequence describes. It needs no `## Continue` and is never parked as `baseline_red`.
+  - Only `## Run Build` is guarded, because the baseline runs only the install and the static checks.
+    - `## Run Tests` runs only on the issue's own worktree, after the build agent has created the Gradle build.
+    - The scenario command runs on the base branch only to re-run a failing scenario that the base branch also holds (`baseScenarioRerun.ts`). A re-run that writes no report counts as `BaseScenarioOutcome.NotRun`.
+  - The guard looks for the build's settings files as well as the wrapper. So a fix round that deletes the wrapper but leaves the build cannot pass the build check vacuously.
 - **This slice documents the contract ahead of its consumers:**
   - #1047 passes `ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`;
   - #1045 parses and requires the four device-source sections, one value per section, alone on its line, as written here;
