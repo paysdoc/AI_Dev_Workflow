@@ -54,7 +54,7 @@ describe('persistRemovalViaPr', () => {
       } as unknown as SweepBase['ctx'],
     });
 
-    await expect(persistRemovalViaPr(['features/per-issue/feature-1.feature'], base)).resolves.toBeUndefined();
+    await expect(persistRemovalViaPr(['features/per-issue/feature-1.feature'], base)).resolves.toBe(false);
 
     expect(base.openPr).not.toHaveBeenCalled();
     expect(base.log).toHaveBeenCalledWith(expect.stringContaining('stale info'), 'error');
