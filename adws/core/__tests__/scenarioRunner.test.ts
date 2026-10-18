@@ -22,6 +22,11 @@ const CUCUMBER = configWith(
 );
 const BEHAVE = configWith({ runScenariosByTag: 'behave --tags @{tag}', testFramework: 'pytest' }, { bddFramework: 'behave', stepDefDirectory: 'features/steps' });
 const EMPTY_FRAMEWORK = configWith({ runScenariosByTag: 'N/A' }, { bddFramework: '', stepDefDirectory: 'e2e/steps' });
+const GRADLE_RUN_BY_TAG = './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"';
+const CUCUMBER_JVM = configWith(
+  { runScenariosByTag: GRADLE_RUN_BY_TAG },
+  { bddFramework: 'cucumber-jvm', stepDefDirectory: 'scenarios/src/test/kotlin' },
+);
 
 /** The value Playwright builds its RegExp from, as the shell hands it over: the quoted argument of `--grep`. */
 function grepValueFor(tag: string): string {
@@ -53,6 +58,15 @@ describe('resolveScenarioRunner — descriptor mode', () => {
     expect(runner.stepDefExtensions).toEqual(['.py']);
     expect(runner.stepDefDirectory).toBe('features/steps');
     expect(runner.runByTagCommand).toBe('behave --tags @{tag}');
+  });
+
+  it('takes the step definition extensions of cucumber-jvm from its Kotlin and Java sources', () => {
+    const runner = resolveScenarioRunner(RunnerMode.Descriptor, CUCUMBER_JVM);
+
+    expect(runner.stepDefExtensions).toEqual(['.kt', '.java']);
+    expect(runner.stepDefDirectory).toBe('scenarios/src/test/kotlin');
+    expect(runner.runByTagCommand).toBe(GRADLE_RUN_BY_TAG);
+    expect(runner.stackSignals).toEqual({ bddFramework: 'cucumber-jvm', runScenariosByTag: GRADLE_RUN_BY_TAG });
   });
 
   it('defaults an empty framework to .ts, as stepDefExtensionsFor does', () => {

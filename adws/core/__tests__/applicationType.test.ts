@@ -6,6 +6,7 @@ import * as ts from 'typescript';
 import {
   APPLICATION_TYPE_PROFILES,
   EvidenceKind,
+  Platform,
   RunnerMode,
   describeApplicationProfile,
   resolveApplicationType,
@@ -16,6 +17,7 @@ import { ParkReason } from '../../forge/parkComment';
 const FAKE: ApplicationProfile = {
   runnerMode: RunnerMode.Descriptor,
   evidenceKinds: [EvidenceKind.PerIssueImages],
+  platforms: [],
   reviewGuidanceSection: 'Desktop applications',
 };
 
@@ -23,11 +25,11 @@ function parkFor(found: string | null) {
   return { kind: 'park', evidence: { reason: ParkReason.MissingApplicationType, found } };
 }
 
-describe('resolveApplicationType — the two types ADW knows', () => {
+describe('resolveApplicationType — the three types ADW knows', () => {
   it('maps cli to the descriptor runner and asks for no image', () => {
     expect(resolveApplicationType('cli')).toEqual({
       kind: 'known',
-      profile: { runnerMode: RunnerMode.Descriptor, evidenceKinds: [], reviewGuidanceSection: 'CLI applications' },
+      profile: { runnerMode: RunnerMode.Descriptor, evidenceKinds: [], platforms: [], reviewGuidanceSection: 'CLI applications' },
     });
   });
 
@@ -37,9 +39,27 @@ describe('resolveApplicationType — the two types ADW knows', () => {
       profile: {
         runnerMode: RunnerMode.AdwPlaywright,
         evidenceKinds: [EvidenceKind.PerIssueImages],
+        platforms: [],
         reviewGuidanceSection: 'Web applications',
       },
     });
+  });
+
+  it('maps mobile:kotlincm to the descriptor runner, per-issue images and the android and ios platforms', () => {
+    expect(resolveApplicationType('mobile:kotlincm')).toEqual({
+      kind: 'known',
+      profile: {
+        runnerMode: RunnerMode.Descriptor,
+        evidenceKinds: [EvidenceKind.PerIssueImages],
+        platforms: [Platform.Android, Platform.Ios],
+        reviewGuidanceSection: 'Mobile applications (Kotlin Compose Multiplatform)',
+      },
+    });
+  });
+
+  it('declares no platform for cli and web', () => {
+    expect(APPLICATION_TYPE_PROFILES.cli.platforms).toEqual([]);
+    expect(APPLICATION_TYPE_PROFILES.web.platforms).toEqual([]);
   });
 
   it.each([
@@ -47,20 +67,22 @@ describe('resolveApplicationType — the two types ADW knows', () => {
     ['CLI', 'cli'],
     ['web\n', 'web'],
     ['\tCli\r\n', 'cli'],
+    [' Mobile:KotlinCM ', 'mobile:kotlincm'],
+    ['mobile:kotlincm\n', 'mobile:kotlincm'],
   ] as const)('reads %j as %s: the value is trimmed and case-insensitive', (declared, type) => {
     expect(resolveApplicationType(declared)).toEqual(resolveApplicationType(type));
     expect(resolveApplicationType(declared).kind).toBe('known');
   });
 
-  it('gives cli and web a review guidance section each, and no two the same', () => {
+  it('gives every type a review guidance section, and no two the same', () => {
     const sections = Object.values(APPLICATION_TYPE_PROFILES).map(profile => profile.reviewGuidanceSection);
 
     expect(new Set(sections).size).toBe(sections.length);
     sections.forEach(section => expect(section.trim()).not.toBe(''));
   });
 
-  it('holds exactly the two types of the decision record', () => {
-    expect(Object.keys(APPLICATION_TYPE_PROFILES).sort()).toEqual(['cli', 'web']);
+  it('holds exactly the three types of the decision records', () => {
+    expect(Object.keys(APPLICATION_TYPE_PROFILES).sort()).toEqual(['cli', 'mobile:kotlincm', 'web']);
   });
 });
 
@@ -69,12 +91,31 @@ describe('resolveApplicationType — what parks the issue', () => {
     expect(resolveApplicationType(declared)).toEqual(parkFor(null));
   });
 
-  it.each(['desktop', 'cli or web', 'api', 'web app', 'CLI tool'])('parks the unknown type %j and records it as it was written', (declared) => {
+  it.each([
+    'desktop',
+    'cli or web',
+    'api',
+    'web app',
+    'CLI tool',
+    'mobile',
+    'Mobile',
+    'mobile:',
+    'mobile: kotlincm',
+    'kotlincm',
+    'mobile:flutter',
+    'mobile:kotlincm:android',
+  ])('parks the unknown type %j and records it as it was written', (declared) => {
     expect(resolveApplicationType(declared)).toEqual(parkFor(declared));
   });
 
   it('never lowercases the value it records', () => {
     expect(resolveApplicationType('Desktop')).toEqual(parkFor('Desktop'));
+  });
+
+  it('parks a bare mobile: a sub-descriptor is part of the key', () => {
+    expect(Object.keys(APPLICATION_TYPE_PROFILES)).not.toContain('mobile');
+    expect(resolveApplicationType('mobile')).toEqual(parkFor('mobile'));
+    expect(resolveApplicationType('Mobile')).toEqual(parkFor('Mobile'));
   });
 
   it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf'])('parks %j, a key the table inherits but does not hold', (declared) => {
@@ -125,12 +166,43 @@ describe('describeApplicationProfile', () => {
     expect(description).toContain('per-issue scenario images');
   });
 
+  it('names the runner of .adw/scenarios.md, per-issue scenario images and the android and ios platforms for mobile:kotlincm', () => {
+    const description = describeApplicationProfile(APPLICATION_TYPE_PROFILES['mobile:kotlincm']);
+
+    expect(description).toContain('.adw/scenarios.md');
+    expect(description).toContain('per-issue scenario images');
+    expect(description).toContain('platforms: android, ios');
+  });
+
+  it('names no type in the mobile:kotlincm description', () => {
+    const description = describeApplicationProfile(APPLICATION_TYPE_PROFILES['mobile:kotlincm']).toLowerCase();
+
+    expect(description).not.toContain('mobile');
+    expect(description).not.toContain('kotlin');
+  });
+
+  it('leaves the cli and web descriptions as they were, with no platforms', () => {
+    expect(describeApplicationProfile(APPLICATION_TYPE_PROFILES.cli)).toBe(
+      'scenarios run with the scenario runner that `.adw/scenarios.md` describes; evidence: no images',
+    );
+    expect(describeApplicationProfile(APPLICATION_TYPE_PROFILES.web)).toBe(
+      "scenarios run with ADW's Playwright project in `features/`; evidence: per-issue scenario images",
+    );
+  });
+
   it('describes a profile from its fields alone, with no type name in it', () => {
     const description = describeApplicationProfile(FAKE);
 
     expect(description).toContain('.adw/scenarios.md');
     expect(description).toContain('per-issue scenario images');
     expect(description.toLowerCase()).not.toContain('desktop');
+  });
+
+  it('names the platforms a profile declares and no others', () => {
+    const description = describeApplicationProfile({ ...FAKE, platforms: [Platform.Android] });
+
+    // The clause is matched whole: "scenarios" holds "ios", so a substring check could not tell the platform from the word.
+    expect(description).toMatch(/; platforms: android$/);
   });
 
   it('stays on one line', () => {

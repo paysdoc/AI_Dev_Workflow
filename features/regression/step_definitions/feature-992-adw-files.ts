@@ -15,6 +15,7 @@ export const COMMANDS_MD = '.adw/commands.md';
 export const SCENARIOS_MD = '.adw/scenarios.md';
 export const ADW_DIRECTORY = '.adw/';
 
+const SCENARIO_DIRECTORY = 'Scenario Directory';
 const START_DEV_SERVER = 'Start Dev Server';
 const HEALTH_CHECK_PATH = 'Health Check Path';
 const RUN_BY_TAG = 'Run Scenarios by Tag';
@@ -38,7 +39,7 @@ export function freshAdwFiles(applicationType: string): AdwFiles {
       [RUN_BY_TAG, web ? ADW_PLAYWRIGHT_RUN_BY_TAG : 'N/A'],
     ]),
     scenarios: new Map([
-      ['Scenario Directory', 'features/'],
+      [SCENARIO_DIRECTORY, 'features/'],
       [RUN_BY_TAG, web ? ADW_PLAYWRIGHT_RUN_BY_TAG : 'N/A'],
       [BDD_FRAMEWORK, web ? 'playwright-bdd' : 'cucumber-js'],
       [STEP_DEF_DIRECTORY, web ? ADW_PLAYWRIGHT_STEP_DEF_DIR : 'features/step_definitions'],
@@ -60,6 +61,11 @@ export function setRunScenariosByTag(files: AdwFiles, command: string): void {
 export function setBddFramework(files: AdwFiles, framework: string, stepDefDirectory: string): void {
   files.scenarios.set(BDD_FRAMEWORK, framework);
   files.scenarios.set(STEP_DEF_DIRECTORY, stepDefDirectory);
+}
+
+/** The directory ".adw/scenarios.md" names for feature files. */
+export function scenarioDirectoryOf(files: AdwFiles): string {
+  return files.scenarios.get(SCENARIO_DIRECTORY) ?? '';
 }
 
 /** The directory ".adw/scenarios.md" names for step definitions, with a trailing slash. */

@@ -9,6 +9,7 @@ import { buildReviewPromptContext, describeReviewPromptContext, reviewIssueKind 
 const DESKTOP: ApplicationProfile = {
   runnerMode: RunnerMode.Descriptor,
   evidenceKinds: [EvidenceKind.PerIssueImages],
+  platforms: [],
   reviewGuidanceSection: 'Desktop applications',
 };
 
@@ -66,6 +67,12 @@ describe('buildReviewPromptContext', () => {
 
   it('names the guidance section of the cli profile', () => {
     expect(buildReviewPromptContext(makeConfig({ profile: APPLICATION_TYPE_PROFILES.cli })).guidanceSection).toBe('CLI applications');
+  });
+
+  it('hands the reviewer the mobile guidance section for a mobile:kotlincm repository', () => {
+    const context = buildReviewPromptContext(makeConfig({ profile: APPLICATION_TYPE_PROFILES['mobile:kotlincm'] }));
+
+    expect(context.guidanceSection).toBe('Mobile applications (Kotlin Compose Multiplatform)');
   });
 
   it("passes on the guidance section of a profile it has never heard of, which shows that it reads the mapping", () => {

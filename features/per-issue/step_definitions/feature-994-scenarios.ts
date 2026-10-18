@@ -9,14 +9,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { DataTable } from '@cucumber/cucumber';
 
-import { runnerCases, type RepositoryType } from './feature-994-names.ts';
+import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
+
+import { runnerCases, runsOnAdwPlaywright, type RepositoryType } from './feature-994-names.ts';
 import type { CaseOutcome, RunnerScript, ScriptedCase } from './feature-994-runner.ts';
 import { requireType, requireWorktree, s, type ReportedScenario } from './feature-994-world.ts';
 
 const OUTCOMES: readonly CaseOutcome[] = ['passed', 'failed', 'skipped'];
 
+function isRepositoryType(type: string): type is RepositoryType {
+  return Object.prototype.hasOwnProperty.call(APPLICATION_TYPE_PROFILES, type);
+}
+
 export function assertRepositoryType(type: string): RepositoryType {
-  assert.ok(type === 'web' || type === 'cli', `Unknown kind of repository "${type}"; the scenarios say "web" or "cli"`);
+  assert.ok(isRepositoryType(type), `Unknown kind of repository "${type}"; the scenarios say one of: ${Object.keys(APPLICATION_TYPE_PROFILES).join(', ')}`);
   return type;
 }
 
@@ -78,7 +84,7 @@ function scriptedCase(row: ReportedScenario, type: RepositoryType): ScriptedCase
   assert.ok(match, `Expected "${row.featureFile}" to hold a scenario, or an outline row, named "${row.scenario}"`);
   return {
     name: match.name,
-    classname: type === 'web' ? `${row.featureFile}.spec.js` : match.feature,
+    classname: runsOnAdwPlaywright(type) ? `${row.featureFile}.spec.js` : match.feature,
     tags: match.tags,
     outcome: row.outcome,
     attachments: row.attachments,

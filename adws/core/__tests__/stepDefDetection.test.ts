@@ -37,6 +37,10 @@ describe('stepDefExtensionsFor', () => {
     expect(stepDefExtensionsFor('playwright-bdd')).toEqual(['.ts']);
   });
 
+  it('cucumber-jvm → [.kt, .java]', () => {
+    expect(stepDefExtensionsFor('cucumber-jvm')).toEqual(['.kt', '.java']);
+  });
+
   it('empty string → default [.ts]', () => {
     expect(stepDefExtensionsFor('')).toEqual(['.ts']);
   });
@@ -52,6 +56,10 @@ describe('stepDefExtensionsFor', () => {
   it('whitespace-insensitive: "  Behave  " → [.py]', () => {
     expect(stepDefExtensionsFor('  Behave  ')).toEqual(['.py']);
   });
+
+  it('case- and whitespace-insensitive: " Cucumber-JVM " → [.kt, .java]', () => {
+    expect(stepDefExtensionsFor(' Cucumber-JVM ')).toEqual(['.kt', '.java']);
+  });
 });
 
 describe('isGherkinFramework', () => {
@@ -63,9 +71,11 @@ describe('isGherkinFramework', () => {
   it('cucumber-rs → true', () => expect(isGherkinFramework('cucumber-rs')).toBe(true));
   it('cucumber-ruby → true', () => expect(isGherkinFramework('cucumber-ruby')).toBe(true));
   it('playwright-bdd → true', () => expect(isGherkinFramework('playwright-bdd')).toBe(true));
+  it('cucumber-jvm → true', () => expect(isGherkinFramework('cucumber-jvm')).toBe(true));
   it('empty string → true (default cucumber-js)', () => expect(isGherkinFramework('')).toBe(true));
   it('whitespace-only → true', () => expect(isGherkinFramework('   ')).toBe(true));
   it('case-insensitive: " Cucumber-JS " → true', () => expect(isGherkinFramework(' Cucumber-JS ')).toBe(true));
+  it('case- and whitespace-insensitive: " Cucumber-JVM " → true', () => expect(isGherkinFramework(' Cucumber-JVM ')).toBe(true));
   it('jest → false', () => expect(isGherkinFramework('jest')).toBe(false));
   it('playwright → false', () => expect(isGherkinFramework('playwright')).toBe(false));
 });
@@ -120,5 +130,47 @@ describe('hasStepDefinitions', () => {
     fs.mkdirSync(stepDefsDir, { recursive: true });
     fs.writeFileSync(path.join(stepDefsDir, 'steps.ts'), '');
     expect(hasStepDefinitions('features/step_definitions', ['.ts'], cwd)).toBe(true);
+  });
+
+  describe('under cucumber-jvm', () => {
+    const KOTLIN_DIR = 'scenarios/src/test/kotlin';
+    const extensions = stepDefExtensionsFor('cucumber-jvm');
+
+    function writeIn(cwd: string, relativePath: string): void {
+      const file = path.join(cwd, KOTLIN_DIR, relativePath);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, '');
+    }
+
+    it('finds a nested Kotlin step file', () => {
+      const cwd = makeTmp();
+      writeIn(cwd, 'com/example/steps/LoginSteps.kt');
+      expect(hasStepDefinitions(KOTLIN_DIR, extensions, cwd)).toBe(true);
+    });
+
+    it('finds a nested Java step file', () => {
+      const cwd = makeTmp();
+      writeIn(cwd, 'com/example/steps/LoginSteps.java');
+      expect(hasStepDefinitions(KOTLIN_DIR, extensions, cwd)).toBe(true);
+    });
+
+    it('does not count a Kotlin script: build.gradle.kts is not a step definition', () => {
+      const cwd = makeTmp();
+      writeIn(cwd, 'build.gradle.kts');
+      expect(hasStepDefinitions(KOTLIN_DIR, extensions, cwd)).toBe(false);
+    });
+
+    it('does not count a TypeScript file, which would be a step definition under a framework ADW does not know', () => {
+      const cwd = makeTmp();
+      writeIn(cwd, 'home.steps.ts');
+      expect(hasStepDefinitions(KOTLIN_DIR, extensions, cwd)).toBe(false);
+      expect(hasStepDefinitions(KOTLIN_DIR, stepDefExtensionsFor('some-unknown-framework'), cwd)).toBe(true);
+    });
+
+    it('does not find a Kotlin step file with the default [.ts], which is what the registry entry fixes', () => {
+      const cwd = makeTmp();
+      writeIn(cwd, 'com/example/steps/LoginSteps.kt');
+      expect(hasStepDefinitions(KOTLIN_DIR, ['.ts'], cwd)).toBe(false);
+    });
   });
 });

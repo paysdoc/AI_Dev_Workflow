@@ -36,7 +36,7 @@ perIssueImages: $6 — a JSON array of the absolute paths of the per-issue scena
 
 ## Step 3: Suppressions and Weakened Checks
 
-- A comment the diff adds that suppresses a check is a `blocker`, whatever reason comes with it: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `biome-ignore`, `# noqa`, `# type: ignore`, `# pylint: disable`, `//nolint`, `#[allow(`, `# rubocop:disable`, a pattern listed under `## Suppression Patterns` in `.adw/commands.md`, or the equivalent for any other tool. A suppression the diff did not add is not a finding.
+- An annotation or comment the diff adds that suppresses a check is a `blocker`, whatever reason comes with it: `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `biome-ignore`, `# noqa`, `# type: ignore`, `# pylint: disable`, `//nolint`, `#[allow(`, `# rubocop:disable`, `@Suppress(`, `@SuppressWarnings(`, a pattern listed under `## Suppression Patterns` in `.adw/commands.md`, or the equivalent for any other tool. A suppression the diff did not add is not a finding.
 - A change to lint, compiler or build configuration (`eslint.config.*`, `.eslintrc*`, `tsconfig*.json`, the scripts of `package.json`, `pyproject.toml`, `setup.cfg`, `.golangci.*`, `Cargo.toml` and the like) or to the check commands in `.adw/commands.md` that weakens a check is a `blocker`: a rule turned off or down, files excluded from a check, a compiler option loosened, a check command removed or set to `N/A`. A configuration change that weakens no check is judged as in Step 2.
 - `issueResolution`: remove the suppression or restore the configuration, and fix the code the check reports instead.
 
@@ -101,6 +101,13 @@ Apply the section under `## Guidance by application type` whose title is `guidan
 - A per-issue scenario about something a user sees must open the page that shows it. A scenario that only calls the HTTP API tests the server, not the page.
 - Changes a user can see include markup, components, templates, styles, copy, client-side behaviour, routes and navigation. A change confined to the server (API handlers, data access, background jobs, configuration) needs no image.
 - Do not start the application or a browser: the images are the view of the page you judge.
+
+### Mobile applications (Kotlin Compose Multiplatform)
+
+- The per-issue images are the visual evidence, taken on Android and on iOS: an image under `android/` in the proof directory shows Android, one under `ios/` shows iOS. Open each one (Step 6) and look at it as a user looks at the app on that platform: is the change there, on the screen and in the state the issue describes.
+- What a mobile user sees is its screens and the navigation between them, the platform's own chrome (system bars, the back gesture or button, sheets, dialogs, the keyboard), the orientation, and the system permission prompts. A change to any of these that the issue does not ask for is out of scope (Step 2); a change it does ask for needs a per-issue scenario that shows it (Step 4). A change confined to shared logic, data or networking that alters no screen needs no image.
+- A per-issue scenario about something a user sees must show it on both platforms. A per-issue scenario whose images show one platform only is a `blocker` that names the scenario and the platform with no image. `issueResolution`: the scenario must end on the screen that shows the change on that platform as well, and take its screenshot there.
+- Do not start an emulator, a simulator, Appium or the app: the images are the view of the screen you judge.
 
 ## Issue Severity Reference
 

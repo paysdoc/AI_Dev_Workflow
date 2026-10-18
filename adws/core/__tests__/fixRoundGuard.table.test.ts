@@ -8,7 +8,7 @@ const LANGUAGES = Object.keys(FRAMEWORK_SUPPRESSION_PATTERNS) as StackLanguage[]
 
 describe('the framework table', () => {
   it('has an entry for exactly the languages the stack inference knows', () => {
-    expect([...LANGUAGES].sort()).toEqual(['go', 'javascript', 'python', 'ruby', 'rust']);
+    expect([...LANGUAGES].sort()).toEqual(['go', 'javascript', 'jvm', 'python', 'ruby', 'rust']);
   });
 
   const NAMED_BY_THE_DECISION: Readonly<Record<StackLanguage, readonly string[]>> = {
@@ -17,6 +17,7 @@ describe('the framework table', () => {
     go: ['//nolint', '//lint:ignore', '//lint:file-ignore', '#nosec', '//go:build ignore', '// +build ignore'],
     rust: ['#[allow(', '#![allow(', '#[expect(', '#![expect('],
     ruby: ['rubocop:disable', 'rubocop:todo', 'standard:disable', 'steep:ignore', '# typed: ignore'],
+    jvm: ['@Suppress(', '@file:Suppress(', '@SuppressWarnings(', '@SuppressLint(', '//noinspection', 'ktlint-disable', 'CHECKSTYLE:OFF'],
   };
 
   it.each(LANGUAGES)('names every %s pattern the decision names', (language) => {

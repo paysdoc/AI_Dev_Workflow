@@ -91,9 +91,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Framework Notes` — Framework-specific instructions for the ADW
      - `## Library Install Command` — How to add new libraries
      - `## Script Execution` — How to run project scripts
-     - `## Application Type` — exactly one of `cli` or `web`, alone on its line:
-       - If the existing `.adw/project.md` has `## Application Type` holding `cli` or `web`, preserve it verbatim. The owner may have set it by hand, and an upgrade must not drop it.
-       - Otherwise write the type detected in step 1.
+     - `## Application Type` — exactly one of `cli`, `web` or `mobile:kotlincm`, alone on its line. The last is never detected: only the repository's owner sets it, by hand.
+       - If the existing `.adw/project.md` has `## Application Type` holding `cli`, `web` or `mobile:kotlincm`, preserve it verbatim. The owner may have set it by hand, and an upgrade must not drop it.
+       - Otherwise write the type detected in step 1, `cli` or `web`.
        - If step 1 could not decide, leave the section out entirely: no default, no placeholder, no empty section. ADW then parks every issue with the `missing_application_type` comment until the section is added or `adw_init` is re-run.
    - Do not add a section that enables or disables unit tests. The only unit-test switch is `unitTests` in `.github/adw.yml` (step 9). If the existing `.adw/project.md` has such a section, leave it out.
 

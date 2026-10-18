@@ -4,12 +4,18 @@
  * run the assembler do not check the index against itself.
  *
  * ADW's Playwright project names a scenario "<Feature> › <Scenario>" and an outline row "<Feature> › <Outline> › <title>";
- * cucumber-js, the runner of a cli repository, names it by the scenario alone. The title of an outline row is the name of its
- * Examples table when that names a column, else the outline's name when that does, else "Example #<n>". Rules, comments and
- * languages other than English are not used by the scenarios and are not handled.
+ * a runner the repository describes itself, such as the cucumber-js of a cli repository, names it by the scenario alone. The
+ * title of an outline row is the name of its Examples table when that names a column, else the outline's name when that does,
+ * else "Example #<n>". Rules, comments and languages other than English are not used by the scenarios and are not handled.
  */
 
-export type RepositoryType = 'web' | 'cli';
+import { APPLICATION_TYPE_PROFILES, RunnerMode, type ApplicationType } from '../../../adws/core/applicationType.ts';
+
+export type RepositoryType = ApplicationType;
+
+export function runsOnAdwPlaywright(type: RepositoryType): boolean {
+  return APPLICATION_TYPE_PROFILES[type].runnerMode === RunnerMode.AdwPlaywright;
+}
 
 export interface RunnerCase {
   /** What the tables' "scenario" column says: the scenario's name, or the title of an outline row. */
@@ -76,7 +82,7 @@ interface ParserState {
 const INITIAL_STATE: ParserState = { feature: '', featureTags: [], pendingTags: [], outline: null, examples: null, cases: [] };
 
 function nameOf(type: RepositoryType, feature: string, segments: readonly string[]): string {
-  return type === 'web' ? [feature, ...segments].join(SEPARATOR) : segments[segments.length - 1];
+  return runsOnAdwPlaywright(type) ? [feature, ...segments].join(SEPARATOR) : segments[segments.length - 1];
 }
 
 function withCase(state: ParserState, type: RepositoryType, scenario: string, tags: readonly string[], ...segments: string[]): ParserState {
