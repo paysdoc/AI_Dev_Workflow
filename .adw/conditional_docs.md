@@ -1078,9 +1078,9 @@
     - adws/phases/applicationTypeGate.ts
     - adws/phases/__tests__/applicationTypeGate*.ts
   - Conditions:
-    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, review guidance section)
+    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, `platforms`, review guidance section)
     - When working on the application-type gate (`runApplicationTypeGate`, `requireApplicationProfile`, `WorkflowConfig.applicationProfile`) run by `initializeWorkflow` and `initializePRReviewWorkflow`
-    - When adding a third application type, or a consumer that needs the evidence profile rather than the raw `## Application Type`
+    - When adding an application type (`cli`, `web`, `mobile:kotlincm`) or touching `Platform`, or a consumer that needs the evidence profile rather than the raw `## Application Type`
     - When an issue parks with `missing_application_type`, `## Application Type` has no default (`parseApplicationType` returns `null`), or `adw_init` must detect, preserve or leave out the section
   - Decisions:
     - 0061

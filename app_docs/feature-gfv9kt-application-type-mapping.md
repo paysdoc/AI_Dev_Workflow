@@ -2,13 +2,14 @@
 
 ## Overview
 
-`## Application Type` in `.adw/project.md` is the only input that decides what evidence a review needs. A pure, framework-owned mapping (`adws/core/applicationType.ts`) turns the type into an `ApplicationProfile` (`runnerMode`, `evidenceKinds`, `reviewGuidanceSection`), and a phase-level gate (`adws/phases/applicationTypeGate.ts`) resolves it at workflow init. There is no default: a missing or unknown type parks the workflow as `human_gated` with the `missing_application_type` park comment.
+`## Application Type` in `.adw/project.md` is the only input that decides what evidence a review needs. A pure, framework-owned mapping (`adws/core/applicationType.ts`) turns the type into an `ApplicationProfile` (`runnerMode`, `evidenceKinds`, `platforms`, `reviewGuidanceSection`), and a phase-level gate (`adws/phases/applicationTypeGate.ts`) resolves it at workflow init. There is no default: a missing or unknown type parks the workflow as `human_gated` with the `missing_application_type` park comment.
 
 ## Responsibilities
 
-- `APPLICATION_TYPE_PROFILES` holds exactly `cli` (descriptor runner from `.adw/scenarios.md`, no images, guidance section "CLI applications") and `web` (ADW Playwright project in `features/`, per-issue images, "Web applications").
+- `APPLICATION_TYPE_PROFILES` holds exactly `cli` (descriptor runner from `.adw/scenarios.md`, no images, no platforms, guidance section "CLI applications"), `web` (ADW Playwright project in `features/`, per-issue images, no platforms, "Web applications") and `mobile:kotlincm` (descriptor runner, per-issue images, platforms `android` and `ios`, "Mobile applications (Kotlin Compose Multiplatform)").
+- `Platform` (`android`, `ios`) names a kind of device, not a code host; `@paysdoc/devplatform` exports its own `Platform`. `platforms` is empty for types whose scenarios run on no device.
 - `resolveApplicationType(declared, profiles?)` returns `{ kind: 'known', profile }` or `{ kind: 'park', evidence }`. Lookup is trimmed and case-insensitive, and only own keys of the table count, so `constructor` or `__proto__` park.
-- `describeApplicationProfile(profile)` builds a one-line description from the profile's fields only; it feeds the gate's log line.
+- `describeApplicationProfile(profile)` builds a one-line description from the profile's fields only (platforms are appended when present); it feeds the gate's log line.
 - `runApplicationTypeGate(config, projectConfig, deps)` proceeds on a known type and returns the profile plus the (possibly reloaded) project config. `initializeWorkflow` and `initializePRReviewWorkflow` run it right after `loadProjectConfig`, and put the profile on `WorkflowConfig.applicationProfile`.
 - `buildApplicationTypeGateDeps(gitContext)` supplies the real `loadProjectConfig`, `mergeLatestFromDefaultBranch` and `parkWorkflow`.
 - `requireApplicationProfile(config)` is the accessor consumers use; it returns the profile or throws, and never defaults.
@@ -18,7 +19,7 @@
 ## Contracts & Invariants
 
 - The mapping table is the only place a type name means anything. Consumers read the profile, never the type; a unit test asserts that `applicationType` appears in non-test `adws/` sources only in `projectConfig.ts` and `applicationTypeGate.ts`.
-- A third type is one new table entry plus `adw_init` detection; no phase changes.
+- A new type is one new table entry plus `adw_init` detection; no phase changes. A sub-descriptor is part of the key, so a bare `mobile` is not in the table and parks.
 - No default is ever written or read: absent means absent, and `adw_init` never writes a placeholder.
 - On a missing or unknown type the gate merges the latest default branch once, reloads the config and resolves again. It parks only if the mapping still decides to park, with the mapping's evidence unchanged (`{ reason: ParkReason.MissingApplicationType, found }`, `found` is `null` when missing).
 - The park does not return (`parkWorkflow` exits 0 after writing `human_gated` and posting the comment).
@@ -27,7 +28,7 @@
 
 ## Configuration
 
-- `## Application Type` in `.adw/project.md`: exactly one of `cli` or `web`, alone on its line.
+- `## Application Type` in `.adw/project.md`: exactly one of the table's keys (`cli`, `web`, `mobile:kotlincm`), alone on its line.
 - Already-initialised repositories are not migrated; they park until `adw_init` is re-run.
 
 ## Gotchas
@@ -36,6 +37,7 @@
 - The merge before the park exists because reused target-repo and PR worktrees are not merged with the default branch at init; without it `## Retry` would re-read a stale worktree.
 - `adws/__tests__/adwInitPrompt.test.ts` asserts that the types the `adw_init.md` step-3 bullet offers equal the keys of `APPLICATION_TYPE_PROFILES`; editing `adw_init.md` bumps the framework hash.
 - `verifyAdwRegen` does not require the section, so an upgrade whose `/adw_init` leaves it out still commits.
+- The `mobile:kotlincm` stack is recognised by the surrounding checks: `jvm` is a `StackLanguage` (Gradle and `cucumber-jvm` tokens are matched before the JavaScript ones in `stackCoherenceCheck.ts`), `cucumber-jvm` maps to `.kt`/`.java` step definitions in `stepDefDetection.ts`, and `fixRoundGuardTable.ts` carries `jvm` suppression patterns.
 - The Playwright project, `web` runner mode, proof assembler selection and per-type review guidance sections are carried by later issues.
 
 ## Decisions
