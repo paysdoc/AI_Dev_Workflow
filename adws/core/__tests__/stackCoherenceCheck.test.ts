@@ -74,6 +74,85 @@ describe('stackCoherenceCheck', () => {
     expect([...inferStackLanguages({ ...input, testFramework: '', runTests: '', runScenariosByTag: '' })]).toEqual(['javascript']);
   });
 
+  it.each<[string, StackCoherenceInput]>([
+    [
+      'JUnit with ./gradlew test',
+      {
+        testFramework: 'JUnit',
+        bddFramework: 'cucumber-jvm',
+        runTests: './gradlew test',
+        runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"',
+      },
+    ],
+    [
+      'kotlin.test with ./gradlew allTests and a --tests filter that names cucumber',
+      {
+        testFramework: 'kotlin.test',
+        bddFramework: 'cucumber-jvm',
+        runTests: './gradlew allTests',
+        runScenariosByTag: './gradlew :scenarios:test --tests "*RunCucumberTest" -Dcucumber.filter.tags="@{tag}"',
+      },
+    ],
+    [
+      'JUnit with gradle test',
+      {
+        testFramework: 'JUnit',
+        bddFramework: 'cucumber-jvm',
+        runTests: 'gradle test',
+        runScenariosByTag: 'gradle :scenarios:test -Dcucumber.filter.tags="@{tag}"',
+      },
+    ],
+  ])('coherent Kotlin/Gradle — cucumber-jvm, %s', (_name, input) => {
+    const result = stackCoherenceCheck(input);
+
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('cucumber-jvm is a Gherkin runtime — no non-gherkin warning, and it points to jvm', () => {
+    const input: StackCoherenceInput = {
+      testFramework: 'JUnit',
+      bddFramework: 'cucumber-jvm',
+      runTests: './gradlew test',
+      runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"',
+    };
+
+    const result = stackCoherenceCheck(input);
+
+    expect(result.warnings.some(w => w.code === 'non-gherkin-bdd')).toBe(false);
+    expect([...inferStackLanguages({ ...input, testFramework: '', runTests: '', runScenariosByTag: '' })]).toEqual(['jvm']);
+  });
+
+  it('incoherent: cucumber-js with ./gradlew test → language-mismatch', () => {
+    const result = stackCoherenceCheck({
+      testFramework: 'JUnit',
+      bddFramework: 'cucumber-js',
+      runTests: './gradlew test',
+      runScenariosByTag: 'npx cucumber-js --tags "@{tag}"',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe('language-mismatch');
+    expect(result.warnings[0].message).toContain("bddFramework 'cucumber-js'→javascript");
+    expect(result.warnings[0].message).toContain("runTests './gradlew test'→jvm");
+  });
+
+  it('incoherent: cucumber-jvm with bun run test → language-mismatch', () => {
+    const result = stackCoherenceCheck({
+      testFramework: 'vitest',
+      bddFramework: 'cucumber-jvm',
+      runTests: 'bun run test',
+      runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe('language-mismatch');
+    expect(result.warnings[0].message).toContain("bddFramework 'cucumber-jvm'→jvm");
+    expect(result.warnings[0].message).toContain("runTests 'bun run test'→javascript");
+  });
+
   it('empty bddFramework is the Gherkin default — no non-gherkin warning', () => {
     const result = stackCoherenceCheck({
       testFramework: 'vitest',
@@ -127,9 +206,28 @@ describe('inferStackLanguages', () => {
     ['go test and godog', { testFramework: 'go test', bddFramework: 'godog' }, 'go'],
     ['cargo test and cucumber-rs', { testFramework: 'cargo test', bddFramework: 'cucumber-rs' }, 'rust'],
     ['rspec and cucumber-ruby', { testFramework: 'rspec', bddFramework: 'cucumber-ruby' }, 'ruby'],
+    ['cucumber-jvm and ./gradlew test', { bddFramework: 'cucumber-jvm', runTests: './gradlew test' }, 'jvm'],
+    ['gradle test', { runTests: 'gradle test' }, 'jvm'],
   ])('finds one language for %s', (_name, descriptors, language) => {
     expect([...inferStackLanguages({ ...none, ...descriptors })]).toEqual([language]);
   });
+
+  it('reads cucumber-jvm as jvm, not through the generic cucumber token', () => {
+    expect([...inferStackLanguages({ ...none, bddFramework: 'cucumber-jvm' })]).toEqual(['jvm']);
+  });
+
+  it('reads a Gradle command that names cucumber as jvm', () => {
+    const languages = inferStackLanguages({ ...none, runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"' });
+
+    expect([...languages]).toEqual(['jvm']);
+  });
+
+  it.each(['./gradlew jsNodeTest', './gradlew kotlinNpmInstall', './gradlew kotlinUpgradeYarnLock'])(
+    'reads the Gradle task in %s as jvm, although its name holds a JavaScript token',
+    (runTests) => {
+      expect([...inferStackLanguages({ ...none, runTests })]).toEqual(['jvm']);
+    },
+  );
 
   it('does not take cargo test for go', () => {
     expect([...inferStackLanguages({ ...none, testFramework: 'cargo test' })]).toEqual(['rust']);

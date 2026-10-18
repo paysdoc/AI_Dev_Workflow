@@ -29,13 +29,13 @@ const ADW_DIRECTORY = '.adw/';
 
 type Parked = Extract<ApplicationTypeResolution, { kind: 'park' }>;
 
-function latestConsultation(): ApplicationTypeResolution {
+export function latestConsultation(): ApplicationTypeResolution {
   const latest = s.consultations[s.consultations.length - 1];
   assert.ok(latest, 'Expected the application-type mapping to have been consulted first');
   return latest;
 }
 
-function profileOf(resolution: ApplicationTypeResolution): ApplicationProfile {
+export function profileOf(resolution: ApplicationTypeResolution): ApplicationProfile {
   if (resolution.kind !== 'known') {
     assert.fail(`Expected the mapping to know the application type, but it decides to park the issue (found ${JSON.stringify(resolution.evidence.found)})`);
   }

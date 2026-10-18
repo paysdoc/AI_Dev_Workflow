@@ -19,13 +19,17 @@ export interface StackCoherenceResult {
   warnings: StackCoherenceWarning[];
 }
 
-export type StackLanguage = 'javascript' | 'python' | 'go' | 'rust' | 'ruby';
+export type StackLanguage = 'javascript' | 'python' | 'go' | 'rust' | 'ruby' | 'jvm';
 
 // Ordered: specific tokens before generic to prevent prefix conflicts.
 const LANGUAGE_TOKENS: Array<[string, StackLanguage]> = [
   ['cucumber-js', 'javascript'],
+  ['cucumber-jvm', 'jvm'],
   ['cucumber-ruby', 'ruby'],
   ['cucumber-rs', 'rust'],
+  // before the JavaScript tokens and 'cucumber': Gradle task and property names hold them ('jsNodeTest', 'kotlinNpmInstall', '-Dcucumber.filter.tags')
+  ['gradlew', 'jvm'],
+  ['gradle', 'jvm'],
   ['playwright-bdd', 'javascript'],
   ['pytest-bdd', 'python'],
   ['pytest', 'python'],

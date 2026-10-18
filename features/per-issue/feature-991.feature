@@ -6,13 +6,13 @@ Feature: The application type decides the evidence through a framework-owned map
   Background:
     Given the ADW codebase is checked out
 
-  @adw-991 @adw-gfv9kt-feat-the-application
+  @adw-991 @adw-gfv9kt-feat-the-application @adw-1043
   Scenario: The mapping runs a "cli" application's scenarios with the runner ".adw/scenarios.md" describes and asks for no image as evidence
     When the application-type mapping is consulted for the application type "cli"
     Then the mapping chooses the scenario runner that ".adw/scenarios.md" describes
     And the mapping asks for no image as evidence
 
-  @adw-991 @adw-gfv9kt-feat-the-application
+  @adw-991 @adw-gfv9kt-feat-the-application @adw-1043
   Scenario: The mapping runs a "web" application's scenarios on ADW's Playwright project and asks for an image of each per-issue scenario as evidence
     When the application-type mapping is consulted for the application type "web"
     Then the mapping chooses ADW's Playwright project as the scenario runner
