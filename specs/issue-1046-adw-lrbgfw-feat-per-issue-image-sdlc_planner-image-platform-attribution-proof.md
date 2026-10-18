@@ -47,7 +47,7 @@ Three pure modules change and one is added. Selection, the tag outcomes and the 
    - Exports a third fixed line, `NO_SCENARIO_OPENED_A_SCREEN = 'no scenario opened a screen'`.
    - `ProofEvidence` gains `platforms: PlatformEvidence | null`, where `PlatformEvidence = { expected, coverage, outside }`.
    - The Evidence section picks its no-image line by whether the profile has platforms.
-   - For a profile with platforms, the section adds one `On some platforms only: …` line per partial scenario, and a `Left out, because they are in no platform directory (…)` line. With `platforms: null` it renders exactly the old lines.
+   - For a profile with platforms, the section adds one `On some platforms only: …` line per partial scenario, and a `Left out as unattributed, because they are in no platform directory (…)` line. With `platforms: null` it renders exactly the old lines.
 
 ### Decisions this plan makes inside ADR-0064 (none changes it)
 
@@ -55,7 +55,7 @@ Three pure modules change and one is added. Selection, the tag outcomes and the 
 - **Platform attribution runs after title attribution, on the per-issue images only.**
   - An image whose case matches no scenario stays in the existing `Left out, because no scenario in the feature files has their name` line, and is never listed twice.
   - Images of regression cases and images no case attached are neither selected nor listed, as today.
-- **Unattributed images are listed by their harvest-root path, never by their absolute path.** They are not in `perIssueImages`, and so not in the reviewer's `perIssueImages` argument, the review upload or the PR comment.
+- **Unattributed images are listed by their harvest-root path, never by their absolute path.** Their line calls them unattributed, the word the issue, the PRD, ADR-0064 and the `@adw-1046` scenarios use for them. They are not in `perIssueImages`, and so not in the reviewer's `perIssueImages` argument, the review upload or the PR comment.
 - **Coverage is grouped by the reported test-case name**, which is `PerIssueImage.scenario`. The order is that of each scenario's first image in the report.
   - A line is written only for a non-empty strict subset of the profile's platforms.
   - A per-issue scenario without an image has no line. The no-image line and the reviewer's reading of the diff cover it.
@@ -308,9 +308,9 @@ In `adws/proof/__tests__/proofAssembler.helpers.ts`:
     - `The user signs in` has two android images, and `The user signs out` attaches nothing.
     - Exactly one `On some platforms only` line appears, and `The user signs out` is not mentioned on any such line.
     - `NO_SCENARIO_OPENED_A_SCREEN` is absent, because an image was selected.
-  - **`lists the issue's images that lie in no platform directory as left out`.**
+  - **`lists the issue's images that lie in no platform directory as unattributed`.**
     - A case attaches `sign-in.png` and `linux/sign-in.png`, both artifacts.
-    - The document contains `` Left out, because they are in no platform directory (`android/`, `ios/`): `sign-in.png`, `linux/sign-in.png` ``.
+    - The document contains `` Left out as unattributed, because they are in no platform directory (`android/`, `ios/`): `sign-in.png`, `linux/sign-in.png` ``.
     - Because nothing was selected, the document also contains `NO_SCENARIO_OPENED_A_SCREEN`, and `perIssueImages` is `[]`.
   - **`writes the Evidence section of a profile with platforms in this order: images, platforms, left-out cases, left-out images`.**
     - Cases, in this order:
@@ -334,13 +334,13 @@ In `adws/proof/__tests__/proofAssembler.helpers.ts`:
         '',
         'Left out, because no scenario in the feature files has their name: `Named by another runner`',
         '',
-        'Left out, because they are in no platform directory (`android/`, `ios/`): `sign-out.png`',
+        'Left out as unattributed, because they are in no platform directory (`android/`, `ios/`): `sign-out.png`',
         '',
       ].join('\n')
       ```
   - **`writes no platform line for a profile with one platform`.** Use `{ ...MOBILE_PROFILE, platforms: [Platform.Android] }` and an `android/` and an `ios/` image of one scenario.
     - No `On some platforms only` line appears.
-    - The left-out line reads `` Left out, because they are in no platform directory (`android/`): `ios/…` ``.
+    - The left-out line reads `` Left out as unattributed, because they are in no platform directory (`android/`): `ios/…` ``.
   - **`says "no per-issue scenarios" and "no scenario opened a screen" together when the issue has no scenarios of its own, and fails for neither`.** Use `NOT_RUN(PER_ISSUE)`.
   - **`says that no scenario opened a screen in a notice proof of a profile with platforms`.** Use a `notice` with `runs: []`.
   - **`never blocks on a missing platform`.** Both tags pass and the images are on android only, so `hasBlockerFailures` is `false`.
@@ -348,7 +348,7 @@ In `adws/proof/__tests__/proofAssembler.helpers.ts`:
 - In `adws/proof/proofDocument.ts`:
   - Add `export const NO_SCENARIO_OPENED_A_SCREEN = 'no scenario opened a screen';` beside the other two. Change the header's "the two fixed lines are exported" to "the fixed lines are exported".
   - `import type { Platform } from '../core/applicationType';` and `ScenarioPlatformCoverage` from `./types`.
-  - Keep a module constant for the line prefix, `const SOME_PLATFORMS_ONLY = 'On some platforms only';`. Do not export it. Tests and scenarios spell the full line out.
+  - Keep a module constant for the line prefix, `const SOME_PLATFORMS_ONLY = 'On some platforms only';`. Do not export it. Unit tests spell the full line out. The `@adw-1046` step definitions write the line's format out themselves and fill it from their table's `scenario`, `present` and `missing` columns.
   - Replace the inline `shown` expression of `evidenceSection` with named functions. Keep the existing `leftOutLines` unchanged:
     ```ts
     function noImageLine(platforms: PlatformEvidence | null): string {
@@ -374,7 +374,7 @@ In `adws/proof/__tests__/proofAssembler.helpers.ts`:
       if (!platforms || platforms.outside.length === 0) return [];
       const directories = platforms.expected.map(platform => `\`${platform}/\``).join(', ');
       const paths = platforms.outside.map(relPath => `\`${relPath}\``).join(', ');
-      return ['', `Left out, because they are in no platform directory (${directories}): ${paths}`];
+      return ['', `Left out as unattributed, because they are in no platform directory (${directories}): ${paths}`];
     }
 
     function evidenceSection({ images, unattributed, platforms }: ProofEvidence): string[] {
@@ -394,20 +394,63 @@ In `adws/proof/__tests__/proofAssembler.helpers.ts`:
 - Run `bunx vitest run adws/proof`. Everything is green, including step 1's `cli` and `web` pins, unchanged.
 
 ### 6. Step definitions for the `@adw-1046` scenarios
-- The scenario writer writes `features/per-issue/feature-1046.feature` alongside this plan, and the alignment phase reconciles the two. If tagged scenarios exist, they are the build's RED tests: write one scenario's step definitions, see it fail, make it pass, then move on. Register no pattern twice, and reuse every phrase that already has a definition. New phrases go in `features/per-issue/step_definitions/feature-1046-*.ts`.
+- The `@adw-1046` scenarios are `features/per-issue/feature-1046.feature` and three scenarios of `features/per-issue/feature-994.feature` that the scenario writer also tagged `@adw-1046`:
+  - the `web` upload, comment and review scenario (issue 9944);
+  - the `web` "no scenario opened a page" scenario (9946);
+  - the `cli` scenario (9947).
+
+  The three already have feature-994's steps and hooks, and they stay as they are. They pin that `web` and `cli` workflows are unchanged.
+- The scenarios are the build's RED tests: write one scenario's step definitions, see it fail, make it pass, then move on. Register no pattern twice, and reuse every phrase that already has a definition. New phrases go in `features/per-issue/step_definitions/feature-1046-*.ts`.
 - Drive the public interfaces only:
   - `platformOfImage`.
   - `assembleScenarioProof`, with inputs from `readJUnitReport`, `indexFeatureScenarios(readFeatureFiles(...))` and `harvestProofArtifacts`.
   - For workflow-level scenarios, `runScenarioProof` or `executeScenarioTestPhase` with the stand-in runner.
 
   Expected values come from the scenario text, never from calling `platformOfImage` or the renderer.
-- Reusable phrases include:
-  - `a scenario run for issue {int} in a {string} repository`. Its `assertRepositoryType` already accepts `mobile:kotlincm`.
-  - `the scenario run's worktree holds the feature file {string}:`
-  - `the proof assembler assembles the proof of the scenario run`
-  - `the proof assembler selects exactly these images:`
-  - `the scenario proof states {string}` and `the scenario proof does not state {string}`. Both read `s.assembled.document`, else the written proof.
-- **Layout trap.** feature-994's assembler steps write each tag's images to `artifacts/<tag>/…`, which is the `web` (ADW Playwright) layout. A descriptor run, which is what `mobile:kotlincm` is, has the artifacts directory itself as its `ADW_PROOF_DIR`. A `mobile:kotlincm` stand-in must therefore write `artifacts/android/…` and `artifacts/ios/…`, or every image reads as unattributed. Give the 1046 steps their own writer for that layout, or branch on `runsOnAdwPlaywright(type)` (`feature-994-names.ts`), never on the type name. Do not change the layout the `web` scenarios of feature-994 rely on. The workflow-level harness (`executeScenarioTestPhase`) already gets the right layout from `runScenarioProof`.
+- **Hooks.** A `feature-1046-world.ts` registers `Before` and `After` for `'@adw-1046 and not @adw-994'`. They call feature-994's exported `setUpWorld994` and `tearDownWorld994`, and reset the 1046 state, for example the platform the When step read. With that tag expression, the three feature-994 scenarios keep only their own hooks. Prior art: `OWN_SCENARIOS` in `feature-995-world.ts`.
+- Phrases that already have a definition. Reuse them:
+  - **feature-994:**
+    - `a scenario run for issue {int} in a {string} repository`. Its `assertRepositoryType` already accepts `mobile:kotlincm`.
+    - `the scenario run's worktree holds the feature file {string}:`
+    - `the scenario run's JUnit reports record these test cases, each named as the repository's scenario runner names it:`, used by the `web` and `cli` scenarios.
+    - `the proof assembler assembles the proof of the scenario run`
+    - `the scenario proof states {string}` and `the scenario proof does not state {string}`. Both read `s.assembled.document`, else the written proof.
+    - `a workflow for issue {int} in a {string} repository, with a recording issue tracker, code host and screenshot store`
+    - `the stand-in review agent's verdict on every review is a pass`
+    - `the scenario test phase runs and the review phase judges its proof`
+    - `the proof is published on pull request {int}`
+    - `the screenshot store received exactly these images, and nothing else:` and `nothing was uploaded to the screenshot store`
+    - `the {string} comment on issue {int} shows exactly these images, each embedded from a URL the screenshot store returned for it:` and `the {string} comment on issue {int} shows no image`
+    - `the comments on pull request {int} show exactly these images, each embedded from a URL the screenshot store returned for it:`
+    - `the review agent received no image path with the proof`
+    - `the proof the review agent received states {string}` and `the proof the review agent received does not state {string}`
+  - **feature-995:** `the {agent} was started on review attempt {int} with the paths of exactly these images in its prompt, each of which existed when it started:` and `the {agent} was started on review attempt {int} with no image path in its prompt`.
+  - **Regression suite:** `the ADW codebase is checked out`, `the scenario proof records no blocker failures` and `the ADW TypeScript type-check passes`.
+- New phrases:
+  - **Reading a platform.** `the platform of the image at {string} under the harvest root is read, for a profile whose platforms are {string} and {string}`, and the same ending `for a profile whose only platform is {string}`. They call `platformOfImage` with the `Platform` values the strings name. `the image's platform is {string}` checks the result, and `the image is unattributed` checks that it is `null`.
+  - **Writing an assembler run.** `the scenario run's JUnit report for the tag {string} records these test cases of its platform runs, with attachments at these paths under the proof directory ADW gave the run:`
+    - It writes one JUnit report for the tag, at the path from which the assembler step reads it (`<proof directory>/junit-<tag>.xml`), with one test case per row, named as the `test case` column says.
+    - It writes each attachment at that path under `<proof directory>/artifacts`, the harvest root, and gives it an `[[ATTACHMENT|…]]` line relative to the report's directory.
+    - The `platform run` column only says which run reported the row.
+    - feature-994's `reportPathOf` and `artifactsDirectory` are private to their module: export them, or mirror them.
+  - **Selection.** `the proof assembler selects exactly these images, each for the scenario and the platform named:` compares the `relPath`, `scenario` and `platform` of each `perIssueImages` entry with the rows. `the proof assembler selects no image` asserts that `perIssueImages` is empty.
+  - **Proof lines.** `the scenario proof has no platform coverage line`, `the scenario proof has one platform coverage line for each of exactly these per-issue scenarios, naming the platforms present and the platforms missing:` and `the scenario proof lists exactly these images as unattributed:`, and the same three for `the proof the review agent received`, which read feature-994's `lastProofReceived()`.
+    - A platform coverage line is a line that starts with `On some platforms only: `. The expected line of a row is `` On some platforms only: `<scenario>` (present: <present>; missing: <missing>) ``.
+    - The unattributed images are the backticked paths of the `Left out as unattributed, because they are in no platform directory (…)` line. "Exactly" means that no other path is on it, and that the line is absent when the table would be empty.
+  - **The exact proof.** `the scenario proof reads exactly as follows, each value in angle brackets standing for what it names:`
+    - `<generated at>` stands for the proof's generation time. Read it from the `Generated at:` line, or record it where the assembler step passes it.
+    - `<path of NAME>` stands for the absolute path of the image file NAME that the stand-in runner wrote.
+    - The document ends with a newline, which a doc string cannot hold, so compare the document with the doc string plus `\n`.
+  - **Writing a workflow run.** `the workflow's worktree holds these scenarios, which the stand-in scenario runner's platform runs report with these outcomes and with attachments at these paths under the proof directory ADW gave the run:`
+    - A scenario is listed once per platform run, but the worktree's feature file holds it once. feature-994's `writeFeatureFilesOf` would write it twice.
+    - The stand-in reports one test case per row, all named with the scenario's bare name, in the one JUnit report of the tag.
+- **Layout trap, assembler level.** feature-994's assembler steps write each tag's images to `artifacts/<tag>/<n>-<case>/…`, which is the `web` (ADW Playwright) layout. A descriptor run, which is what `mobile:kotlincm` is, has the artifacts directory itself as its `ADW_PROOF_DIR`, so its images lie at `artifacts/android/…` and `artifacts/ios/…`. Give the 1046 steps their own writer for that layout, or every image reads as unattributed.
+- **Layout trap, workflow level.**
+  - `runScenarioProof` gives a descriptor run the artifacts directory as its `ADW_PROOF_DIR`. That alone does not give the right layout.
+  - feature-994's stand-in runner program (`feature-994-runner-source.ts`) writes each case's attachments in a directory of their own, `<ADW_PROOF_DIR>/<n>-<case>/<file>`, and does not create the directories inside an attachment's path. For `android/greeting-android.png` the write fails. Even with the directory created, the image would read as unattributed.
+  - For a profile with platforms, the stand-in must write each attachment exactly at its path under `ADW_PROOF_DIR`, and create its directory. One way is a layout field in the runner script that the 1046 steps set.
+  - Branch on the profile's `platforms`, or on `runsOnAdwPlaywright(type)` (`feature-994-names.ts`), never on the type name. Keep the per-case directories that the `web` scenarios of feature-994 rely on.
+- **Image bytes.** The Then steps of feature-994 and feature-995 tell an image by `imageBytes(<file name>)`, and their tables give the file name only, for example `greeting-android.png`. Write every attachment's bytes as `imageBytes(path.basename(attachment))`, so that a path such as `android/greeting-android.png` is recognised. That is why the 1046 tables give each image a distinct file name.
 - The stand-in report names the cases as a descriptor runner does: the bare scenario name, as feature-994's `nameOf` already does for a non-Playwright type. It gives the two platform runs of a scenario the identical name. Attachment lines are relative to the report's directory.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1046"`. Every scenario passes and none is undefined.
 
@@ -460,7 +503,7 @@ Vitest, co-located in `adws/proof/__tests__/`, driving the public interfaces (`p
 - Two per-issue cases with the identical scenario title, one attaching `android/…` and one `ios/…`, both attribute to the scenario. Both images are in `perIssueImages`, each with its `platform`.
 - A per-issue scenario with images for android only produces `` On some platforms only: `<scenario>` (present: android; missing: ios) ``. A scenario with images on both platforms, or with none, produces no such line.
 - A proof of a profile with platforms with no selected image carries `no scenario opened a screen` (exported as `NO_SCENARIO_OPENED_A_SCREEN`) and not `no scenario opened a page`. A `web` proof keeps `no scenario opened a page`.
-- Images of the issue's scenarios outside every platform directory are listed in `Left out, because they are in no platform directory (…)` by their harvest-root path. They are not in `perIssueImages`, so they reach neither the reviewer's image list nor the review upload nor the PR comment.
+- Images of the issue's scenarios outside every platform directory are listed in `Left out as unattributed, because they are in no platform directory (…)` by their harvest-root path. They are not in `perIssueImages`, so they reach neither the reviewer's image list nor the review upload nor the PR comment.
 - `cli` and `web` proofs are byte-identical to before, which the exact-text pins written before the change prove. `web` images carry no `platform` key.
 - Nothing mechanical blocks on a missing platform: `hasBlockerFailures` depends on the tag outcomes alone.
 - Title attribution of JUnit cases is unchanged, and all existing `adws/proof` tests pass.
@@ -493,6 +536,8 @@ Execute every command to validate the feature works correctly with zero regressi
   - `adws/proof/__tests__/proofAssembler.platforms.test.ts` is new, because `proofAssembler.test.ts` is at 278 lines. It cannot overlap another slice: no sibling slice (#1044, #1045, #1047 to #1050) touches `adws/proof/`.
   - The `README.md` tree line.
   - The `@adw-1046` step definitions under `features/per-issue/step_definitions/`.
+  - `features/per-issue/feature-994.feature`, where the scenario writer tagged three scenarios `@adw-1046`. Their text and steps are unchanged.
+  - If the workflow-level layout of step 6 goes through feature-994's stand-in runner, its helpers (`feature-994-runner-source.ts`, `feature-994-runner.ts`, `feature-994-scenarios.ts`) change as well, and keep their default layout.
   - `adws/proof/index.ts` stays untouched, because nothing imports the barrel.
 - **Follow-up, not in this slice: `review.md` Step 6.**
   - Step 6 quotes `no scenario opened a page` only, and `reviewPrompt.test.ts` pins exactly the two fixed lines. Neither the issue's Touched Files nor the PRD's "Prompts" section changes `review.md` for the screen line. Changing it here would also widen the slice beyond the files the cron router uses to serialize overlapping issues.
