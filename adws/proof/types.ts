@@ -1,3 +1,4 @@
+import type { Platform } from '../core/applicationType';
 import type { TestCaseResult } from '../core/testReportParser';
 import type { UploadOptions, UploadResult } from '../r2/types';
 import type { RepoIdentifier } from '@paysdoc/devplatform';
@@ -15,6 +16,16 @@ export interface ProofArtifact {
 export interface PerIssueImage extends ProofArtifact {
   /** The JUnit test-case name of the scenario that took the image. */
   readonly scenario: string;
+  /** Set only where the application profile has platforms: the first directory of `relPath`. */
+  readonly platform?: Platform;
+}
+
+/** The platforms a per-issue scenario's images show and those they do not, each in the order of the profile. */
+export interface ScenarioPlatformCoverage {
+  /** The test-case name, as on its images. */
+  readonly scenario: string;
+  readonly present: readonly Platform[];
+  readonly missing: readonly Platform[];
 }
 
 export interface TagProofResult {
@@ -48,7 +59,8 @@ export interface ScenarioProofResult {
   /** True when any non-skipped tag with severity `blocker` did not pass. */
   hasBlockerFailures: boolean;
   /**
-   * The images the reviewer, the issue comment and the pull request comment show: per-issue scenario images only.
+   * The images the reviewer, the issue comment and the pull request comment show: per-issue scenario images only, and where the
+   * application profile has platforms only those in a platform directory.
    * Always empty where the application profile expects no images.
    */
   perIssueImages: readonly PerIssueImage[];

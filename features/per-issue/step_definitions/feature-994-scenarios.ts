@@ -12,7 +12,7 @@ import type { DataTable } from '@cucumber/cucumber';
 import { APPLICATION_TYPE_PROFILES } from '../../../adws/core/applicationType.ts';
 
 import { runnerCases, runsOnAdwPlaywright, type RepositoryType } from './feature-994-names.ts';
-import type { CaseOutcome, RunnerScript, ScriptedCase } from './feature-994-runner.ts';
+import type { CaseOutcome, ImageLayout, RunnerScript, ScriptedCase } from './feature-994-runner.ts';
 import { requireType, requireWorktree, s, type ReportedScenario } from './feature-994-world.ts';
 
 const OUTCOMES: readonly CaseOutcome[] = ['passed', 'failed', 'skipped'];
@@ -91,7 +91,12 @@ function scriptedCase(row: ReportedScenario, type: RepositoryType): ScriptedCase
   };
 }
 
+// A repository with platforms has a screenshot hook that writes each image into the directory of its platform.
+function layoutOf(type: RepositoryType): ImageLayout {
+  return APPLICATION_TYPE_PROFILES[type].platforms.length > 0 ? 'named-paths' : 'case-directories';
+}
+
 export function buildScript(): RunnerScript {
   const type = requireType();
-  return { cases: s.reported.map(row => scriptedCase(row, type)), overrides: s.overrides, strays: s.strays };
+  return { cases: s.reported.map(row => scriptedCase(row, type)), overrides: s.overrides, strays: s.strays, layout: layoutOf(type) };
 }
