@@ -16,7 +16,7 @@ vi.mock('../../forge/issueLinkMarker', () => ({
   bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
 }));
 
-import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
+import { isScenarioStale, runPerIssueScenarioSweep, stepDefIssueNumber, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { readFileSync } from 'fs';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
@@ -59,6 +59,9 @@ function makeFakeBoundary(gitContext: GitContext, codeHost: CodeHost = makeFakeC
   return { gitContext, repoId, providers: { issueTracker: {} as never, codeHost } } as LaunchBoundary;
 }
 
+/** Clears every candidate: these tests pin the persist wiring, the gate has its own tests. */
+const passThroughGate = async (paths: readonly string[]): Promise<readonly string[]> => paths;
+
 const fakeGitContext = makeFakeGitContext();
 const fakeBoundary = makeFakeBoundary(fakeGitContext);
 
@@ -82,6 +85,63 @@ describe('isScenarioStale — truth table', () => {
   it('mergedAt in the future (clock skew) → false', () => {
     const future = new Date(NOW.getTime() + HOUR_MS);
     expect(isScenarioStale('features/per-issue/feature-5.feature', future, RETENTION_DAYS, NOW)).toBe(false);
+  });
+});
+
+describe('stepDefIssueNumber', () => {
+  it('matches a whole-issue step file and split helpers, never a longer issue number', () => {
+    expect(stepDefIssueNumber('features/per-issue/step_definitions/feature-966.steps.ts')).toBe(966);
+    expect(stepDefIssueNumber('features/per-issue/step_definitions/feature-966-isolation.steps.ts')).toBe(966);
+    expect(stepDefIssueNumber('features/per-issue/step_definitions/feature-962-docker.ts')).toBe(962);
+    expect(stepDefIssueNumber('features/per-issue/step_definitions/feature-9660.steps.ts')).toBe(9660);
+    expect(stepDefIssueNumber('features/per-issue/step_definitions/gitContextSharedWorld.ts')).toBeNull();
+  });
+});
+
+describe('runPerIssueScenarioSweep — leftovers and the gate', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('adds step-def files whose feature is already gone to the batch, even with nothing stale', async () => {
+    const orphan = 'features/per-issue/step_definitions/feature-966-state.ts';
+    const persistRemoval = vi.fn();
+    const listOrphanStepDefs = vi.fn(() => [orphan]);
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: fakeBoundary,
+      now: NOW,
+      listFeatures: () => ['features/per-issue/feature-989.feature'],
+      getMergedAt: async () => daysAgo(2),
+      listStepDefSiblings: () => [],
+      listOrphanStepDefs,
+      persistRemoval,
+      log: vi.fn(),
+      readFeatureContent: () => UNTAGGED_CONTENT,
+    });
+
+    expect(listOrphanStepDefs).toHaveBeenCalledWith(['features/per-issue/feature-989.feature']);
+    expect(persistRemoval).toHaveBeenCalledWith([orphan]);
+    expect(removed).toEqual([orphan]);
+  });
+
+  it('reports only the paths persistRemoval says landed', async () => {
+    const stale = 'features/per-issue/feature-929.feature';
+    const kept = 'features/per-issue/step_definitions/feature-929-comments.ts';
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: fakeBoundary,
+      now: NOW,
+      listFeatures: () => [stale],
+      getMergedAt: async () => daysAgo(20),
+      listStepDefSiblings: () => [kept],
+      listOrphanStepDefs: () => [],
+      persistRemoval: async () => [stale],
+      log: vi.fn(),
+      readFeatureContent: () => UNTAGGED_CONTENT,
+    });
+
+    expect(removed).toEqual([stale]);
   });
 });
 
@@ -415,6 +475,7 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     const removed = await runPerIssueScenarioSweep({
       boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
       now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: passThroughGate,
     });
 
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith('chore/scenario-sweep', 'dev');
@@ -440,6 +501,7 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     await runPerIssueScenarioSweep({
       boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
       now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: passThroughGate,
     });
 
     expect(mockCtx.removeAndCommitPaths).toHaveBeenCalled();
@@ -457,6 +519,7 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     await runPerIssueScenarioSweep({
       boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
       now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: passThroughGate,
     });
 
     expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
@@ -471,10 +534,42 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
       now: new Date('2026-02-15T00:00:00Z'),
       listFeatures: () => [],
       listStepDefSiblings: () => [],
+      listOrphanStepDefs: () => [],
       persistRemoval: vi.fn(),
     });
 
     expect(mockCtx.createWorktreeForNewBranch).not.toHaveBeenCalled();
+  });
+
+  it('commits, pushes and opens nothing when the gate clears no path, and reports nothing removed', async () => {
+    const mockCtx = makeMockCtx();
+    const codeHost = makeMockCodeHost();
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: async () => null,
+    });
+
+    expect(removed).toEqual([]);
+    expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
+    expect(mockCtx.pushBranch).not.toHaveBeenCalled();
+    expect(codeHost.createPullRequest).not.toHaveBeenCalled();
+    expect(mockCtx.removeWorktree).toHaveBeenCalledWith('chore/scenario-sweep');
+  });
+
+  it('commits only the paths the gate cleared', async () => {
+    const mockCtx = makeMockCtx();
+    const codeHost = makeMockCodeHost();
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
+      now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: async (paths) => paths.slice(0, 1),
+    });
+
+    expect(removed).toEqual([mockCtx.featurePath]);
+    expect(mockCtx.removeAndCommitPaths).toHaveBeenCalledWith([mockCtx.featurePath], expect.any(String), WORKTREE_PATH);
   });
 
   it('operates on the identity carried by the injected boundary, not a hardcoded repo (a target-shaped boundary is swept, not the self-host default)', async () => {
@@ -484,6 +579,7 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
     await runPerIssueScenarioSweep({
       boundary: makeFakeBoundary(mockCtx as unknown as GitContext, codeHost),
       now: new Date('2026-02-15T00:00:00Z'),
+      gateRemoval: passThroughGate,
     });
 
     expect(codeHost.mergePullRequest).toHaveBeenCalledWith(123);

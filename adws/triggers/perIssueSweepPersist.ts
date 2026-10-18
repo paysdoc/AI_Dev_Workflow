@@ -98,7 +98,8 @@ export function prepareSweepBase(boundary: LaunchBoundary, spec: SweepPersistSpe
 
 /**
  * Persists one commit through the dedicated sweep branch: `commit(base)`
- * stages and commits (returning whether anything was actually staged), then
+ * stages and commits (returning whether anything was actually staged — it may
+ * verify the change first and decline by returning false), then
  * this pushes, opens a PR into the default branch, and immediately merges
  * it. Resolves `true` only when that PR merged — every other outcome (a PR
  * already open, nothing staged, a failed push/PR/merge) resolves `false`.
@@ -108,7 +109,7 @@ export function prepareSweepBase(boundary: LaunchBoundary, spec: SweepPersistSpe
  * (e.g. the docs-index sweep) reads distinctly from the per-issue sweep's.
  */
 export async function persistCommitViaPr(
-  commit: (base: SweepBase) => boolean,
+  commit: (base: SweepBase) => boolean | Promise<boolean>,
   base: SweepBase,
   label = 'perIssueSweepPersist',
 ): Promise<boolean> {
@@ -118,7 +119,7 @@ export async function persistCommitViaPr(
     return false;
   }
 
-  const committed = commit(base);
+  const committed = await commit(base);
   if (!committed) return false;
 
   try {
@@ -144,9 +145,20 @@ export async function persistCommitViaPr(
   }
 }
 
-export async function persistRemovalViaPr(paths: readonly string[], base: SweepBase): Promise<void> {
-  if (paths.length === 0) return;
-  await persistCommitViaPr((b) => b.ctx.removeAndCommitPaths(paths, SWEEP_COMMIT_MESSAGE, b.worktreePath), base);
+/**
+ * Narrows a removal batch to what may land; null or an empty list lands nothing.
+ * Runs in the sweep worktree after the open-PR guard and before the commit.
+ */
+export type RemovalVerifier = (paths: readonly string[], base: SweepBase) => Promise<readonly string[] | null>;
+
+/** Resolves `true` only when the (verified) removal landed via a merged sweep PR. */
+export async function persistRemovalViaPr(paths: readonly string[], base: SweepBase, verify?: RemovalVerifier): Promise<boolean> {
+  if (paths.length === 0) return false;
+  return persistCommitViaPr(async (b) => {
+    const toRemove = verify ? await verify(paths, b) : paths;
+    if (!toRemove || toRemove.length === 0) return false;
+    return b.ctx.removeAndCommitPaths(toRemove, SWEEP_COMMIT_MESSAGE, b.worktreePath);
+  }, base);
 }
 
 /** Best-effort teardown of the sweep's remote branch and local worktree. Never throws, and never touches the default branch. */
