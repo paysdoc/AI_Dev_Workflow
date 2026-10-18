@@ -6,7 +6,7 @@ provenance:
   - kind: transcript
     source: "Claude Code session 2dc3e364, 2026-10-01 to 2026-10-04"
 supersedes: ["0022", "0043"]
-superseded-by: []
+superseded-by: ["0064"]
 ---
 
 # Every per-issue scenario image in a `web` repository is visual evidence; the reviewer judges it before the pull request exists
@@ -65,3 +65,4 @@ Implemented. Checked on 2026-10-07 in the working tree on top of `c8a88605`:
 * Supersedes, in part, ADR-0022: images are no longer "harvested, uploaded and inlined in a proof comment on the PR" wholesale after the pull request phase; they are selected per issue and reach the reviewer first. The storage (R2, router Worker, 30-day expiry) stands.
 * Supersedes, in part, ADR-0043: its "Proof" bullet (every image in `ADW_PROOF_DIR` is harvested and published) is narrowed to per-issue scenario images.
 * In a `cli` repository no image is expected and none is published; the mapping of ADR-0061 says so.
+* Superseded, in part, by [ADR-0064](0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md): for a profile with platforms, each per-issue image carries a platform read from its directory under the proof directory, and the proof lists scenarios that show a strict subset of the platforms. Title attribution, the attachment-line source, "zero images is allowed" and the reviewer as judge stand.
