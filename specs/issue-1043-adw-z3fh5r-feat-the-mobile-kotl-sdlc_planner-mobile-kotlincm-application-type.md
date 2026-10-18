@@ -86,8 +86,20 @@ Use these files to implement the feature:
 - `app_docs/feature-9gjajh-commands-and-skills.md` — conditional doc for `.claude/commands/adw_init.md`, `review.md` and `adwInitPrompt.test.ts`. Read for contracts.
 - `app_docs/feature-9gjajh-review-and-diff-phases.md` — conditional doc for `reviewPromptContext.ts` (guidance section handed to the reviewer).
 
+The `@adw-1043` scenarios, which are the build's RED tests, and the step definitions they build on (task 10):
+
+- `features/per-issue/feature-1043.feature` — the issue's 18 scenarios. They cover the mapping, the gate and its execution-log line, the registry, the scenario proof, the step-definition phase, the stack check, the unit-test phase, the review prompt and the type check.
+- `features/per-issue/feature-991.feature` — its `cli` and `web` mapping scenarios also carry `@adw-1043`. They pin both types as unchanged.
+- `features/per-issue/step_definitions/feature-991-mapping.steps.ts` — the mapping consultation and park steps. The new platform and guidance-section steps read the same consultation.
+- `features/per-issue/step_definitions/feature-991-workflow.steps.ts`, `feature-991-start.ts`, `feature-991-world.ts` — workflow start, park and `## Retry`. `startWorkflow` runs the real gate, which appends its line to `execution.log` under the workflow's `orchestratorStatePath`.
+- `features/regression/step_definitions/feature-992-phase.steps.ts`, `feature-992-adw-files.ts` — the worktree's `.adw/`, the scenario test phase and the step-definition phase. They resolve the declared type through `declaredApplicationProfile`, so they take `mobile:kotlincm` unchanged. `writeStandInScenario` writes the stand-in steps into a directory, not into a named file.
+- `features/regression/step_definitions/surfaceSteps.ts` — `the scenario proof ran no tag`. It reads the proof that feature-992's phase step leaves on the world.
+- `features/per-issue/step_definitions/feature-988-phase.steps.ts`, `features/regression/step_definitions/feature-988-world.ts`, `features/regression/step_definitions/feature-929-workflow.ts` — the unit-test phase. `runWorkflowUnitTestPhase` reloads `projectConfig` from the worktree but keeps the `cli` profile that `createWorkflow` sets.
+- `features/per-issue/step_definitions/feature-994-names.ts`, `feature-994-scenarios.ts`, `feature-994-workflow.ts` — the scenario-then-review workflow. `RepositoryType` is `'web' | 'cli'` and `assertRepositoryType` rejects any other value. `stepDefinitionFile`, `prepareWorkflow`'s stand-in run-by-tag line, `scriptedCase`'s `classname` and `nameOf` branch on the type name.
+- `features/per-issue/step_definitions/feature-995-review.steps.ts`, `feature-929-agents.ts` — the review-prompt steps. Their `{agent}` parameter type is undefined: it was defined in `feature-929.steps.ts`, which the per-issue sweep removed. `AGENT_NAMES` is still exported by `feature-929-agents.ts`.
+
 ### New Files
-None. Every change goes into an existing file.
+No new source file. The step definitions for the scenarios' new phrases go in new per-issue files, `features/per-issue/step_definitions/feature-1043-*.ts` (task 10).
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -97,10 +109,12 @@ Extend the profile type and the mapping in `adws/core/applicationType.ts`. Add t
 Register `cucumber-jvm` in the Gherkin runtime registry. Add the `jvm` stack language and its tokens in the right order. Add the `jvm` suppression patterns that the new language requires. Each change is test-first in its co-located `__tests__/` file.
 
 ### Phase 3: Integration
-Move the two pinned prompts. `review.md` gets the mobile guidance section and the JVM suppressions in Step 3. `adw_init.md` gets the step-3 bullet that lists `mobile:kotlincm` as hand-set only and preserves it. Prove the flow through the existing consumers: gate log line, review prompt context, descriptor scenario runner. Update the README bullets, then run every validation command.
+Move the two pinned prompts. `review.md` gets the mobile guidance section and the JVM suppressions in Step 3. `adw_init.md` gets the step-3 bullet that lists `mobile:kotlincm` as hand-set only and preserves it. Prove the flow through the existing consumers: gate log line, review prompt context, descriptor scenario runner. Give the `@adw-1043` scenarios the step definitions they need. Update the README bullets, then run every validation command.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
+
+Before the first step, merge the latest `dev` into the branch (`git fetch origin dev && git merge origin/dev`). This worktree was cut from `2f23c795`, before `dev` removed the five orphaned helpers (`feature-966-isolation.steps.ts`, `feature-966-standIns.steps.ts`, `feature-966-state.ts`, `feature-966-stub.steps.ts`, `feature-967-state.ts`) in #1055. Those helpers import the deleted `feature-961.steps.ts` and `feature-963.steps.ts`. Until the merge, `bunx tsc --noEmit` and `bun run build` fail with the `TS2307` errors of the baseline park, and every `cucumber-js` run fails with `ERR_MODULE_NOT_FOUND` before it loads a step. The owner answered that park with `## Retry`, not `## Continue`, so this run does not repair pre-existing failures. If the merge cannot be made, deleting exactly those five files is the change `dev` made.
 
 ### 1. Write the mapping tests for three types (red)
 In `adws/core/__tests__/applicationType.test.ts`:
@@ -156,6 +170,7 @@ In `adws/core/__tests__/stepDefDetection.test.ts`:
 - `isGherkinFramework('cucumber-jvm')` and `isGherkinFramework(' Cucumber-JVM ')` are true.
 - `hasStepDefinitions('scenarios/src/test/kotlin', stepDefExtensionsFor('cucumber-jvm'), cwd)` is true for a nested `scenarios/src/test/kotlin/com/example/steps/LoginSteps.kt`. It is also true for a `.java` step file.
 - The same directory holding only a `build.gradle.kts` is false: a Kotlin script is not a step definition.
+- The same directory holding only a `home.steps.ts` is false with `stepDefExtensionsFor('cucumber-jvm')`: under `cucumber-jvm` a TypeScript file is not a step definition.
 - A directory with a `.kt` step file searched with the default `['.ts']` is false. This shows what the registry fixes.
 
 In `adws/core/stepDefDetection.ts`, add `'cucumber-jvm': ['.kt', '.java'],` to `FRAMEWORK_EXTENSION_MAP`.
@@ -169,9 +184,10 @@ Assert `stepDefExtensions` is `['.kt', '.java']`, `stepDefDirectory` is `scenari
 
 ### 6. Add the `jvm` stack language (test first)
 In `adws/core/__tests__/stackCoherenceCheck.test.ts`:
-- `coherent Kotlin/Gradle — cucumber-jvm with ./gradlew commands`. `stackCoherenceCheck({ testFramework: '', bddFramework: 'cucumber-jvm', runTests: './gradlew test', runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"' })` gives `ok: true` and no warnings.
+- `coherent Kotlin/Gradle — cucumber-jvm with ./gradlew commands`. `stackCoherenceCheck({ testFramework: 'JUnit', bddFramework: 'cucumber-jvm', runTests: './gradlew test', runScenariosByTag: './gradlew :scenarios:test -Dcucumber.filter.tags="@{tag}"' })` gives `ok: true` and no warnings. The same holds for `kotlin.test` with `./gradlew allTests` and `./gradlew :scenarios:test --tests "*RunCucumberTest" -Dcucumber.filter.tags="@{tag}"`, and for `JUnit` with `gradle test` and `gradle :scenarios:test -Dcucumber.filter.tags="@{tag}"`.
 - `cucumber-jvm is a Gherkin runtime — no non-gherkin warning`.
 - `incoherent: cucumber-js with ./gradlew test → language-mismatch`. Exactly one `language-mismatch` warning, whose message names `bddFramework 'cucumber-js'→javascript` and `runTests './gradlew test'→jvm`.
+- `incoherent: cucumber-jvm with bun run test → language-mismatch`. With `testFramework: 'vitest'` and a Gradle run-by-tag command, exactly one `language-mismatch` warning, whose message names `bddFramework 'cucumber-jvm'→jvm` and `runTests 'bun run test'→javascript`.
 - In `inferStackLanguages`:
   - Add `['cucumber-jvm and ./gradlew test', { bddFramework: 'cucumber-jvm', runTests: './gradlew test' }, 'jvm']` and `['gradle test', { runTests: 'gradle test' }, 'jvm']` to the one-language `it.each`.
   - `reads cucumber-jvm as jvm, not through the generic cucumber token`: `{ ...none, bddFramework: 'cucumber-jvm' }` gives `['jvm']`.
@@ -228,12 +244,27 @@ In `.claude/commands/adw_init.md`, step 3, replace the `## Application Type` bul
 
 Keep the third sub-bullet ("If step 1 could not decide, leave the section out entirely …") verbatim. Rules for the bullet line: it holds each of `cli`, `web` and `mobile:kotlincm` in backticks exactly once and no other backticked token besides `## Application Type`, because the test sorts the backticked tokens and compares them with the mapping's keys. Leave step 1's detection rules, step 2's dev-server rule, step 6 and step 8 unchanged; the PRD gives them to the `adw_init` slice. Keep the step numbering. Do not edit `adws/__tests__/adwInitPrompt.test.ts`. Run it: `offers exactly the application types the mapping knows`, `preserve it verbatim` and `leave the section out` pass.
 
-### 10. Update the README
+### 10. Write the step definitions the `@adw-1043` scenarios need
+The scenarios are the build's RED tests: write a scenario's step definitions and see it fail before the task that makes it pass. This task lists what they need. A dry run (`--dry-run --tags "@adw-1043"`) leaves 19 scenarios undefined. Reuse every phrase that already has a definition, and register no pattern twice. New phrases go in `features/per-issue/step_definitions/feature-1043-*.ts`, which import the worlds and helpers of the files they build on.
+
+- **The `{agent}` parameter type.** Define it again in `feature-929-agents.ts`, beside `AGENT_NAMES`, as the removed `feature-929.steps.ts` did: `defineParameterType({ name: 'agent', regexp: new RegExp(AGENT_NAMES.join('|')), transformer: (name: string) => name as AgentName })`. `feature-995-review.steps.ts` imports that module, so the type exists before its steps are defined. That defines the `Then` steps of the review-guidance outline, and the feature-995 scenarios that use them.
+- **A third type in the feature-994 workflow.** Widen `RepositoryType` to `ApplicationType` and let `assertRepositoryType` accept every key of `APPLICATION_TYPE_PROFILES`. Make `stepDefinitionFile`, `prepareWorkflow`'s stand-in run-by-tag line, `scriptedCase`'s `classname` and `nameOf` branch on the profile's `runnerMode` (`RunnerMode.AdwPlaywright` or not), not on `'web'` and `'cli'`. `mobile:kotlincm` then takes the descriptor path that `cli` takes.
+- **The mapping** (feature-991's mapping world): `the mapping declares exactly the platforms {string} and {string}`, `the mapping declares no platform` and `the mapping chooses the review guidance section {string}`.
+- **The gate's line** (feature-991's workflow world): `the workflow's execution log has a line for the application type {string}` finds the `Application type <type>: ` line in `execution.log`. `that line says the scenarios run with the runner that {string} describes`, `that line says the evidence is per-issue scenario images`, `that line names the platforms {string} and {string}` and `that line names no platform` read that line.
+- **The registry**: `the Gherkin runtime registry is consulted for the BDD framework {string}`, `the registry counts {string} as a Gherkin runtime` and `the registry looks for the step definitions of {string} in files ending in {string} and {string}, and in no others`. They call `isGherkinFramework` and `stepDefExtensionsFor`.
+- **The scenario proof** (feature-992's phase world): `the worktree holds a feature tagged {string} in the scenario directory {string} names, and steps for it in the file {string}` writes the feature into `## Scenario Directory` and the steps at exactly the named path, whatever its extension. `the scenario proof notes that no step definition file was found in {string}` reads the proof's `No step definition files found in <dir>/` notice.
+- **The stack check**: `a target repository whose {string} describes its stack as:`, `the stack-coherence check judges that repository's stack`, `the stack-coherence check reads the stack as the single language {string}`, `the stack-coherence check warns about nothing`, `the stack-coherence check gives the one warning {string}` and `that warning names {string} and {string}`. They drive `inferStackLanguages` and `stackCoherenceCheck` with the table's four values.
+- **The unit-test phase** (feature-988's world): `the worktree's {string} declares the application type {string}`, `the worktree's {string} describes its stack as:`, `the unit-test phase posted no comment headed {string} on issue {int}` and `issue {int} was not labelled {string}`.
+  - Set `workflow.config.applicationProfile` from the declared type, as feature-992's `prepareWorkflow` does.
+  - `reportStackCoherence` reads `## Test Framework` and `## Run Tests` from `.adw/commands.md` and `## BDD Framework` from `.adw/scenarios.md`. It reads `## Run Scenarios by Tag` from `.adw/commands.md`, through the descriptor runner's `stackSignals`. Write the run-by-tag command to both files, as `setRunScenariosByTag` does, and keep the static checks that the scenario's first step wrote.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"`. Every scenario passes and none is undefined.
+
+### 11. Update the README
 - `README.md`, "Application type decides the evidence" bullet: change `(`cli` or `web`)` to name `mobile:kotlincm` as the third value. `adw_init` preserves it but never detects it. Add that the mapping also gives each type its device platforms: `android` and `ios` for `mobile:kotlincm`, none for `cli` and `web`. Add that a `mobile:kotlincm` repository keeps the runner `.adw/scenarios.md` names (cucumber-jvm with Kotlin step definitions). Keep it to one or two sentences.
 - Setup step 4 paragraph ("`adw_init` detects the application type …"): add that `mobile:kotlincm` is set by hand only and that `adw_init` preserves it.
 - Do not describe device booting, device-source sections or platform attribution of images. They are not built in this slice.
 
-### 11. Run the validation commands
+### 12. Run the validation commands
 Run every command in `Validation Commands` and fix any failure before finishing. Fix the cause, never by suppressing or weakening a check.
 
 ## Testing Strategy
@@ -258,17 +289,42 @@ Unit tests are enabled: `.github/adw.yml` leaves `unitTests` commented out. All 
 - **Review context** (`adws/phases/__tests__/reviewPromptContext.test.ts`): the guidance section handed to the reviewer for the mobile profile.
 - **Registry** (`adws/core/__tests__/stepDefDetection.test.ts`, `adws/core/__tests__/scenarioRunner.test.ts`):
   - `cucumber-jvm` gives `['.kt', '.java']`, case- and whitespace-insensitive, and is a Gherkin runtime.
-  - A nested `.kt` or `.java` step file is found, and a `.kts` script alone is not.
+  - A nested `.kt` or `.java` step file is found. A `.kts` script alone is not, and neither is a `.ts` file alone.
   - The descriptor runner hands `.kt`/`.java` to the scenario proof.
 - **Stack check** (`adws/core/__tests__/stackCoherenceCheck.test.ts`):
-  - A coherent JVM stack warns on nothing.
-  - `cucumber-js` + `./gradlew test` warns `language-mismatch`.
+  - A coherent JVM stack warns on nothing, with `JUnit` or `kotlin.test` as its test framework.
+  - `cucumber-js` + `./gradlew test` warns `language-mismatch`, and so does `cucumber-jvm` + `bun run test`.
   - `cucumber-jvm` and a Gradle command naming `cucumber` read as `jvm`, not as the generic token.
   - Gradle tasks holding JavaScript tokens read as `jvm`.
 - **Suppression table** (`adws/core/__tests__/fixRoundGuard.table.test.ts`):
   - The language list includes `jvm`.
   - Every `jvm` pattern named and rejected through `evaluateFixRound`.
 - **Prompt pins, unchanged tests** (`adws/__tests__/reviewPrompt.test.ts`, `adws/__tests__/adwInitPrompt.test.ts`): pass with three types and with the `jvm` suppression language.
+
+### BDD Scenarios
+`features/per-issue/feature-1043.feature` proves the slice end to end, together with the `cli` and `web` mapping scenarios of `feature-991.feature`. Task 10 gives them step definitions.
+
+- **Mapping**:
+  - The `mobile:kotlincm` profile's runner, evidence, platforms and guidance section.
+  - No platform for `cli` and `web`, which keep their sections.
+  - Three distinct sections.
+  - `mobile`, `kotlincm` and `mobile:flutter` park with the value found.
+- **Gate**:
+  - A `mobile:kotlincm` repository starts without a park.
+  - `mobile` and `mobile:flutter` park as `human_gated`, with a comment that names `## Application Type` and the value.
+  - `## Retry` proceeds once the default branch declares `mobile:kotlincm`.
+  - The execution-log line names the runner, the evidence, and `android` and `ios` for `mobile:kotlincm`. It names no platform for `cli` and `web`.
+- **Registry and scenario proof**:
+  - `cucumber-jvm` is a Gherkin runtime with exactly `.kt` and `.java`.
+  - A Kotlin or a Java step file under `## Step Def Directory` runs the issue's tag, and the proof records the tag as passed.
+  - A lone `.ts` file there skips the proof with the "No step definition files found" notice, and no tag runs.
+- **Step-definition phase**: a `mobile:kotlincm` repository starts the generator in the descriptor mode, as `cli` does.
+- **Stack check**:
+  - `cucumber-jvm` with `./gradlew test`, `./gradlew allTests` or `gradle test`, and a Gradle run-by-tag command, reads as the single language `jvm` and warns about nothing.
+  - `cucumber-js` with `./gradlew test`, and `cucumber-jvm` with `bun run test`, each give the one warning `language-mismatch`.
+  - The unit-test phase of a Kotlin/Gradle `mobile:kotlincm` repository posts no "Stack Coherence" comment and applies no `adw:unverified` label.
+- **Review prompt**: the review agent of each of the three types is started with its own guidance section and with neither of the other two.
+- **Type check**: `bunx tsc --noEmit` passes with `platforms` on every profile and `jvm` in `StackLanguage`.
 
 ### Edge Cases
 - `mobile`, `Mobile`, `mobile:`, `mobile: kotlincm` (inner space), `kotlincm`, `mobile:flutter` and `mobile:kotlincm:android` all park with the value as written, never lowercased.
@@ -279,6 +335,8 @@ Unit tests are enabled: `.github/adw.yml` leaves `unitTests` commented out. All 
 - `cucumber-jvm` vs `cucumber-js`: neither token is a substring of the other, so each keeps its language.
 - `-Dcucumber.filter.tags` inside a Gradle command does not pull in `javascript` through the generic `cucumber` token.
 - Kotlin/JS Gradle tasks (`jsNodeTest`, `kotlinNpmInstall`) do not pull in `javascript` through `node`/`npm`.
+- A Gradle filter such as `--tests "*RunCucumberTest"` holds `cucumber`, and still reads as `jvm`, because `gradlew` matches first.
+- `JUnit` and `kotlin.test` as `## Test Framework` match no token and add no language, so the stack still reads as `jvm` alone. No `junit` token is added: the issue names exactly `cucumber-jvm`, `gradlew` and `gradle`.
 - `build.gradle.kts` under the step-def directory does not count as a step definition, because `.kts` does not end with `.kt`.
 - `@file:Suppress(` is caught by its own entry: whitespace and case normalisation do not make `@suppress(` a substring of `@file:suppress(`.
 - The `jvm` patterns apply only when `jvm` is inferred. A JavaScript-only repository such as ADW itself is unaffected.
@@ -297,9 +355,10 @@ Unit tests are enabled: `.github/adw.yml` leaves `unitTests` commented out. All 
 - `.claude/commands/adw_init.md` step 3 offers `cli`, `web` and `mobile:kotlincm`, says the last is set by hand only and never detected, and preserves it verbatim.
 - `adws/core/__tests__/applicationType.test.ts`, `adws/__tests__/adwInitPrompt.test.ts` and `adws/__tests__/reviewPrompt.test.ts` pass with three types. The latter two need no edits.
 - Unit tests for the mapping, the registry and the stack check exist and pass. Lint, both type checks, the build, the full unit suite and the regression scenarios pass.
+- Every `@adw-1043` scenario passes, and none has an undefined step.
 
 ## Validation Commands
-Execute every command to validate the feature works correctly with zero regressions.
+Execute every command to validate the feature works correctly with zero regressions. Merge the latest `dev` first, as the start of the Step by Step Tasks says. On this branch's base, the type check, the build and every `cucumber-js` run fail on the orphaned feature-966/967 helpers.
 
 - `bunx vitest run adws/core/__tests__/applicationType.test.ts adws/phases/__tests__/applicationTypeGate.test.ts adws/phases/__tests__/applicationTypeGate.park.test.ts adws/phases/__tests__/reviewPromptContext.test.ts` — the mapping, the gate and the guidance section handed to the reviewer.
 - `bunx vitest run adws/core/__tests__/stepDefDetection.test.ts adws/core/__tests__/scenarioRunner.test.ts adws/core/__tests__/stackCoherenceCheck.test.ts` — the registry and the stack check.
@@ -311,7 +370,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run build` — build.
 - `bun run test:unit` — the full unit suite, zero regressions.
 - `bun run lint:branch-names` — the prompts under `.claude/commands/` still name no branch to act on.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` — this issue's per-issue scenarios, once the scenario writer has written them.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` — the 18 scenarios of `features/per-issue/feature-1043.feature` and the two `@adw-1043` mapping scenarios of `feature-991.feature`, none of them undefined.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite, zero regressions.
 
 ## Notes
