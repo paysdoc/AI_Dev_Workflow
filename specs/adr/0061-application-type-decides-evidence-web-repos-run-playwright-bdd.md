@@ -6,7 +6,7 @@ provenance:
   - kind: transcript
     source: "Claude Code session 2dc3e364, 2026-10-01 to 2026-10-04"
 supersedes: ["0031", "0043"]
-superseded-by: []
+superseded-by: ["0064"]
 ---
 
 # The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project
@@ -87,3 +87,4 @@ Spike limits, so that nobody takes more from it than it showed: not tested again
 * Supersedes, in part, ADR-0031: "the runner behind it is the target repo's choice" no longer holds for `web` repositories, and the Playwright test runner returns, as the Gherkin runner rather than as a second test path. The removal of the old E2E machinery stands.
 * Supersedes, in part, ADR-0043: "only the step-definition runtime varies" and the detected `## BDD Framework` descriptor now apply to `cli` repositories only; in `web` repositories the runtime is fixed by the framework. The Gherkin mandate and the JUnit rail stand.
 * The `## Run E2E Tests` heading kept by ADR-0031 as the scenario writer's tool descriptor is unaffected.
+* Superseded, in part, by [ADR-0064](0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md): a third type, `mobile:kotlincm`, is hand-set rather than detected by `adw_init`, and its profile adds `platforms`, which changes the scenario phase, the baseline re-run and the proof assembler; "a third can be added without touching the phases" no longer holds.
