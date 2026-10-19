@@ -22,6 +22,7 @@ import type { RunInitCommandParams, UpgradeDeps, UpgradeRunResult } from '../../
 import { parseAdwYml } from '../../../adws/core/adwYmlConfig.ts';
 import { REQUIRED_ADW_FILES } from '../../../adws/phases/worktreeSetup.ts';
 
+import { recordInitRun } from './feature-931-init-runs.ts';
 import { disposeToolchain, syncProjectUnderToolchain } from './feature-992-standins.ts';
 
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -35,7 +36,7 @@ const AGENT_OUTPUT_PATHS: readonly string[] = [
   VOCABULARY_PATH,
 ];
 
-const UPGRADE_SCENARIOS = '@adw-931 or @adw-991 or @web-playwright-project';
+const UPGRADE_SCENARIOS = '@adw-931 or @adw-991 or @adw-1044 or @web-playwright-project';
 const DEFAULT_MANIFEST = { file: 'package.json', content: '{ "name": "adw-931-target", "version": "0.0.0" }\n' };
 
 interface AdwInitAgent {
@@ -140,6 +141,7 @@ function regeneratedContent(file: string): string {
 }
 
 async function runAdwInitStub(params: RunInitCommandParams): Promise<{ success: boolean }> {
+  recordInitRun(params.worktreePath);
   const adwDir = path.join(params.worktreePath, '.adw');
   fs.mkdirSync(adwDir, { recursive: true });
   for (const file of REQUIRED_ADW_FILES) {

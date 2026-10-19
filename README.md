@@ -258,6 +258,8 @@ During init, `adw_init` runs `depaudit setup` in the target repo worktree (requi
 
 `adw_init` detects the application type (`cli` or `web`) and writes `## Application Type` to `.adw/project.md`. `mobile:kotlincm` is set by hand only: `adw_init` never detects it, and preserves it. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
 
+When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
+
 For a `web` repository, `adw_init` also installs ADW's Playwright project in `features/`, even when the application is not a Node application: `features/playwright.config.ts` from `templates/playwright/`, `features/package.json` (created only when absent), `features/.gitignore` (which keeps `node_modules/` and the generated tests out of git), `npm install` and the browser install. The configuration is byte-identical in every `web` repository and reads the repository's values only from `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; every upgrade overwrites it, and the upgrade installs the project itself after the `/adw_init` agent, so the regen commit carries `features/package-lock.json`. An existing e2e setup elsewhere in the repository (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left as it is, and ADW does not use it. ADW no longer reads `.adw/review_proof.md`, so a repository that still has one can delete it.
 
 ### 5. Run ADW
@@ -508,6 +510,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwChore.devServer.test.ts
 │   ├── adwChore.helpers.ts  # Shared helpers for the adwChore tests
 │   ├── adwChore.test.ts
+│   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
+│   ├── adwInitPrompt.mobile.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts

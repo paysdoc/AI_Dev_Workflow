@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RunnerMode } from '../core/applicationType';
+import { Platform, RunnerMode } from '../core/applicationType';
 import { ADW_PLAYWRIGHT_INSTALL_COMMAND, ADW_PLAYWRIGHT_STEP_DEF_DIR } from '../core/adwPlaywrightProject';
+import { ADW_INIT_PATH, SCENARIO_RUN_CONTRACT_SECTION, readLines, stepLines } from './adwInitPrompt.helpers';
 
 /**
  * `generate_step_definitions.md` is a prompt, so it cannot import the runner modes ADW passes it nor the directory of
@@ -97,6 +98,49 @@ describe("generate_step_definitions.md in adw_playwright mode writes steps for A
   it('keeps every other mode of the prompt exactly as written for descriptor, or an empty $2', () => {
     expect(mode()).toMatch(/`descriptor`, or empty/);
     expect(mode()).toContain('applies exactly as written');
+  });
+});
+
+describe('generate_step_definitions.md in descriptor mode tells the steps of a repository on devices which device to drive and where its screenshots go', () => {
+  /** The `descriptor` mode of the runner modes: from its line up to the line of `adw_playwright`. */
+  const descriptorMode = (): string => {
+    const modes = section('## Runner mode').split('\n');
+    const start = modes.findIndex((line) => line.startsWith('- `descriptor`'));
+    const end = modes.findIndex((line) => line.startsWith('- `adw_playwright`'));
+    expect(start, 'the runner modes list descriptor').toBeGreaterThanOrEqual(0);
+    expect(end, 'the runner modes list adw_playwright after descriptor').toBeGreaterThan(start);
+    return modes.slice(start, end).join('\n');
+  };
+
+  it.each(['ADW_ANDROID_SERIAL', 'ADW_IOS_UDID', 'ADW_PROOF_DIR'])('names %s', (variable) => {
+    expect(descriptorMode()).toContain(`\`${variable}\``);
+  });
+
+  it.each(Object.values(Platform))('names the %s/ directory under ADW_PROOF_DIR', (platform) => {
+    expect(descriptorMode()).toContain(`\`${platform}/\``);
+  });
+
+  it('applies where adw_init writes the scenario run contract', () => {
+    const heading = `\`${SCENARIO_RUN_CONTRACT_SECTION}\``;
+
+    expect(descriptorMode()).toContain(heading);
+    expect(stepLines(readLines(ADW_INIT_PATH), 8).join('\n')).toContain(heading);
+  });
+
+  it('lists the contract among the sections of .adw/scenarios.md that the prompt branches on', () => {
+    expect(section('## Polymorphism on `.adw/scenarios.md`')).toContain(SCENARIO_RUN_CONTRACT_SECTION);
+  });
+
+  it('reads the contract with the rest of the configuration in step 1', () => {
+    expect(section('### 1. Read configuration')).toContain(SCENARIO_RUN_CONTRACT_SECTION);
+  });
+
+  it('never touches the life cycle of a device, which ADW owns', () => {
+    expect(descriptorMode()).toMatch(/never create, boot, shut down or delete/);
+  });
+
+  it('names no framework, since one prompt serves every step definition runtime', () => {
+    expect(descriptorMode()).not.toMatch(/appium|cucumber|kotlin|gradle|uiautomator|xcuitest/i);
   });
 });
 
