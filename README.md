@@ -701,6 +701,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceBringUp.ts  # One attempt to create, boot and await each device (on a console port it probes for), and each device's teardown; it reads a missing host tool from the executor's answer
 │   ├── deviceCommands.ts  # Pure: what ADW says to the device tools (the adw-<adwId> names, the console port candidates, the avdmanager, adb, emulator and xcrun simctl commands with their timeouts) and how it reads their answers, including which host tool (HostTool) a missing program or an xcrun without simctl means; MAX_BOOT_ATTEMPTS
 │   ├── deviceExecutor.ts  # The process boundary of the device lifecycle: runs avdmanager, emulator, adb and xcrun simctl as argv arrays without a shell (systemDeviceExecutor); it says when a program is not on the PATH, and reads back what a started process printed
+│   ├── deviceInventory.ts  # Finds the emulators and simulators named adw-<adwId> on the host and removes one, through the injected executor, for the device janitor sweep
 │   ├── deviceLifecycle.ts  # withDevices: creates, boots and hands over one AVD and one simulator named adw-<adwId>, trying each boot three times, and returns ready, boot failed or tool missing, after removing everything it created
 │   ├── deviceSourceConfig.ts  # Pure: the four device-source sections of .adw/project.md (parseDeviceSourceSections) and the device source a profile with platforms needs (resolveDeviceSource, DeviceSourceConfigError)
 │   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from specs/adr/
@@ -1068,6 +1069,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in ADW-managed (.adw-marked) target repo worktrees
+│   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
 │   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
