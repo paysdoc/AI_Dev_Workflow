@@ -11,6 +11,7 @@ import {
   withDevices,
   type DeviceEnvironment,
 } from '../deviceLifecycle';
+import { resultOf } from './fixtures/deviceOutcome';
 import {
   TEST_DEVICE_SOURCE,
   TEST_UDID,
@@ -30,7 +31,7 @@ const name = (adwId: string): string => `adw-${adwId}`;
 
 async function runWith(script: Partial<DeviceHostScript> = {}, adwId = LOGIN): Promise<{ host: RecordingDeviceHost; devices: DeviceEnvironment }> {
   const host = recordingDeviceHost(script);
-  const devices = await withDevices(
+  const outcome = await withDevices(
     requestFor(adwId, host),
     async (given) => {
       host.mark('callback');
@@ -38,7 +39,7 @@ async function runWith(script: Partial<DeviceHostScript> = {}, adwId = LOGIN): P
     },
     host.deps,
   );
-  return { host, devices };
+  return { host, devices: resultOf(outcome) };
 }
 
 const androidSteps = (adwId: string, port: number): string[] => [
@@ -107,13 +108,13 @@ describe('withDevices — a run in which both devices come up', () => {
     expect(at('callback')).toBeLessThan(Math.min(at(`adb -s emulator-${port} emu kill`), at(`xcrun simctl shutdown ${TEST_UDID}`)));
   });
 
-  it('gives the callback exactly the AVD, the serial of the console port and the UDID, and returns what the callback returns', async () => {
+  it('gives the callback exactly the AVD, the serial of the console port and the UDID, and comes back ready with what the callback returns', async () => {
     const host = recordingDeviceHost();
     const callback = vi.fn(async (_devices: DeviceEnvironment) => 'what the callback returned');
 
-    const result = await withDevices(requestFor(LOGIN, host), callback, host.deps);
+    const outcome = await withDevices(requestFor(LOGIN, host), callback, host.deps);
 
-    expect(result).toBe('what the callback returned');
+    expect(outcome).toEqual({ kind: 'ready', result: 'what the callback returned' });
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith({
       ADW_ANDROID_AVD: name(LOGIN),
@@ -210,9 +211,9 @@ describe('withDevices — waiting for the devices', () => {
     const host = recordingDeviceHost();
     const chatter = (output: string): string => `* daemon not running; starting now at tcp:5037\n* daemon started successfully\n${output}`;
 
-    const devices = await withDevices(requestFor(LOGIN, host), async given => given, rewritingOutput(host.deps, 'adb -s', chatter));
+    const outcome = await withDevices(requestFor(LOGIN, host), async given => given, rewritingOutput(host.deps, 'adb -s', chatter));
 
-    expect(devices.ADW_ANDROID_AVD).toBe(name(LOGIN));
+    expect(resultOf(outcome).ADW_ANDROID_AVD).toBe(name(LOGIN));
   });
 });
 
@@ -221,12 +222,15 @@ describe('withDevices — the run log', () => {
     vi.restoreAllMocks();
   });
 
-  it('names both devices when it creates them, with the console port and what they are created from', async () => {
+  it('names each device when it creates it, with what it is created from, the attempt, and the console port of the emulator', async () => {
     const { host } = await runWith();
     const port = emulatorPort(host);
 
-    expect(host.lines[0]).toBe(
-      `info Creating the devices of this workflow: the Android AVD "${name(LOGIN)}" (${TEST_DEVICE_SOURCE.androidSystemImage}, ${TEST_DEVICE_SOURCE.androidDeviceProfile}) on console port ${port}, and the iOS simulator "${name(LOGIN)}" (${TEST_DEVICE_SOURCE.iosDeviceType}, ${TEST_DEVICE_SOURCE.iosRuntime})`,
+    expect(host.lines).toContain(
+      `info Creating the Android AVD "${name(LOGIN)}" (${TEST_DEVICE_SOURCE.androidSystemImage}, ${TEST_DEVICE_SOURCE.androidDeviceProfile}) on console port ${port} (attempt 1 of 3)`,
+    );
+    expect(host.lines).toContain(
+      `info Creating the iOS simulator "${name(LOGIN)}" (${TEST_DEVICE_SOURCE.iosDeviceType}, ${TEST_DEVICE_SOURCE.iosRuntime}) (attempt 1 of 3)`,
     );
   });
 

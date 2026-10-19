@@ -8,6 +8,9 @@
 import { Given, When, Then, Before, type DataTable } from '@cucumber/cucumber';
 import assert from 'assert';
 
+import { Platform } from '../../../adws/core/applicationType.ts';
+import { HostTool } from '../../../adws/core/deviceCommands.ts';
+import type { DeviceFailure } from '../../../adws/core/deviceLifecycle.ts';
 import { FixLoopStall } from '../../../adws/core/staticCheckFixLoop.ts';
 import { isActionableComment, isCancelComment, isRetryComment } from '../../../adws/core/workflowCommentParsing.ts';
 import { ParkReason, buildParkComment, type ParkEvidence, type ParkedCheck } from '../../../adws/forge/parkComment.ts';
@@ -43,9 +46,12 @@ interface ParkScenario {
 
 const park: ParkScenario = { evidence: null, comment: null, comments: new Map() };
 
-Before({ tags: '@adw-989' }, function () {
+/** Safe to call twice: a scenario that carries the tags of two features runs the hooks of both. */
+export function resetParkScenario(): void {
   Object.assign(park, { evidence: null, comment: null, comments: new Map() });
-});
+}
+
+Before({ tags: '@adw-989' }, resetParkScenario);
 
 function isParkReason(value: string): value is ParkReason {
   return (Object.values(ParkReason) as string[]).includes(value);
@@ -53,6 +59,19 @@ function isParkReason(value: string): value is ParkReason {
 
 function sampleCheck(check: string, output: string): ParkedCheck {
   return { check, command: `run the ${check}`, exitCode: 1, output };
+}
+
+function enumValue<Value extends string>(values: Readonly<Record<string, Value>>, what: string, name: string): Value {
+  const found = Object.values(values).find(candidate => candidate === name);
+  return found ?? assert.fail(`Unknown ${what} "${name}"`);
+}
+
+/** A device that did not boot, or a host tool that is missing when the table names one. */
+function deviceFailureFor(facts: Readonly<Record<string, string>>): DeviceFailure {
+  const platform = enumValue(Platform, 'platform', facts['platform'] ?? Platform.Android);
+  const output = facts['output'] ?? 'sample device output';
+  if (facts['tool'] !== undefined) return { kind: 'tool_missing', platform, tool: enumValue(HostTool, 'host tool', facts['tool']), output };
+  return { kind: 'boot_failed', platform, attempts: Number(facts['attempts'] ?? 3), output };
 }
 
 function evidenceFor(reason: ParkReason, facts: Readonly<Record<string, string>>): ParkEvidence {
@@ -74,6 +93,8 @@ function evidenceFor(reason: ParkReason, facts: Readonly<Record<string, string>>
       return { reason, found: facts['application type'] ?? null };
     case ParkReason.BaseServerDown:
       return { reason, baseBranch, output: facts['server output'] ?? 'sample server output' };
+    case ParkReason.DeviceBootFailed:
+      return { reason, failure: deviceFailureFor(facts) };
     default:
       return assert.fail(`Unknown park reason: ${String(reason)}`);
   }
@@ -158,11 +179,22 @@ Then('each of those park comments mentions {string} and {string}', function (fir
   });
 });
 
-Then('ADW would take none of them, as the latest comment on an issue, for a {string}, {string} or {string} directive', function (retry: string, continues: string, cancel: string) {
+function assertNoDirective(comment: string, which: string): void {
+  assert.ok(!isRetryComment(comment), `Expected ADW to take ${which} for no "## Retry" directive`);
+  assert.ok(!isActionableComment(comment), `Expected ADW to take ${which} for no "## Continue" directive`);
+  assert.ok(!isCancelComment(comment), `Expected ADW to take ${which} for no "## Cancel" directive`);
+}
+
+function assertTheThreeDirectives(retry: string, continues: string, cancel: string): void {
   assert.deepStrictEqual([retry, continues, cancel], ['## Retry', '## Continue', '## Cancel'], 'The directives this step checks are the three ADW acts on');
-  park.comments.forEach((comment, reason) => {
-    assert.ok(!isRetryComment(comment), `Expected ADW to take the ${reason} park comment for no "## Retry" directive`);
-    assert.ok(!isActionableComment(comment), `Expected ADW to take the ${reason} park comment for no "## Continue" directive`);
-    assert.ok(!isCancelComment(comment), `Expected ADW to take the ${reason} park comment for no "## Cancel" directive`);
-  });
+}
+
+Then('ADW would take none of them, as the latest comment on an issue, for a {string}, {string} or {string} directive', function (retry: string, continues: string, cancel: string) {
+  assertTheThreeDirectives(retry, continues, cancel);
+  park.comments.forEach((comment, reason) => assertNoDirective(comment, `the ${reason} park comment`));
+});
+
+Then('ADW would take the park comment, as the latest comment on an issue, for no {string}, {string} or {string} directive', function (retry: string, continues: string, cancel: string) {
+  assertTheThreeDirectives(retry, continues, cancel);
+  assertNoDirective(requireComment(), 'the park comment');
 });

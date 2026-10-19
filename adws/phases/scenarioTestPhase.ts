@@ -27,13 +27,15 @@ import {
   withHealthyDevServer,
   type HealthyDevServerConfig,
 } from '../core/devServerLifecycle';
-import { withDevices, type DeviceEnvironment, type DeviceRequest } from '../core/deviceLifecycle';
+import { withDevices, type DeviceEnvironment, type DeviceFailure, type DeviceOutcome, type DeviceRequest } from '../core/deviceLifecycle';
 import { DeviceSourceConfigError, resolveDeviceSource, type DeviceSource } from '../core/deviceSourceConfig';
 import { resolveScenarioRunner } from '../core/scenarioRunner';
+import { ParkReason } from '../forge/parkComment';
 import { requireApplicationProfile } from './applicationTypeGate';
 import { readDeclaredDevServer } from './declaredDevServer';
 import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
+import { parkWorkflow } from './workflowPark';
 
 const DEV_SERVER_LOG_FILE = 'dev-server.log';
 const EMULATOR_LOG_FILE = 'android-emulator.log';
@@ -42,6 +44,7 @@ export interface ScenarioTestPhaseDeps {
   readonly readDeclaredDevServer: typeof readDeclaredDevServer;
   readonly withHealthyDevServer: typeof withHealthyDevServer;
   readonly withDevices: typeof withDevices;
+  readonly park: typeof parkWorkflow;
 }
 
 export interface ScenarioTestPhaseResult {
@@ -52,7 +55,7 @@ export interface ScenarioTestPhaseResult {
   phaseCostRecords: PhaseCostRecord[];
 }
 
-const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices };
+const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices, park: parkWorkflow };
 
 interface PhaseRun {
   readonly config: WorkflowConfig;
@@ -129,17 +132,43 @@ function failedStart(run: PhaseRun, server: HealthyDevServerConfig, output: stri
   return resultOf(run, undefined, devServer, PhaseCostStatus.Failed);
 }
 
+function describeDeviceFailure(failure: DeviceFailure): string {
+  if (failure.kind === 'boot_failed') {
+    return `Scenario test phase: the ${failure.platform} device did not boot in ${failure.attempts} attempts; no scenario ran. The output of the attempts:`;
+  }
+  return `Scenario test phase: ${failure.tool} is not on the host's PATH, so the ${failure.platform} device could not be created; no scenario ran. Its output:`;
+}
+
+// The whole output goes to the execution log: the park comment cuts it.
+function parkOnDeviceFailure(run: PhaseRun, failure: DeviceFailure, park: ScenarioTestPhaseDeps['park']): never {
+  const { config } = run;
+  recordLine(config.orchestratorStatePath, describeDeviceFailure(failure), 'error');
+  recordLine(config.orchestratorStatePath, failure.output, 'error');
+  return park(config, { reason: ParkReason.DeviceBootFailed, failure });
+}
+
+function settleOnDevices(
+  run: PhaseRun,
+  outcome: DeviceOutcome<ScenarioProofResult>,
+  devServer: DevServerStart,
+  park: ScenarioTestPhaseDeps['park'],
+): ScenarioTestPhaseResult {
+  if (outcome.kind !== 'ready') return parkOnDeviceFailure(run, outcome, park);
+  return settleProof(run, outcome.result, devServer);
+}
+
+// The park comes out of the server, not from inside it: `process.exit` would skip the server's `finally`.
 async function runUnderServer(
   run: PhaseRun,
   server: HealthyDevServerConfig,
-  runProof: () => Promise<ScenarioProofResult>,
+  runProofOnDevices: () => Promise<DeviceOutcome<ScenarioProofResult>>,
   lifecycle: ScenarioTestPhaseDeps,
 ): Promise<ScenarioTestPhaseResult> {
   recordLine(run.config.orchestratorStatePath, `Scenario test phase: starting the dev server the repository declares (${server.startCommand})`, 'info');
 
-  const outcome = await lifecycle.withHealthyDevServer(server, runProof);
+  const outcome = await lifecycle.withHealthyDevServer(server, runProofOnDevices);
   if (!outcome.started) return failedStart(run, server, outcome.output);
-  return settleProof(run, outcome.result, { status: DevServerStartStatus.Started });
+  return settleOnDevices(run, outcome.result, { status: DevServerStartStatus.Started }, lifecycle.park);
 }
 
 function requireDeviceSource(run: PhaseRun, platforms: readonly Platform[]): DeviceSource | null {
@@ -173,8 +202,9 @@ function deviceRequest({ config }: PhaseRun, deviceSource: DeviceSource): Device
  *
  * For a profile with platforms, the proof runs on one emulator and one simulator that the device lifecycle creates for
  * the workflow, inside the dev server when there is one. The scenario command gets their identities as `ADW_ANDROID_AVD`,
- * `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`, and they are removed afterwards. A device that does not come up rejects with
- * `DeviceLifecycleError`.
+ * `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`, and they are removed afterwards. A device that does not boot in its attempts,
+ * or a host tool that is missing, parks the workflow as `human_gated` for `device_boot_failed` once the devices and the
+ * dev server have been removed: no scenario ran, the problem is the host's, and the phase does not return.
  */
 export async function executeScenarioTestPhase(
   config: WorkflowConfig,
@@ -211,12 +241,13 @@ export async function executeScenarioTestPhase(
       env: { ADW_APPLICATION_URL: applicationUrl, ...devices },
     });
 
-  const runProofOnDevices = deviceSource === null
-    ? () => runProof()
-    : () => lifecycle.withDevices(deviceRequest(run, deviceSource), runProof);
+  const runProofOnDevices = async (): Promise<DeviceOutcome<ScenarioProofResult>> =>
+    deviceSource === null
+      ? { kind: 'ready', result: await runProof() }
+      : lifecycle.withDevices(deviceRequest(run, deviceSource), runProof);
 
   const declaredServer = lifecycle.readDeclaredDevServer(worktreePath);
-  if (declaredServer === null) return settleProof(run, await runProofOnDevices(), NO_DEV_SERVER_START);
+  if (declaredServer === null) return settleOnDevices(run, await runProofOnDevices(), NO_DEV_SERVER_START, lifecycle.park);
 
   const server: HealthyDevServerConfig = {
     startCommand: declaredServer,

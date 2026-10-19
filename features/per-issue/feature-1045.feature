@@ -119,7 +119,7 @@ Feature: ADW reads a repository's device sources from ".adw/project.md"; the sce
     Then resolving the device sources fails with an error that names "## Android Device Profile"
     And that error does not name "## iOS Runtime"
 
-  @adw-1045 @adw-m9cru8-feat-device-source-s @adw-1047
+  @adw-1045 @adw-m9cru8-feat-device-source-s @adw-1047 @adw-1048
   Scenario Outline: In a "mobile:kotlincm" worktree whose ".adw/project.md" names <device sources>, the scenario test phase fails before it runs anything, with an error that names "<section>": the scenario command is not run and the workflow is not parked
     Given a workflow for issue <issue> whose worktree's ".adw/project.md" declares the application type "mobile:kotlincm"
     And the worktree's ".adw/project.md" names <device sources>

@@ -28,6 +28,7 @@ import {
   fakeLifecycle,
   makeConfig,
   passingProof,
+  recordingServer,
 } from './scenarioTestPhase.helpers';
 
 const mockRunScenarioProof = vi.mocked(runScenarioProof);
@@ -118,7 +119,7 @@ describe('executeScenarioTestPhase — a profile with platforms runs the scenari
     expect(events).toEqual(['devices ready', 'devices removed']);
   });
 
-  it('fails with the error of the device lifecycle when a device does not come up, and runs no scenario', async () => {
+  it('fails with the error the device lifecycle throws, and runs no scenario', async () => {
     const failure = new Error('The iOS simulator could not be booted');
     const withDevices = (async () => { throw failure; }) as ScenarioTestPhaseDeps['withDevices'];
 
@@ -129,18 +130,6 @@ describe('executeScenarioTestPhase — a profile with platforms runs the scenari
 });
 
 describe('executeScenarioTestPhase — the devices and a dev server the repository declares', () => {
-  function recordingServer(events: string[]): ScenarioTestPhaseDeps['withHealthyDevServer'] {
-    const { withHealthyDevServer } = fakeLifecycle();
-    return (async (config, work) => {
-      events.push('server started');
-      try {
-        return await withHealthyDevServer(config, work);
-      } finally {
-        events.push('server stopped');
-      }
-    }) as ScenarioTestPhaseDeps['withHealthyDevServer'];
-  }
-
   it('creates the devices inside the server, and removes them before it stops', async () => {
     const events: string[] = [];
     const { withDevices } = fakeDevices(events);

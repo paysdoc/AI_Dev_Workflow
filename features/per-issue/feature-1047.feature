@@ -6,7 +6,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
   Background:
     Given the ADW codebase is checked out
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048
   Scenario: A successful run creates, boots and waits for the emulator and the simulator before the callback, then shuts down and deletes both, and the callback is given exactly "ADW_ANDROID_AVD", "ADW_ANDROID_SERIAL" and "ADW_IOS_UDID"
     Given these device sources:
       | section                   | value                                           |
@@ -26,7 +26,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
       | delete           |
     And the callback ran once
     And the callback was given exactly the variables "ADW_ANDROID_AVD", "ADW_ANDROID_SERIAL" and "ADW_IOS_UDID"
-    And the device lifecycle came back with what the callback returned
+    And the device lifecycle came back ready, with what the callback returned
 
   @adw-1047 @adw-ko14m9-feat-adw-creates-boo
   Scenario: The callback is given the name of the AVD the device lifecycle created, the serial "adb" reports for the emulator's console port, and the UDID the simulator's creation answered with
@@ -76,8 +76,8 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
     And the AVD was deleted with "avdmanager delete avd", by its name
     And the simulator was shut down with "xcrun simctl shutdown" and deleted with "xcrun simctl delete", each by the UDID "8A1F6C52-3B7E-4D90-9C1A-2E5B7F0D4C13"
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo
-  Scenario: The device lifecycle runs the callback only once the emulator's "sys.boot_completed" property reads "1": while it reads empty, the lifecycle reads it again
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048
+  Scenario: The device lifecycle runs the callback only once the emulator's "sys.boot_completed" property reads "1": while it reads empty within the boot deadline, the lifecycle reads it again and does not boot the emulator again
     Given these device sources:
       | section                   | value                                           |
       | ## Android System Image   | system-images;android-35;google_apis;arm64-v8a  |
@@ -88,9 +88,10 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
     And the recording executor answers the emulator's property "sys.boot_completed" with "" on the first 2 reads, and with "1" after them
     When the device lifecycle runs a callback with devices for the ADW ID "k7m2p9-login-screen"
     Then the device lifecycle read the emulator's property "sys.boot_completed" 3 times, and ran the callback only after the last read
+    And the device lifecycle ran "emulator" only once
     And the callback ran once
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048
   Scenario: A callback that throws still gets the emulator and the simulator shut down and deleted, and the device lifecycle fails with the error the callback threw
     Given these device sources:
       | section                   | value                                           |
