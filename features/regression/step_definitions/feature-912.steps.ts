@@ -1,7 +1,7 @@
 /**
  * Novel step definitions for feature-912.feature. Every hook is scoped to
- * `@rate-limit-in-process-wait`, which only that feature carries, so the feature-910
- * pause-path rows that guard the enqueue branch run under the pause-queue harness
+ * `@rate-limit-in-process-wait`, which the feature-910 pause-path rows that guard the
+ * enqueue branch never carry, so they run under the pause-queue harness
  * (feature-902-queue.steps.ts), never this one.
  *
  * §1 drives the real, pure `decideRateLimitWait` directly. §2-§4 drive the real
@@ -53,8 +53,9 @@ setDefaultTimeout(60_000);
 
 const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const TEST_HEARTBEAT_INTERVAL_MS = 20;
-const TEST_HUNG_THRESHOLD_MS = 6 * TEST_HEARTBEAT_INTERVAL_MS;
-const WAIT_SUSPEND_REAL_MS = 200; // real ms a wait actually blocks — longer than the hung threshold
+// Real time, not a multiple of the tick: no single event-loop stall (a GC pause, a throttled CI container) may outlast it.
+export const TEST_HUNG_THRESHOLD_MS = 500;
+const WAIT_SUSPEND_REAL_MS = 700; // real ms a wait actually blocks — longer than the hung threshold, so a stopped heartbeat would be reported
 
 class DriverExitSentinel extends Error {}
 
@@ -70,13 +71,17 @@ interface PostedComment {
   readonly seq: number;
 }
 
-interface WaitEvent {
+export interface WaitEvent {
   readonly attempt: number;
   readonly until: Date;
   readonly beginState: AgentState | null;
   readonly endState: AgentState | null;
   readonly hungAtEnd: HungOrchestrator[];
   readonly seq: number;
+  readonly probeNow: number;
+  /** What the detector's `readTopLevelState` dep returned. */
+  readonly probeState: AgentState | null;
+  readonly tickStallEndedAt: number | null;
 }
 
 interface OrchestratorSetup {
@@ -107,6 +112,10 @@ interface Wait912World {
   lastCandidateDecision: CandidateDecision | null;
   usedAdwIds: Set<string>;
   usedIssues: Set<number>;
+  /** Seams for per-issue scenarios: each is off until a Given sets it, and `resetWorld()` turns it off again. */
+  stallFromLastTickMs: number;
+  stallBeforeProbeMs: number;
+  stopHeartbeatAtFirstWait: boolean;
 }
 
 const world: Wait912World = {
@@ -128,6 +137,9 @@ const world: Wait912World = {
   lastCandidateDecision: null,
   usedAdwIds: new Set(),
   usedIssues: new Set(),
+  stallFromLastTickMs: 0,
+  stallBeforeProbeMs: 0,
+  stopHeartbeatAtFirstWait: false,
 };
 
 const policyWorld: { facts: RateLimitFacts; decision: RateLimitWaitDecision | null } = { facts: {}, decision: null };
@@ -152,8 +164,27 @@ function resetWorld(): void {
   world.lastCandidateDecision = null;
   world.usedAdwIds = new Set();
   world.usedIssues = new Set();
+  world.stallFromLastTickMs = 0;
+  world.stallBeforeProbeMs = 0;
+  world.stopHeartbeatAtFirstWait = false;
   policyWorld.facts = {};
   policyWorld.decision = null;
+}
+
+export function stallFromLastHeartbeatTick(ms: number): void {
+  world.stallFromLastTickMs = ms;
+}
+
+export function stallBeforeEachProbe(ms: number): void {
+  world.stallBeforeProbeMs = ms;
+}
+
+export function stopHeartbeatAsFirstWaitBegins(): void {
+  world.stopHeartbeatAtFirstWait = true;
+}
+
+export function recordedWaits(): readonly WaitEvent[] {
+  return world.waitEvents;
 }
 
 Before({ tags: '@rate-limit-in-process-wait' }, async function (this: RegressionWorld) {
@@ -382,12 +413,49 @@ function buildCandidateTakeoverDeps(o: OrchestratorSetup): TakeoverDeps {
   };
 }
 
+function blockEventLoop(ms: number): number {
+  const releaseAt = Date.now() + ms;
+  while (Date.now() < releaseAt) { /* a stall is synchronous work: no timer runs meanwhile */ }
+  return Date.now();
+}
+
+function nextHeartbeatTick(adwId: string): Promise<void> {
+  const lastSeenBefore = AgentStateManager.readTopLevelState(adwId)?.lastSeenAt;
+  return new Promise<void>((resolve) => {
+    const poll = (): void => {
+      if (AgentStateManager.readTopLevelState(adwId)?.lastSeenAt === lastSeenBefore) {
+        setImmediate(poll);
+        return;
+      }
+      resolve();
+    };
+    setImmediate(poll);
+  });
+}
+
+/**
+ * Stalls from the check phase, right after a heartbeat tick, and never from a timer callback: a stall inside the
+ * timers phase that fires the wait's own timer leaves the overdue tick to the next loop iteration, which no yield
+ * can reorder. The final timer is armed before the stall so that it falls due ahead of the heartbeat's next tick.
+ */
+async function stallAfterNextHeartbeatTick(adwId: string, stallMs: number): Promise<number> {
+  await nextHeartbeatTick(adwId);
+  const finalTimerFired = new Promise<void>((resolve) => setTimeout(resolve, 1));
+  const stallEndedAt = blockEventLoop(stallMs);
+  await finalTimerFired;
+  return stallEndedAt;
+}
+
 function makeOrchestratorClock(o: OrchestratorSetup): WaitClock {
   return {
     now: () => requireClock(),
     sleep: async (ms: number): Promise<void> => {
       const until = new Date(requireClock().getTime() + ms);
       const beginState = AgentStateManager.readTopLevelState(o.adwId);
+      if (world.stopHeartbeatAtFirstWait && world.waitEvents.length === 0 && o.heartbeat) {
+        stopHeartbeat(o.heartbeat);
+        o.heartbeat = null;
+      }
       world.firstWaitBegunResolve?.();
 
       if (world.diedDuringFirstWait && world.waitEvents.length === 0) {
@@ -395,6 +463,14 @@ function makeOrchestratorClock(o: OrchestratorSetup): WaitClock {
       }
 
       await new Promise<void>((resolve) => setTimeout(resolve, WAIT_SUSPEND_REAL_MS));
+
+      const tickStallEndedAt = world.stallFromLastTickMs > 0
+        ? await stallAfterNextHeartbeatTick(o.adwId, world.stallFromLastTickMs)
+        : null;
+
+      // After a stalled loop this timer can fire ahead of an overdue heartbeat tick, and its continuation runs before
+      // later timers do: yield past the timers phase so a tick that fell due alongside it writes lastSeenAt before the probe reads it.
+      await new Promise<void>((resolve) => setImmediate(resolve));
 
       if (world.candidateArrivalIssue === o.issueNumber) {
         const decision = evaluateCandidate(
@@ -404,14 +480,31 @@ function makeOrchestratorClock(o: OrchestratorSetup): WaitClock {
         world.candidateDecisionsDuringWaits.push(decision);
       }
 
-      const hungAtEnd = findHungOrchestrators(Date.now(), TEST_HUNG_THRESHOLD_MS, {
+      // Nothing between the stall and the probe may yield, or a heartbeat tick could land in between.
+      if (world.stallBeforeProbeMs > 0) blockEventLoop(world.stallBeforeProbeMs);
+      const probeNow = Date.now();
+      let probeState: AgentState | null = null;
+      const hungAtEnd = findHungOrchestrators(probeNow, TEST_HUNG_THRESHOLD_MS, {
         listAdwIds: () => [o.adwId],
-        readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
+        readTopLevelState: (adwId) => {
+          probeState = AgentStateManager.readTopLevelState(adwId);
+          return probeState;
+        },
         isProcessLive: (pid, pidStartedAt) => isProcessLive(pid, pidStartedAt),
       });
       const endState = AgentStateManager.readTopLevelState(o.adwId);
 
-      world.waitEvents.push({ attempt: world.waitEvents.length + 1, until, beginState, endState, hungAtEnd, seq: world.seq++ });
+      world.waitEvents.push({
+        attempt: world.waitEvents.length + 1,
+        until,
+        beginState,
+        endState,
+        hungAtEnd,
+        seq: world.seq++,
+        probeNow,
+        probeState,
+        tickStallEndedAt,
+      });
       world.clockNow = until;
     },
   };
