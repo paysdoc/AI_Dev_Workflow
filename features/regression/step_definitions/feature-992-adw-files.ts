@@ -117,7 +117,7 @@ function render(title: string, sections: ReadonlyMap<string, string>): string {
 }
 
 /** The description with the application type, followed by the sections `project` holds: none for a `cli` or `web` repository until a step names some. */
-export function renderProjectMd(files: AdwFiles): string {
+export function renderProjectMd(files: Pick<AdwFiles, 'applicationType' | 'project'>): string {
   const sections = [...files.project].map(([heading, body]) => `## ${heading}\n${body}\n`);
   return [projectMd(files.applicationType), ...sections].join('\n');
 }

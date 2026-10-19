@@ -255,11 +255,11 @@ function generatorRuns(): RunRecord[] {
 }
 
 /** The agent's prompt is its slash command and its arguments, each in single quotes. */
-function startedWith(run: RunRecord): string[] {
+export function startedWith(run: RunRecord): string[] {
   return [...run.prompt.matchAll(/'((?:[^']|'\\'')*)'/g)].map(match => match[1].replace(/'\\''/g, "'"));
 }
 
-function onlyGeneratorRun(): RunRecord {
+export function onlyGeneratorRun(): RunRecord {
   const runs = generatorRuns();
   assert.strictEqual(runs.length, 1, `Expected the step-definition generator to have been started once, but it was started ${runs.length} times`);
   return runs[0];

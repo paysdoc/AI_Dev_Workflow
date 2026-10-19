@@ -555,10 +555,15 @@
     - .claude/skills/**
     - .claude/hooks/**
     - adws/__tests__/adwInitPrompt.test.ts
+    - adws/__tests__/adwInitPrompt.mobile.test.ts
+    - adws/__tests__/adwInitPrompt.helpers.ts
+    - adws/__tests__/generateStepDefinitionsPrompt.test.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
     - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
     - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
+    - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the descriptor-mode device note in `generate_step_definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
+    - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
   - Decisions:
     - 0005
     - 0014
@@ -573,6 +578,7 @@
     - 0043
     - 0050
     - 0054
+    - 0064
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
   - Owns:
