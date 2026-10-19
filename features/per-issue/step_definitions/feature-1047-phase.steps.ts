@@ -141,27 +141,30 @@ Then(
     assert.ok(runTimes.length > 0 && runTimes.every(at => at !== undefined), `Expected the scenario command to have run, and to have said when: ${describeCalls()}`);
     const firstRun = Math.min(...runTimes.map(Number));
     const lastRun = Math.max(...runTimes.map(Number));
-    commands.forEach(command => {
-      const { step } = classify(command);
-      if (BEFORE_THE_RUNS.includes(step)) assert.ok(command.at <= firstRun, `Expected "${lineOf(command)}" to come before the first run of the scenario command`);
-      if (AFTER_THE_RUNS.includes(step)) assert.ok(command.at >= lastRun, `Expected "${lineOf(command)}" to come after the last run of the scenario command`);
-    });
+    commands.forEach(command => assertAroundTheRuns(command, firstRun, lastRun));
   },
 );
+
+function assertAroundTheRuns(command: StandInDeviceCommand, firstRun: number, lastRun: number): void {
+  const { step } = classify(command);
+  if (BEFORE_THE_RUNS.includes(step)) assert.ok(command.at <= firstRun, `Expected "${lineOf(command)}" to come before the first run of the scenario command`);
+  if (AFTER_THE_RUNS.includes(step)) assert.ok(command.at >= lastRun, `Expected "${lineOf(command)}" to come after the last run of the scenario command`);
+}
 
 function executionLog(): string[] {
   const logFile = path.join(requireWorkflow().config.orchestratorStatePath, 'execution.log');
   return fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf-8').split('\n').filter(Boolean) : [];
 }
 
-function lineIndex(pattern: RegExp, description: string): number {
+function lineIndex(matches: (line: string, index: number) => boolean, description: string): number {
   const log = executionLog();
-  const at = log.findIndex(line => pattern.test(line));
+  const at = log.findIndex(matches);
   assert.ok(at !== -1, `Expected the execution log to have ${description}, but it holds:\n${log.join('\n')}`);
   return at;
 }
 
 const BOOTED_IN = /booted in \d+(\.\d+)?s/;
+const REMOVED = /\bRemoved\b/;
 
 function avdName(): string {
   return valueAfter(onlyCommandOf(deviceCommands(), 'avdmanager create avd'), '--name');
@@ -173,20 +176,47 @@ function simulatorName(): string {
 
 const quoted = (name: string): string => `"${name}"`;
 
+/** Both devices are named after the ADW ID, so a line is the emulator's when it gives its serial, and the simulator's when it gives its UDID. */
+interface LoggedDevice {
+  readonly kind: 'AVD' | 'simulator';
+  readonly name: string;
+  readonly identity: string;
+}
+
+function loggedDevices(): { readonly emulator: LoggedDevice; readonly simulator: LoggedDevice } {
+  const { serial, udid } = bootedDevices();
+  return {
+    emulator: { kind: 'AVD', name: avdName(), identity: serial },
+    simulator: { kind: 'simulator', name: simulatorName(), identity: udid },
+  };
+}
+
+const described = ({ kind, name, identity }: LoggedDevice): string => `the ${kind} "${name}" (${identity})`;
+
+const names = (line: string, { name, identity }: LoggedDevice): boolean => line.includes(quoted(name)) && line.includes(identity);
+
+function bootLineOf(device: LoggedDevice): number {
+  return lineIndex(line => names(line, device) && BOOTED_IN.test(line), `a line that gives the name of ${described(device)} and the time it took to boot`);
+}
+
+function removalLineOf(device: LoggedDevice, bootedAt: number): number {
+  return lineIndex((line, index) => index > bootedAt && names(line, device) && REMOVED.test(line), `a line, after the boot lines, that says ${described(device)} was removed`);
+}
+
 Then("the workflow's execution log has a line that gives the name of the AVD the scenario test phase created and the time the emulator took to boot", function () {
-  lineIndex(new RegExp(`${quoted(avdName())}.*${BOOTED_IN.source}`), `a line that gives the name of the AVD "${avdName()}" and the time the emulator took to boot`);
+  bootLineOf(loggedDevices().emulator);
 });
 
 Then("the workflow's execution log has a line that gives the name of the simulator the scenario test phase created and the time it took to boot", function () {
-  lineIndex(new RegExp(`${quoted(simulatorName())}.*${BOOTED_IN.source}`), `a line that gives the name of the simulator "${simulatorName()}" and the time it took to boot`);
+  bootLineOf(loggedDevices().simulator);
 });
 
 Then("the workflow's execution log says, after those lines, that the AVD and the simulator were removed, giving the name of each", function () {
-  const bootedAt = Math.max(lineIndex(new RegExp(`${quoted(avdName())}.*${BOOTED_IN.source}`), 'the AVD boot line'), lineIndex(new RegExp(`${quoted(simulatorName())}.*${BOOTED_IN.source}`), 'the simulator boot line'));
-  const log = executionLog();
-  const removed = (pattern: RegExp): number => log.findIndex((line, index) => index > bootedAt && pattern.test(line));
-  assert.ok(removed(new RegExp(`Removed .*${quoted(avdName())}`)) !== -1, `Expected the execution log to say, after the boot lines, that the AVD ${avdName()} was removed, but it holds:\n${log.join('\n')}`);
-  assert.ok(removed(new RegExp(`Removed .*${quoted(simulatorName())}`)) !== -1, `Expected the execution log to say, after the boot lines, that the simulator ${simulatorName()} was removed, but it holds:\n${log.join('\n')}`);
+  const { emulator, simulator } = loggedDevices();
+  const [emulatorBooted, simulatorBooted] = [bootLineOf(emulator), bootLineOf(simulator)];
+  assert.notStrictEqual(emulatorBooted, simulatorBooted, 'Expected the emulator and the simulator to each have a boot line of their own, but one line gives both');
+  const bootedAt = Math.max(emulatorBooted, simulatorBooted);
+  assert.notStrictEqual(removalLineOf(emulator, bootedAt), removalLineOf(simulator, bootedAt), 'Expected the AVD and the simulator to each have a removal line of their own, but one line gives both');
 });
 
 /** A path that a line names says where the checkout is, not what the workflow did: the directory of this very branch is named for its devices. */

@@ -161,8 +161,12 @@ Then(
     const serial = `${EMULATOR_SERIAL_PREFIX}${emulatorStartedFor(recordedCommands(), requireRun().adwId).port}`;
     const commands = recordedCommands().map(lineOf);
     const callbackAt = commands.indexOf(CALLBACK);
-    assert.ok(commands.indexOf(`adb -s ${serial} get-state`) !== -1, `Expected adb to have been asked for the device state of "${serial}"`);
-    assert.ok(commands.lastIndexOf(`adb -s ${serial} shell getprop ${property}`) < callbackAt, `Expected adb to have been asked for "${property}" of "${serial}" before the callback ran`);
+    const stateAt = commands.lastIndexOf(`adb -s ${serial} get-state`);
+    const propertyAt = commands.lastIndexOf(`adb -s ${serial} shell getprop ${property}`);
+    assert.notStrictEqual(stateAt, -1, `Expected adb to have been asked for the device state of "${serial}"`);
+    assert.notStrictEqual(propertyAt, -1, `Expected adb to have been asked for "${property}" of "${serial}"`);
+    assert.ok(stateAt < callbackAt, `Expected adb to have been asked for the device state of "${serial}" only before the callback ran, but the commands were:\n${commands.join('\n')}`);
+    assert.ok(propertyAt < callbackAt, `Expected adb to have been asked for "${property}" of "${serial}" only before the callback ran, but the commands were:\n${commands.join('\n')}`);
   },
 );
 
