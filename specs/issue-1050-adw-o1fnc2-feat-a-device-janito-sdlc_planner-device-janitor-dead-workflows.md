@@ -156,7 +156,18 @@ Use these files to implement the feature:
 - `adws/core/__tests__/fixtures/recordingDeviceHost.ts` — the style of a device-host fixture: no vitest import, records `argv.join(' ')`, scripted failures and missing tools. It is 277 lines, so it is not extended; the janitor gets its own fixture.
 - `adws/core/__tests__/deviceCommands.test.ts` and `adws/core/__tests__/deviceLifecycle.test.ts` — the test style for pure commands and for command sequences (`firstOutOfOrder`).
 - `features/regression/support/subprocessDrivers.ts` — `CADENCE_PINS` pins `JANITOR_INTERVAL_CYCLES` for real cron children, so no change is needed.
-- `features/regression/support/standInDevices.ts` — the BDD stand-in device host. It does not answer the listing commands today; see Notes.
+- `features/regression/support/standInDevices.ts` — the BDD stand-in device host. It backs two scenario phrases:
+  - "a recording executor that answers …", through `standInDeviceExecutor` and `feature-1047-world.ts`'s `requireExecutor`;
+  - "the host's device tools are stand-ins …", through `standInDeviceHost`.
+
+  It answers only the lifecycle's commands today. Step 13 extends it for the `@adw-1050` scenarios.
+- `features/per-issue/feature-1050.feature` — this issue's thirteen scenarios:
+  - ten run the device janitor over "a recording executor that answers as a host with these devices";
+  - two run one cron poll over "the host's device tools are stand-ins that record each run and answer as a host with these devices", one poll on a janitor cycle and one off it;
+  - one is the type check.
+- `features/per-issue/feature-1047.feature` — four of its device lifecycle scenarios also carry `@adw-1050`. They guard that `withDevices`, the `adw-<adwId>` names and the stand-in's answers to the lifecycle's commands do not change.
+- `features/per-issue/step_definitions/feature-1047-commands.ts` — reads recorded device commands as lifecycle steps (`stepsTaken`, `classify`). `classify` asserts that every command is one of the lifecycle's, and it reads any `avdmanager` command other than `create` as `delete`. A janitor's listing commands must therefore be set aside before it reads them.
+- `features/regression/step_definitions/feature-959-cron.steps.ts` — prior art for importing `trigger_cron.ts` in-process (`await import(…)`) and calling an exported tick function.
 
 ### New Files
 - `adws/core/deviceInventory.ts` — lists the devices on the host that are named for an ADW ID, and removes one, over an injected executor and clock. Pure decisions stay in `deviceCommands.ts`; no defaults (the lifecycle binds them).
@@ -194,7 +205,7 @@ Build the `leftoverDevicesHost` fixture that answers those commands like a real 
 4. Test all of it through the public interfaces, asserting what an operator can observe: the commands the host received, in order, what the host still holds afterwards, and the log lines.
 
 ### Phase 3: Integration
-Add `runJanitorTick` to `trigger_cron.ts` so that the device janitor runs in the dev-server janitor's cadence block, right after it. Mock `../deviceJanitor` in `trigger_cron.test.ts` and test the gate. Then run the full validation:
+Add `runJanitorTick` to `trigger_cron.ts` so that the device janitor runs in the dev-server janitor's cadence block, right after it. Mock `../deviceJanitor` in `trigger_cron.test.ts` and test the gate. Extend the BDD stand-in device host so that it holds leftover devices, and write the step definitions of the `@adw-1050` scenarios. Then run the full validation:
 - lint;
 - both type checks;
 - the build;
@@ -500,7 +511,36 @@ All calls go through `deviceLifecycle.ts`'s `listAdwDevices(host.deps)` and `rem
   - on cycle `JANITOR_INTERVAL_CYCLES * 2`, both run again;
   - with no passes injected on a janitor cycle, the mocked `runJanitorPass` and `runDeviceJanitorPass` are each called once.
 
-### 13. Validate
+### 13. Support the `@adw-1050` scenarios in BDD
+The scenarios in `features/per-issue/feature-1050.feature` reuse the device steps' stand-ins. They need the stand-in to hold leftover devices, and steps that run the janitor, and the cron's janitor tick, over it.
+- **Extend `features/regression/support/standInDevices.ts`** with a `devices` option on `StandInDeviceOptions`. It holds the scenario table's rows: an AVD or a simulator, its name, and whether it is booted. The executor then:
+  - answers `avdmanager list avd -c`, `adb devices`, `adb -s <serial> emu avd name` and `xcrun simctl list --json devices` from that holding. Each booted AVD gets a running `emulator-<port>` serial and each simulator gets a UDID;
+  - applies `adb -s <serial> emu kill`, `avdmanager delete avd --name <name>`, `xcrun simctl shutdown <udid>` and `xcrun simctl delete <udid>` to the holding, and exposes what the host still holds;
+  - can fail one named command with what it prints, for "the recording executor fails the deletion of the AVD …, printing …";
+  - keeps `missingPrograms`, for "… are not installed" and "no device tool is installed".
+
+  More rules for the stand-in:
+  - Its answers to the lifecycle's own commands stay as they are. The four `feature-1047.feature` scenarios that carry `@adw-1050` guard this.
+  - `StandInDeviceHost` also exposes the executor and the stepping clock, so that the janitor can run over it.
+  - Keep the file under 300 lines. If needed, move the holding into a support module of its own.
+  - Keep the BDD host separate from `adws/core/__tests__/fixtures/leftoverDevicesHost.ts`, as `standInDevices.ts` is kept separate from `recordingDeviceHost.ts`.
+- **Write the step definitions** in `features/per-issue/step_definitions/feature-1050-*.steps.ts`.
+  - **"When the device janitor sweeps the host"** awaits `runDeviceJanitorPass` with these deps:
+    - `devices`: the recording executor and a stepping clock;
+    - `readTopLevelState`, `isAgentProcessRunning` and `getWorktreeAgeMs`: answers from the workflows the scenario described. A workflow is alive or dead, and its worktree is older than `JANITOR_GRACE_PERIOD_MS` or inside it, or it has no state and no worktree;
+    - `log`: records each line with its level.
+
+    The step also records whether the pass rejected, for "the device janitor's sweep completed without an error".
+  - **"When the cron polls once, on a poll that runs its dev-server janitor"** and **"… on a poll that does not run its dev-server janitor"** import `trigger_cron.ts` in-process, as `feature-959-cron.steps.ts` does. They call `runJanitorTick` at cycle `JANITOR_INTERVAL_CYCLES` and at `JANITOR_INTERVAL_CYCLES + 1` respectively, with these passes:
+    - the device pass is `runDeviceJanitorPass({ ...DEFAULT_DEPS, devices: <the stand-in's executor and clock> })`. No state exists for the scenario's ADW ID, so the janitor's own liveness and state checks find it dead;
+    - the dev-server pass touches no real worktree or process, for example `runJanitorPass` over an empty temporary target-repos directory.
+
+    Never use a real cron child for these scenarios. `CADENCE_PINS` keeps a real cron child from both janitors, and an unpinned one would run the host's real device tools.
+  - **"the cron ran no device tool on that poll"** asserts that the stand-in recorded no command.
+  - **"took these steps … in this order"** keeps only the kill, shutdown and delete commands of that ADW ID's devices, and then maps them to `shut down` and `delete`. It cannot reuse `classify` on the raw commands, because `classify` rejects the listing commands (see Relevant Files).
+  - Any `@adw-1050` hook also runs for the four `feature-1047.feature` scenarios that carry the tag. So, like the existing device resets, each hook must be safe to run beside feature-1047's own.
+
+### 14. Validate
 - Run every command in `Validation Commands`, fix any failure, and re-run until all pass with zero regressions.
 
 ## Testing Strategy
@@ -531,6 +571,19 @@ All calls go through `deviceLifecycle.ts`'s `listAdwDevices(host.deps)` and `rem
   - errors are contained per ADW ID and per pass, and the pass never rejects.
 - **`adws/triggers/__tests__/trigger_cron.test.ts`** (extended): `runJanitorTick` runs both passes, dev-server first, on janitor cycles only. The device janitor is mocked, so no cron test touches real devices.
 - **Existing suites that must stay green:** the dev-server janitor tests and the device lifecycle tests (`deviceLifecycle.test.ts`, `.retries`, `.failures`, `deviceExecutor.test.ts`). `withDevices` is unchanged.
+
+### BDD Scenarios
+`features/per-issue/feature-1050.feature` (`@adw-1050`) runs over the stand-in device host of step 13:
+- **Acceptance criterion 1:**
+  - shut down, then delete;
+  - the exact `adb`, `avdmanager` and `xcrun simctl` commands, by serial, name and UDID;
+  - an ADW ID with no state and no worktree.
+- **Acceptance criterion 2:** a live ADW ID with an old worktree, and a dead ADW ID with a young worktree, each beside a dead, old one that is removed.
+- **Acceptance criterion 3:** booted and shut-down devices not named for an ADW ID, beside a dead, old one that is removed.
+- **Logging:** one removal line per device, naming the device and the ADW ID.
+- **Failures:** a failed AVD deletion is a warning holding what `avdmanager` printed, and the other ADW ID is still swept. A host without the Android tools, or without any device tool, completes its sweep.
+- **Acceptance criterion 4:** one cron poll through `runJanitorTick`. A janitor cycle removes a state-less ADW ID's devices; any other cycle runs no device tool.
+- **Lifecycle guard:** four device lifecycle scenarios of `feature-1047.feature` carry `@adw-1050`.
 
 ### Edge Cases
 - **Hosts and tools:**
@@ -573,7 +626,7 @@ All calls go through `deviceLifecycle.ts`'s `listAdwDevices(host.deps)` and `rem
 - A device whose name is not `adw-` followed by an ADW-ID-shaped token is never shut down, killed or deleted, and its liveness is never asked.
 - Each removal is logged at `info`, naming the ADW ID, every device name (with serial or UDID) and the reason, followed by one `removed …` line per device. A failed removal is logged at `warn` with the ADW ID, the device and the failing command.
 - Listing and deletion go through the lifecycle's executor: `deviceLifecycle.ts`'s `listAdwDevices` and `removeAdwDevice`, defaulting to `systemDeviceExecutor` and the timer clock.
-- `checkAndTrigger` runs `runDeviceJanitorPass` right after `runJanitorPass`, in the same `JANITOR_INTERVAL_CYCLES` gate (through `runJanitorTick`). `trigger_cron.test.ts` proves the gate and the order.
+- `checkAndTrigger` runs `runDeviceJanitorPass` right after `runJanitorPass`, in the same `JANITOR_INTERVAL_CYCLES` gate (through `runJanitorTick`). `trigger_cron.test.ts` proves the gate and the order. The two cron-poll scenarios of `feature-1050.feature` prove it over the stand-in host: a janitor poll removes a dead ADW ID's devices, and any other poll runs no device tool.
 - `runDeviceJanitorPass` never rejects:
   - hosts without the device tools produce no warnings;
   - a failed listing or removal is a warning, and the sweep continues.
@@ -592,8 +645,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx tsc --noEmit -p adws/tsconfig.json` — the additional type check.
 - `bun run build` — the build.
 - `bun run test:unit` — the full unit suite, with zero regressions.
-- `wc -l adws/core/deviceCommands.ts adws/core/deviceInventory.ts adws/core/deviceLifecycle.ts adws/triggers/deviceJanitor.ts adws/core/__tests__/fixtures/leftoverDevicesHost.ts adws/core/__tests__/deviceCommands.test.ts adws/core/__tests__/deviceInventory.test.ts adws/triggers/__tests__/fixtures/deviceJanitorDeps.ts adws/triggers/__tests__/deviceJanitor.test.ts adws/triggers/__tests__/deviceJanitor.failures.test.ts` — each under 300 lines.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1050"` — this issue's scenarios, none of them undefined.
+- `wc -l adws/core/deviceCommands.ts adws/core/deviceInventory.ts adws/core/deviceLifecycle.ts adws/triggers/deviceJanitor.ts adws/core/__tests__/fixtures/leftoverDevicesHost.ts adws/core/__tests__/deviceCommands.test.ts adws/core/__tests__/deviceInventory.test.ts adws/triggers/__tests__/fixtures/deviceJanitorDeps.ts adws/triggers/__tests__/deviceJanitor.test.ts adws/triggers/__tests__/deviceJanitor.failures.test.ts features/regression/support/standInDevices.ts` — each under 300 lines. This includes any support module split out of `standInDevices.ts` and the `feature-1050-*` step files.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1050"` — this issue's scenarios in `feature-1050.feature`, plus the four device lifecycle scenarios of `feature-1047.feature` that also carry `@adw-1050`. None of them may be undefined.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1047 or @adw-1048"` — the device lifecycle scenarios, unaffected.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite, with zero regressions.
 
@@ -615,7 +668,11 @@ Execute every command to validate the feature works correctly with zero regressi
 
   ADW's branch names are slugs, so devplatform's `sanitizeBranchName` leaves them unchanged. A mismatch would only read as "no worktree", and the liveness check still protects a live workflow.
 - **Several crons per host.** Each target repo's cron runs the janitor on its own cadence, so two passes may reap the same orphan at about the same time. The losing pass's commands fail and are logged as warnings; nothing is harmed. Scoping each cron to its own repository's ADW IDs would leave state-less ADW IDs unowned, so it is not done.
-- **BDD scenarios.** The step-definition agent may drive `runDeviceJanitorPass` with injected deps over a leftover host. If a scenario uses `features/regression/support/standInDevices.ts` instead, that stand-in must also answer `avdmanager list avd -c`, `adb devices`, `adb -s <serial> emu avd name` and `xcrun simctl list --json devices`. Today it answers only the lifecycle's commands. Real cron children in the subprocess harness never reach either janitor, because `CADENCE_PINS` pins `JANITOR_INTERVAL_CYCLES`.
+- **BDD scenarios.** The scenarios use the device steps' stand-ins (step 13):
+  - ten run `runDeviceJanitorPass` with injected deps over "a recording executor that answers as a host with these devices";
+  - two run one cron poll through `runJanitorTick`, in-process, over "the host's device tools are stand-ins … with these devices".
+
+  Both need `features/regression/support/standInDevices.ts` to also answer `avdmanager list avd -c`, `adb devices`, `adb -s <serial> emu avd name` and `xcrun simctl list --json devices`. Today it answers only the lifecycle's commands. Real cron children in the subprocess harness never reach either janitor, because `CADENCE_PINS` pins `JANITOR_INTERVAL_CYCLES`. That is why the cron's janitor tick is proven in-process.
 - **Documentation.** Leave these to `/document`:
   - `README.md` (the device paragraph, the resilience primitives line about the dev-server janitor, and the project tree);
   - `.adw/conditional_docs.md` (ownership of `deviceInventory.ts` and `deviceJanitor.ts`);
