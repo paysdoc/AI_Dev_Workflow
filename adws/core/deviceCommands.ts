@@ -83,6 +83,15 @@ export const shutDownSimulator = (udid: string): DeviceCommand => standard('xcru
 
 export const deleteSimulator = (udid: string): DeviceCommand => standard('xcrun', 'simctl', 'delete', udid);
 
+export const listAvds: DeviceCommand = standard('avdmanager', 'list', 'avd', '-c');
+
+// The wait for an emulator to leave polls it, so it is given a poll's time, not a command's.
+export const listAttachedDevices: DeviceCommand = within(POLL_COMMAND_TIMEOUT_MS, ['adb', 'devices']);
+
+export const queryEmulatorAvdName = (serial: string): DeviceCommand => pollEmulator(serial, 'emu', 'avd', 'name');
+
+export const listSimulators: DeviceCommand = standard('xcrun', 'simctl', 'list', '--json', 'devices');
+
 /** A tool prints its answer last: a daemon starting up, or a warning, comes before it. */
 export const lastLine = (output: string): string => output.trim().split('\n').pop()?.trim() ?? '';
 
@@ -100,3 +109,65 @@ export function missingToolOf(command: DeviceCommand, result: DeviceCommandResul
 }
 
 export const lastUdid = (output: string): string | undefined => output.match(UDID_PATTERN)?.pop();
+
+// The shape `generateAdwId` makes: lowercase letters and digits in at least two hyphen-joined groups. A device whose name
+// is the prefix and anything else is the operator's, not ADW's.
+const ADW_ID_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
+
+/** The inverse of `deviceNameFor`: the ADW ID a device is named for, or `null` for a name ADW does not give a device. */
+export function adwIdOfDeviceName(name: string): string | null {
+  if (!name.startsWith(DEVICE_NAME_PREFIX)) return null;
+  const adwId = name.slice(DEVICE_NAME_PREFIX.length);
+  return ADW_ID_SHAPE.test(adwId) ? adwId : null;
+}
+
+const EMULATOR_SERIAL_LINE = /^(emulator-\d+)\s/;
+
+const lines = (output: string): readonly string[] => output.split('\n').map(line => line.trim()).filter(line => line !== '');
+
+/** Every line: a warning avdmanager printed among the names is not one an ADW ID can be read from, so the caller drops it. */
+export const avdNamesIn = (output: string): readonly string[] => lines(output);
+
+/** The serial of each emulator `adb devices` lists; its header, its daemon start-up lines and the serials of USB devices are not. */
+export const emulatorSerialsIn = (output: string): readonly string[] => lines(output).flatMap(line => line.match(EMULATOR_SERIAL_LINE)?.slice(1) ?? []);
+
+/** The console answers `avd name` with the name, then `OK`. */
+export const avdNameIn = (output: string): string | null => lines(output).find(line => line !== 'OK') ?? null;
+
+export interface ListedSimulator {
+  readonly name: string;
+  readonly udid: string;
+  readonly state: string;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isList = (value: unknown): value is readonly unknown[] => Array.isArray(value);
+
+const isListedSimulator = (entry: unknown): entry is ListedSimulator =>
+  isRecord(entry) && typeof entry.name === 'string' && typeof entry.udid === 'string' && typeof entry.state === 'string';
+
+// simctl lists more of a simulator than ADW reads.
+const listedSimulator = ({ name, udid, state }: ListedSimulator): ListedSimulator => ({ name, udid, state });
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** Every simulator of every runtime, or `null` when the output holds no device list that can be read. */
+export function simulatorsIn(output: string): readonly ListedSimulator[] | null {
+  // xcrun may print a warning before or after the JSON, so only the outermost object is parsed.
+  const parsed = parseJson(output.slice(output.indexOf('{'), output.lastIndexOf('}') + 1));
+  const byRuntime = isRecord(parsed) ? parsed.devices : undefined;
+  if (!isRecord(byRuntime)) return null;
+
+  const runtimes = Object.values(byRuntime);
+  if (!runtimes.every(isList)) return null;
+  return runtimes.flat().filter(isListedSimulator).map(listedSimulator);
+}
+
+export const isShutDown = ({ state }: ListedSimulator): boolean => state === 'Shutdown';

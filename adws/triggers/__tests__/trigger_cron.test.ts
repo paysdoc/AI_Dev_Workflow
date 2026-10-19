@@ -55,6 +55,10 @@ vi.mock('../devServerJanitor', () => ({
   runJanitorPass: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock('../deviceJanitor', () => ({
+  runDeviceJanitorPass: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock('../cronIssueFilter', () => ({
   filterEligibleIssues: vi.fn(() => ({ eligible: [], filteredAnnotations: [] })),
   resolveTouchedFilesFromBody: vi.fn(() => []),
@@ -120,7 +124,9 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, runJanitorTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
+import { runJanitorPass } from '../devServerJanitor';
+import { runDeviceJanitorPass } from '../deviceJanitor';
 import { evaluateCandidate, type CandidateDecision } from '../takeoverHandler';
 import { buildContinueHandlerDeps, handleContinueDirective } from '../continueHandler';
 import { releaseIssueSpawnLock } from '../spawnGate';
@@ -134,7 +140,7 @@ import { clearClaudeCodePathCache } from '../../core/environment';
 import { createRecordingClaudeCli, overrideEnv, type RecordingClaudeCli } from '../../core/__tests__/fixtures/recordingClaudeCli';
 import type { LaunchBoundary } from '../../core';
 import { AgentStateManager } from '../../core/agentState';
-import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
+import { log, JANITOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
 import { probeRateLimit } from '../rateLimitProbe';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
 
@@ -345,6 +351,65 @@ describe('runPauseQueueScanTick', () => {
     await runPauseQueueScanTick(1, scan);
     const [, probeArg] = scan.mock.calls[0];
     expect(probeArg).toBe(probeRateLimit);
+  });
+});
+
+describe('runJanitorTick', () => {
+  function recordingPasses() {
+    const ran: string[] = [];
+    const passes = {
+      devServers: async () => { ran.push('devServers'); },
+      devices: async () => { ran.push('devices'); },
+    };
+    return { ran, passes };
+  }
+
+  beforeEach(() => {
+    vi.mocked(runJanitorPass).mockClear();
+    vi.mocked(runDeviceJanitorPass).mockClear();
+  });
+
+  it('runs the device janitor right after the dev-server janitor on a janitor cycle', async () => {
+    const { ran, passes } = recordingPasses();
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES, passes);
+    expect(ran).toEqual(['devServers', 'devices']);
+  });
+
+  it('runs neither janitor on any other cycle', async () => {
+    const { ran, passes } = recordingPasses();
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES + 1, passes);
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES - 1, passes);
+    expect(ran).toEqual([]);
+  });
+
+  it('runs both again on the next janitor cycle', async () => {
+    const { ran, passes } = recordingPasses();
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES, passes);
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES * 2, passes);
+    expect(ran).toEqual(['devServers', 'devices', 'devServers', 'devices']);
+  });
+
+  it('waits for the dev-server janitor to finish before it starts the device janitor', async () => {
+    const ran: string[] = [];
+    const slowDevServers = async () => {
+      ran.push('devServers started');
+      await new Promise(resolve => setTimeout(resolve, 5));
+      ran.push('devServers finished');
+    };
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES, { devServers: slowDevServers, devices: async () => { ran.push('devices'); } });
+    expect(ran).toEqual(['devServers started', 'devServers finished', 'devices']);
+  });
+
+  it('runs the dev-server janitor and the device janitor themselves when no passes are given', async () => {
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES);
+    expect(runJanitorPass).toHaveBeenCalledTimes(1);
+    expect(runDeviceJanitorPass).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs neither janitor themselves on a cycle that is not a janitor cycle', async () => {
+    await runJanitorTick(JANITOR_INTERVAL_CYCLES + 1);
+    expect(runJanitorPass).not.toHaveBeenCalled();
+    expect(runDeviceJanitorPass).not.toHaveBeenCalled();
   });
 });
 

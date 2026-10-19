@@ -1,7 +1,8 @@
 /**
  * Gives a workflow its own Android emulator and iOS simulator for as long as a piece of work needs them, and removes
  * both again whatever happened. Each device is booted in attempts, and a device that does not come up is an outcome,
- * not an error. Every effect goes through the injected executor, so no SDK is needed to test it.
+ * not an error. Every effect goes through the injected executor, so no SDK is needed to test it. It also lists the
+ * devices on the host that are named for an ADW ID, and removes one, for the janitor, over the same executor.
  */
 
 import { Platform } from './applicationType';
@@ -19,6 +20,8 @@ import {
 } from './deviceBringUp';
 import * as tools from './deviceCommands';
 import { systemDeviceExecutor, type DeviceExecutor } from './deviceExecutor';
+import * as inventory from './deviceInventory';
+import type { AdwDevice, DeviceInventory, DeviceInventoryDeps, DeviceRemoval } from './deviceInventory';
 import type { DeviceSource } from './deviceSourceConfig';
 import type { LogLevel } from './logger';
 import { isPortAvailable } from './portAllocator';
@@ -52,6 +55,15 @@ export type DeviceFailure =
 export type DeviceOutcome<T> = { readonly kind: 'ready'; readonly result: T } | DeviceFailure;
 
 export { BOOT_POLL_INTERVAL_MS, EMULATOR_EXIT_TIMEOUT_MS } from './deviceBringUp';
+export type {
+  AdwAvd,
+  AdwDevice,
+  AdwSimulator,
+  DeviceInventory,
+  DeviceInventoryDeps,
+  DeviceListing,
+  DeviceRemoval,
+} from './deviceInventory';
 export {
   CONSOLE_PORT_COUNT,
   DEVICE_BOOT_TIMEOUT_MS,
@@ -61,6 +73,7 @@ export {
   HostTool,
   MAX_BOOT_ATTEMPTS,
   POLL_COMMAND_TIMEOUT_MS,
+  adwIdOfDeviceName,
   deviceNameFor,
   emulatorConsolePortCandidates,
 } from './deviceCommands';
@@ -71,6 +84,16 @@ const probeLoopback = (port: number): Promise<boolean> => isPortAvailable(port, 
 const timerClock: WaitClock = { now: () => new Date(), sleep: ms => new Promise(resolve => setTimeout(resolve, ms)) };
 
 const DEFAULT_DEPS: DeviceLifecycleDeps = { executor: systemDeviceExecutor, clock: timerClock, isPortAvailable: probeLoopback };
+
+// The janitor's way to the devices: the lifecycle's own executor and clock, unless told otherwise.
+export function listAdwDevices(deps: Partial<DeviceInventoryDeps> = {}): Promise<DeviceInventory> {
+  return inventory.listAdwDevices({ ...DEFAULT_DEPS, ...deps });
+}
+
+/** Never rejects: what could not be done is in the failures of the removal. */
+export function removeAdwDevice(device: AdwDevice, deps: Partial<DeviceInventoryDeps> = {}): Promise<DeviceRemoval> {
+  return inventory.removeAdwDevice(device, { ...DEFAULT_DEPS, ...deps });
+}
 
 type Settled<Device> = { readonly kind: 'ready'; readonly device: Device } | { readonly kind: 'failed'; readonly failure: DeviceFailure };
 
