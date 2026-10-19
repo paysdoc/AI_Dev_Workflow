@@ -10,7 +10,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **Static-check gates and a per-repo unit-test switch** — the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`: each check's exit code is its verdict, `N/A` is skipped, and a red check goes to a static-check fix loop with no cap (`adws/core/staticCheckFixLoop.ts`). Every round is judged by a pure fix-round guard (`adws/core/fixRoundGuard.ts`) that rejects and reverts suppression comments (a framework table by language, plus the repository's own `## Suppression Patterns` additions in `.adw/commands.md`) and edits to lint, compiler or build configuration, `.adw/commands.md` or `features/playwright.config.*`. The loop stops when a round makes no progress (identical check output, or a rejected round) and parks the workflow as `human_gated` with a park comment (`adws/forge/parkComment.ts`) that names the failing check and says what `## Retry` and `## Continue` do; `## Retry` continues the loop. Target repos can opt out of the test run by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. That skips only the test run: the static checks still run, and `/test` runs only the unit-test command. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
 - **Baseline gate on the base branch** — before any work, every orchestrator that runs gates (`executeBaselinePhase`, `adws/phases/baselinePhase.ts`) checks the base branch out in a separate worktree, installs its dependencies, runs the static checks there (`runBaselineChecks`, `adws/core/baselineGate.ts`) and starts the dev server its `.adw/commands.md` declares. A red base parks the workflow as `human_gated` with a park comment (`baseline_red`, or `base_server_down` when the server does not start); a green one is recorded in the top-level state. A `@regression` scenario that fails on the change is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`): one that fails there too parks the workflow (`pre_existing_regression`) instead of going to the fix agent, and one that passes there goes to the fix agent as before. No full regression run happens on the base branch. The base worktree is removed when the run ends.
-- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli`, `web` or `mobile:kotlincm`) has no default. `adw_init` detects `cli` and `web`; it preserves `mobile:kotlincm` but never detects it, because only the repository's owner sets it, by hand. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds, the device platforms (`android` and `ios` for `mobile:kotlincm`, none for `cli` and `web`) and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch. A `web` repository runs its Gherkin on ADW's own Playwright project: `features/` holds a self-contained Node project (`@playwright/test` and `playwright-bdd`) whose `playwright.config.ts` ADW owns and every upgrade overwrites from `templates/playwright/`; a `cli` repository keeps the runner `.adw/scenarios.md` names, and so does a `mobile:kotlincm` repository (cucumber-jvm with Kotlin step definitions).
+- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli`, `web` or `mobile:kotlincm`) has no default. `adw_init` detects `cli` and `web`; it preserves `mobile:kotlincm` but never detects it, because only the repository's owner sets it, by hand. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds, the device platforms (`android` and `ios` for `mobile:kotlincm`, none for `cli` and `web`) and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch. A profile with platforms also reads four device-source sections from `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type` and `## iOS Runtime`; `adws/core/deviceSourceConfig.ts`): the scenario phase fails, naming the first one that is missing or empty, before it runs anything, and the issue is not parked; `cli` and `web` ignore the sections. A `web` repository runs its Gherkin on ADW's own Playwright project: `features/` holds a self-contained Node project (`@playwright/test` and `playwright-bdd`) whose `playwright.config.ts` ADW owns and every upgrade overwrites from `templates/playwright/`; a `cli` repository keeps the runner `.adw/scenarios.md` names, and so does a `mobile:kotlincm` repository (cucumber-jvm with Kotlin step definitions).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — the reviewer runs nothing and is reached only once the static checks, unit tests and scenarios are green. It judges what a machine cannot: whether the diff does what the issue asks, no more and no less; whether the per-issue scenarios test the issue independently of the implementation; the per-issue images of a `web` repository, which it opens, or their absence; the coding guidelines; and the guidance section for the repository's application type. A suppression comment or a weakened check configuration in the diff is a blocker. It classifies findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
@@ -527,6 +527,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── reviewPrompt.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -539,6 +540,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
+│   │   ├── reviewPromptArgs.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
 │   │   ├── scenarioFidelityAgent.test.ts
 │   │   ├── testAgent.test.ts
@@ -595,6 +597,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── devServerFailure.test.ts
 │   │   ├── devServerLifecycle.healthy.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── deviceSourceConfig.test.ts
 │   │   ├── docsDecisions.test.ts
 │   │   ├── docsDecisionViolations.test.ts
 │   │   ├── docsGuards.test.ts
@@ -626,6 +629,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── projectConfigCommands.test.ts
+│   │   ├── projectConfigDeviceSource.test.ts
 │   │   ├── projectConfigLoad.test.ts
 │   │   ├── providerConfig.test.ts
 │   │   ├── prReviewInvocation.test.ts
@@ -653,6 +657,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the fix-loop tests
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
+│   │   ├── testReportParser.attachments.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
@@ -682,6 +687,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerFailure.ts  # Pure: the start of a dev server (not_started / started / failed with its output) and the rules of the review attempt counter (countFailedStart, countStartedServer, countFailedReview, isReviewBudgetSpent)
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers; withHealthyDevServer never runs the work against a server that did not start
+│   ├── deviceSourceConfig.ts  # Pure: the four device-source sections of .adw/project.md (parseDeviceSourceSections) and the device source a profile with platforms needs (resolveDeviceSource, DeviceSourceConfigError)
 │   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from specs/adr/
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
@@ -704,6 +710,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND assembles the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity via forgeProviders(), in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are assembled lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── localRepoIdentity.ts  # Host-neutral origin-remote reader (readLocalRepoIdentity) replacing the GitHub-only readLocalRepoInfo (#844)
 │   ├── logger.ts       # Structured logging utilities
+│   ├── markdownSections.ts  # Pure: the ## sections of an .adw/ file (parseMarkdownSections, sectionValue, stripHtmlComments)
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
@@ -714,7 +721,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── portAllocator.ts
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── projectConfig.ts  # Loads and parses the `.adw/` files; `applicationType` has no default (an absent or empty `## Application Type` is `null`)
+│   ├── projectConfig.ts  # Loads and parses the `.adw/` files; `applicationType` has no default (an absent or empty `## Application Type` is `null`); `deviceSources` holds the four device-source sections of `project.md`, each `null` when absent or empty
 │   ├── promotionIssueBody.ts  # Pure builder for the #734-shaped promotion issue title/body/labels (git mv + vocabulary-registration instructions)
 │   ├── promotionReconcileLink.ts  # Pure matcher: parses `Promotes: feature-N` back-link, resolves open/no-issue/blocked/closed-unmerged/merged reconciliation fact
 │   ├── promotionSweepDecider.ts  # Pure lifecycle decider: {tagState, meetsThreshold, reconcile} → originate/leave/done/decline/redrive/withdraw
@@ -874,16 +881,21 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
+│   │   ├── reviewPhaseEvidence.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
+│   │   ├── reviewPromptContext.test.ts
 │   │   ├── reviewRetryLoop.blocker.test.ts
 │   │   ├── reviewRetryLoop.counter.test.ts
 │   │   ├── reviewRetryLoop.test.ts
 │   │   ├── scenarioProjectSetup.test.ts
+│   │   ├── scenarioProofRun.evidence.test.ts
+│   │   ├── scenarioProofRun.helpers.ts
 │   │   ├── scenarioProofRun.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.deviceSource.test.ts
 │   │   ├── scenarioTestPhase.helpers.ts
 │   │   ├── scenarioTestPhase.runner.test.ts
 │   │   ├── scenarioTestPhase.server.test.ts
@@ -949,7 +961,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict; hands a dev server that did not start to the review loop
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioProjectSetup.ts  # `syncDeclaredScenarioProject`, the upgrade's `syncScenarioProject`: for a regenerated `.adw/project.md` whose type runs on ADW's Playwright project, writes the project's files and installs it (`npm install` and the browser) so the regen commit carries `features/package-lock.json`
-│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start
+│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start; fails before running anything when a profile with platforms lacks a device-source section
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
@@ -1093,8 +1105,17 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts        # Shared types (VocabularyEntry, ScoreResult, PromotionStats, etc.)
 ├── proof/              # PR proof publishing module
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── featureFileReader.test.ts
+│   │   ├── featureScenarioIndex.examples.test.ts
+│   │   ├── featureScenarioIndex.lookup.test.ts
+│   │   ├── featureScenarioIndex.test.ts
+│   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts
+│   │   ├── proofAssembler.helpers.ts
+│   │   ├── proofAssembler.images.test.ts
+│   │   ├── proofAssembler.scenarios.test.ts
+│   │   ├── proofAssembler.test.ts
 │   │   └── proofUploader.test.ts
 │   ├── featureFileReader.ts    # Reads a per-issue `.feature` file for the proof assembler
 │   ├── featureScenarioIndex.ts # Indexes a feature file's scenarios so proof images can be matched to them

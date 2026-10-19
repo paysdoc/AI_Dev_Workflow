@@ -1039,6 +1039,8 @@
     - adws/core/agentState.ts
     - adws/core/stateHelpers.ts
     - adws/core/projectConfig.ts
+    - adws/core/markdownSections.ts
+    - adws/core/deviceSourceConfig.ts
     - adws/core/adwYmlConfig.ts
     - adws/core/config.ts
     - adws/core/constants.ts
@@ -1046,6 +1048,8 @@
     - adws/core/index.ts
     - adws/core/__tests__/stateHelpers.test.ts
     - adws/core/__tests__/projectConfig.test.ts
+    - adws/core/__tests__/deviceSourceConfig.test.ts
+    - adws/core/__tests__/projectConfigDeviceSource.test.ts
     - adws/core/__tests__/adwYmlConfig.test.ts
     - adws/core/__tests__/environment.test.ts
     - adws/core/__tests__/topLevelState.test.ts
@@ -1053,6 +1057,8 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+    - When working on the device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`), `ProjectConfig.deviceSources`, `resolveDeviceSource`, `DeviceSourceConfigError`, or `parseMarkdownSections`/`sectionValue`
+    - When troubleshooting a scenario phase that fails naming a missing or empty device-source section
   - Decisions:
     - 0003
     - 0005
@@ -1061,6 +1067,7 @@
     - 0043
     - 0050
     - 0057
+    - 0064
 
 - app_docs/feature-m363ky-comment-only-guard.md
   - Owns:

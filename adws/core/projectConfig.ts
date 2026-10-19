@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from './conditionalDocsRegistry';
+import { parseDeviceSourceSections, type DeviceSourceSections } from './deviceSourceConfig';
+import { parseMarkdownSections, sectionValue, stripHtmlComments } from './markdownSections';
 
 export interface CommandsConfig {
   packageManager: string;
@@ -57,6 +59,8 @@ export interface ProjectConfig {
   scenariosMd: string;
   /** Absent or empty ⇒ `null`. Decisions read it only through `resolveApplicationType`, which alone says what a value means. */
   applicationType: string | null;
+  /** Each absent or empty section ⇒ `null`. Whether a profile needs them is for `resolveDeviceSource` alone to say. */
+  deviceSources: DeviceSourceSections;
 }
 
 const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
@@ -147,46 +151,13 @@ export function getDefaultProjectConfig(): ProjectConfig {
     scenarios: getDefaultScenariosConfig(),
     scenariosMd: '',
     applicationType: null,
+    deviceSources: parseDeviceSourceSections(''),
   };
 }
 
-/**
- * Parses a markdown file with `## Heading` sections and returns a map of
- * lowercased heading text → trimmed body content.
- */
-export function parseMarkdownSections(content: string): Record<string, string> {
-  const sections: Record<string, string> = {};
-  const lines = content.split('\n');
-
-  let currentHeading: string | null = null;
-  const bodyLines: string[] = [];
-
-  function flush() {
-    if (currentHeading !== null) {
-      sections[currentHeading] = bodyLines.join('\n').trim();
-    }
-    bodyLines.length = 0;
-  }
-
-  for (const line of lines) {
-    const match = line.match(/^##\s+(.+)$/);
-    if (match) {
-      flush();
-      currentHeading = match[1].trim().toLowerCase();
-    } else {
-      bodyLines.push(line);
-    }
-  }
-  flush();
-
-  return sections;
-}
-
-/** The section's value as written, comments stripped and trimmed; `null` when the section is absent or empty. */
+/** Absent or empty ⇒ `null`. */
 export function parseApplicationType(projectMd: string): string | null {
-  const sections = parseMarkdownSections(projectMd);
-  const value = stripHtmlComments(sections['application type'] ?? '');
-  return value === '' ? null : value;
+  return sectionValue(parseMarkdownSections(projectMd), 'application type');
 }
 
 export function parseCommandsMd(content: string): CommandsConfig {
@@ -225,10 +196,6 @@ export function parseProvidersMd(content: string): ProvidersConfig {
   }
 
   return result;
-}
-
-function stripHtmlComments(value: string): string {
-  return value.replace(/<!--[\s\S]*?-->/g, '').trim();
 }
 
 export function parseScenariosMd(content: string): ScenariosConfig {
@@ -276,5 +243,6 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     scenarios: parseScenariosMd(scenariosMd),
     scenariosMd,
     applicationType: parseApplicationType(projectMd),
+    deviceSources: parseDeviceSourceSections(projectMd),
   };
 }

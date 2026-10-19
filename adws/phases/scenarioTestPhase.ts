@@ -13,6 +13,7 @@ import {
   type ModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
+import type { Platform } from '../core/applicationType';
 import {
   DevServerStartStatus,
   NO_DEV_SERVER_START,
@@ -26,6 +27,7 @@ import {
   withHealthyDevServer,
   type HealthyDevServerConfig,
 } from '../core/devServerLifecycle';
+import { DeviceSourceConfigError, resolveDeviceSource } from '../core/deviceSourceConfig';
 import { resolveScenarioRunner } from '../core/scenarioRunner';
 import { requireApplicationProfile } from './applicationTypeGate';
 import { readDeclaredDevServer } from './declaredDevServer';
@@ -137,7 +139,18 @@ async function runUnderServer(
   return settleProof(run, outcome.result, { status: DevServerStartStatus.Started });
 }
 
+function requireDeviceSource(run: PhaseRun, platforms: readonly Platform[]): void {
+  const resolution = resolveDeviceSource(run.config.projectConfig.deviceSources, platforms);
+  if (resolution.kind !== 'missing') return;
+  recordLine(run.config.orchestratorStatePath, `Scenario test phase failed before running anything: ${resolution.message}`, 'error');
+  throw new DeviceSourceConfigError(resolution.section, resolution.message);
+}
+
 /**
+ * For a profile with platforms, a missing or empty device-source section throws `DeviceSourceConfigError` before
+ * anything else runs, the skips below included. The orchestrator fails the workflow with that message and does not
+ * park it.
+ *
  * Returns immediately with a passing result when:
  * - `projectConfig.scenariosMd` is empty (no scenarios configured), or
  * - the scenario runner's command is 'N/A', which only a descriptor runner can say
@@ -155,6 +168,7 @@ export async function executeScenarioTestPhase(
 
   const { scenariosMd } = projectConfig;
   const applicationProfile = requireApplicationProfile(config);
+  requireDeviceSource(run, applicationProfile.platforms);
   const runner = resolveScenarioRunner(applicationProfile.runnerMode, projectConfig);
 
   if (!scenariosMd.trim() || runner.runByTagCommand.trim() === 'N/A') return skipPhase(run);

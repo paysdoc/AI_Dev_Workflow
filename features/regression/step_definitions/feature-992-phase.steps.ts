@@ -56,7 +56,7 @@ const PHASE_TIMEOUT_MS = 300_000;
 const STOP_POLLS = 40;
 const STOP_POLL_MS = 150;
 
-function requireAdwFiles(): AdwFiles {
+export function requireAdwFiles(): AdwFiles {
   assert.ok(s.adwFiles, 'Expected a workflow whose ".adw/" the scenario describes to have been set up first');
   return s.adwFiles;
 }
@@ -147,11 +147,15 @@ Given('{string} is a stand-in that records each run', function (program: string)
   assertStandIn(program);
 });
 
-When("the workflow's scenario test phase runs", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld) {
-  const workflow = requireWorkflow();
+/** The scenario test phase over the workflow's worktree, with the `npm` and `npx` the scenario asked for: the stand-ins, or the real ones. */
+export async function runScenarioTestPhase(workflow: Workflow929): ReturnType<typeof executeScenarioTestPhase> {
   await prepareWorkflow(workflow);
   const run = (): ReturnType<typeof executeScenarioTestPhase> => executeScenarioTestPhase(workflow.config);
-  const { scenarioProof } = await (toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run));
+  return toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run);
+}
+
+When("the workflow's scenario test phase runs", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld) {
+  const { scenarioProof } = await runScenarioTestPhase(requireWorkflow());
   this.scenarioProofResult = scenarioProof;
 });
 
