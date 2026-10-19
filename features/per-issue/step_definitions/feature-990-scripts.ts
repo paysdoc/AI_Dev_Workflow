@@ -12,6 +12,11 @@ import * as path from 'path';
 export const BASE_WORKTREE_MARKER = '/.worktrees/base-issue-';
 export const FIXED_MARKER_FILE = '.adw-scenarios-fixed';
 export const NO_SERVER_MESSAGE = 'no dev server was started on this worktree';
+export const NO_DEVICES_MESSAGE = 'no emulator and simulator were handed to this run';
+
+/** The variables a run is given for its devices; a run logs the ones it was given, beside the paths of its report and proof. */
+export const DEVICE_VARIABLES = ['ADW_ANDROID_AVD', 'ADW_ANDROID_SERIAL', 'ADW_IOS_UDID'] as const;
+const LOGGED_VARIABLES = [...DEVICE_VARIABLES, 'ADW_JUNIT_REPORT_PATH', 'ADW_PROOF_DIR'] as const;
 
 /** A worktree holding the first and not the second marker has a dev server that prints the first's text to standard error and exits 1. */
 export const BROKEN_SERVER_MARKER = '.adw-server-broken';
@@ -56,7 +61,7 @@ export function scratchPaths(dir: string): ScratchPaths {
   };
 }
 
-const literal = (value: string | null): string => JSON.stringify(value);
+const literal = (value: string | readonly string[] | null): string => JSON.stringify(value);
 
 function devServerSource(paths: ScratchPaths): string {
   return `
@@ -94,7 +99,13 @@ server.listen(port, () => {
 `;
 }
 
-function runnerSource(paths: ScratchPaths, requiresServer: boolean): string {
+/** What fails every scenario the runner runs: a run without the dev server it needs, or without the devices it needs. */
+export interface RunnerRequirements {
+  readonly requiresServer: boolean;
+  readonly requiresDevices: boolean;
+}
+
+function runnerSource(paths: ScratchPaths, { requiresServer, requiresDevices }: RunnerRequirements): string {
   return `
 const fs = require('fs');
 const path = require('path');
@@ -147,6 +158,7 @@ function serverUp() {
 
 function outcomeOf(scenario, hasServer) {
   if (${requiresServer ? 'true' : 'false'} && !hasServer) return { passed: false, message: ${literal(NO_SERVER_MESSAGE)} };
+  if (${requiresDevices ? 'true' : 'false'} && !${literal(DEVICE_VARIABLES)}.every((name) => process.env[name])) return { passed: false, message: ${literal(NO_DEVICES_MESSAGE)} };
   const fixed = fs.existsSync(path.join(here, ${literal(FIXED_MARKER_FILE)}));
   const verdict = onBase ? scenario.onBaseBranch : fixed ? 'passes' : scenario.onIssueBranch;
   return { passed: verdict === 'passes', message: 'assertion failed' };
@@ -164,8 +176,9 @@ const escapeXml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').re
   const report = '<?xml version="1.0" encoding="UTF-8"?><testsuite name="cucumber-js" tests="' + results.length + '" failures="' + failed.length + '">' + cases + '</testsuite>';
   if (process.env.ADW_JUNIT_REPORT_PATH) fs.writeFileSync(process.env.ADW_JUNIT_REPORT_PATH, report);
 
+  const env = Object.fromEntries(${literal(LOGGED_VARIABLES)}.filter((name) => name in process.env).map((name) => [name, process.env[name]]));
   fs.appendFileSync(${literal(paths.runLog)}, JSON.stringify({
-    at: Date.now(), cwd: here, kind: onBase ? 'base' : 'issue', tag,
+    at: Date.now(), cwd: here, kind: onBase ? 'base' : 'issue', tag, env,
     scenarios: results.map(({ scenario, passed }) => ({ name: scenario.name, passed })),
   }) + '\\n');
 
@@ -230,10 +243,20 @@ export interface ScriptOptions {
   readonly buildFailure: string | null;
 }
 
-export function writeScripts(paths: ScratchPaths, options: ScriptOptions): void {
+/** `NODE_OPTIONS` is blank: the harness's `--import tsx` has no `tsx` to resolve in a repository that is not this one. */
+export function runnerCommand(paths: ScratchPaths): string {
+  return `NODE_OPTIONS= node '${paths.runnerScript.replace(/'/g, "'\\''")}'`;
+}
+
+/** The scenario runner alone, for a scenario that drives a phase in process and runs no agent. */
+export function writeScenarioRunner(paths: ScratchPaths, requirements: RunnerRequirements, scenarios: readonly ScenarioOutcomes[]): void {
   fs.mkdirSync(paths.dir, { recursive: true });
+  fs.writeFileSync(paths.runnerScript, runnerSource(paths, requirements));
+  fs.writeFileSync(paths.runnerConfig, JSON.stringify({ scenarios }));
+}
+
+export function writeScripts(paths: ScratchPaths, options: ScriptOptions): void {
+  writeScenarioRunner(paths, { requiresServer: options.requiresServer, requiresDevices: false }, options.scenarios);
   fs.writeFileSync(paths.serverScript, devServerSource(paths));
-  fs.writeFileSync(paths.runnerScript, runnerSource(paths, options.requiresServer));
   fs.writeFileSync(paths.recorderScript, recorderSource(paths, options.stubPath, options.buildFailure), { mode: 0o755 });
-  fs.writeFileSync(paths.runnerConfig, JSON.stringify({ scenarios: options.scenarios }));
 }

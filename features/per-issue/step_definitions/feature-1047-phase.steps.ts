@@ -31,7 +31,7 @@ function deviceCommands(): readonly StandInDeviceCommand[] {
 }
 
 /** The AVD, the emulator's serial and the simulator's UDID of the devices the phase booted, read from the commands of the attempt that booted them: the last. */
-function bootedDevices(): { readonly avd: string; readonly serial: string; readonly udid: string } {
+export function bootedDevices(): { readonly avd: string; readonly serial: string; readonly udid: string } {
   const commands = deviceCommands();
   const emulators = commands.filter(command => command.argv[0] === 'emulator');
   const emulator = emulators[emulators.length - 1];

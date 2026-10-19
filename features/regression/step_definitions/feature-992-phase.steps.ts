@@ -68,7 +68,7 @@ function assertFile(actual: string, expected: string): void {
 }
 
 /** Points the workflow's configuration at what its worktree now holds, as `initializeWorkflow` does when a workflow starts. */
-async function prepareWorkflow(workflow: Workflow929): Promise<void> {
+export async function prepareWorkflow(workflow: Workflow929): Promise<void> {
   if (s.adwFiles) writeAdwFiles(workflow.worktreePath, s.adwFiles);
   const projectConfig = loadProjectConfig(workflow.worktreePath);
   const applicationProfile = declaredApplicationProfile(projectConfig);

@@ -32,6 +32,8 @@ export interface ScenarioRun {
   readonly cwd: string;
   readonly kind: 'base' | 'issue';
   readonly tag: string;
+  /** The device variables, the report path and the proof directory the run was given, of those it was given. */
+  readonly env: Readonly<Record<string, string>>;
   readonly scenarios: ReadonlyArray<{ readonly name: string; readonly passed: boolean }>;
 }
 
