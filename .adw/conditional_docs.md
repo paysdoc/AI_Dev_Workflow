@@ -861,11 +861,16 @@
     - adws/core/deviceBringUp.ts
     - adws/core/deviceCommands.ts
     - adws/core/deviceExecutor.ts
+    - adws/core/deviceInventory.ts
+    - adws/triggers/deviceJanitor.ts
+    - adws/triggers/__tests__/deviceJanitor*.test.ts
+    - adws/core/__tests__/deviceInventory.test.ts
     - adws/core/__tests__/deviceLifecycle*.test.ts
     - adws/core/__tests__/deviceExecutor.test.ts
     - adws/core/__tests__/fixtures/recordingDeviceHost.ts
   - Conditions:
     - When working on the per-workflow Android emulator and iOS simulator lifecycle: `withDevices`, `DeviceEnvironment` (`ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`), `DeviceRequest`, `DeviceOutcome`, `DeviceFailure`, `HostTool`, `MAX_BOOT_ATTEMPTS`, `deviceNameFor`, `emulatorConsolePortCandidates`
+    - When working on the device janitor (`runDeviceJanitorPass`, `shouldReapDevices`, `runJanitorTick`), `listAdwDevices`/`removeAdwDevice`, `adwIdOfDeviceName`, or removing emulators and simulators left behind by dead workflows
     - When working on `deviceLifecycle.ts`, `deviceBringUp.ts`, `deviceCommands.ts` (`missingToolOf`), `deviceExecutor.ts` (`DeviceExecutor`, `systemDeviceExecutor`) or the `recordingDeviceHost` / `standInDevices` test doubles
     - When the scenario test phase for a profile with platforms (`mobile:kotlincm`) creates, boots, waits for, hands over or removes devices, or merges the device variables into the run command's environment
     - When troubleshooting an emulator console port collision, an AVD or simulator left behind after a workflow, a device that does not boot or is retried, a missing `avdmanager`/`emulator`/`adb`/`xcrun simctl`, the `device_boot_failed` park and what `## Retry`/`## Continue` do for it, or the device lines in the run log
