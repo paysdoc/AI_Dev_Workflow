@@ -20,7 +20,7 @@ import { registerDirectory, requireProof, requireWorkflow, s as adwWorld } from 
 import { writeFeature, writeFile } from '../../regression/step_definitions/feature-992-worktree.ts';
 
 import './feature-962-parameters.ts';
-import { gradleRuns, installGradleWrapper, type GradleRun, type PlatformScreenshot } from './feature-1044-gradle.ts';
+import { gradleRuns, installGradleWrapper, type GradleRun, type PlatformScreenshot, type TestTaskRun } from './feature-1044-gradle.ts';
 import { adwFilesWrittenFor } from './feature-1044-prompt.ts';
 import { requireGradle, s } from './feature-1044-world.ts';
 
@@ -39,10 +39,10 @@ function holdFeature(tag: string, file: string, scenario: string): void {
   writeFeature(requireWorkflow().worktreePath, scenarioDirectoryOf(adwWorld.adwFiles), tag, [{ name: scenario, steps: ['Given the application is running'] }]);
 }
 
-function installWrapper(screenshots: readonly PlatformScreenshot[]): void {
+export function installWrapper(screenshots: readonly PlatformScreenshot[], testTask?: TestTaskRun): void {
   const recordDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-1044-gradle-'));
   registerDirectory(recordDirectory);
-  s.gradle = installGradleWrapper(requireWorkflow().worktreePath, recordDirectory, screenshots);
+  s.gradle = installGradleWrapper(requireWorkflow().worktreePath, recordDirectory, screenshots, testTask);
 }
 
 Given(

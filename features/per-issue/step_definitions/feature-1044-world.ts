@@ -9,6 +9,7 @@
 import assert from 'assert';
 import { After, Before, type ITestCaseHookParameter } from '@cucumber/cucumber';
 
+import type { ProcessOutcome } from '../../../adws/core/checkRunner.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import { beginScenario, endScenario } from '../../regression/step_definitions/feature-988-world.ts';
 import { disposeToolchain } from '../../regression/step_definitions/feature-992-standins.ts';
@@ -16,13 +17,21 @@ import { resetState as resetState992 } from '../../regression/step_definitions/f
 import type { GradleStandIn } from './feature-1044-gradle.ts';
 import { setUpWorld990, tearDownWorld990 } from './feature-990-world.ts';
 
+/** A run of the worktree's unit-test command: the report path it was given, and how it ended. */
+export interface TestRun {
+  readonly reportPath: string;
+  readonly outcome: ProcessOutcome;
+}
+
 export interface State1044 {
   /** The Gradle wrapper a step put in the worktree; null until one does. */
   gradle: GradleStandIn | null;
+  /** Null until a step runs the worktree's unit-test command. */
+  testRun: TestRun | null;
 }
 
 function freshState(): State1044 {
-  return { gradle: null };
+  return { gradle: null, testRun: null };
 }
 
 export const s: State1044 = freshState();

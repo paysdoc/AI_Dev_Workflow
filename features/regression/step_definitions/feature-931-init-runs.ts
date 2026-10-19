@@ -12,11 +12,13 @@ export type AdwFilesFound = Readonly<Record<string, string>>;
 
 const runsByWorktree = new Map<string, AdwFilesFound[]>();
 
-export function recordInitRun(worktreePath: string): void {
+/** Records what the agent found in its worktree, and returns it. */
+export function recordInitRun(worktreePath: string): AdwFilesFound {
   const adwDir = path.join(worktreePath, '.adw');
   const files = fs.existsSync(adwDir) ? fs.readdirSync(adwDir, { withFileTypes: true }).filter(entry => entry.isFile()) : [];
   const found = Object.fromEntries(files.map(({ name }) => [`.adw/${name}`, fs.readFileSync(path.join(adwDir, name), 'utf-8')]));
   runsByWorktree.set(worktreePath, [...(runsByWorktree.get(worktreePath) ?? []), found]);
+  return found;
 }
 
 /** What the agent found in each of its runs in the worktree, in order. */

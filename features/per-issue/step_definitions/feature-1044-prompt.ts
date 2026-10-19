@@ -9,8 +9,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { REPO_ROOT } from '../../../adws/core/config.ts';
+import { DEVICE_SOURCE_SECTION_TITLES } from '../../../adws/core/deviceSourceConfig.ts';
+import { parseMarkdownSections, sectionValue } from '../../../adws/core/markdownSections.ts';
 
-import type { AdwFiles } from '../../regression/step_definitions/feature-992-adw-files.ts';
+import { renderProjectMd, type AdwFiles } from '../../regression/step_definitions/feature-992-adw-files.ts';
 
 const ADW_INIT = path.join(REPO_ROOT, '.claude/commands/adw_init.md');
 const MOBILE = 'mobile:kotlincm';
@@ -19,6 +21,8 @@ const NOT_APPLICABLE = 'N/A';
 const CODE_FENCE = '```';
 const ARROW_VALUE = /→\s*`([^`]+)`/;
 const SECTION_BULLET = /^\s*- `## ([^`]+)` → `([^`]+)`/;
+const DEVICE_SOURCE_HEADINGS = Object.values(DEVICE_SOURCE_SECTION_TITLES);
+const PRESERVE_VALUE = 'preserve the value verbatim';
 
 export const SCENARIO_RUN_CONTRACT = 'Scenario Run Contract';
 
@@ -46,7 +50,7 @@ function stepOf(n: number): string[] {
 }
 
 /** The bullet at `index` and the lines nested under it. */
-function bulletAt(lines: readonly string[], index: number): string[] {
+export function bulletAt(lines: readonly string[], index: number): string[] {
   const end = lines.findIndex((line, position) => position > index && line.trim() !== '' && indentOf(line) <= indentOf(lines[index]));
   return lines.slice(index, end === -1 ? undefined : end);
 }
@@ -98,7 +102,37 @@ function required(sections: ReadonlyMap<string, string>, heading: string): strin
   return value;
 }
 
-/** The files of ".adw/" the prompt has the agent write for a repository whose owner set the type by hand and that has no manifest. */
+/** Step 3's bullet on the device sources, with the lines nested under it: the one that names every section ADW reads them from. */
+function deviceSourceBullet(): string[] {
+  const step3 = stepOf(3);
+  const index = step3.findIndex(line => DEVICE_SOURCE_HEADINGS.every(heading => line.includes(`\`## ${heading}\``)));
+  assert.ok(index >= 0, `Expected step 3 of adw_init.md to have a bullet that names every device-source section: ${DEVICE_SOURCE_HEADINGS.join(', ')}`);
+  return bulletAt(step3, index);
+}
+
+/** The default the bullet gives a device-source section the owner has not set: the code span after the arrow of the section's line. */
+function deviceSourceDefault(bullet: readonly string[], heading: string): string {
+  const [line] = findBullet(bullet, `- \`## ${heading}\` →`, 'step 3');
+  const value = ARROW_VALUE.exec(line)?.[1];
+  assert.ok(value !== undefined, `Expected step 3 of adw_init.md to give "## ${heading}" a default`);
+  return value;
+}
+
+/** Every device-source section ADW reads, as step 3 has the agent write it over the ".adw/project.md" it found: the value the owner set, where the bullet says to preserve it, or else the default. */
+function deviceSourcesWrittenOver(found: string): Map<string, string> {
+  const bullet = deviceSourceBullet();
+  const preserves = bullet.some(line => line.includes(PRESERVE_VALUE));
+  const owner = parseMarkdownSections(found);
+  return new Map(DEVICE_SOURCE_HEADINGS.map((heading): [string, string] => [heading, (preserves ? sectionValue(owner, heading) : null) ?? deviceSourceDefault(bullet, heading)]));
+}
+
+/** The ".adw/project.md" the prompt has the agent write, over the one it found in its worktree, for a repository whose owner set the type by hand. */
+export function projectMdWrittenOver(applicationType: string, found: string): string {
+  assert.strictEqual(applicationType, MOBILE, `The prompt's descriptors are read for "${MOBILE}" only`);
+  return renderProjectMd({ applicationType, project: deviceSourcesWrittenOver(found) });
+}
+
+/** The files of ".adw/" the prompt has the agent write for a repository whose owner set the type by hand, and none of its device sources, and that has no manifest. */
 export function adwFilesWrittenFor(applicationType: string): AdwFiles {
   assert.strictEqual(applicationType, MOBILE, `The prompt's descriptors are read for "${MOBILE}" only`);
   const scenarios = scenarioSections();
@@ -106,6 +140,7 @@ export function adwFilesWrittenFor(applicationType: string): AdwFiles {
   const regression = required(scenarios, 'Run Regression Scenarios');
   return {
     applicationType,
+    project: deviceSourcesWrittenOver(''),
     commands: new Map([
       ...MANIFEST_SECTIONS.map((heading): [string, string] => [heading, NOT_APPLICABLE]),
       ['Health Check Path', '/'],
