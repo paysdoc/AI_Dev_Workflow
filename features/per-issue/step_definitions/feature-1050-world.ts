@@ -17,6 +17,7 @@ import type { DeviceJanitorDeps } from '../../../adws/triggers/deviceJanitor.ts'
 
 import { resetStandInDeviceHost, steppingClock, type StandInLeftoverDevice } from '../../regression/support/standInDevices.ts';
 import { resetState as resetState1047 } from './feature-1047-world.ts';
+import type { StandInDeviceTools } from './feature-1050-tools.ts';
 
 /** Where the scenarios' target repositories are, for the worktrees they describe; no directory is made there. */
 export const TARGET_REPOS = '/adw-1050-target-repos';
@@ -43,10 +44,12 @@ export interface State1050 {
   swept: boolean;
   /** Directories the scenario made, which its hook removes. */
   directories: string[];
+  /** The stand-in device tools the cron's poll runs over. */
+  deviceTools: StandInDeviceTools | undefined;
 }
 
 function freshState(): State1050 {
-  return { workflows: new Map(), lines: [], failure: undefined, swept: false, directories: [] };
+  return { workflows: new Map(), lines: [], failure: undefined, swept: false, directories: [], deviceTools: undefined };
 }
 
 export const s: State1050 = freshState();

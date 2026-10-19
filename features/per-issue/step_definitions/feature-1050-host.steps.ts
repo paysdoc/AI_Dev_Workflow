@@ -13,9 +13,9 @@ import * as path from 'path';
 
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
 
-import { standInDeviceHost } from '../../regression/support/standInDevices.ts';
 import { s as executorWorld } from './feature-1047-world.ts';
-import { INSIDE_GRACE_PERIOD_MS, OLDER_THAN_GRACE_PERIOD_MS, describeWorkflow, devicesOf } from './feature-1050-world.ts';
+import { standInDeviceTools } from './feature-1050-tools.ts';
+import { INSIDE_GRACE_PERIOD_MS, OLDER_THAN_GRACE_PERIOD_MS, describeWorkflow, devicesOf, s } from './feature-1050-world.ts';
 
 const ANDROID_PROGRAMS = ['avdmanager', 'emulator', 'adb'];
 const DEVICE_PROGRAMS = [...ANDROID_PROGRAMS, 'xcrun'];
@@ -25,7 +25,8 @@ Given('a recording executor that answers as a host with these devices:', functio
 });
 
 Given("the host's device tools are stand-ins that record each run and answer as a host with these devices:", function (table: DataTable) {
-  standInDeviceHost({ devices: devicesOf(table) });
+  s.deviceTools = standInDeviceTools(devicesOf(table));
+  s.directories.push(s.deviceTools.rootDir);
 });
 
 Given('the recording executor fails the deletion of the AVD {string}, printing {string}', function (avd: string, printed: string) {

@@ -10,9 +10,10 @@ import assert from 'assert';
 
 import { runDeviceJanitorPass } from '../../../adws/triggers/deviceJanitor.ts';
 
+import type { StandInHeldDevices } from '../../regression/support/standInDevices.ts';
 import { commandsOf, lineOf } from './feature-1047-commands.ts';
 import { recordedCommands, requireExecutor } from './feature-1047-world.ts';
-import { ADW_NAME_PREFIX, assertNoneHeldUnderName, devicesNamed, emulatorCommands, heldUnderName, nameFor, simulatorCommands, stepsFrom } from './feature-1050-devices.ts';
+import { ADW_NAME_PREFIX, assertNoneHeldUnderName, devicesNamed, type DevicesOfAdwId, emulatorCommands, heldUnderName, nameFor, simulatorCommands, stepsFrom } from './feature-1050-devices.ts';
 import { TARGET_REPOS, janitorDepsOver, s } from './feature-1050-world.ts';
 
 const describeLines = (): string => s.lines.map(({ level, message }) => `${level} ${message}`).join('\n');
@@ -63,13 +64,23 @@ Then('the device janitor shut down the simulator {string} with {string} and dele
   udids.forEach(udid => [shutDown, deleted].forEach(tool => exactlyOnce(`${tool} ${udid}`)));
 });
 
+/** The shut-down and delete commands the janitor gave for these devices. */
+function removalCommandsGiven(devices: DevicesOfAdwId): string[] {
+  const lines = new Set(recordedCommands().map(lineOf));
+  return [...emulatorCommands(devices).keys(), ...simulatorCommands(devices).keys()].filter(command => lines.has(command));
+}
+
+function assertUntouched(name: string, leftovers: StandInHeldDevices, held: StandInHeldDevices): void {
+  assert.deepStrictEqual(removalCommandsGiven(devicesNamed(leftovers, name)), [], `Expected "${name}" not to be shut down or deleted; the commands were:\n${describeCommands()}`);
+  assert.deepStrictEqual(heldUnderName(held, name), heldUnderName(leftovers, name), `Expected the host to hold "${name}" as it held it to begin with`);
+}
+
 Then('the device janitor neither shut down nor deleted the emulator or the simulator of the ADW ID {string}', function (adwId: string) {
   const { leftovers, held } = requireExecutor();
   const devices = devicesNamed(leftovers, nameFor(adwId));
   assert.ok(devices.serials.length > 0 && devices.udids.length > 0, `Expected the host to have held an emulator and a simulator of the ADW ID "${adwId}"`);
 
-  const lines = new Set(recordedCommands().map(lineOf));
-  const taken = [...emulatorCommands(devices).keys(), ...simulatorCommands(devices).keys()].filter(command => lines.has(command));
+  const taken = removalCommandsGiven(devices);
   assert.deepStrictEqual(taken, [], `Expected none of the devices of "${adwId}" to be shut down or deleted; the commands were:\n${describeCommands()}`);
   assert.deepStrictEqual(heldUnderName(held(), devices.name), heldUnderName(leftovers, devices.name), `Expected the host to hold the devices of "${adwId}" as it held them to begin with`);
 });
@@ -79,13 +90,7 @@ Then('the device janitor neither shut down nor deleted any device that is not na
   const names = [...leftovers.avds, ...leftovers.simulators.map(({ name }) => name)].filter(name => !name.startsWith(ADW_NAME_PREFIX));
   assert.ok(names.length > 0, 'Expected the host to hold devices that are not named for an ADW ID');
 
-  const lines = new Set(recordedCommands().map(lineOf));
-  names.forEach((name) => {
-    const devices = devicesNamed(leftovers, name);
-    const taken = [...emulatorCommands(devices).keys(), ...simulatorCommands(devices).keys()].filter(command => lines.has(command));
-    assert.deepStrictEqual(taken, [], `Expected "${name}" not to be shut down or deleted; the commands were:\n${describeCommands()}`);
-    assert.deepStrictEqual(heldUnderName(held(), name), heldUnderName(leftovers, name), `Expected the host to hold "${name}" as it held it to begin with`);
-  });
+  names.forEach(name => assertUntouched(name, leftovers, held()));
 });
 
 function removalLine(kind: 'AVD' | 'simulator', name: string, adwId: string) {

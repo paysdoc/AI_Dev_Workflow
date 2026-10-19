@@ -88,15 +88,17 @@ function listAvds({ avds }: Holding): DeviceCommandResult {
 }
 
 // An emulator that was killed is listed as offline a few more times, and is then gone.
-function ageKilledEmulators({ emulators, dying }: Holding): void {
-  [...dying].forEach(([serial, left]) => {
-    if (left > 1) {
-      dying.set(serial, left - 1);
-      return;
-    }
-    dying.delete(serial);
-    emulators.delete(serial);
-  });
+function ageKilledEmulator({ emulators, dying }: Holding, serial: string, left: number): void {
+  if (left > 1) {
+    dying.set(serial, left - 1);
+    return;
+  }
+  dying.delete(serial);
+  emulators.delete(serial);
+}
+
+function ageKilledEmulators(holding: Holding): void {
+  [...holding.dying].forEach(([serial, left]) => ageKilledEmulator(holding, serial, left));
 }
 
 function listAttached(holding: Holding): DeviceCommandResult {
