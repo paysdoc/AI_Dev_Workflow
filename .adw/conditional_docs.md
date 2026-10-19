@@ -849,6 +849,23 @@
     - 0050
     - 0062
 
+- app_docs/feature-ko14m9-device-lifecycle.md
+  - Owns:
+    - adws/core/deviceLifecycle.ts
+    - adws/core/deviceCommands.ts
+    - adws/core/deviceExecutor.ts
+    - adws/core/__tests__/deviceLifecycle*.test.ts
+    - adws/core/__tests__/deviceExecutor.test.ts
+    - adws/core/__tests__/fixtures/recordingDeviceHost.ts
+  - Conditions:
+    - When working on the per-workflow Android emulator and iOS simulator lifecycle: `withDevices`, `DeviceEnvironment` (`ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`), `DeviceRequest`, `DeviceLifecycleError`, `deviceNameFor`, `emulatorConsolePortCandidates`
+    - When working on `deviceLifecycle.ts`, `deviceCommands.ts`, `deviceExecutor.ts` (`DeviceExecutor`, `systemDeviceExecutor`) or the `recordingDeviceHost` / `standInDevices` test doubles
+    - When the scenario test phase for a profile with platforms (`mobile:kotlincm`) creates, boots, waits for, hands over or removes devices, or merges the device variables into the run command's environment
+    - When troubleshooting an emulator console port collision, an AVD or simulator left behind after a workflow, a device that does not boot, or the device lines in the run log
+    - When a BDD scenario runs the real scenario phase on a `mobile:kotlincm` worktree and must not touch real device tools
+  - Decisions:
+    - 0064
+
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:
     - adws/adwBuild.tsx
