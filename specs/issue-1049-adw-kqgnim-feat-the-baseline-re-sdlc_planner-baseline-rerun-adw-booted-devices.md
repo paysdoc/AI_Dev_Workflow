@@ -114,6 +114,14 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/baseScenarioRerun.test.ts`, `adws/phases/__tests__/baseScenarioRerun.server.test.ts` and `adws/phases/__tests__/baseScenarioRerun.helpers.ts` — **Changed** (the first two). The re-run's tests, where the environment with and without devices is pinned. `fakeScenarioRunner` already records each run's `env`.
 - `adws/core/__tests__/regressionTriage.test.ts` — The triage's tests. Unchanged, run as a regression check.
 - `features/regression/support/standInDevices.ts` — The stand-in device host whose `withDevices` a BDD scenario injects. Unchanged.
+- `features/per-issue/feature-1049.feature` — This issue's BDD scenarios: 13 scenarios, 16 with the outline examples. They run the real gate and the real base re-run on a workflow whose worktree declares `mobile:kotlincm`, `cli` or `web`, with the stand-in device host (Task 7).
+- Step definitions those scenarios reuse, unchanged:
+  - `features/regression/step_definitions/feature-992-phase.steps.ts` — the workflow whose worktree declares an application type, and its dev server;
+  - `features/regression/step_definitions/feature-992-standins.ts` — the stand-in `npm`, `npx` and scenario command, which record the `ADW_` variables of each run;
+  - `features/per-issue/step_definitions/feature-1045-phase.steps.ts` — every device source in the worktree's `.adw/project.md`;
+  - `features/per-issue/step_definitions/feature-990.steps.ts`, `feature-990-scripts.ts` and `feature-990-scenarios.steps.ts` — the target repository's scenario outcomes, its stand-in scenario runner, and the runs on the base branch read from that runner's run log;
+  - `features/per-issue/step_definitions/feature-1047-host.steps.ts` and `feature-1048-host.steps.ts` — the stand-in device hosts and `no device tool was run`;
+  - `features/per-issue/step_definitions/feature-989-phase.steps.ts`, `feature-990-park.steps.ts`, `feature-991-workflow.steps.ts`, `feature-1047-phase.steps.ts` and `feature-1048-phase.steps.ts` — the park state, the park comments and the execution log.
 
 ### New Files
 - `adws/phases/__tests__/preExistingRegressionGate.helpers.ts` — Shared fixtures of the gate tests, moved out of `preExistingRegressionGate.test.ts`. `makeConfig` is extended with the application profile, the device-source sections and `logsDir`, and `scriptedRerun` records the devices and an event per re-run.
@@ -122,6 +130,7 @@ Use these files to implement the feature:
   - the `device_boot_failed` park;
   - no device when nothing is re-run;
   - `cli` and `web` unchanged.
+- `features/per-issue/step_definitions/feature-1049-*.ts` — The step definitions `features/per-issue/feature-1049.feature` still lacks, written scenario by scenario in Task 7, each file under 300 lines.
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -138,7 +147,7 @@ Write the gate's device tests against the stand-in lifecycle of the scenario-pha
 - the `pre_existing_regression` park after the session.
 
 ### Phase 3: Integration
-Confirm that the fix loop, the gate's only caller, needs no change. Run this issue's scenarios, if the scenario writer has written them, and the existing base re-run and device scenarios. Update the README, and run every validation command.
+Confirm that the fix loop, the gate's only caller, needs no change. Write the step definitions this issue's scenarios still lack, make every scenario pass, and run the existing base re-run and device scenarios. Update the README, and run every validation command.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -307,11 +316,30 @@ Run `bunx vitest run adws/phases/__tests__/preExistingRegressionGate.devices.tes
 - `adws/phases/scenarioTestFixLoop.ts` still calls `createPreExistingRegressionGate(config)` once per loop, with the defaults, and `PreExistingRegressionGate` is unchanged. Change nothing there.
 - Run `bunx vitest run adws/phases/__tests__/scenarioTestFixLoop.test.ts adws/phases/__tests__/scenarioTestFixLoop.regression.test.ts adws/core/__tests__/regressionTriage.test.ts adws/core/__tests__/applicationType.test.ts`. They pass, the mapping-reader guard included.
 
-### 7. Run this issue's scenarios
-- If `features/per-issue/feature-1049.feature` exists, run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1049"`. Every scenario passes, and none is undefined.
-- A scenario that runs the real gate on a `mobile:kotlincm` worktree must:
-  - inject the stand-in device host's `withDevices` (`features/regression/support/standInDevices.ts`) through the gate's `withDevices` dependency, never the real SDK tools;
-  - trap `process.exit`, since a park exits the process. The `@adw-1047`/`@adw-1048` step definitions do both.
+### 7. Make this issue's scenarios pass
+`features/per-issue/feature-1049.feature` holds 13 scenarios, 16 with the outline examples. A dry run (`NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1049" --dry-run`) lists the steps that already exist (see Relevant Files). Reuse them, and never define a step twice. Write the rest in `features/per-issue/step_definitions/feature-1049-*.ts`, one scenario at a time: see it fail, then make it pass.
+- **The `When` step** (`the regression scenarios that fail on the issue's branch are judged against the base branch`) runs the real gate once, `createPreExistingRegressionGate(config, { withDevices })`. Its proof fails the `@regression` scenarios that the table marks as failing on the issue's branch. The step:
+  - injects the stand-in device host's `withDevices` (`lastStandInDeviceHost()`, `features/regression/support/standInDevices.ts`) through the gate's `withDevices` dependency, never the real SDK tools;
+  - keeps the default `rerunOnBase`, so the real base re-run runs the base branch's own command on a worktree of `dev`;
+  - lists the failing scenarios in the table's order. The triage stops at the first scenario that fails on the base branch, and the scenario with two failing scenarios expects both to be re-run;
+  - traps `process.exit`, since a park exits the process. The `@adw-1047`/`@adw-1048` step definitions do both.
+- **The stand-in scenario command.** These scenarios need one that:
+  - answers with each scenario's outcome on the branch it runs on;
+  - logs each run where `feature-990-scenarios.steps.ts` reads the runs on the base branch;
+  - records the variables each run was given: the three device variables, `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`;
+  - when a scenario asks for it, fails every scenario that runs without one of the three device variables.
+
+  The `feature-990` runner (`feature-990-scripts.ts`) does the first two and records no environment. The `feature-992` stand-ins (`feature-992-standins.ts`) record the `ADW_` variables of each run, `npx` included, which the `web` scenario needs. Extend one of them with options whose defaults keep their own features' scenarios as they are, or write a runner for this feature.
+- **What the scenarios pin**, each a behaviour of this plan:
+  - the three variables reach the base branch's run, beside `ADW_JUNIT_REPORT_PATH` and `ADW_PROOF_DIR`, from devices created, booted and waited for before it and removed after it (Tasks 2 and 5);
+  - one AVD and one simulator, named after the ADW ID, from the worktree's device-source sections (the request of Task 5);
+  - a scenario that passes on the base branch only on devices is introduced by the change, not pre-existing;
+  - two failing scenarios are both re-run on the devices of the one triage, and the `pre_existing_regression` park comes after the devices are removed (Solution Statement, point 4);
+  - a device that does not boot in 3 attempts, or a missing host tool, parks `device_boot_failed`, with no scenario re-run and no device left behind (Solution Statement, point 3);
+  - an emulator that boots on its third attempt lets the re-run go ahead, and the scenario that fails there parks `pre_existing_regression`;
+  - no device and no re-run when no regression scenario failed or the baseline was waived (Solution Statement, point 5);
+  - `cli` and `web` are unchanged, even with every device-source section set.
+- Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1049"`. Every scenario passes, and none is undefined.
 
 ### 8. Update the README
 - **"Baseline gate on the base branch" bullet.** After "is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`)", add ", on devices of its own when the application profile has platforms".
@@ -366,6 +394,21 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   - `adws/phases/__tests__/scenarioTestPhase.devices.test.ts` and `adws/phases/__tests__/scenarioTestPhase.deviceBoot.test.ts`, whose helpers are now shared;
   - `adws/core/__tests__/applicationType.test.ts`, which holds the mapping-reader guard.
 
+### BDD Scenarios
+`features/per-issue/feature-1049.feature` (`@adw-1049`) runs the real gate and the real base re-run, with the stand-in device host and a stand-in scenario command (Task 7). It covers:
+- for `mobile:kotlincm`:
+  - the three variables, beside the report and proof paths, from devices created before the base branch's run and removed after it;
+  - one AVD and one simulator named after the ADW ID, from the worktree's device-source sections;
+  - a scenario that passes on the base branch only on devices, which is not parked;
+  - the `pre_existing_regression` park, for one failing scenario and for two, with no device left behind;
+- `device_boot_failed` for a boot that fails 3 times on either device, and for `avdmanager` or `xcrun simctl` missing, with its park comment;
+- an emulator that boots on its third attempt;
+- no device and no re-run when nothing fails, when only the issue's own scenario fails, or when the baseline was waived;
+- `cli` and `web` with every device-source section set: no device tool, none of the three variables, and the `pre_existing_regression` park as before;
+- the type check.
+
+The learned outcomes, the missing-section error, the emulator log's path and the execution log's lines are pinned by the unit tests above only.
+
 ### Edge Cases
 - **Several failing regression scenarios.** One device session holds all their re-runs. The devices are not booted once per scenario.
 - **The same scenario reported twice**, as both platform runs report the same title. It is re-run once: the gate's learned outcome, and the re-run's memo, answer the duplicate.
@@ -380,6 +423,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   - parks `device_boot_failed`, with the scenario phase's evidence and comment;
   - never returns, so nothing reaches the fix agent.
 - **When both devices fail**, the lifecycle reports one failure (a missing tool first, then Android, then iOS). The gate parks with it as it is.
+- **A device that boots on its second or third attempt.** The lifecycle retries as it does for the scenario phase, and the gate sees only a `ready` outcome. The re-run goes ahead on the devices booted, so a scenario that fails there too parks `pre_existing_regression`, not `device_boot_failed`.
 - **A waived baseline on a mobile repository.** No device, nothing re-run, every failure to the fix agent, as today.
 - **A device-source section that is missing.** It throws `DeviceSourceConfigError` before any device or re-run and does not park. The scenario phase throws first in a real run.
 - **Something the base branch cannot run**, such as a scenario only the change has, an install of the base checkout that fails, or a port that stays busy, comes out `NotRun`. On the first triage the devices were booted for nothing and are removed again; the outcome is learned, so no later attempt boots for it.
@@ -446,6 +490,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Why the issue's file list grows.**
   - The issue names only the gate and its test. The variables can reach the run command only through the re-run, which builds its `env`, so `baseScenarioRerun.ts` and its two test files change too.
   - The gate test file already has 270 lines. Its fixtures move to `preExistingRegressionGate.helpers.ts`, and the new cases go to `preExistingRegressionGate.devices.test.ts`, following the existing `*.devices.test.ts` and `*.helpers.ts` splits.
+  - The step definitions of this issue's scenarios are new files under `features/per-issue/step_definitions/`.
 - **Why the gate owns the devices, and not the re-run.**
   - The park must come from outside every callback, and the re-run's outcome (`Passed`/`Failed`/`NotRun`) has no room for a device failure. It would need a new variant, or a thrown error that `rerunOnce`'s catch-all would have to let through, the base dev server's lifecycle would have to carry, and the core triage would have to stop on.
   - The gate already holds the config and the park.
