@@ -195,6 +195,11 @@ export { getWorkflowScript } from './workflowMapping';
 
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
+export type { DeviceCommand, DeviceCommandResult, DeviceExecutor, DeviceProcess } from './deviceExecutor';
+export { systemDeviceExecutor } from './deviceExecutor';
+export type { DeviceEnvironment, DeviceLifecycleDeps, DeviceRequest } from './deviceLifecycle';
+export { withDevices, deviceNameFor, emulatorConsolePortCandidates, DeviceLifecycleError, DEVICE_NAME_PREFIX } from './deviceLifecycle';
+
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 

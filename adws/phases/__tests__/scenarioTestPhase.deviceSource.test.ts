@@ -23,7 +23,7 @@ import { AgentStateManager } from '../../core';
 import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import { DEVICE_SOURCE_SECTION_TITLES, DeviceSourceConfigError, type DeviceSource, type DeviceSourceSections } from '../../core/deviceSourceConfig';
 import type { WorkflowConfig } from '../workflowInit';
-import { fakeLifecycle, makeConfig, passingProof } from './scenarioTestPhase.helpers';
+import { fakeDevices, fakeLifecycle, makeConfig, passingProof } from './scenarioTestPhase.helpers';
 
 const mockRunScenarioProof = vi.mocked(runScenarioProof);
 const mockAppendLog = vi.mocked(AgentStateManager.appendLog);
@@ -115,13 +115,15 @@ describe('executeScenarioTestPhase — the device source of a profile with platf
     expect(mockRunScenarioProof).not.toHaveBeenCalled();
   });
 
-  it('runs the proof as before when every section is set', async () => {
+  it('runs the proof, on the devices the device lifecycle creates, when every section is set', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
     const config = withDeviceSources(makeConfig({ applicationProfile: MOBILE }), EVERY_SECTION);
+    const { withDevices, requests } = fakeDevices();
 
-    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
+    const result = await executeScenarioTestPhase(config, { ...NO_DECLARED_SERVER, withDevices });
 
     expect(mockRunScenarioProof).toHaveBeenCalledOnce();
+    expect(requests).toHaveLength(1);
     expect(result.scenarioProof).toEqual(passingProof);
   });
 

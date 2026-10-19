@@ -17,6 +17,7 @@ import { declaredApplicationProfile } from '../../../adws/phases/applicationType
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
 import { executeStepDefPhase } from '../../../adws/phases/stepDefPhase.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
+import { lastStandInDeviceHost, standInDeviceHost } from '../support/standInDevices.ts';
 
 import { installCompactingCli, readRuns, type RunRecord } from './feature-929-compacting-cli.ts';
 import { createWorkflow, type Workflow929 } from './feature-929-workflow.ts';
@@ -147,10 +148,15 @@ Given('{string} is a stand-in that records each run', function (program: string)
   assertStandIn(program);
 });
 
-/** The scenario test phase over the workflow's worktree, with the `npm` and `npx` the scenario asked for: the stand-ins, or the real ones. */
+/**
+ * The scenario test phase over the workflow's worktree, with the `npm` and `npx` the scenario asked for: the stand-ins, or the
+ * real ones. A repository with platforms gets its devices from the stand-in device tools the scenario installed, or from new
+ * ones when it installed none, so that no run reaches a real SDK.
+ */
 export async function runScenarioTestPhase(workflow: Workflow929): ReturnType<typeof executeScenarioTestPhase> {
   await prepareWorkflow(workflow);
-  const run = (): ReturnType<typeof executeScenarioTestPhase> => executeScenarioTestPhase(workflow.config);
+  const { withDevices } = lastStandInDeviceHost() ?? standInDeviceHost();
+  const run = (): ReturnType<typeof executeScenarioTestPhase> => executeScenarioTestPhase(workflow.config, { withDevices });
   return toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run);
 }
 
