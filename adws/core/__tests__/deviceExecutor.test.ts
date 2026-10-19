@@ -54,6 +54,14 @@ describe('systemDeviceExecutor.run', () => {
 
     expect(result.exitCode).toBeNull();
     expect(result.output).toContain('ENOENT');
+    expect(result.programMissing).toBe(true);
+  });
+
+  it('carries no programMissing for a program that ran and failed', async () => {
+    const result = await systemDeviceExecutor.run(shell('exit 3'));
+
+    expect(result.exitCode).toBe(3);
+    expect(result).not.toHaveProperty('programMissing');
   });
 
   it('resolves with no exit code when the command outlives its timeout, long before it would have ended', async () => {
@@ -80,6 +88,36 @@ describe('systemDeviceExecutor.start', () => {
     const started = systemDeviceExecutor.start(['adw-no-such-device-tool'], path.join(tmpDir, 'missing.log'));
 
     expect(await started.exited).toBeNull();
+  });
+
+  it('answers programMissing() true, once it has exited, for a program that does not exist', async () => {
+    const started = systemDeviceExecutor.start(['adw-no-such-device-tool'], path.join(tmpDir, 'missing.log'));
+    await started.exited;
+
+    expect(started.programMissing()).toBe(true);
+  });
+
+  it('answers programMissing() false for a program that ran', async () => {
+    const started = systemDeviceExecutor.start(['true'], path.join(tmpDir, 'ran.log'));
+    await started.exited;
+
+    expect(started.programMissing()).toBe(false);
+  });
+
+  it('reads back what the process printed, once it has exited', async () => {
+    const started = systemDeviceExecutor.start(['sh', '-c', 'echo "PANIC: Broken AVD system path"; exit 1'], path.join(tmpDir, 'panic.log'));
+    await started.exited;
+
+    expect(await started.output()).toContain('PANIC: Broken AVD system path');
+  });
+
+  it('reads back nothing for a process that never started', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'blocker'), '');
+    const started = systemDeviceExecutor.start(['sleep', '30'], path.join(tmpDir, 'blocker', 'emulator.log'));
+    await started.exited;
+
+    expect(await started.output()).toBe('');
+    expect(started.programMissing()).toBe(false);
   });
 
   it('does not throw when the output file cannot be created: the process has exited, with no exit code', async () => {

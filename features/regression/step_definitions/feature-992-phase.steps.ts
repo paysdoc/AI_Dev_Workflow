@@ -36,6 +36,7 @@ import {
   type AdwFiles,
 } from './feature-992-adw-files.ts';
 import { commandMatches, describeCalls, ranIn, runForTag, withoutAtSign } from './feature-992-calls.ts';
+import { trappingExit } from './feature-992-exit.ts';
 import { isInside, reportPathFor } from './feature-992-junit.ts';
 import {
   commandLine,
@@ -151,12 +152,13 @@ Given('{string} is a stand-in that records each run', function (program: string)
 /**
  * The scenario test phase over the workflow's worktree, with the `npm` and `npx` the scenario asked for: the stand-ins, or the
  * real ones. A repository with platforms gets its devices from the stand-in device tools the scenario installed, or from new
- * ones when it installed none, so that no run reaches a real SDK.
+ * ones when it installed none, so that no run reaches a real SDK. A phase that parks the workflow runs the real park, with
+ * `process.exit` trapped: the state and the comment are written, and the trapped exit throws `TrappedExit`.
  */
 export async function runScenarioTestPhase(workflow: Workflow929): ReturnType<typeof executeScenarioTestPhase> {
   await prepareWorkflow(workflow);
   const { withDevices } = lastStandInDeviceHost() ?? standInDeviceHost();
-  const run = (): ReturnType<typeof executeScenarioTestPhase> => executeScenarioTestPhase(workflow.config, { withDevices });
+  const run = (): ReturnType<typeof executeScenarioTestPhase> => trappingExit(() => executeScenarioTestPhase(workflow.config, { withDevices }));
   return toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run);
 }
 

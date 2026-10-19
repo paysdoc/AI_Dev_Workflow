@@ -10,6 +10,8 @@ import assert from 'assert';
 import { withDevices, type DeviceEnvironment } from '../../../adws/core/deviceLifecycle.ts';
 import type { DeviceSource } from '../../../adws/core/deviceSourceConfig.ts';
 
+import { steppingClock } from '../../regression/support/standInDevices.ts';
+
 import { CALLBACK, STEPS, commandsOf, emulatorStartedFor, lineOf, onlyCommandOf, stepsTaken, valueAfter, type Device } from './feature-1047-commands.ts';
 import { valuesOf } from './feature-1045-sections.ts';
 import { recordedCommands, requireDeviceSource, requireExecutor, requireRun, s } from './feature-1047-world.ts';
@@ -39,9 +41,11 @@ async function runLifecycle(adwId: string, work: (devices: DeviceEnvironment) =>
     return work(devices);
   };
   const request = { adwId, deviceSource: requireDeviceSource(), emulatorOutputPath: '/logs/android-emulator.log', record: () => undefined };
-  const deps = { executor, clock: { now: () => new Date(), sleep: async () => undefined }, isPortAvailable: async () => true };
+  const deps = { executor, clock: steppingClock(), isPortAvailable: async () => true };
   try {
-    s.runs.push({ adwId, given, returned: await withDevices(request, callback, deps), failure: undefined, thrown });
+    const outcome = await withDevices(request, callback, deps);
+    // A device that did not come up is not a rejection, but it is the lifecycle's failure all the same.
+    s.runs.push(outcome.kind === 'ready' ? { adwId, given, returned: outcome.result, failure: undefined, thrown } : { adwId, given, returned: undefined, failure: outcome, thrown });
   } catch (failure) {
     s.runs.push({ adwId, given, returned: undefined, failure, thrown });
   }
@@ -93,10 +97,15 @@ Then('the callback was given exactly the variables {string}, {string} and {strin
   assert.deepStrictEqual(Object.keys(requireRun().given[0]).sort(), expected, 'Expected the callback to have been given exactly these variables');
 });
 
-Then('the device lifecycle came back with what the callback returned', function () {
+Then('the device lifecycle came back ready, with what the callback returned', function () {
   const { failure, returned } = requireRun();
-  assert.strictEqual(failure, undefined, `Expected the device lifecycle to come back, but it failed with: ${String(failure)}`);
-  assert.strictEqual(returned, RETURNED, 'Expected the device lifecycle to come back with what the callback returned');
+  assert.strictEqual(failure, undefined, `Expected the device lifecycle to come back ready, but it failed with: ${JSON.stringify(failure) ?? String(failure)}`);
+  assert.strictEqual(returned, RETURNED, 'Expected the device lifecycle to come back ready, with what the callback returned');
+});
+
+Then('the device lifecycle ran {string} only once', function (tool: string) {
+  const ran = commandsOf(recordedCommands(), tool);
+  assert.strictEqual(ran.length, 1, `Expected "${tool}" to have been run once, but it was run ${ran.length} times; the commands were:\n${recordedCommands().map(lineOf).join('\n')}`);
 });
 
 Then('the device lifecycle failed with the error the callback threw', function () {

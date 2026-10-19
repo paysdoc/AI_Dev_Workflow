@@ -52,7 +52,7 @@ function freshState(): State1047 {
 
 export const s: State1047 = freshState();
 
-function resetState(): void {
+export function resetState(): void {
   Object.assign(s, freshState());
 }
 

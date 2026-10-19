@@ -1,7 +1,14 @@
+import { Platform } from '../../core/applicationType';
+import { HostTool } from '../../core/deviceCommands';
+import type { DeviceFailure } from '../../core/deviceLifecycle';
 import { FixLoopStall } from '../../core/staticCheckFixLoop';
 import { ParkReason, type ParkEvidence, type ParkedCheck } from '../parkComment';
 
 export const ADW_ID = 'k3x9ab-feat-park-comment';
+
+const BOOT_ATTEMPT_OUTPUTS = [1, 2, 3].map(
+  attempt => `Attempt ${attempt} of 3: The iOS simulator "adw-${ADW_ID}" could not be booted: "xcrun simctl boot UDID" failed with exit code 1: Unable to boot device\nUnable to boot device`,
+);
 
 export const LINT: ParkedCheck = { check: 'lint', command: 'bun run lint', exitCode: 1, output: 'src/app.ts: 1 problem (1 error, 0 warnings)\n' };
 export const TYPE_CHECK: ParkedCheck = {
@@ -31,12 +38,23 @@ export const SAMPLE: Readonly<Record<ParkReason, ParkEvidence>> = {
     baseBranch: 'trunk',
     output: 'Error: listen EADDRINUSE: address already in use :::3000\n',
   },
+  [ParkReason.DeviceBootFailed]: {
+    reason: ParkReason.DeviceBootFailed,
+    failure: { kind: 'boot_failed', platform: Platform.Ios, attempts: 3, output: BOOT_ATTEMPT_OUTPUTS.join('\n\n') },
+  },
 };
 
 export const REASONS = Object.values(ParkReason);
 
 export function lines(comment: string): string[] {
   return comment.split('\n');
+}
+
+export function toolMissing(overrides: Partial<Extract<DeviceFailure, { kind: 'tool_missing' }>> = {}): ParkEvidence {
+  return {
+    reason: ParkReason.DeviceBootFailed,
+    failure: { kind: 'tool_missing', platform: Platform.Android, tool: HostTool.AvdManager, output: 'Error: spawn avdmanager ENOENT', ...overrides },
+  };
 }
 
 export function stalled(overrides: Partial<Extract<ParkEvidence, { reason: ParkReason.FixLoopStalled }>> = {}): ParkEvidence {

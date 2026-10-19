@@ -29,10 +29,17 @@ export interface DeviceHostScript {
   readonly pollsUntilBootCompleted: number;
   /** The output of each command that exits 1, by the command's leading words. */
   readonly failing: Readonly<Record<string, string>>;
+  /** How many issues of a command in `failing` exit 1 before it answers as a healthy host, by the same leading words. Without a count it fails every time. */
+  readonly failingTimes: Readonly<Record<string, number>>;
+  /** Programs that are not on the host. A command of one answers as the real executor does, and a started one has already exited. */
+  readonly missingTools: readonly string[];
   readonly takenPorts: readonly number[];
   /** The emulator stays up after `adb emu kill`, and ends only when its process is killed. */
   readonly emulatorIgnoresKill: boolean;
-  readonly emulatorExitsEarly: boolean;
+  /** How many started emulators exit before they are ready; `Infinity` for every one. */
+  readonly emulatorEarlyExits: number;
+  /** What each started emulator prints to its output file. */
+  readonly emulatorOutput: string;
 }
 
 const HEALTHY_HOST: DeviceHostScript = {
@@ -41,9 +48,12 @@ const HEALTHY_HOST: DeviceHostScript = {
   pollsUntilDevice: 0,
   pollsUntilBootCompleted: 0,
   failing: {},
+  failingTimes: {},
+  missingTools: [],
   takenPorts: [],
   emulatorIgnoresKill: false,
-  emulatorExitsEarly: false,
+  emulatorEarlyExits: 0,
+  emulatorOutput: '',
 };
 
 export interface StartedEmulator {
@@ -111,6 +121,7 @@ interface HostState {
   readonly runs: DeviceCommand[];
   readonly started: StartedEmulator[];
   readonly timesIssued: Map<string, number>;
+  readonly failuresIssued: Map<string, number>;
   readonly emulatorReadyAt: Map<string, number>;
   readonly onEmulatorKill: Map<string, () => void>;
   simulatorBootedAt: number;
@@ -120,10 +131,15 @@ const OK: DeviceCommandResult = { exitCode: 0, output: '' };
 
 const isCommand = (line: string, words: string): boolean => line === words || line.startsWith(`${words} `);
 
-function scriptedFailure(failing: DeviceHostScript['failing'], line: string): string | undefined {
-  const words = Object.keys(failing).find(candidate => isCommand(line, candidate));
-  return words === undefined ? undefined : failing[words];
+function scriptedFailure({ script, failuresIssued }: HostState, line: string): string | undefined {
+  const words = Object.keys(script.failing).find(candidate => isCommand(line, candidate));
+  if (words === undefined) return undefined;
+  const issued = (failuresIssued.get(words) ?? 0) + 1;
+  failuresIssued.set(words, issued);
+  return issued <= (script.failingTimes[words] ?? Infinity) ? script.failing[words] : undefined;
 }
+
+const isMissing = (host: HostState, program: string): boolean => host.script.missingTools.includes(program);
 
 function issuedTimes(host: HostState, line: string): number {
   const times = (host.timesIssued.get(line) ?? 0) + 1;
@@ -150,7 +166,8 @@ function answerAdb(host: HostState, argv: readonly string[], line: string): Devi
 
 async function answer(host: HostState, argv: readonly string[]): Promise<DeviceCommandResult> {
   const line = argv.join(' ');
-  const failure = scriptedFailure(host.script.failing, line);
+  if (isMissing(host, argv[0])) return { exitCode: null, output: `Error: spawn ${argv[0]} ENOENT`, programMissing: true };
+  const failure = scriptedFailure(host, line);
   if (failure !== undefined) return { exitCode: 1, output: failure };
 
   if (argv[0] === 'adb' && argv[1] === '-s') return answerAdb(host, argv, line);
@@ -169,7 +186,9 @@ function startEmulator(host: HostState, argv: DeviceCommand['argv'], outputPath:
   const exited = new Promise<number | null>(resolve => {
     end.settle = resolve;
   });
-  if (host.script.emulatorExitsEarly) end.settle(1);
+  const missing = isMissing(host, argv[0]);
+  if (missing) end.settle(null);
+  if (host.started.length < host.script.emulatorEarlyExits) end.settle(1);
   if (!host.script.emulatorIgnoresKill) host.onEmulatorKill.set(serial, () => end.settle(null));
 
   const emulator: StartedEmulator = { argv, outputPath, killed: false };
@@ -179,7 +198,7 @@ function startEmulator(host: HostState, argv: DeviceCommand['argv'], outputPath:
     host.events.push(`kill ${argv[0]}`);
     end.settle(null);
   };
-  return { exited, kill };
+  return { exited, kill, programMissing: () => missing, output: async () => host.script.emulatorOutput };
 }
 
 export function recordingDeviceHost(script: Partial<DeviceHostScript> = {}): RecordingDeviceHost {
@@ -191,6 +210,7 @@ export function recordingDeviceHost(script: Partial<DeviceHostScript> = {}): Rec
     runs: [],
     started: [],
     timesIssued: new Map(),
+    failuresIssued: new Map(),
     emulatorReadyAt: new Map(),
     onEmulatorKill: new Map(),
     simulatorBootedAt: EPOCH_MS,

@@ -7,6 +7,7 @@ import {
   isRetryComment,
   parseWorkflowStageFromComment,
 } from '../../core/workflowCommentParsing';
+import { Platform } from '../../core/applicationType';
 import { FixLoopStall } from '../../core/staticCheckFixLoop';
 import { MAX_PARK_OUTPUT_CHARS, ParkReason, buildParkComment, type ParkEvidence } from '../parkComment';
 import { ADW_ID, LINT, lines, stalled } from './parkComment.helpers';
@@ -34,6 +35,14 @@ describe('buildParkComment — quoting', () => {
 
     expect(comment).toContain('output cut after');
     expect(comment).not.toContain('q'.repeat(MAX_PARK_OUTPUT_CHARS + 1));
+  });
+
+  it('cuts the output of a device that did not boot too', () => {
+    const output = 'd'.repeat(MAX_PARK_OUTPUT_CHARS + 100);
+    const comment = buildParkComment(ADW_ID, { reason: ParkReason.DeviceBootFailed, failure: { kind: 'boot_failed', platform: Platform.Android, attempts: 3, output } });
+
+    expect(comment).toContain('output cut after');
+    expect(comment).not.toContain('d'.repeat(MAX_PARK_OUTPUT_CHARS + 1));
   });
 
   it('never cuts through a character made of two code units', () => {
@@ -66,6 +75,7 @@ describe('buildParkComment — text that must not turn into a directive or a sta
     stalled({ failedChecks: [{ check: 'lint', command: HOSTILE, exitCode: 1, output: HOSTILE }], stall: FixLoopStall.RejectedRound, rejections: [HOSTILE] }),
     { reason: ParkReason.MissingApplicationType, found: HOSTILE },
     { reason: ParkReason.BaseServerDown, baseBranch: HOSTILE, output: HOSTILE },
+    { reason: ParkReason.DeviceBootFailed, failure: { kind: 'boot_failed', platform: Platform.Android, attempts: 3, output: HOSTILE } },
   ];
 
   it.each(hostileEvidence.map(evidence => [evidence.reason, evidence] as const))('%s: no line of the comment is a directive, and the comment is no stage', (_reason, evidence) => {

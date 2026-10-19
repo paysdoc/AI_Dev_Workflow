@@ -1,3 +1,5 @@
+// A type-only import: `core/applicationType.ts` imports this module at runtime, and the device lifecycle imports that one.
+import type { DeviceFailure } from '../core/deviceLifecycle';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
 import { FixLoopStall } from '../core/staticCheckFixLoop';
 
@@ -7,6 +9,7 @@ export enum ParkReason {
   FixLoopStalled = 'fix_loop_stalled',
   MissingApplicationType = 'missing_application_type',
   BaseServerDown = 'base_server_down',
+  DeviceBootFailed = 'device_boot_failed',
 }
 
 export interface ParkedCheck {
@@ -28,7 +31,8 @@ export type ParkEvidence =
       readonly rejections: readonly string[];
     }
   | { readonly reason: ParkReason.MissingApplicationType; readonly found: string | null }
-  | { readonly reason: ParkReason.BaseServerDown; readonly baseBranch: string; readonly output: string };
+  | { readonly reason: ParkReason.BaseServerDown; readonly baseBranch: string; readonly output: string }
+  | { readonly reason: ParkReason.DeviceBootFailed; readonly failure: DeviceFailure };
 
 export interface ParkDirectives {
   readonly retry: string;
@@ -48,6 +52,7 @@ const TITLES: Readonly<Record<ParkReason, string>> = {
   [ParkReason.FixLoopStalled]: 'Static-Check Fix Loop Made No Progress',
   [ParkReason.MissingApplicationType]: 'Application Type Unknown',
   [ParkReason.BaseServerDown]: 'Dev Server Does Not Start on the Base Branch',
+  [ParkReason.DeviceBootFailed]: 'A Device Did Not Boot',
 };
 
 const BASELINE_DIRECTIVES: ParkDirectives = {
@@ -75,6 +80,11 @@ export function parkDirectives(evidence: ParkEvidence): ParkDirectives {
       return {
         retry: 're-reads `## Application Type` after `adw_init` has been re-run',
         continue: 'waives nothing, because ADW never assumes an application type',
+      };
+    case ParkReason.DeviceBootFailed:
+      return {
+        retry: 're-runs the scenario phase, which creates and boots the devices again, and parks the issue again if a device still does not boot',
+        continue: 'waives nothing, because no scenario can run without the devices: fix the host, then use `## Retry`',
       };
     default: {
       const unhandled: never = evidence;
@@ -135,6 +145,28 @@ function describeStall(evidence: Extract<ParkEvidence, { reason: ParkReason.FixL
   return [rejected, rejections.map(line => `- ${onOneLine(line)}`).join('\n')].join('\n\n');
 }
 
+function describeDeviceFailure(failure: DeviceFailure): string {
+  const platform = inlineCode(failure.platform);
+  switch (failure.kind) {
+    case 'boot_failed':
+      return [
+        `The ${platform} device did not boot in ${failure.attempts} attempts. ADW removed what each attempt had created, and no scenario ran. ` +
+          'The problem is the host’s, not this issue’s change, so it does not go to the fix agent. The output of the attempts:',
+        quote(failure.output),
+      ].join('\n\n');
+    case 'tool_missing':
+      return [
+        `The host tool ${inlineCode(failure.tool)} is not on the host’s \`PATH\`, so the ${platform} device could not be created, and ADW did not retry. ` +
+          'Install it on the host that runs ADW, and put it on the `PATH`. Its output:',
+        quote(failure.output),
+      ].join('\n\n');
+    default: {
+      const unhandled: never = failure;
+      throw new Error(`Unhandled device failure: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
 function describeFailure(evidence: ParkEvidence): string {
   switch (evidence.reason) {
     case ParkReason.BaselineRed:
@@ -147,6 +179,8 @@ function describeFailure(evidence: ParkEvidence): string {
       return describeMissingApplicationType(evidence.found);
     case ParkReason.BaseServerDown:
       return ['The dev server did not start. Its output:', quote(evidence.output)].join('\n\n');
+    case ParkReason.DeviceBootFailed:
+      return describeDeviceFailure(evidence.failure);
     default: {
       const unhandled: never = evidence;
       throw new Error(`Unhandled park reason: ${JSON.stringify(unhandled)}`);

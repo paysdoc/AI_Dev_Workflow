@@ -20,6 +20,8 @@ export interface DeviceCommandResult {
   readonly exitCode: number | null;
   /** Standard output and standard error in arrival order. */
   readonly output: string;
+  /** Set only when the program is not on the host's `PATH`, so that the command never ran. */
+  readonly programMissing?: true;
 }
 
 export interface DeviceProcess {
@@ -27,6 +29,10 @@ export interface DeviceProcess {
   readonly exited: Promise<number | null>;
   /** Signals the process's whole group; a process that has exited is left alone. */
   kill(): void;
+  /** Whether the program is not on the host's `PATH`; known once `exited` has settled. */
+  programMissing(): boolean;
+  /** What the process has written to its output file so far. Never rejects. */
+  output(): Promise<string>;
 }
 
 /**
@@ -42,7 +48,10 @@ export interface DeviceExecutor {
 
 const KILL_GRACE_MS = 5_000;
 
-const NEVER_STARTED: DeviceProcess = { exited: Promise.resolve(null), kill: () => undefined };
+// An output file that cannot be opened is not a missing tool.
+const NEVER_STARTED: DeviceProcess = { exited: Promise.resolve(null), kill: () => undefined, programMissing: () => false, output: async () => '' };
+
+const isProgramMissing = (error: Error): boolean => (error as NodeJS.ErrnoException).code === 'ENOENT';
 
 function runDeviceCommand({ argv: [program, ...args], timeoutMs, input }: DeviceCommand): Promise<DeviceCommandResult> {
   return new Promise((resolve) => {
@@ -63,7 +72,10 @@ function runDeviceCommand({ argv: [program, ...args], timeoutMs, input }: Device
       proc.stderr.on('data', collect);
 
       // A command that cannot be spawned reports here, and a close event may follow it; the first of the two settles the promise.
-      proc.on('error', (error) => resolve({ exitCode: null, output: [...chunks, String(error)].join('') }));
+      proc.on('error', (error) => {
+        const output = [...chunks, String(error)].join('');
+        resolve(isProgramMissing(error) ? { exitCode: null, output, programMissing: true } : { exitCode: null, output });
+      });
       proc.on('close', (exitCode) => resolve({ exitCode, output: chunks.join('') }));
 
       // A command that exits without reading its input has answered; the broken pipe is not a failure of ours.
@@ -87,18 +99,23 @@ function launch([program, ...args]: DeviceCommand['argv'], outputPath: string): 
   proc.unref();
 
   let hasExited = false;
+  let missing = false;
   const exited = new Promise<number | null>((resolve) => {
     proc.on('exit', (code) => {
       hasExited = true;
       resolve(code);
     });
-    proc.on('error', () => resolve(null));
+    proc.on('error', (error) => {
+      missing = isProgramMissing(error);
+      resolve(null);
+    });
   });
   const kill = (): void => {
     if (hasExited || proc.pid === undefined) return;
     killProcessGroup(proc.pid, KILL_GRACE_MS);
   };
-  return { exited, kill };
+  const output = (): Promise<string> => fs.promises.readFile(outputPath, 'utf-8').catch(() => '');
+  return { exited, kill, programMissing: () => missing, output };
 }
 
 function startDeviceProcess(argv: DeviceCommand['argv'], outputPath: string): DeviceProcess {

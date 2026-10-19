@@ -25,6 +25,7 @@ import { commandMatches, describeCalls } from '../../regression/step_definitions
 import { requireAdwFiles, runScenarioTestPhase } from '../../regression/step_definitions/feature-992-phase.steps.ts';
 import { commandLine, recordedCalls } from '../../regression/step_definitions/feature-992-standins.ts';
 import { requireWorkflow } from '../../regression/step_definitions/feature-992-world.ts';
+import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import { requireType, s as reviewWorkflow } from './feature-994-world.ts';
 import { requireAttempt, s } from './feature-1045-world.ts';
 import { titleOf } from './feature-1045-sections.ts';
@@ -72,13 +73,20 @@ Given("the workflow's {string} names no device source", function (file: string) 
   putProjectMd(setNoDeviceSource);
 });
 
-When("the workflow's scenario test phase is attempted", { timeout: ATTEMPT_TIMEOUT_MS }, async function () {
+/** One attempt at the phase, which may complete, throw, or park the workflow. The proof of a completed phase goes on the world, where the steps about a scenario proof read it. */
+export async function attemptScenarioTestPhase(world: RegressionWorld): Promise<void> {
+  world.scenarioProofResult = undefined;
   try {
-    await runScenarioTestPhase(requireWorkflow());
+    const { scenarioProof } = await runScenarioTestPhase(requireWorkflow());
+    world.scenarioProofResult = scenarioProof;
     s.attempt = { completed: true, error: undefined };
   } catch (error) {
     s.attempt = { completed: false, error };
   }
+}
+
+When("the workflow's scenario test phase is attempted", { timeout: ATTEMPT_TIMEOUT_MS }, async function (this: RegressionWorld) {
+  await attemptScenarioTestPhase(this);
 });
 
 Then('the scenario test phase failed with an error that names {string}', function (section: string) {

@@ -30,12 +30,14 @@ function deviceCommands(): readonly StandInDeviceCommand[] {
   return host.commands;
 }
 
-/** The AVD, the emulator's serial and the simulator's UDID of the devices the phase booted, read from the commands that booted them. */
+/** The AVD, the emulator's serial and the simulator's UDID of the devices the phase booted, read from the commands of the attempt that booted them: the last. */
 function bootedDevices(): { readonly avd: string; readonly serial: string; readonly udid: string } {
   const commands = deviceCommands();
-  const emulator = commands.find(command => command.argv[0] === 'emulator');
+  const emulators = commands.filter(command => command.argv[0] === 'emulator');
+  const emulator = emulators[emulators.length - 1];
   assert.ok(emulator, `Expected the scenario test phase to have started an emulator, but the device commands were:\n${commands.map(lineOf).join('\n')}`);
-  const boot = commands.find(command => command.argv.slice(0, 3).join(' ') === 'xcrun simctl boot');
+  const boots = commands.filter(command => command.argv.slice(0, 3).join(' ') === 'xcrun simctl boot');
+  const boot = boots[boots.length - 1];
   assert.ok(boot, `Expected the scenario test phase to have booted a simulator, but the device commands were:\n${commands.map(lineOf).join('\n')}`);
   return { avd: valueAfter(emulator, '-avd'), serial: `emulator-${valueAfter(emulator, '-port')}`, udid: boot.argv[3] };
 }

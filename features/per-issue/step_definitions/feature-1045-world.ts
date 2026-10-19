@@ -34,7 +34,7 @@ function freshState(): State1045 {
 
 export const s: State1045 = freshState();
 
-function resetState(): void {
+export function resetState(): void {
   Object.assign(s, freshState());
 }
 
