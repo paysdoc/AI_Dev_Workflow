@@ -162,7 +162,8 @@ The repository owns the rest, as a `cli` repository does: its `.adw/scenarios.md
 
 ### Host prerequisites (not ADW's to install)
 
-* Android command-line tools with `avdmanager`, `emulator`, `adb` and the configured system image; Xcode with the configured simulator runtime; Appium with the UiAutomator2 and XCUITest drivers; a JDK. Whether WebDriverAgent needs code signing on this host is tracked in a separate opt-out issue with the steps to verify and, if needed, sign it.
+* Android command-line tools with `avdmanager`, `emulator`, `adb` and the configured system image; Xcode with the configured simulator runtime; Appium with the UiAutomator2 and XCUITest drivers; a JDK. WebDriverAgent needs no code signing on this host for the simulator: verified in #1040 (Xcode 26.6, iOS 26.5 runtime, Appium 3.8.0, XCUITest driver 12.19.1).
+* Re-check after every Xcode upgrade. A new Xcode invalidates the prebuilt WebDriverAgent and can change the signing state: run `appium driver run xcuitest build-wda`, then repeat the unsigned-session check from #1040 step 4. If it fails on a signing error, follow #1040 step 5.
 
 ## Testing Decisions
 
@@ -197,4 +198,4 @@ BDD scenarios for the issue follow the existing per-issue feature convention and
 * The `platforms` field is the only new dimension of a profile. It is deliberately a list rather than a boolean so that a future single-platform mobile type (Android only) is one entry with one platform and no new code path.
 * Platform attribution reads the first path segment under the harvest root. For the descriptor runner the harvest root is `ADW_PROOF_DIR` itself (per-tag proof directories are a Playwright-only need), so the convention is exactly `$ADW_PROOF_DIR/android/…` and `$ADW_PROOF_DIR/ios/…`. The attachment line in JUnit is relative to the report's directory, as today; the repository's reporter must compute that relative path.
 * Five parallel mobile workflows mean five emulator pairs and ten app builds on one mac mini. The owner accepted this for now; the slot lock is the expected follow-up if it hurts.
-* The WebDriverAgent question: on the iOS simulator Appium's XCUITest driver builds WebDriverAgent without a signing identity, and signing is needed for real devices. That is from memory, not verified on the host; the opt-out issue lists the verification step first.
+* The WebDriverAgent question: on the iOS simulator Appium's XCUITest driver builds WebDriverAgent without a signing identity, and signing is needed for real devices. Verified on the host in #1040: a simulator session starts with no `xcodeOrgId` / `xcodeSigningId`.

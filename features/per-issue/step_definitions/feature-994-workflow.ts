@@ -18,11 +18,12 @@ import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { setProofUploaderForTesting } from '../../../adws/proof/proofUploader.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
+import { lastStandInDeviceHost, standInDeviceHost } from '../../regression/support/standInDevices.ts';
 
 import { REPO_ID, createScreenshotStore } from '../../regression/step_definitions/feature-937-world.ts';
 import { freshAdwFiles, setRunScenariosByTag, writeAdwFiles } from '../../regression/step_definitions/feature-992-adw-files.ts';
 import { activateStandInAgent, deactivateStandInAgent, scriptVerdict } from './feature-994-agent.ts';
-import type { RepositoryType } from './feature-994-names.ts';
+import { runsOnAdwPlaywright, type RepositoryType } from './feature-994-names.ts';
 import { createRunner, withRunnerOnPath, writeScript } from './feature-994-runner.ts';
 import { buildScript, writeWorktreeFile } from './feature-994-scenarios.ts';
 import { makeDirectory, requireStore, requireType, requireWorkflow, s } from './feature-994-world.ts';
@@ -48,7 +49,7 @@ function recordingCodeHost(): CodeHost {
 
 // The scenario test phase only runs when the repository has step definitions where its runner looks for them.
 function stepDefinitionFile(type: RepositoryType): string {
-  return type === 'web' ? 'features/steps/steps.ts' : 'features/step_definitions/steps.ts';
+  return runsOnAdwPlaywright(type) ? 'features/steps/steps.ts' : 'features/step_definitions/steps.ts';
 }
 
 function workflowConfig(issueNumber: number, adwId: string, worktreePath: string, logsDir: string): WorkflowConfig {
@@ -111,7 +112,7 @@ export function createWorkflow(issueNumber: number, type: RepositoryType): void 
 function prepareWorkflow(): void {
   const { config, worktreePath } = requireWorkflow();
   const files = freshAdwFiles(requireType());
-  if (s.runner && requireType() === 'cli') setRunScenariosByTag(files, `"${s.runner.scenarioCommand}" {tag}`);
+  if (s.runner && !runsOnAdwPlaywright(requireType())) setRunScenariosByTag(files, `"${s.runner.scenarioCommand}" {tag}`);
   writeAdwFiles(worktreePath, files);
   s.adwFiles.forEach((content, file) => writeWorktreeFile(file, content));
 
@@ -128,7 +129,9 @@ export async function runScenarioTests(world: RegressionWorld): Promise<void> {
   prepareWorkflow();
   writeScript(s.runner, buildScript());
 
-  const { scenarioProof } = await withRunnerOnPath(s.runner, () => executeScenarioTestPhase(config));
+  // A repository with platforms gets its devices from the stand-in device tools the scenario installed, or from new ones.
+  const { withDevices } = lastStandInDeviceHost() ?? standInDeviceHost();
+  const { scenarioProof } = await withRunnerOnPath(s.runner, () => executeScenarioTestPhase(config, { withDevices }));
   assert.ok(scenarioProof, 'Expected the scenario test phase to have run the scenarios of the repository');
   s.proof = scenarioProof;
   world.scenarioProofResult = scenarioProof;

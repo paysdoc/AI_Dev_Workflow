@@ -20,7 +20,7 @@ vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 const NOW = new Date('2026-10-04T12:00:00.000Z');
 
 const WAIVABLE = [ParkReason.BaselineRed, ParkReason.BaseServerDown, ParkReason.PreExistingRegression];
-const NOT_WAIVABLE = [ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, 'a_future_park'];
+const NOT_WAIVABLE = [ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed, 'a_future_park'];
 const NOT_PARKED_STAGES = [
   'phase_timeout', 'paused', 'paused_auth', 'awaiting_merge', 'merge_blocked',
   'review_failed', 'build_running', 'completed', 'abandoned',

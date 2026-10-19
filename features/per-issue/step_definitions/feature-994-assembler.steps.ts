@@ -16,26 +16,10 @@ import { indexFeatureScenarios } from '../../../adws/proof/featureScenarioIndex.
 import { harvestProofArtifacts } from '../../../adws/proof/proofArtifactHarvester.ts';
 import { assembleScenarioProof, fixedScenarioTags, shouldRunTag, type TagRunRecord } from '../../../adws/proof/proofAssembler.ts';
 
+import { artifactsDirectory, reportPathOf, safeName } from './feature-994-layout.ts';
 import { createRunner, imageBytes, runForTag, writeScript } from './feature-994-runner.ts';
 import { assertRepositoryType, buildScript, reportedScenarios, writeFeatureFile } from './feature-994-scenarios.ts';
 import { makeDirectory, requireRunner, requireType, requireWorktree, s } from './feature-994-world.ts';
-
-function safeName(tag: string): string {
-  return tag.replace(/^@/, '').replace(/[^A-Za-z0-9_-]/g, '-');
-}
-
-function requireProofDirectory(): string {
-  assert.ok(s.proofDirectory, 'Expected the scenario to have said which scenario run it is about');
-  return s.proofDirectory;
-}
-
-function reportPathOf(tag: string): string {
-  return path.join(requireProofDirectory(), `junit-${safeName(tag)}.xml`);
-}
-
-function artifactsDirectory(): string {
-  return path.join(requireProofDirectory(), 'artifacts');
-}
 
 function tagDirectory(tag: string): string {
   return path.join(artifactsDirectory(), safeName(tag));

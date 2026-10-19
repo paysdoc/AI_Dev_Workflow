@@ -10,7 +10,7 @@ function entry(pattern: string, example: string): SuppressionPatternEntry {
   return { pattern, example };
 }
 
-/** `javascript` covers TypeScript. A language with no entry here gets the protected paths and the repository's own patterns only. */
+/** `javascript` covers TypeScript and `jvm` covers Kotlin and Java. A language with no entry here gets the protected paths and the repository's own patterns only. */
 export const FRAMEWORK_SUPPRESSION_PATTERNS: Readonly<Record<StackLanguage, readonly SuppressionPatternEntry[]>> = {
   javascript: [
     entry('eslint-disable', '// eslint-disable-next-line no-console'),
@@ -55,6 +55,15 @@ export const FRAMEWORK_SUPPRESSION_PATTERNS: Readonly<Record<StackLanguage, read
     entry('standard:disable', '# standard:disable Style/Semicolon'),
     entry('steep:ignore', '# steep:ignore'),
     entry('# typed: ignore', '# typed: ignore'),
+  ],
+  jvm: [
+    entry('@Suppress(', '@Suppress("UNCHECKED_CAST")'),
+    entry('@file:Suppress(', '@file:Suppress("unused")'),
+    entry('@SuppressWarnings(', '@SuppressWarnings("unchecked")'),
+    entry('@SuppressLint(', '@SuppressLint("NewApi")'),
+    entry('//noinspection', '//noinspection SpellCheckingInspection'),
+    entry('ktlint-disable', '// ktlint-disable max-line-length'),
+    entry('CHECKSTYLE:OFF', '// CHECKSTYLE:OFF'),
   ],
 };
 

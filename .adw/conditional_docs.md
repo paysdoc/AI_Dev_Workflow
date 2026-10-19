@@ -192,6 +192,7 @@
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
     - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
+    - When the base-branch re-run of a failing regression scenario on a profile with platforms creates its own emulator and simulator (`withDevices` in `preExistingRegressionGate.ts`, `BaseScenarioRerun`'s `devices` argument) or parks as `device_boot_failed`
     - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
     - When the scenario phase does not start its dev server, reports `devServer: failed`, or starts a server the repository did not declare (`readDeclaredDevServer`, `declaredDevServer.ts`, `ScenarioTestPhaseResult.devServer`), or the fix loop hands a failed start back instead of calling the scenario fix agent
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
@@ -555,10 +556,15 @@
     - .claude/skills/**
     - .claude/hooks/**
     - adws/__tests__/adwInitPrompt.test.ts
+    - adws/__tests__/adwInitPrompt.mobile.test.ts
+    - adws/__tests__/adwInitPrompt.helpers.ts
+    - adws/__tests__/generateStepDefinitionsPrompt.test.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
     - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
     - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
+    - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the descriptor-mode device note in `generate_step_definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
+    - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
   - Decisions:
     - 0005
     - 0014
@@ -573,6 +579,7 @@
     - 0043
     - 0050
     - 0054
+    - 0064
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
   - Owns:
@@ -849,6 +856,29 @@
     - 0050
     - 0062
 
+- app_docs/feature-ko14m9-device-lifecycle.md
+  - Owns:
+    - adws/core/deviceLifecycle.ts
+    - adws/core/deviceBringUp.ts
+    - adws/core/deviceCommands.ts
+    - adws/core/deviceExecutor.ts
+    - adws/core/deviceInventory.ts
+    - adws/triggers/deviceJanitor.ts
+    - adws/triggers/__tests__/deviceJanitor*.test.ts
+    - adws/core/__tests__/deviceInventory.test.ts
+    - adws/core/__tests__/deviceLifecycle*.test.ts
+    - adws/core/__tests__/deviceExecutor.test.ts
+    - adws/core/__tests__/fixtures/recordingDeviceHost.ts
+  - Conditions:
+    - When working on the per-workflow Android emulator and iOS simulator lifecycle: `withDevices`, `DeviceEnvironment` (`ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`), `DeviceRequest`, `DeviceOutcome`, `DeviceFailure`, `HostTool`, `MAX_BOOT_ATTEMPTS`, `deviceNameFor`, `emulatorConsolePortCandidates`
+    - When working on the device janitor (`runDeviceJanitorPass`, `shouldReapDevices`, `runJanitorTick`), `listAdwDevices`/`removeAdwDevice`, `adwIdOfDeviceName`, or removing emulators and simulators left behind by dead workflows
+    - When working on `deviceLifecycle.ts`, `deviceBringUp.ts`, `deviceCommands.ts` (`missingToolOf`), `deviceExecutor.ts` (`DeviceExecutor`, `systemDeviceExecutor`) or the `recordingDeviceHost` / `standInDevices` test doubles
+    - When the scenario test phase for a profile with platforms (`mobile:kotlincm`) creates, boots, waits for, hands over or removes devices, or merges the device variables into the run command's environment
+    - When troubleshooting an emulator console port collision, an AVD or simulator left behind after a workflow, a device that does not boot or is retried, a missing `avdmanager`/`emulator`/`adb`/`xcrun simctl`, the `device_boot_failed` park and what `## Retry`/`## Continue` do for it, or the device lines in the run log
+    - When a BDD scenario runs the real scenario phase on a `mobile:kotlincm` worktree and must not touch real device tools
+  - Decisions:
+    - 0064
+
 - app_docs/feature-9gjajh-feature-orchestrators.md
   - Owns:
     - adws/adwBuild.tsx
@@ -933,7 +963,8 @@
     - adws/proof/**
   - Conditions:
     - When working on the proof assembler (`assembleScenarioProof`), fixed scenario tags (`@regression`, `@adw-{issueNumber}`), feature-file scenario indexing, or per-issue scenario image selection
-    - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page") or `runScenarioProof`
+    - When working on image platform attribution (`platformOfImage`, `scenarioPlatformCoverage`, `imagePlatform.ts`), per-scenario platform coverage ("On some platforms only"), or unattributed images left out of the proof for a profile with platforms (`mobile:kotlincm`)
+    - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page", "no scenario opened a screen") or `runScenarioProof`
     - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
@@ -1038,6 +1069,8 @@
     - adws/core/agentState.ts
     - adws/core/stateHelpers.ts
     - adws/core/projectConfig.ts
+    - adws/core/markdownSections.ts
+    - adws/core/deviceSourceConfig.ts
     - adws/core/adwYmlConfig.ts
     - adws/core/config.ts
     - adws/core/constants.ts
@@ -1045,6 +1078,8 @@
     - adws/core/index.ts
     - adws/core/__tests__/stateHelpers.test.ts
     - adws/core/__tests__/projectConfig.test.ts
+    - adws/core/__tests__/deviceSourceConfig.test.ts
+    - adws/core/__tests__/projectConfigDeviceSource.test.ts
     - adws/core/__tests__/adwYmlConfig.test.ts
     - adws/core/__tests__/environment.test.ts
     - adws/core/__tests__/topLevelState.test.ts
@@ -1052,6 +1087,8 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+    - When working on the device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`), `ProjectConfig.deviceSources`, `resolveDeviceSource`, `DeviceSourceConfigError`, or `parseMarkdownSections`/`sectionValue`
+    - When troubleshooting a scenario phase that fails naming a missing or empty device-source section
   - Decisions:
     - 0003
     - 0005
@@ -1060,6 +1097,7 @@
     - 0043
     - 0050
     - 0057
+    - 0064
 
 - app_docs/feature-m363ky-comment-only-guard.md
   - Owns:
@@ -1078,9 +1116,9 @@
     - adws/phases/applicationTypeGate.ts
     - adws/phases/__tests__/applicationTypeGate*.ts
   - Conditions:
-    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, review guidance section)
+    - When working on the application-type mapping (`APPLICATION_TYPE_PROFILES`, `resolveApplicationType`, `describeApplicationProfile`) or `ApplicationProfile` (runner mode, evidence kinds, `platforms`, review guidance section)
     - When working on the application-type gate (`runApplicationTypeGate`, `requireApplicationProfile`, `WorkflowConfig.applicationProfile`) run by `initializeWorkflow` and `initializePRReviewWorkflow`
-    - When adding a third application type, or a consumer that needs the evidence profile rather than the raw `## Application Type`
+    - When adding an application type (`cli`, `web`, `mobile:kotlincm`) or touching `Platform`, or a consumer that needs the evidence profile rather than the raw `## Application Type`
     - When an issue parks with `missing_application_type`, `## Application Type` has no default (`parseApplicationType` returns `null`), or `adw_init` must detect, preserve or leave out the section
   - Decisions:
     - 0061

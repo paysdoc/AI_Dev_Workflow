@@ -8,7 +8,8 @@ import {
   type ProcessRunner,
   type StaticCheckCommands,
 } from './checkRunner';
-import { parseMarkdownSections, type CommandsConfig } from './projectConfig';
+import { parseMarkdownSections } from './markdownSections';
+import type { CommandsConfig } from './projectConfig';
 
 export enum BaselineStatus {
   Passed = 'passed',

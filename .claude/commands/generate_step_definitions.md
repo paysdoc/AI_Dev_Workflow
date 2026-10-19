@@ -15,7 +15,10 @@ You are the Step Definition Generator Agent. Your job is to generate step defini
 
 `$2` says which runner the step definitions are written for.
 
-- `descriptor`, or empty: the runner `.adw/scenarios.md` names. The rest of this prompt applies exactly as written.
+- `descriptor`, or empty: the runner `.adw/scenarios.md` names. The rest of this prompt applies exactly as written. When `.adw/scenarios.md` has a `## Scenario Run Contract` section, the scenarios drive the application on an Android emulator and an iOS simulator that ADW creates and boots for each run, and the step definitions and their hooks keep to that contract:
+  - The run receives the devices in its environment: `ADW_ANDROID_SERIAL`, the emulator's `adb` serial, and `ADW_IOS_UDID`, the simulator's UDID (`ADW_ANDROID_AVD` names the emulator's AVD). Point each platform's session at its device through these variables. Never hard-code a device, and never create, boot, shut down or delete one: ADW does.
+  - Write every screenshot under the directory in `ADW_PROOF_DIR`: in its `android/` directory for an image taken on Android, in its `ios/` directory for one taken on iOS, for example `$ADW_PROOF_DIR/android/<name>.png`. ADW reads the platform of an image from that first directory, and never shows the reviewer an image that lies anywhere else.
+  - End every scenario about something a user sees with a screenshot on each platform, and name each image in the report the way the contract says.
 - `adw_playwright`: ADW's Playwright project in `features/`. The scenarios run on the Playwright test runner through `playwright-bdd`, under a configuration ADW owns. In this mode:
   - Write TypeScript step definitions under `features/steps/`, which the configuration loads as `features/steps/**/*.ts`. Do this whatever `## BDD Framework` and `## Step Def Directory` say, and whatever language the application is written in.
   - Register steps with `createBdd()` from `playwright-bdd`:
@@ -57,6 +60,10 @@ This prompt branches on optional sections in `.adw/scenarios.md`. An absent sect
 - If `## Vocabulary Registry` is set → load the registry file, parse its phrase table, and validate every scenario step against it. Any unregistered phrase causes an immediate error (no step definitions are written).
 - If absent → current free-form step generation is preserved; no validation is performed.
 
+**Scenario Run Contract** (Runner mode, Step 6):
+- If `## Scenario Run Contract` is set → the scenarios run on the devices ADW boots: follow the contract and the device notes of `descriptor` under Runner mode.
+- If absent → the run receives no device, and screenshots need no platform directory.
+
 ### Polymorphism on the BDD framework
 
 This prompt is polymorphic on `## BDD Framework`. Rely on your own knowledge of the named framework to choose:
@@ -76,6 +83,7 @@ Read `.adw/scenarios.md` to determine:
 - `## BDD Framework` — the named Gherkin step-def runtime. When absent, use the runtime that the existing step definitions and the project's test dependencies already use.
 - `## Step Def Directory` — the directory where step-def files are written (default: `features/step_definitions`).
 - `## Vocabulary Registry` — optional vocabulary registry path.
+- `## Scenario Run Contract` — present when the scenarios run on devices ADW boots; see Runner mode.
 
 If `.adw/scenarios.md` does not exist, use the defaults above. In `adw_playwright` mode the step-definition directory is `features/steps`, whatever `## Step Def Directory` says.
 

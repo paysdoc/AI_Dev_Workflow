@@ -35,17 +35,25 @@ function slug(text) {
 }
 
 function writeFileIn(directory, name, bytes) {
-  fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(path.join(directory, name), bytes);
+  var file = path.join(directory, name);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, bytes);
 }
 
 function imageBytes(name) {
-  return Buffer.from(CONFIG.bytesPrefix + name);
+  return Buffer.from(CONFIG.bytesPrefix + path.basename(name));
+}
+
+// "case-directories": a directory of the case's own, as ADW's Playwright project lays them out. "named-paths": exactly the path
+// the attachment names, as the screenshot hook of a repository with platforms writes its platform directories.
+function directoryOf(testCase, position, proofDirectory, layout) {
+  if (layout === 'named-paths') return proofDirectory;
+  return path.join(proofDirectory, (position + 1) + '-' + slug(testCase.name));
 }
 
 // Playwright lists each attachment as a "[[ATTACHMENT|<path>]]" line, relative to the directory of the report.
-function renderCase(testCase, position, reportDirectory, proofDirectory) {
-  var directory = path.join(proofDirectory, (position + 1) + '-' + slug(testCase.name));
+function renderCase(testCase, position, reportDirectory, proofDirectory, layout) {
+  var directory = directoryOf(testCase, position, proofDirectory, layout);
   var lines = testCase.attachments.map(function (file) {
     writeFileIn(directory, file, imageBytes(file));
     return '[[ATTACHMENT|' + path.relative(reportDirectory, path.join(directory, file)) + ']]';
@@ -57,10 +65,10 @@ function renderCase(testCase, position, reportDirectory, proofDirectory) {
   return '<testcase name="' + xml(testCase.name) + '" classname="' + xml(testCase.classname) + '" time="0.01">' + body + '</testcase>';
 }
 
-function writeReport(reportPath, proofDirectory, cases) {
+function writeReport(reportPath, proofDirectory, cases, layout) {
   var reportDirectory = path.dirname(reportPath);
   var failures = cases.filter(function (testCase) { return testCase.outcome === 'failed'; }).length;
-  var rendered = cases.map(function (testCase, position) { return renderCase(testCase, position, reportDirectory, proofDirectory); });
+  var rendered = cases.map(function (testCase, position) { return renderCase(testCase, position, reportDirectory, proofDirectory, layout); });
   var report = '<?xml version="1.0" encoding="UTF-8"?>\\n<testsuites tests="' + cases.length + '" failures="' + failures + '">' +
     '<testsuite name="stand-in" tests="' + cases.length + '" failures="' + failures + '">' + rendered.join('') + '</testsuite></testsuites>\\n';
   fs.mkdirSync(reportDirectory, { recursive: true });
@@ -76,7 +84,7 @@ function runTag(tag) {
   var behaviour = script.overrides['@' + tag] || { exitCode: failed ? 1 : 0, stdout: selected.length + ' scenarios', report: 'cases' };
 
   script.strays.forEach(function (file) { writeFileIn(proofDirectory, file, imageBytes(file)); });
-  if (behaviour.report !== 'none') writeReport(process.env.ADW_JUNIT_REPORT_PATH, proofDirectory, behaviour.report === 'cases' ? selected : []);
+  if (behaviour.report !== 'none') writeReport(process.env.ADW_JUNIT_REPORT_PATH, proofDirectory, behaviour.report === 'cases' ? selected : [], script.layout);
   if (behaviour.stdout) process.stdout.write(behaviour.stdout + '\\n');
   process.exitCode = behaviour.exitCode;
 }

@@ -11,9 +11,17 @@ export enum EvidenceKind {
   PerIssueImages = 'per_issue_images',
 }
 
+/** A kind of device, not a code host: `@paysdoc/devplatform` exports a `Platform` of its own. */
+export enum Platform {
+  Android = 'android',
+  Ios = 'ios',
+}
+
 export interface ApplicationProfile {
   readonly runnerMode: RunnerMode;
   readonly evidenceKinds: readonly EvidenceKind[];
+  /** The kinds of device the type's scenarios run on; empty when they run on none. */
+  readonly platforms: readonly Platform[];
   /** The title of the review prompt's guidance section for this type. */
   readonly reviewGuidanceSection: string;
 }
@@ -26,11 +34,27 @@ export type ApplicationTypeResolution =
   | { readonly kind: 'known'; readonly profile: ApplicationProfile }
   | { readonly kind: 'park'; readonly evidence: MissingApplicationTypeEvidence };
 
-// The only place a type name means anything: a new type is one entry here plus detection in `adw_init`,
-// and no phase changes, because consumers receive the profile and never the type.
+// The only place a type name means anything: consumers receive the profile and never the type. A sub-descriptor is part
+// of its key, so a bare `mobile` is a type the table does not hold.
 export const APPLICATION_TYPE_PROFILES = {
-  cli: { runnerMode: RunnerMode.Descriptor, evidenceKinds: [], reviewGuidanceSection: 'CLI applications' },
-  web: { runnerMode: RunnerMode.AdwPlaywright, evidenceKinds: [EvidenceKind.PerIssueImages], reviewGuidanceSection: 'Web applications' },
+  cli: {
+    runnerMode: RunnerMode.Descriptor,
+    evidenceKinds: [],
+    platforms: [],
+    reviewGuidanceSection: 'CLI applications',
+  },
+  web: {
+    runnerMode: RunnerMode.AdwPlaywright,
+    evidenceKinds: [EvidenceKind.PerIssueImages],
+    platforms: [],
+    reviewGuidanceSection: 'Web applications',
+  },
+  'mobile:kotlincm': {
+    runnerMode: RunnerMode.Descriptor,
+    evidenceKinds: [EvidenceKind.PerIssueImages],
+    platforms: [Platform.Android, Platform.Ios],
+    reviewGuidanceSection: 'Mobile applications (Kotlin Compose Multiplatform)',
+  },
 } as const satisfies ApplicationProfiles;
 
 export type ApplicationType = keyof typeof APPLICATION_TYPE_PROFILES;
@@ -62,5 +86,6 @@ export function resolveApplicationType(
 export function describeApplicationProfile(profile: ApplicationProfile): string {
   const runner = RUNNER_DESCRIPTIONS[profile.runnerMode];
   const evidence = profile.evidenceKinds.length === 0 ? 'no images' : profile.evidenceKinds.map(kind => EVIDENCE_DESCRIPTIONS[kind]).join(', ');
-  return `scenarios run with ${runner}; evidence: ${evidence}`;
+  const platforms = profile.platforms.length === 0 ? '' : `; platforms: ${profile.platforms.join(', ')}`;
+  return `scenarios run with ${runner}; evidence: ${evidence}${platforms}`;
 }

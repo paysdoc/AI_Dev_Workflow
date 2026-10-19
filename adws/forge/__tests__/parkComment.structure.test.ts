@@ -11,7 +11,7 @@ import {
   parseWorkflowStageFromComment,
 } from '../../core/workflowCommentParsing';
 import { ParkReason, buildParkComment, parkDirectives } from '../parkComment';
-import { ADW_ID, LINT, REASONS, SAMPLE, lines } from './parkComment.helpers';
+import { ADW_ID, LINT, REASONS, SAMPLE, lines, toolMissing } from './parkComment.helpers';
 
 describe.each(REASONS)('buildParkComment — %s', (reason) => {
   const evidence = SAMPLE[reason];
@@ -67,7 +67,7 @@ describe('buildParkComment — the base-branch note', () => {
     expect(comment).toContain('This fails on the base branch `trunk`');
   });
 
-  it.each([ParkReason.FixLoopStalled, ParkReason.MissingApplicationType])('carries no base-branch note for %s', (reason) => {
+  it.each([ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed])('carries no base-branch note for %s', (reason) => {
     const comment = buildParkComment(ADW_ID, SAMPLE[reason]);
 
     expect(comment).not.toContain('base branch');
@@ -114,9 +114,18 @@ describe('parkDirectives — what each directive does for each park', () => {
     expect(directives.continue).toContain('never assumes');
   });
 
+  it('device_boot_failed: Retry re-runs the scenario phase, which boots the devices again; Continue waives nothing and points to Retry, for either kind of failure', () => {
+    const directives = parkDirectives(SAMPLE[ParkReason.DeviceBootFailed]);
+
+    expect(directives.retry).toBe('re-runs the scenario phase, which creates and boots the devices again, and parks the issue again if a device still does not boot');
+    expect(directives.continue).toContain('waives nothing');
+    expect(directives.continue).toContain('`## Retry`');
+    expect(parkDirectives(toolMissing())).toEqual(directives);
+  });
+
   it('gives each reason directives of its own', () => {
     const distinct = new Set(REASONS.map(reason => JSON.stringify(parkDirectives(SAMPLE[reason]))));
 
-    expect(distinct.size).toBe(4);
+    expect(distinct.size).toBe(5);
   });
 });

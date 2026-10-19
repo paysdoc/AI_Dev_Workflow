@@ -17,6 +17,7 @@ import { declaredApplicationProfile } from '../../../adws/phases/applicationType
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
 import { executeStepDefPhase } from '../../../adws/phases/stepDefPhase.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
+import { lastStandInDeviceHost, standInDeviceHost } from '../support/standInDevices.ts';
 
 import { installCompactingCli, readRuns, type RunRecord } from './feature-929-compacting-cli.ts';
 import { createWorkflow, type Workflow929 } from './feature-929-workflow.ts';
@@ -35,6 +36,7 @@ import {
   type AdwFiles,
 } from './feature-992-adw-files.ts';
 import { commandMatches, describeCalls, ranIn, runForTag, withoutAtSign } from './feature-992-calls.ts';
+import { trappingExit } from './feature-992-exit.ts';
 import { isInside, reportPathFor } from './feature-992-junit.ts';
 import {
   commandLine,
@@ -56,7 +58,7 @@ const PHASE_TIMEOUT_MS = 300_000;
 const STOP_POLLS = 40;
 const STOP_POLL_MS = 150;
 
-function requireAdwFiles(): AdwFiles {
+export function requireAdwFiles(): AdwFiles {
   assert.ok(s.adwFiles, 'Expected a workflow whose ".adw/" the scenario describes to have been set up first');
   return s.adwFiles;
 }
@@ -66,7 +68,7 @@ function assertFile(actual: string, expected: string): void {
 }
 
 /** Points the workflow's configuration at what its worktree now holds, as `initializeWorkflow` does when a workflow starts. */
-async function prepareWorkflow(workflow: Workflow929): Promise<void> {
+export async function prepareWorkflow(workflow: Workflow929): Promise<void> {
   if (s.adwFiles) writeAdwFiles(workflow.worktreePath, s.adwFiles);
   const projectConfig = loadProjectConfig(workflow.worktreePath);
   const applicationProfile = declaredApplicationProfile(projectConfig);
@@ -147,11 +149,21 @@ Given('{string} is a stand-in that records each run', function (program: string)
   assertStandIn(program);
 });
 
-When("the workflow's scenario test phase runs", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld) {
-  const workflow = requireWorkflow();
+/**
+ * The scenario test phase over the workflow's worktree, with the `npm` and `npx` the scenario asked for: the stand-ins, or the
+ * real ones. A repository with platforms gets its devices from the stand-in device tools the scenario installed, or from new
+ * ones when it installed none, so that no run reaches a real SDK. A phase that parks the workflow runs the real park, with
+ * `process.exit` trapped: the state and the comment are written, and the trapped exit throws `TrappedExit`.
+ */
+export async function runScenarioTestPhase(workflow: Workflow929): ReturnType<typeof executeScenarioTestPhase> {
   await prepareWorkflow(workflow);
-  const run = (): ReturnType<typeof executeScenarioTestPhase> => executeScenarioTestPhase(workflow.config);
-  const { scenarioProof } = await (toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run));
+  const { withDevices } = lastStandInDeviceHost() ?? standInDeviceHost();
+  const run = (): ReturnType<typeof executeScenarioTestPhase> => trappingExit(() => executeScenarioTestPhase(workflow.config, { withDevices }));
+  return toolchain.real ? withRealToolchain(run) : withStandInsOnPath(writeStandIns(), run);
+}
+
+When("the workflow's scenario test phase runs", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld) {
+  const { scenarioProof } = await runScenarioTestPhase(requireWorkflow());
   this.scenarioProofResult = scenarioProof;
 });
 
@@ -245,11 +257,11 @@ function generatorRuns(): RunRecord[] {
 }
 
 /** The agent's prompt is its slash command and its arguments, each in single quotes. */
-function startedWith(run: RunRecord): string[] {
+export function startedWith(run: RunRecord): string[] {
   return [...run.prompt.matchAll(/'((?:[^']|'\\'')*)'/g)].map(match => match[1].replace(/'\\''/g, "'"));
 }
 
-function onlyGeneratorRun(): RunRecord {
+export function onlyGeneratorRun(): RunRecord {
   const runs = generatorRuns();
   assert.strictEqual(runs.length, 1, `Expected the step-definition generator to have been started once, but it was started ${runs.length} times`);
   return runs[0];

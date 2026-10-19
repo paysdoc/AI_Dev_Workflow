@@ -118,6 +118,13 @@ function writeWebRepository(workspace: string): void {
   writeWebProject(workspace);
 }
 
+function writeRepositoryFiles(workspace: string): void {
+  for (const [file, contents] of Object.entries(s.repositoryFiles)) {
+    if (contents === null) fs.rmSync(path.join(workspace, file), { recursive: true, force: true });
+    else write(workspace, file, contents);
+  }
+}
+
 function commitAll(workspace: string, message: string): void {
   realGit(workspace, 'add', '-A');
   realGit(workspace, 'commit', '-q', '-m', message);
@@ -148,6 +155,7 @@ export function buildTarget(): string {
   write(workspace, '.adw/commands.md', renderCommandsFile());
   writeScenarioFiles(workspace);
   if (s.web) writeWebRepository(workspace);
+  writeRepositoryFiles(workspace);
   commitAll(workspace, 'Describe the target repository of the scenario');
   moveRemoteBaseBranch(workspace);
   s.built = true;

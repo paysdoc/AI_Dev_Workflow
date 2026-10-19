@@ -80,6 +80,11 @@ export interface State990 {
   review: ReviewSetup;
   /** The target repository declares the application type "web", and its scenarios run on ADW's Playwright project. */
   web: boolean;
+  /**
+   * Files of the base branch that the scenario describes whole, by path from the repository's root: the text committed in place
+   * of the generated one, or null for a file of the fixture that the repository does not have.
+   */
+  repositoryFiles: Readonly<Record<string, string | null>>;
   /** The issue's scenarios fail unless the dev server answers while they run. */
   issueScenariosNeedServer: boolean;
   workflow: WorkflowSetup | null;
@@ -103,6 +108,7 @@ function freshState(): State990 {
     serverEffects: { build: null, patch: null },
     review: { kind: 'passes' },
     web: false,
+    repositoryFiles: {},
     issueScenariosNeedServer: false,
     workflow: null,
     built: false,

@@ -10,6 +10,7 @@ const FRAMEWORK_EXTENSION_MAP: Record<string, string[]> = {
   'godog': ['.go'],
   'cucumber-rs': ['.rs'],
   'cucumber-ruby': ['.rb'],
+  'cucumber-jvm': ['.kt', '.java'],
   'playwright-bdd': ['.ts'],
 };
 

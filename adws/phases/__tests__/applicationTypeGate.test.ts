@@ -8,6 +8,7 @@ import {
   describeApplicationProfile,
   type ApplicationProfile,
   type ApplicationProfiles,
+  type ApplicationType,
 } from '../../core/applicationType';
 import { ParkReason, type ParkEvidence } from '../../forge/parkComment';
 import {
@@ -28,6 +29,7 @@ class Parked extends Error {
 const FAKE: ApplicationProfile = {
   runnerMode: RunnerMode.Descriptor,
   evidenceKinds: [EvidenceKind.PerIssueImages],
+  platforms: [],
   reviewGuidanceSection: 'Desktop applications',
 };
 
@@ -52,6 +54,7 @@ describe('runApplicationTypeGate — a type ADW knows proceeds', () => {
   it.each([
     ['cli', APPLICATION_TYPE_PROFILES.cli],
     ['web', APPLICATION_TYPE_PROFILES.web],
+    ['mobile:kotlincm', APPLICATION_TYPE_PROFILES['mobile:kotlincm']],
   ] as const)('proceeds with the %s profile, without merging, reloading or parking', (type, profile) => {
     const config = makeConfig();
     const projectConfig = configDeclaring(type);
@@ -66,12 +69,23 @@ describe('runApplicationTypeGate — a type ADW knows proceeds', () => {
     expect(deps.park).not.toHaveBeenCalled();
   });
 
-  it.each([['cli'], ['web']])('records the %s profile on the console and in the execution log', (type) => {
+  it.each<[ApplicationType]>([['cli'], ['web'], ['mobile:kotlincm']])('records the %s profile on the console and in the execution log', (type) => {
     const config = makeConfig();
-    const line = `Application type ${type}: ${describeApplicationProfile(APPLICATION_TYPE_PROFILES[type as 'cli' | 'web'])}`;
+    const line = `Application type ${type}: ${describeApplicationProfile(APPLICATION_TYPE_PROFILES[type])}`;
 
     runApplicationTypeGate(config, configDeclaring(type), makeDeps());
 
+    expect(executionLog(config)).toContain(line);
+    expect(sandbox.consoleOutput()).toContain(line);
+  });
+
+  it('names the android and ios platforms in the line it records for mobile:kotlincm', () => {
+    const config = makeConfig();
+    const line = `Application type mobile:kotlincm: ${describeApplicationProfile(APPLICATION_TYPE_PROFILES['mobile:kotlincm'])}`;
+
+    runApplicationTypeGate(config, configDeclaring('mobile:kotlincm'), makeDeps());
+
+    expect(line).toContain('platforms: android, ios');
     expect(executionLog(config)).toContain(line);
     expect(sandbox.consoleOutput()).toContain(line);
   });
@@ -136,6 +150,18 @@ describe('runApplicationTypeGate — a type ADW does not know merges the default
     expect(() => runApplicationTypeGate(config, configDeclaring('Desktop'), deps)).toThrow(Parked);
 
     expect(deps.park).toHaveBeenCalledWith(config, { reason: ParkReason.MissingApplicationType, found: 'Desktop' });
+  });
+
+  it('parks a bare mobile after merging and reading again: a sub-descriptor is part of the key', () => {
+    const config = makeConfig();
+    const deps = makeDeps();
+    deps.loadProjectConfig.mockReturnValue(configDeclaring('mobile'));
+
+    expect(() => runApplicationTypeGate(config, configDeclaring('mobile'), deps)).toThrow(Parked);
+
+    expect(deps.mergeLatestFromDefaultBranch).toHaveBeenCalledTimes(1);
+    expect(deps.loadProjectConfig).toHaveBeenCalledTimes(1);
+    expect(deps.park).toHaveBeenCalledWith(config, { reason: ParkReason.MissingApplicationType, found: 'mobile' });
   });
 
   it('parks with what the merge left, not with what the first read found', () => {
@@ -231,6 +257,7 @@ describe('declaredApplicationProfile', () => {
   it.each([
     ['cli', APPLICATION_TYPE_PROFILES.cli],
     ['web', APPLICATION_TYPE_PROFILES.web],
+    ['mobile:kotlincm', APPLICATION_TYPE_PROFILES['mobile:kotlincm']],
   ] as const)('returns the %s profile for a repository that declares it', (type, profile) => {
     expect(declaredApplicationProfile(configDeclaring(type))).toBe(profile);
   });
@@ -243,6 +270,7 @@ describe('declaredApplicationProfile', () => {
     ['missing', null],
     ['blank', '   '],
     ['unknown', 'desktop'],
+    ['a bare mobile', 'mobile'],
     ['an inherited name', 'constructor'],
   ])('returns null where the gate would park: %s', (_name, declared) => {
     expect(declaredApplicationProfile(configDeclaring(declared))).toBeNull();

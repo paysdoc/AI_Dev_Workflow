@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ADW_YML_TEMPLATE } from '../core/adwYmlConfig';
@@ -12,6 +11,7 @@ import {
   ProjectFilePolicy,
 } from '../core/adwPlaywrightProject';
 import { REQUIRED_ADW_FILES } from '../phases/worktreeSetup';
+import { ADW_INIT_PATH, REPO_ROOT, hashInputs, projectMdStep, readLines, stepLines } from './adwInitPrompt.helpers';
 
 /**
  * `adw_init.md` is a prompt, so it cannot import the texts it must reproduce in a target
@@ -19,50 +19,11 @@ import { REQUIRED_ADW_FILES } from '../phases/worktreeSetup';
  * so a drift fails here instead of surfacing as a stale `.github/adw.yml` or guideline, or as
  * an application type the mapping would park, in every target.
  */
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, '../..');
-const ADW_INIT_PATH = path.join(REPO_ROOT, '.claude/commands/adw_init.md');
 const CODING_GUIDELINES_PATH = path.join(REPO_ROOT, '.adw/coding_guidelines.md');
 const HEREDOC_OPENER = "cat > .github/adw.yml <<'EOF'";
 const COMMENTS_ENTRY_PREFIX = '- **Comments** —';
 const APPLICATION_TYPE_SECTION = '## Application Type';
 const APPLICATION_TYPE_BULLET_PREFIX = `- \`${APPLICATION_TYPE_SECTION}\``;
-
-function readLines(filePath: string): string[] {
-  return fs.readFileSync(filePath, 'utf-8').split('\n');
-}
-
-/** The lines of step 3, which writes `.adw/project.md`: from its heading up to the heading of step 4. */
-function projectMdStep(lines: readonly string[]): string[] {
-  const start = lines.findIndex((line) => /^3\. \*\*/.test(line));
-  const end = lines.findIndex((line) => /^4\. \*\*/.test(line));
-  expect(start).toBeGreaterThanOrEqual(0);
-  expect(end).toBeGreaterThan(start);
-  return lines.slice(start, end);
-}
-
-/** The lines of step `n`: from its heading up to the heading of the next step, or the end of the prompt. */
-function stepLines(lines: readonly string[], n: number): string[] {
-  const start = lines.findIndex((line) => line.startsWith(`${n}. **`));
-  const end = lines.findIndex((line) => line.startsWith(`${n + 1}. **`));
-  expect(start).toBeGreaterThanOrEqual(0);
-  return lines.slice(start, end === -1 ? undefined : end);
-}
-
-/** The values of the `hashInputs:` list in the prompt's frontmatter. */
-function hashInputs(lines: readonly string[]): string[] {
-  const closing = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
-  const frontmatter = lines.slice(1, closing);
-  const key = frontmatter.findIndex((line) => line.startsWith('hashInputs:'));
-  expect(key).toBeGreaterThanOrEqual(0);
-  const items: string[] = [];
-  for (const line of frontmatter.slice(key + 1)) {
-    const item = /^\s+-\s+(.+)$/.exec(line);
-    if (!item) break;
-    items.push(item[1].trim());
-  }
-  return items;
-}
 
 function findCommentsEntry(lines: readonly string[]): string | undefined {
   return lines.map((line) => line.trim()).find((line) => line.startsWith(COMMENTS_ENTRY_PREFIX));
@@ -105,6 +66,35 @@ describe('adw_init.md reproduces the texts it cannot import', () => {
 
   it('says to preserve a type the owner set by hand, so that an upgrade does not drop it', () => {
     expect(projectMdStep(readLines(ADW_INIT_PATH)).join('\n')).toContain('preserve it verbatim');
+  });
+});
+
+describe('adw_init.md never detects mobile:kotlincm, and keeps it when the owner sets it', () => {
+  const step1 = (): string[] => stepLines(readLines(ADW_INIT_PATH), 1);
+  const detectedTypes = (): string[] => step1().flatMap((line) => /^\s+- `([^`]+)`:/.exec(line)?.[1] ?? []);
+
+  it('detects only cli and web in step 1, and names mobile:kotlincm nowhere in it', () => {
+    expect([...detectedTypes()].sort()).toEqual(['cli', 'web']);
+    for (const type of detectedTypes()) expect(Object.keys(APPLICATION_TYPE_PROFILES)).toContain(type);
+    expect(step1().join('\n')).not.toContain('mobile:kotlincm');
+  });
+
+  it('makes a mobile app undecided, so that detection never guesses it into cli', () => {
+    const step = step1().join('\n');
+
+    expect(step).toMatch(/Undecided:[^\n]*runs on Android or iOS/);
+    expect(step).toMatch(/`cli`:[^\n]*is not a mobile app/);
+  });
+
+  it('preserves every type the mapping knows verbatim, mobile:kotlincm among them', () => {
+    const preserveRule = projectMdStep(readLines(ADW_INIT_PATH)).find((line) => line.includes('preserve it verbatim') && line.includes(`\`${APPLICATION_TYPE_SECTION}\``));
+
+    expect(preserveRule, 'step 3 has a rule that preserves the Application Type verbatim').toBeDefined();
+    for (const type of Object.keys(APPLICATION_TYPE_PROFILES)) expect(preserveRule).toContain(`\`${type}\``);
+  });
+
+  it('lists itself among the hashInputs, so that editing it bumps the framework hash', () => {
+    expect(hashInputs(readLines(ADW_INIT_PATH))).toContain('.claude/commands/adw_init.md');
   });
 });
 

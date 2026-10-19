@@ -9,8 +9,8 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` via LLM heuristic and routes it to the right orchestrator; `adw:*` GitHub labels provide a deterministic override that bypasses AI classification entirely; body/comment slash-commands are not processed.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **Static-check gates and a per-repo unit-test switch** — the unit-test phase first runs type check, additional type checks, lint and build from `.adw/commands.md` through `adws/core/checkRunner.ts`: each check's exit code is its verdict, `N/A` is skipped, and a red check goes to a static-check fix loop with no cap (`adws/core/staticCheckFixLoop.ts`). Every round is judged by a pure fix-round guard (`adws/core/fixRoundGuard.ts`) that rejects and reverts suppression comments (a framework table by language, plus the repository's own `## Suppression Patterns` additions in `.adw/commands.md`) and edits to lint, compiler or build configuration, `.adw/commands.md` or `features/playwright.config.*`. The loop stops when a round makes no progress (identical check output, or a rejected round) and parks the workflow as `human_gated` with a park comment (`adws/forge/parkComment.ts`) that names the failing check and says what `## Retry` and `## Continue` do; `## Retry` continues the loop. Target repos can opt out of the test run by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. That skips only the test run: the static checks still run, and `/test` runs only the unit-test command. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
-- **Baseline gate on the base branch** — before any work, every orchestrator that runs gates (`executeBaselinePhase`, `adws/phases/baselinePhase.ts`) checks the base branch out in a separate worktree, installs its dependencies, runs the static checks there (`runBaselineChecks`, `adws/core/baselineGate.ts`) and starts the dev server its `.adw/commands.md` declares. A red base parks the workflow as `human_gated` with a park comment (`baseline_red`, or `base_server_down` when the server does not start); a green one is recorded in the top-level state. A `@regression` scenario that fails on the change is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`): one that fails there too parks the workflow (`pre_existing_regression`) instead of going to the fix agent, and one that passes there goes to the fix agent as before. No full regression run happens on the base branch. The base worktree is removed when the run ends.
-- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli` or `web`) is written by `adw_init` and has no default. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch. A `web` repository runs its Gherkin on ADW's own Playwright project: `features/` holds a self-contained Node project (`@playwright/test` and `playwright-bdd`) whose `playwright.config.ts` ADW owns and every upgrade overwrites from `templates/playwright/`; a `cli` repository keeps the runner `.adw/scenarios.md` names.
+- **Baseline gate on the base branch** — before any work, every orchestrator that runs gates (`executeBaselinePhase`, `adws/phases/baselinePhase.ts`) checks the base branch out in a separate worktree, installs its dependencies, runs the static checks there (`runBaselineChecks`, `adws/core/baselineGate.ts`) and starts the dev server its `.adw/commands.md` declares. A red base parks the workflow as `human_gated` with a park comment (`baseline_red`, or `base_server_down` when the server does not start); a green one is recorded in the top-level state. A `@regression` scenario that fails on the change is re-run alone on the base branch (`adws/phases/baseScenarioRerun.ts`), on devices of its own when the application profile has platforms: one that fails there too parks the workflow (`pre_existing_regression`) instead of going to the fix agent, and one that passes there goes to the fix agent as before. No full regression run happens on the base branch. The base worktree is removed when the run ends.
+- **Application type decides the evidence** — `## Application Type` in `.adw/project.md` (`cli`, `web` or `mobile:kotlincm`) has no default. `adw_init` detects `cli` and `web`; it preserves `mobile:kotlincm` but never detects it, because only the repository's owner sets it, by hand. The framework-owned mapping `adws/core/applicationType.ts` turns it into the scenario runner mode, the evidence kinds, the device platforms (`android` and `ios` for `mobile:kotlincm`, none for `cli` and `web`) and the review guidance section; consumers read the mapping, never the type. A missing or unknown type parks the issue as `human_gated` with the `missing_application_type` park comment (`adws/phases/applicationTypeGate.ts`), which says to re-run `adw_init`; `## Retry` re-reads the section after merging the latest default branch. A profile with platforms also reads four device-source sections from `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type` and `## iOS Runtime`; `adws/core/deviceSourceConfig.ts`): the scenario phase fails, naming the first one that is missing or empty, before it runs anything, and the issue is not parked; `cli` and `web` ignore the sections. Once the sections are there, the scenario phase runs the scenario proof on one Android emulator and one iOS simulator that ADW creates for the workflow from them (`adws/core/deviceLifecycle.ts`): both are named `adw-<adwId>`, the emulator boots headless on a console port of its own, and ADW waits until each is ready. The scenario command gets them as `ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`, beside `ADW_PROOF_DIR`, `ADW_JUNIT_REPORT_PATH` and `ADW_APPLICATION_URL`; both are shut down and deleted afterwards, whatever the outcome, and the run log names the devices, the boot time of each and their removal. `avdmanager`, `emulator`, `adb` and `xcrun simctl` must be on the host's `PATH`. Each device's boot is tried up to three times: what a failed attempt created is removed before the next, and the emulator gets a free console port on each attempt. A missing host tool is not tried again. A device that still does not boot, or a missing tool, parks the workflow as `human_gated` with the `device_boot_failed` park comment, which names the platform (and the tool) and quotes the output; `## Retry` re-runs the scenario phase, and `## Continue` waives nothing. The baseline gate's re-run of a failing `@regression` scenario on the base branch gets devices the same way (`adws/phases/preExistingRegressionGate.ts`): an emulator and a simulator are created for the re-run from the same sections and removed after it, and the run gets the same three variables beside `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; a device that does not boot there parks the workflow the same way, as `device_boot_failed`, and a scenario already re-run in an earlier attempt is answered from memory and needs no device. A `web` repository runs its Gherkin on ADW's own Playwright project: `features/` holds a self-contained Node project (`@playwright/test` and `playwright-bdd`) whose `playwright.config.ts` ADW owns and every upgrade overwrites from `templates/playwright/`; a `cli` repository keeps the runner `.adw/scenarios.md` names, and so does a `mobile:kotlincm` repository (cucumber-jvm with Kotlin step definitions).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review with blocking gate** — the reviewer runs nothing and is reached only once the static checks, unit tests and scenarios are green. It judges what a machine cannot: whether the diff does what the issue asks, no more and no less; whether the per-issue scenarios test the issue independently of the implementation; the per-issue images of a `web` repository, which it opens, or their absence; the coding guidelines; and the guidance section for the repository's application type. A suppression comment or a weakened check configuration in the diff is a blocker. It classifies findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
@@ -256,7 +256,9 @@ Required and optional environment variables (see `.env.sample` for full referenc
 
 During init, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
 
-`adw_init` detects the application type and writes `## Application Type` to `.adw/project.md`. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
+`adw_init` detects the application type (`cli` or `web`) and writes `## Application Type` to `.adw/project.md`. `mobile:kotlincm` is set by hand only: `adw_init` never detects it, and preserves it. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
+
+When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
 
 For a `web` repository, `adw_init` also installs ADW's Playwright project in `features/`, even when the application is not a Node application: `features/playwright.config.ts` from `templates/playwright/`, `features/package.json` (created only when absent), `features/.gitignore` (which keeps `node_modules/` and the generated tests out of git), `npm install` and the browser install. The configuration is byte-identical in every `web` repository and reads the repository's values only from `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; every upgrade overwrites it, and the upgrade installs the project itself after the `/adw_init` agent, so the regen commit carries `features/package-lock.json`. An existing e2e setup elsewhere in the repository (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left as it is, and ADW does not use it. ADW no longer reads `.adw/review_proof.md`, so a repository that still has one can delete it.
 
@@ -508,6 +510,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwChore.devServer.test.ts
 │   ├── adwChore.helpers.ts  # Shared helpers for the adwChore tests
 │   ├── adwChore.test.ts
+│   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
+│   ├── adwInitPrompt.mobile.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts
@@ -527,6 +531,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── reviewPrompt.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -539,6 +544,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
+│   │   ├── reviewPromptArgs.test.ts
 │   │   ├── rotAnalysisAgent.test.ts
 │   │   ├── scenarioFidelityAgent.test.ts
 │   │   ├── testAgent.test.ts
@@ -574,9 +580,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
 │   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
+│   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
 │   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
-│   │   │   └── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
+│   │   │   ├── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
+│   │   │   └── recordingDeviceHost.ts  # Recording device host for the device lifecycle tests: an executor that answers like a host on which the emulator and the simulator boot, a fake clock and a port probe, changed by a script (a command that fails some times before it succeeds, an emulator that exits early, a program that is not installed)
 │   │   ├── adwLabels.test.ts
 │   │   ├── adwPlaywrightProject.test.ts
 │   │   ├── adwVersion.test.ts
@@ -595,6 +603,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── devServerFailure.test.ts
 │   │   ├── devServerLifecycle.healthy.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── deviceCommands.test.ts
+│   │   ├── deviceExecutor.test.ts
+│   │   ├── deviceLifecycle.failures.test.ts
+│   │   ├── deviceLifecycle.retries.test.ts
+│   │   ├── deviceLifecycle.test.ts
+│   │   ├── deviceSourceConfig.test.ts
 │   │   ├── docsDecisions.test.ts
 │   │   ├── docsDecisionViolations.test.ts
 │   │   ├── docsGuards.test.ts
@@ -626,6 +640,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── projectConfigCommands.test.ts
+│   │   ├── projectConfigDeviceSource.test.ts
 │   │   ├── projectConfigLoad.test.ts
 │   │   ├── providerConfig.test.ts
 │   │   ├── prReviewInvocation.test.ts
@@ -653,6 +668,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the fix-loop tests
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
+│   │   ├── testReportParser.attachments.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
@@ -682,6 +698,11 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerFailure.ts  # Pure: the start of a dev server (not_started / started / failed with its output) and the rules of the review attempt counter (countFailedStart, countStartedServer, countFailedReview, isReviewBudgetSpent)
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers; withHealthyDevServer never runs the work against a server that did not start
+│   ├── deviceBringUp.ts  # One attempt to create, boot and await each device (on a console port it probes for), and each device's teardown; it reads a missing host tool from the executor's answer
+│   ├── deviceCommands.ts  # Pure: what ADW says to the device tools (the adw-<adwId> names, the console port candidates, the avdmanager, adb, emulator and xcrun simctl commands with their timeouts) and how it reads their answers, including which host tool (HostTool) a missing program or an xcrun without simctl means; MAX_BOOT_ATTEMPTS
+│   ├── deviceExecutor.ts  # The process boundary of the device lifecycle: runs avdmanager, emulator, adb and xcrun simctl as argv arrays without a shell (systemDeviceExecutor); it says when a program is not on the PATH, and reads back what a started process printed
+│   ├── deviceLifecycle.ts  # withDevices: creates, boots and hands over one AVD and one simulator named adw-<adwId>, trying each boot three times, and returns ready, boot failed or tool missing, after removing everything it created
+│   ├── deviceSourceConfig.ts  # Pure: the four device-source sections of .adw/project.md (parseDeviceSourceSections) and the device source a profile with platforms needs (resolveDeviceSource, DeviceSourceConfigError)
 │   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from specs/adr/
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
@@ -704,6 +725,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND assembles the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity via forgeProviders(), in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are assembled lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── localRepoIdentity.ts  # Host-neutral origin-remote reader (readLocalRepoIdentity) replacing the GitHub-only readLocalRepoInfo (#844)
 │   ├── logger.ts       # Structured logging utilities
+│   ├── markdownSections.ts  # Pure: the ## sections of an .adw/ file (parseMarkdownSections, sectionValue, stripHtmlComments)
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
@@ -714,7 +736,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── portAllocator.ts
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── projectConfig.ts  # Loads and parses the `.adw/` files; `applicationType` has no default (an absent or empty `## Application Type` is `null`)
+│   ├── projectConfig.ts  # Loads and parses the `.adw/` files; `applicationType` has no default (an absent or empty `## Application Type` is `null`); `deviceSources` holds the four device-source sections of `project.md`, each `null` when absent or empty
 │   ├── promotionIssueBody.ts  # Pure builder for the #734-shaped promotion issue title/body/labels (git mv + vocabulary-registration instructions)
 │   ├── promotionReconcileLink.ts  # Pure matcher: parses `Promotes: feature-N` back-link, resolves open/no-issue/blocked/closed-unmerged/merged reconciliation fact
 │   ├── promotionSweepDecider.ts  # Pure lifecycle decider: {tagState, meetsThreshold, reconcile} → originate/leave/done/decline/redrive/withdraw
@@ -867,6 +889,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── planCommitGuardPhase.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
+│   │   ├── preExistingRegressionGate.devices.test.ts
+│   │   ├── preExistingRegressionGate.helpers.ts  # Shared helpers for the pre-existing regression gate tests
 │   │   ├── preExistingRegressionGate.test.ts
 │   │   ├── prReviewCompletion.test.ts
 │   │   ├── prReviewPhase.test.ts
@@ -874,16 +898,23 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── reviewPhaseApprovalGate.test.ts
+│   │   ├── reviewPhaseEvidence.test.ts
 │   │   ├── reviewPhaseScreenshots.test.ts
+│   │   ├── reviewPromptContext.test.ts
 │   │   ├── reviewRetryLoop.blocker.test.ts
 │   │   ├── reviewRetryLoop.counter.test.ts
 │   │   ├── reviewRetryLoop.test.ts
 │   │   ├── scenarioProjectSetup.test.ts
+│   │   ├── scenarioProofRun.evidence.test.ts
+│   │   ├── scenarioProofRun.helpers.ts
 │   │   ├── scenarioProofRun.test.ts
 │   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.deviceBoot.test.ts
+│   │   ├── scenarioTestPhase.deviceSource.test.ts
+│   │   ├── scenarioTestPhase.devices.test.ts
 │   │   ├── scenarioTestPhase.helpers.ts
 │   │   ├── scenarioTestPhase.runner.test.ts
 │   │   ├── scenarioTestPhase.server.test.ts
@@ -912,7 +943,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes — the hitl gate's label read, approval read, hold-label write and comment all go through config.repoContext's providers (#796), not adws/github/* free functions
 │   ├── baselinePhase.ts  # Baseline phase (executeBaselinePhase): installs, runs the static checks and starts the declared dev server on the base branch before any work; parks the workflow when the base is red, records a green base in the top-level state, does nothing under a waiver
-│   ├── baseScenarioRerun.ts  # Single-scenario re-run on the base checkout (buildBaseScenarioRerun): tags the failing scenario, runs it alone under the base branch's dev server where one is declared, reports passed / failed / not run
+│   ├── baseScenarioRerun.ts  # Single-scenario re-run on the base checkout (buildBaseScenarioRerun): tags the failing scenario, runs it alone under the base branch's dev server where one is declared, reports passed / failed / not run; the devices the gate hands it go into the run command's environment
 │   ├── baseWorktree.ts  # Base-branch worktree port: a detached checkout at .worktrees/base-issue-<N>-<adwId>, shared by the baseline and the re-runs and removed when the process exits (buildBaseWorktreePort, sharedBaseWorktree)
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
@@ -930,7 +961,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
-│   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through (createPreExistingRegressionGate)
+│   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through; for a profile with platforms it re-runs them on an emulator and a simulator created for the re-run and removed after it, and parks `device_boot_failed` when a device does not boot (createPreExistingRegressionGate)
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
@@ -949,7 +980,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict; hands a dev server that did not start to the review loop
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioProjectSetup.ts  # `syncDeclaredScenarioProject`, the upgrade's `syncScenarioProject`: for a regenerated `.adw/project.md` whose type runs on ADW's Playwright project, writes the project's files and installs it (`npm install` and the browser) so the regen commit carries `features/package-lock.json`
-│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start
+│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start; fails before running anything when a profile with platforms lacks a device-source section; for a profile with platforms it runs the scenarios on the workflow's own emulator and simulator, and parks `device_boot_failed` when a device does not boot in three attempts or a host tool is missing
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
 │   ├── stepDefPhase.ts  # Step definition generation phase
@@ -1093,11 +1124,23 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   └── types.ts        # Shared types (VocabularyEntry, ScoreResult, PromotionStats, etc.)
 ├── proof/              # PR proof publishing module
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── featureFileReader.test.ts
+│   │   ├── featureScenarioIndex.examples.test.ts
+│   │   ├── featureScenarioIndex.lookup.test.ts
+│   │   ├── featureScenarioIndex.test.ts
+│   │   ├── imagePlatform.test.ts
+│   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts
+│   │   ├── proofAssembler.helpers.ts
+│   │   ├── proofAssembler.images.test.ts
+│   │   ├── proofAssembler.platforms.test.ts
+│   │   ├── proofAssembler.scenarios.test.ts
+│   │   ├── proofAssembler.test.ts
 │   │   └── proofUploader.test.ts
 │   ├── featureFileReader.ts    # Reads a per-issue `.feature` file for the proof assembler
 │   ├── featureScenarioIndex.ts # Indexes a feature file's scenarios so proof images can be matched to them
+│   ├── imagePlatform.ts        # Reads a per-issue image's platform from its first directory (android/, ios/) and each scenario's platform coverage
 │   ├── index.ts
 │   ├── prProofPublisher.ts     # Formats JUnit summary + screenshots and posts proof comment to PR
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
@@ -1266,7 +1309,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── review/         # Regression scenarios covering the review comment on the issue: it shows the screenshots of the proof run the review judged, each embedded from the URL its upload returned, on a passing and a failing review, and a screenshot never decides or blocks the review (#937)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
-│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; gherkinTags.ts parses scenario tags for the harness
+│   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; standInDevices.ts, the stand-in for the host's device tools (avdmanager, emulator, adb, xcrun simctl) that the real device lifecycle runs over in the scenarios that run the scenario test phase on a repository with platforms, and that answers like a host whose devices do not boot or whose tools are not installed when a scenario says so; gherkinTags.ts parses scenario tags for the harness
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
 │   ├── takeover/       # Regression scenarios covering the cron taking over a workflow whose orchestrator died in starting or in a running stage under its adwId, a live orchestrator never killed, reset or doubled, a spawn lock the cron itself left behind, and an orchestrator logging the error that stopped its startup (#959)
 │   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)

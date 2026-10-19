@@ -37,9 +37,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Read `README.md` if it exists for additional context
    - **Detect the application type.** It decides what evidence ADW's review needs, and ADW assumes no type, so decide only from what the project shows:
      - `web`: the application serves pages that a person opens in a browser. Signals: a web framework or front-end build in the manifest (for example Next.js, Nuxt, Remix, SvelteKit, Astro, Angular, Vue, React with Vite; Django, Flask or FastAPI serving templates; Rails, Laravel, Phoenix), or routes and templates that render HTML.
-     - `cli`: the application has no browser user interface. Examples: a command-line tool (a `bin` entry, commander, yargs, oclif, click, typer, cobra, clap), a library, scripts or automation, or a service with an HTTP API and no pages.
+     - `cli`: the application has no browser user interface and is not a mobile app. Examples: a command-line tool (a `bin` entry, commander, yargs, oclif, click, typer, cobra, clap), a library, scripts or automation, or a service with an HTTP API and no pages.
      - Test tooling alone (Playwright, Cypress, Cucumber) does not decide the type.
-     - Undecided: the signals conflict (for example a CLI and a separate browser UI, neither of them primary), or there is nothing to go on (an empty repository whose issue describes no application). Do not guess, and never fall back to `cli`.
+     - Undecided: the signals conflict (for example a CLI and a separate browser UI, neither of them primary), there is nothing to go on (an empty repository whose issue describes no application), or the application is a mobile app, one that runs on Android or iOS: no signal decides the type of a mobile app, because only the repository's owner sets it. Do not guess, and never fall back to `cli`.
 
 2. **Create `.adw/commands.md`**
    - Create the `.adw/` directory if it doesn't exist
@@ -50,7 +50,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Type Check` — Command for type checking (if applicable, otherwise "N/A")
      - `## Run Tests` — Command to run the unit-test suite **and emit a JUnit report**:
        - **If `.adw/commands.md` already has a `## Run Tests` section, preserve it verbatim — never overwrite a custom command.** A repo whose pre-existing custom command does not emit a JUnit report will resolve to `unverified` (by design); it can be upgraded manually at any time.
+         - For `mobile:kotlincm`, a section that holds no command but `N/A` is not a custom command: an earlier run wrote it while the repository had no manifest. Treat the section as absent, and drop the comment line that may stand beside the `N/A`.
        - **If the section is absent**, author a JUnit-emitting command per the detected language, referencing `$ADW_UNIT_TEST_REPORT_PATH`:
+         - **`mobile:kotlincm`**, whatever the detected language and also when there is no manifest yet → `./gradlew test -x :scenarios:test --continue; exit_code=$?; { echo '<testsuites>'; find . -path ./scenarios -prune -o -path '*/build/test-results/*' -name 'TEST-*.xml' -exec sed 's/<?xml[^?]*?>//' {} +; echo '</testsuites>'; } > "$ADW_UNIT_TEST_REPORT_PATH"; exit $exit_code`, alone in the section and exactly as written. It runs the `test` task of every module except `:scenarios`, whose scenarios the scenario phase runs on the devices ADW boots, and gathers the per-class JUnit reports Gradle writes under each module's `build/test-results/` into the one file ADW reads.
          - **vitest** → `vitest run --reporter=default --reporter=junit --outputFile=$ADW_UNIT_TEST_REPORT_PATH`
          - **jest** → `jest --reporters=default --reporters=jest-junit` (requires `JEST_JUNIT_OUTPUT_FILE=$ADW_UNIT_TEST_REPORT_PATH` in env; note in comments)
          - **pytest** → `pytest --junitxml=$ADW_UNIT_TEST_REPORT_PATH`
@@ -58,9 +60,10 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
          - **cargo nextest** → `cargo nextest run --profile ci` with a nextest profile that sets `junit.path = "$ADW_UNIT_TEST_REPORT_PATH"` (document the nextest config requirement)
          - **other / unknown** → use the idiomatic test command (e.g. `bun run test`) with a comment noting that JUnit emission is not configured; runs will resolve to `unverified` until the command is updated to emit a report to `$ADW_UNIT_TEST_REPORT_PATH`
      - `## Run Build` — Command to build the project
-     - `## Start Dev Server` — Determine the correct value from the application type decided in step 1:
+       - **`mobile:kotlincm`**, whatever the manifests show and also when there is none yet → `if [ -e gradlew ] || [ -e settings.gradle.kts ] || [ -e settings.gradle ]; then ./gradlew build -x test; else echo 'No Gradle build yet: nothing to build'; fi`, alone in the section and exactly as written. It runs Gradle's `build` without its `test` tasks, because the unit-test phase runs the unit tests and the scenario phase runs `:scenarios:test` on the devices ADW boots. Until the repository has a Gradle wrapper or settings file there is nothing to build, and the command passes: ADW checks the base branch before any work starts, and the base branch of the issue that bootstraps the repository holds no Gradle build yet.
+     - `## Start Dev Server` — Determine the correct value from the application type step 3 writes (the type it preserves, or the one step 1 detects):
        - **`web`** → the framework's dev command with `{PORT}` substituted (e.g., `npm run dev -- --port {PORT}`, `bunx next dev --port {PORT}`, `python manage.py runserver 0.0.0.0:{PORT}`), whatever test runners the repository has. ADW starts and stops the server itself and hands its address to its own Playwright project, whose configuration has no `webServer` block. A `webServer` block in the repository's own e2e configuration is ignored.
-       - **`cli`, or undecided** → `N/A`
+       - **`cli`, `mobile:kotlincm`, or undecided** → `N/A`
        - Note: `{PORT}` is a substitution placeholder used at runtime by the dev server lifecycle helper to allocate dynamic ports for parallel workflows, avoiding port collisions between concurrent workflow runs
      - `## Health Check Path` — HTTP path the dev server health probe hits (default `/`). Can be overridden per target repo if `/` is slow or redirects to a login page.
      - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder in any dev server start command
@@ -82,19 +85,27 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Suppression Patterns` — The repository owner's own additions to ADW's table of suppression patterns, one pattern per line. ADW's framework table always applies as well, and a line starting with `!` is ignored:
        - **If `.adw/commands.md` already has a `## Suppression Patterns` section, preserve it verbatim — never create, populate or reorder it.** Regenerating `.adw/` on a framework upgrade would otherwise drop the owner's additions.
        - **If the section is absent**, leave it out.
-   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` are the ones step 8 writes, and must be consistent with the scenario tool chosen there (ADW's Playwright project for `web`; Cypress, Cucumber or default Cucumber otherwise)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` are the ones step 8 writes, and must be consistent with the scenario tool chosen there (ADW's Playwright project for `web`; the `:scenarios` Gradle module for `mobile:kotlincm`; Cypress, Cucumber or default Cucumber otherwise)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
      - `## Project Overview` — Brief description based on README and manifest files
      - `## Relevant Files` — List of key directories and files with descriptions, based on actual project structure
+       - For `mobile:kotlincm`, include `.adw/scenarios.md`: its `## Scenario Run Contract` says what the repository's `:scenarios` Gradle module must do for ADW.
      - `## Framework Notes` — Framework-specific instructions for the ADW
      - `## Library Install Command` — How to add new libraries
      - `## Script Execution` — How to run project scripts
-     - `## Application Type` — exactly one of `cli` or `web`, alone on its line:
-       - If the existing `.adw/project.md` has `## Application Type` holding `cli` or `web`, preserve it verbatim. The owner may have set it by hand, and an upgrade must not drop it.
-       - Otherwise write the type detected in step 1.
+     - `## Application Type` — exactly one of `cli`, `web` or `mobile:kotlincm`, alone on its line. The last is never detected: only the repository's owner sets it, by hand.
+       - If the existing `.adw/project.md` has `## Application Type` holding `cli`, `web` or `mobile:kotlincm`, preserve it verbatim. The owner may have set it by hand, and an upgrade must not drop it.
+       - Otherwise write the type detected in step 1, `cli` or `web`.
        - If step 1 could not decide, leave the section out entirely: no default, no placeholder, no empty section. ADW then parks every issue with the `missing_application_type` comment until the section is added or `adw_init` is re-run.
+     - `## Android System Image`, `## Android Device Profile`, `## iOS Device Type` and `## iOS Runtime` — the device sources: what ADW creates each workflow's Android emulator and iOS simulator from. Write these four sections only when the `## Application Type` this step writes is `mobile:kotlincm`; for any other type, or none, leave them out.
+       - If the existing `.adw/project.md` has the section and it holds a value, preserve the value verbatim. The owner may have chosen other images or devices, and an upgrade must not reset them.
+       - Otherwise write the default, alone on its line:
+         - `## Android System Image` → `system-images;android-36;google_apis;arm64-v8a` (an `sdkmanager` package path)
+         - `## Android Device Profile` → `pixel_8` (an `avdmanager` device id)
+         - `## iOS Device Type` → `com.apple.CoreSimulator.SimDeviceType.iPhone-16` (a `simctl` device type identifier)
+         - `## iOS Runtime` → `com.apple.CoreSimulator.SimRuntime.iOS-26-0` (a `simctl` runtime identifier)
    - Do not add a section that enables or disables unit tests. The only unit-test switch is `unitTests` in `.github/adw.yml` (step 9). If the existing `.adw/project.md` has such a section, leave it out.
 
 4. **Create `.adw/conditional_docs.md`**
@@ -169,6 +180,30 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Run Regression Scenarios` → `cd features && (test -d node_modules || npm ci) && npx bddgen && npx playwright test --grep "@regression\b"`
      - `## BDD Framework` → `playwright-bdd`
      - `## Step Def Directory` → `features/steps`
+   - If the application type is **`mobile:kotlincm`**, whatever scenario tooling the repository has, and also when it has no manifest yet (the repository's own `:scenarios` Gradle module runs the scenarios with cucumber-jvm, on the devices ADW boots for each workflow):
+     - `## Scenario Directory` → `features/`
+     - `## Run Scenarios by Tag` → `./gradlew :scenarios:test --rerun -Dcucumber.filter.tags="@{tag}"`
+     - `## Run Regression Scenarios` → `./gradlew :scenarios:test --rerun -Dcucumber.filter.tags="@regression"`
+     - `## BDD Framework` → `cucumber-jvm`
+     - `## Step Def Directory` → `scenarios/src/test/kotlin`
+     - `--rerun` keeps Gradle from skipping a run whose inputs did not change: every run has new devices and a new report path.
+     - `## Scenario Run Contract` → the text below, verbatim. It is what ADW passes the run and what it reads back, so the repository's `:scenarios` module, its screenshot hook and its JUnit reporter keep to it:
+       ```md
+       ADW runs `## Run Scenarios by Tag` from the repository root, with `{tag}` replaced by the tag it runs, and gives the run these environment variables:
+
+       - `ADW_JUNIT_REPORT_PATH`: the absolute path of the JUnit XML report the run writes.
+       - `ADW_PROOF_DIR`: the absolute path of the directory the run writes its screenshots to.
+       - `ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`: the Android emulator and the iOS simulator ADW created and booted for this workflow, by the AVD's name, the emulator's `adb` serial and the simulator's UDID. The run drives these two devices and never creates, boots, shuts down or deletes one.
+
+       The `:scenarios` Gradle module runs the `.feature` files under `features/` with cucumber-jvm and the Kotlin step definitions under `scenarios/src/test/kotlin`. Its `test` task hands the `cucumber.filter.tags` system property to cucumber-jvm, so that a run executes the scenarios of its tag and no others. It builds the application, installs it on both devices and starts the Appium server its step definitions talk to.
+
+       The report at `ADW_JUNIT_REPORT_PATH`:
+
+       - holds one `<testcase>` per scenario and platform. Its `name` is the scenario's title as the `.feature` file spells it, and the Android and the iOS run of a scenario report the identical title. A Scenario Outline row is titled with the outline's title, its `<column>` placeholders filled in from the row, or `Example #<n>` for the outline's n-th row when the title names no column.
+       - names each screenshot of a case on a line of its own in that case's `<system-out>`: `[[ATTACHMENT|<path>]]`, the path relative to the directory that holds the report.
+
+       Each screenshot is a `.png` or `.jpg` file under `ADW_PROOF_DIR`: in `android/` when it was taken on Android, in `ios/` when it was taken on iOS. ADW reads the platform of an image from its first directory under `ADW_PROOF_DIR`, and shows the reviewer only the screenshots of the issue's own scenarios (`@adw-<issue number>`) that lie in a platform directory. A scenario about something a user sees needs a screenshot on each platform.
+       ```
    - For any other application type, or an undecided one, take the first of these that matches:
    - If **Cypress** detected (`npx cypress run`, `cypress run`, etc.):
      - `## Scenario Directory` → `cypress/e2e/`
@@ -287,7 +322,8 @@ EOF
    - Summarize the detected project type and key configuration choices
    - Note the `## Application Type` written to `.adw/project.md`: the value, and whether it was detected or preserved; or `left out — detection could not decide (the next ADW run parks the issue with missing_application_type)`.
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
-   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (`web` and Cucumber/Gherkin branches only).
+   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (`web`, `mobile:kotlincm` and Cucumber/Gherkin branches only).
+   - For `mobile:kotlincm`: the `## Scenario Run Contract` written to `scenarios.md`; each of `## Android System Image`, `## Android Device Profile`, `## iOS Device Type` and `## iOS Runtime` in `project.md` as `default` or `preserved`; and whether the Gradle `## Run Tests` was written, replaced an `N/A`, or a custom command was preserved.
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
    - Note the `## Test Directory` and `## Test Framework` values written to `commands.md`.
    - Note whether the starter guardrails `.claude/settings.json` (step 7) was copied or skipped (already present), and that a `## Agent Guardrails` section was written to `.adw/project.md` reflecting that outcome. This edit's presence in `adw_init.md` is what bumps `.adw-version` and fans the starter-settings copy out to every registered target repo on the next upgrade regen (issue #763).

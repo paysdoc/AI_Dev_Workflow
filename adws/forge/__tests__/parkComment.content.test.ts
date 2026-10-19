@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { HostTool } from '../../core/deviceCommands';
 import { FixLoopStall } from '../../core/staticCheckFixLoop';
 import { ParkReason, buildParkComment } from '../parkComment';
-import { ADW_ID, LINT, SAMPLE, TYPE_CHECK, stalled } from './parkComment.helpers';
+import { ADW_ID, LINT, SAMPLE, TYPE_CHECK, stalled, toolMissing } from './parkComment.helpers';
 
 describe('buildParkComment — what failed', () => {
   it('lists a failing check with its command and exit code, and quotes its output as an indented block', () => {
@@ -114,5 +115,58 @@ describe('buildParkComment — a stalled static-check fix loop', () => {
   it('points to the execution log for the full output of each check', () => {
     expect(buildParkComment(ADW_ID, SAMPLE[ParkReason.FixLoopStalled])).toContain('full output');
     expect(buildParkComment(ADW_ID, SAMPLE[ParkReason.FixLoopStalled])).toContain('execution log');
+  });
+});
+
+describe('buildParkComment — a device that did not boot', () => {
+  const comment = buildParkComment(ADW_ID, SAMPLE[ParkReason.DeviceBootFailed]);
+
+  it('names the platform and the number of attempts', () => {
+    expect(comment).toContain('The `ios` device did not boot in 3 attempts');
+  });
+
+  it('says that what each attempt created was removed, and that no scenario ran', () => {
+    expect(comment).toContain('removed what each attempt had created');
+    expect(comment).toContain('no scenario ran');
+  });
+
+  it('says that the problem is the host’s and not the change’s', () => {
+    expect(comment).toContain('the host’s, not this issue’s change');
+  });
+
+  it('quotes the output of the attempts as an indented block', () => {
+    expect(comment).toContain('\n    Attempt 1 of 3: ');
+    expect(comment).toContain('\n    Unable to boot device');
+  });
+
+  it('says what both directives do, as the directives give it', () => {
+    expect(comment).toContain('- `## Retry` — re-runs the scenario phase, which creates and boots the devices again');
+    expect(comment).toContain('- `## Continue` — waives nothing');
+  });
+});
+
+describe('buildParkComment — a host tool that is missing', () => {
+  const comment = buildParkComment(ADW_ID, toolMissing());
+
+  it('names the tool and the platform of the device that could not be created', () => {
+    expect(comment).toContain('The host tool `avdmanager` is not on the host’s `PATH`');
+    expect(comment).toContain('the `android` device could not be created');
+  });
+
+  it('says that ADW did not retry, and that the tool is to be installed on the host', () => {
+    expect(comment).toContain('ADW did not retry');
+    expect(comment).toContain('Install it on the host that runs ADW');
+  });
+
+  it('quotes what the tool answered as an indented block', () => {
+    expect(comment).toContain('\n    Error: spawn avdmanager ENOENT');
+  });
+
+  it('names the tool by its own words when it is xcrun simctl', () => {
+    expect(buildParkComment(ADW_ID, toolMissing({ tool: HostTool.Simctl }))).toContain('The host tool `xcrun simctl` is not on the host’s `PATH`');
+  });
+
+  it('is not the comment of a boot that failed', () => {
+    expect(comment).not.toContain('did not boot in');
   });
 });

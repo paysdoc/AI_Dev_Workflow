@@ -15,6 +15,7 @@ export const ISSUE = 42;
 export const PROOF_DIR = '/work/proof';
 export const GENERATED_AT = '2026-10-07T00:00:00.000Z';
 export const [REGRESSION, PER_ISSUE] = fixedScenarioTags(ISSUE);
+export const MOBILE_PROFILE = APPLICATION_TYPE_PROFILES['mobile:kotlincm'];
 
 export function indexOf(...contents: string[]) {
   return indexFeatureScenarios(contents.map((content, position) => ({ path: `features/f${position}.feature`, content })));
@@ -69,4 +70,15 @@ Feature: Wish list
 
   Scenario: The wish list opens
     Given a wish list
+`;
+
+/** Cases of a descriptor runner carry the scenario's name alone; a mobile scenario runs once per platform, under that one name. */
+export const SIGN_IN_FEATURE = `@adw-42
+Feature: Sign-in
+
+  Scenario: The user signs in
+    Given the sign-in screen
+
+  Scenario: The user signs out
+    Given the home screen
 `;

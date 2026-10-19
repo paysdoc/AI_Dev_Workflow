@@ -4,6 +4,8 @@
  * patch path (`applyPatchBlocker`), never through `runBuildAgent` directly.
  */
 
+import { defineParameterType } from '@cucumber/cucumber';
+
 import { AgentStateManager } from '../../../adws/core/index.ts';
 import { RunnerMode } from '../../../adws/core/applicationType.ts';
 import { getPlanFilePath, runPlanAgent } from '../../../adws/agents/planAgent.ts';
@@ -33,6 +35,12 @@ export const AGENT_NAMES = [
 ] as const;
 
 export type AgentName = (typeof AGENT_NAMES)[number];
+
+defineParameterType({
+  name: 'agent',
+  regexp: new RegExp(AGENT_NAMES.join('|')),
+  transformer: (name: string) => name as AgentName,
+});
 
 /** The slash command each agent runs, which is how the throwaway CLI tells the agents apart. */
 export const AGENT_COMMANDS: Record<AgentName, string> = {

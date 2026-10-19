@@ -79,9 +79,10 @@ export {
 } from '../cost';
 
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
-export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
+export { parseMarkdownSections } from './markdownSections';
 export type { ApplicationProfile, ApplicationProfiles, ApplicationType, ApplicationTypeResolution } from './applicationType';
-export { APPLICATION_TYPE_PROFILES, RunnerMode, EvidenceKind, resolveApplicationType, describeApplicationProfile } from './applicationType';
+export { APPLICATION_TYPE_PROFILES, RunnerMode, EvidenceKind, Platform, resolveApplicationType, describeApplicationProfile } from './applicationType';
 
 export type { AdwPlaywrightProjectFile, ProjectFileAction, ProjectFileOutcome } from './adwPlaywrightProject';
 export {
@@ -194,11 +195,13 @@ export { getWorkflowScript } from './workflowMapping';
 
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
+export { type DeviceCommand, type DeviceCommandResult, type DeviceExecutor, type DeviceProcess, systemDeviceExecutor } from './deviceExecutor';
+export { type DeviceEnvironment, type DeviceFailure, type DeviceLifecycleDeps, type DeviceOutcome, type DeviceRequest, withDevices, deviceNameFor, emulatorConsolePortCandidates, HostTool, MAX_BOOT_ATTEMPTS, DEVICE_NAME_PREFIX } from './deviceLifecycle';
+
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
-export type { TokenTotals, ModelTokenEntry } from '../cost';
-export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
+export { type TokenTotals, type ModelTokenEntry, computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 
 export {
   getTargetRepoWorkspacePath,

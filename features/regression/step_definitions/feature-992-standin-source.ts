@@ -14,6 +14,8 @@ export interface ToolConfig {
   readonly serverTags: readonly string[];
   /** What `npx playwright test` exits with, whatever its report says. */
   readonly playwrightExitCode: number;
+  /** What the scenario command exits with, whatever its report says. */
+  readonly scenarioExitCode: number;
   /** The path `npx playwright test` asks the dev server for, before and after it holds. */
   readonly probePath: string;
   readonly holdMs: number;
@@ -202,7 +204,7 @@ function npx() {
 function scenarioCommand() {
   record({ tag: args[0] });
   writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, args[0], CONFIG.failingTags.indexOf(args[0]) !== -1);
-  process.exit(0);
+  process.exit(CONFIG.scenarioExitCode);
 }
 
 if (tool === 'npm') npm();

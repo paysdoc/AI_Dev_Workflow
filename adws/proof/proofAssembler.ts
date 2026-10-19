@@ -1,13 +1,14 @@
 /**
- * Pure. Decides which tags run, what each run proved, and which images are the visual evidence of the issue. Nothing
- * here reads a file or starts a process: the caller hands over the reports, the feature index and the list of images
- * the artifacts directory holds.
+ * Pure. Decides which tags run, what each run proved, and which images are the visual evidence of the issue, and for a profile
+ * with platforms which platform each of them shows. Nothing here reads a file or starts a process: the caller hands over the
+ * reports, the feature index and the list of images the artifacts directory holds.
  */
 
 import * as path from 'path';
-import { EvidenceKind, type ApplicationProfile } from '../core/applicationType';
+import { EvidenceKind, type ApplicationProfile, type Platform } from '../core/applicationType';
 import type { TestCaseResult, TestReport } from '../core/testReportParser';
 import { hasScenarioTagged, scenariosForTestCase, type FeatureScenarioIndex } from './featureScenarioIndex';
+import { platformOfImage, scenarioPlatformCoverage } from './imagePlatform';
 import { renderProofDocument, type ProofEvidence } from './proofDocument';
 import type { PerIssueImage, ProofArtifact, TagProofResult } from './types';
 
@@ -167,10 +168,12 @@ function uniqueByPath(images: readonly PerIssueImage[]): PerIssueImage[] {
   return images.filter((image, position) => images.findIndex(other => other.absPath === image.absPath) === position);
 }
 
-const NO_EVIDENCE: ProofEvidence = { images: [], unattributed: [] };
+type SelectedImages = Omit<ProofEvidence, 'platforms'>;
+
+const NO_EVIDENCE: SelectedImages = { images: [], unattributed: [] };
 
 // Only the issue's own run is read: a scenario tagged both runs twice, and its image is taken once, from this run.
-function selectEvidence(perIssue: TagRunRecord | undefined, index: FeatureScenarioIndex, artifacts: readonly ProofArtifact[]): ProofEvidence {
+function selectEvidence(perIssue: TagRunRecord | undefined, index: FeatureScenarioIndex, artifacts: readonly ProofArtifact[]): SelectedImages {
   const run = perIssue?.run;
   if (!perIssue || !run?.report) return NO_EVIDENCE;
 
@@ -199,13 +202,44 @@ function expectsImages(profile: ApplicationProfile): boolean {
   return profile.evidenceKinds.includes(EvidenceKind.PerIssueImages);
 }
 
+interface LocatedImage {
+  readonly image: PerIssueImage;
+  readonly platform: Platform | null;
+}
+
+function locate(image: PerIssueImage, platforms: readonly Platform[]): LocatedImage {
+  return { image, platform: platformOfImage(image.relPath, platforms) };
+}
+
+function attributedImage({ image, platform }: LocatedImage): PerIssueImage[] {
+  return platform === null ? [] : [{ ...image, platform }];
+}
+
+function isOutsideEveryPlatform({ platform }: LocatedImage): boolean {
+  return platform === null;
+}
+
+// An image in no platform directory is never evidence: a stray file must not pass for a screenshot of the change.
+function withPlatforms({ images, unattributed }: SelectedImages, platforms: readonly Platform[]): ProofEvidence {
+  const located = images.map(image => locate(image, platforms));
+  const attributed = located.flatMap(attributedImage);
+  const outside = located.filter(isOutsideEveryPlatform).map(({ image }) => image.relPath);
+  return { images: attributed, unattributed, platforms: { expected: platforms, coverage: scenarioPlatformCoverage(attributed, platforms), outside } };
+}
+
+function evidenceFor(selected: SelectedImages, profile: ApplicationProfile): ProofEvidence {
+  if (profile.platforms.length === 0) return { ...selected, platforms: null };
+  return withPlatforms(selected, profile.platforms);
+}
+
 export function assembleScenarioProof(input: ProofAssemblyInput): AssembledProof {
   const { runs, scenarioIndex, artifacts, applicationProfile, generatedAt, notice } = input;
 
   const tagResults = runs.map(record => tagResultOf(record, scenarioIndex));
   const hasBlockerFailures = tagResults.some(result => result.severity === 'blocker' && !result.passed && !result.skipped);
+  const perIssueRecord = runs.find(record => record.tag.role === ScenarioTagRole.PerIssue);
   const evidence = expectsImages(applicationProfile)
-    ? selectEvidence(runs.find(record => record.tag.role === ScenarioTagRole.PerIssue), scenarioIndex, artifacts)
+    ? evidenceFor(selectEvidence(perIssueRecord, scenarioIndex, artifacts), applicationProfile)
     : null;
 
   return {

@@ -14,6 +14,7 @@ import * as path from 'path';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../../../adws/core/config.ts';
+import { buildContinueHandlerDeps, handleContinueDirective } from '../../../adws/triggers/continueHandler.ts';
 import { handleRetryDirective, type RetryHandlerDeps } from '../../../adws/triggers/retryHandler.ts';
 
 import { emptyBehaviour } from '../../regression/step_definitions/feature-929-compacting-cli.ts';
@@ -26,6 +27,7 @@ import { linesOfWorktreeFile, prepareBranchAndOrigin } from './feature-989-git.t
 
 const TEST_AGENT_COMMAND = '/test';
 const RETRY_DIRECTIVE = '## Retry';
+const CONTINUE_DIRECTIVE = '## Continue';
 const PARKED_STAGE = 'human_gated';
 const RE_ARMED_STAGE = 'phase_timeout';
 
@@ -96,10 +98,15 @@ Given("the workflow's unit-test phase has run and parked the workflow as {string
 });
 
 When('{string} is posted on issue {int}', function (directive: string, issueNumber: number) {
-  assert.strictEqual(directive, RETRY_DIRECTIVE, 'The only directive this feature posts is "## Retry"');
+  assert.ok([RETRY_DIRECTIVE, CONTINUE_DIRECTIVE].includes(directive), 'The directives these features post are "## Retry" and "## Continue"');
   const { adwId } = requireWorkflow();
   const comments = [...commentsOn(issueNumber), directive].map(body => ({ body }));
 
+  // Whether a "## Continue" waived anything is for the steps that follow to read from the state: it waives nothing for a park that is not a base-branch one.
+  if (directive === CONTINUE_DIRECTIVE) {
+    handleContinueDirective(issueNumber, comments, buildContinueHandlerDeps());
+    return;
+  }
   assert.ok(handleRetryDirective(issueNumber, comments, retryDeps()), `Expected "${RETRY_DIRECTIVE}" to act on the parked workflow`);
   assert.strictEqual(topLevelStage(adwId), RE_ARMED_STAGE, `Expected "${RETRY_DIRECTIVE}" to re-arm the workflow to "${RE_ARMED_STAGE}"`);
 });

@@ -29,13 +29,13 @@ const ADW_DIRECTORY = '.adw/';
 
 type Parked = Extract<ApplicationTypeResolution, { kind: 'park' }>;
 
-function latestConsultation(): ApplicationTypeResolution {
+export function latestConsultation(): ApplicationTypeResolution {
   const latest = s.consultations[s.consultations.length - 1];
   assert.ok(latest, 'Expected the application-type mapping to have been consulted first');
   return latest;
 }
 
-function profileOf(resolution: ApplicationTypeResolution): ApplicationProfile {
+export function profileOf(resolution: ApplicationTypeResolution): ApplicationProfile {
   if (resolution.kind !== 'known') {
     assert.fail(`Expected the mapping to know the application type, but it decides to park the issue (found ${JSON.stringify(resolution.evidence.found)})`);
   }
@@ -50,12 +50,12 @@ function requireParked(): Parked {
   return resolution;
 }
 
-function requireProjectConfig(): ProjectConfig {
+export function requireProjectConfig(): ProjectConfig {
   assert.ok(s.projectConfig, "Expected a repository's project configuration to have been read first");
   return s.projectConfig;
 }
 
-function makeRepository(): string {
+export function makeRepository(): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-991-repository-'));
   sharedWorld.directories.push(directory);
   s.repositoryDir = directory;

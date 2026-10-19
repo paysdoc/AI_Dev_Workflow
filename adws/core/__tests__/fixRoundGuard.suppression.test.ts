@@ -12,6 +12,13 @@ describe('evaluateFixRound — which language a pattern belongs to', () => {
     expect(judge(['javascript'], '', addedLinesDiff('app/main.py', ['x = 1  # noqa: E501'])).accepted).toBe(true);
   });
 
+  it('accepts a kotlin suppression under a javascript-only configuration, and rejects it under jvm', () => {
+    const diff = addedLinesDiff('app/src/main/kotlin/Main.kt', ['@Suppress("UNCHECKED_CAST")']);
+
+    expect(judge(['javascript'], '', diff).accepted).toBe(true);
+    expect(judge(['jvm'], '', diff).accepted).toBe(false);
+  });
+
   it('applies the patterns of every language of a mixed stack', () => {
     const config = buildFixRoundGuardConfig(['python', 'javascript'], '');
 
