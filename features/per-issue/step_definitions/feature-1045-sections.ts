@@ -7,14 +7,21 @@
 import assert from 'assert';
 import type { DataTable } from '@cucumber/cucumber';
 
-import { DEVICE_SOURCE_SECTION_TITLES, type DeviceSourceSections } from '../../../adws/core/deviceSourceConfig.ts';
+import type { DeviceSourceSections } from '../../../adws/core/deviceSourceConfig.ts';
 
-export const DEVICE_SOURCE_KEYS = Object.keys(DEVICE_SOURCE_SECTION_TITLES) as Array<keyof DeviceSourceSections>;
+// Written from the issue, not looked up in the parser's `DEVICE_SOURCE_SECTION_TITLES`, so a section read into the
+// wrong field fails the scenario.
+const FIELD_OF_SECTION: ReadonlyMap<string, keyof DeviceSourceSections> = new Map([
+  ['## Android System Image', 'androidSystemImage'],
+  ['## Android Device Profile', 'androidDeviceProfile'],
+  ['## iOS Device Type', 'iosDeviceType'],
+  ['## iOS Runtime', 'iosRuntime'],
+]);
 
 const HEADING_MARK = '## ';
 
 export function assertDeviceSourceSection(section: string): void {
-  const known = DEVICE_SOURCE_KEYS.map(key => `${HEADING_MARK}${DEVICE_SOURCE_SECTION_TITLES[key]}`);
+  const known = [...FIELD_OF_SECTION.keys()];
   assert.ok(known.includes(section), `Expected one of the device-source sections ${known.join(', ')}, but the scenario names "${section}"`);
 }
 
@@ -26,8 +33,8 @@ export function titleOf(section: string): string {
 
 /** The field of the project configuration the section is read into. */
 export function keyOf(section: string): keyof DeviceSourceSections {
-  const title = titleOf(section);
-  const key = DEVICE_SOURCE_KEYS.find(candidate => DEVICE_SOURCE_SECTION_TITLES[candidate] === title);
+  assertDeviceSourceSection(section);
+  const key = FIELD_OF_SECTION.get(section);
   assert.ok(key, `Expected "${section}" to be read into a field of the project configuration`);
   return key;
 }
