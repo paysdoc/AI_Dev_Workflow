@@ -18,6 +18,7 @@ export const SCENARIOS_MD = '.adw/scenarios.md';
 export const ADW_DIRECTORY = '.adw/';
 
 const SCENARIO_DIRECTORY = 'Scenario Directory';
+const INSTALL_DEPENDENCIES = 'Install Dependencies';
 const START_DEV_SERVER = 'Start Dev Server';
 const HEALTH_CHECK_PATH = 'Health Check Path';
 const RUN_BY_TAG = 'Run Scenarios by Tag';
@@ -83,6 +84,11 @@ export function setEveryDeviceSource(files: AdwFiles): void {
 
 export function setNoDeviceSource(files: AdwFiles): void {
   DEVICE_SOURCE_KEYS.forEach(key => removeProjectSection(files, DEVICE_SOURCE_SECTION_TITLES[key]));
+}
+
+/** A section left out reads as the default, `bun install`, which a checkout that something other than Bun runs has no use for. */
+export function setInstallDependencies(files: AdwFiles, command: string): void {
+  files.commands.set(INSTALL_DEPENDENCIES, command);
 }
 
 export function setStartDevServer(files: AdwFiles, command: string, healthCheckPath: string): void {

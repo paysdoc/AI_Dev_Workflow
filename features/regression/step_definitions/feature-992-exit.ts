@@ -10,10 +10,14 @@ export class TrappedExit extends Error {
   }
 }
 
-/** Runs the work with `process.exit` replaced by a throw of `TrappedExit`, and puts the real one back afterwards. */
-export async function trappingExit<T>(work: () => Promise<T>): Promise<T> {
+/**
+ * Runs the work with `process.exit` replaced by a throw of `TrappedExit`, and puts the real one back afterwards.
+ * `atExit` runs at the moment of the exit, before it is thrown: what the process would have left behind when it ended.
+ */
+export async function trappingExit<T>(work: () => Promise<T>, atExit: () => void = () => undefined): Promise<T> {
   const realExit = process.exit;
   process.exit = ((code?: number) => {
+    atExit();
     throw new TrappedExit(code ?? 0);
   }) as typeof process.exit;
   try {

@@ -25,6 +25,7 @@ import {
   tearDownRerunFixture,
   type RerunFixture,
 } from './baseScenarioRerun.helpers';
+import { STAND_IN_DEVICES } from './scenarioTestPhase.helpers';
 
 let fixture: RerunFixture;
 
@@ -217,5 +218,23 @@ describe('the base scenario re-run — install and memoization', () => {
     expect(first).toBe(BaseScenarioOutcome.Failed);
     expect(second).toBe(BaseScenarioOutcome.Failed);
     expect(runner.calls).toHaveLength(1);
+  });
+});
+
+describe('the base scenario re-run — devices', () => {
+  it('hands the run command the devices it is given, beside its report and proof paths', async () => {
+    const runner = fakeScenarioRunner(fixture.checkout.path, () => PASSING);
+
+    await buildRerun(runner)(CANCEL_RESETS, STAND_IN_DEVICES);
+
+    expect(runner.calls[0]?.env).toEqual({ ADW_JUNIT_REPORT_PATH: expect.any(String), ADW_PROOF_DIR: expect.any(String), ...STAND_IN_DEVICES });
+  });
+
+  it('hands the run command only its report and proof paths when it is given no devices', async () => {
+    const runner = fakeScenarioRunner(fixture.checkout.path, () => PASSING);
+
+    await buildRerun(runner)(CANCEL_RESETS);
+
+    expect(Object.keys(runner.calls[0]?.env ?? {}).sort()).toEqual(['ADW_JUNIT_REPORT_PATH', 'ADW_PROOF_DIR']);
   });
 });

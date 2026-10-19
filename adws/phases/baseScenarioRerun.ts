@@ -10,6 +10,7 @@ import {
   isDevServerConfigured,
   withHealthyDevServer,
 } from '../core/devServerLifecycle';
+import type { DeviceEnvironment } from '../core/deviceLifecycle';
 import { isPortAvailable } from '../core/portAllocator';
 import { loadProjectConfig, type ProjectConfig } from '../core/projectConfig';
 import {
@@ -18,7 +19,6 @@ import {
   scenarioMatchesCase,
   withRerunTag,
   type FailingScenario,
-  type ScenarioRerun,
 } from '../core/regressionTriage';
 import { readJUnitReport } from '../core/testReportParser';
 import { parse } from '../promotion/scenarioParser';
@@ -26,6 +26,9 @@ import { sharedBaseWorktree, type BaseCheckout, type BaseWorktreePort } from './
 import type { WorkflowConfig } from './workflowInit';
 
 export const BASE_RERUN_TAG = 'adw-base-rerun';
+
+/** `devices` are the emulator and simulator created for the re-run; a profile without platforms has none. */
+export type BaseScenarioRerun = (scenario: FailingScenario, devices?: DeviceEnvironment) => Promise<BaseScenarioOutcome>;
 
 const PORT_WAIT_MS = KILL_GRACE_MS * 2;
 
@@ -107,7 +110,7 @@ async function waitForFreePort(port: number, available: (port: number) => Promis
   return true;
 }
 
-export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<BaseScenarioRerunDeps> = {}): ScenarioRerun {
+export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<BaseScenarioRerunDeps> = {}): BaseScenarioRerun {
   const baseWorktree = deps.baseWorktree ?? sharedBaseWorktree(config);
   const runProcess = deps.runProcess ?? runShellCommand;
   const runByTag = deps.runScenariosByTag ?? runScenariosByTag;
@@ -136,7 +139,7 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
     return null;
   }
 
-  async function runTagged(base: PreparedBase): Promise<BaseScenarioOutcome> {
+  async function runTagged(base: PreparedBase, devices?: DeviceEnvironment): Promise<BaseScenarioOutcome> {
     runs += 1;
     const reportPath = path.join(baselineDir, `junit-${runs}.xml`);
     const proofDir = path.join(baselineDir, `artifacts-${runs}`);
@@ -146,11 +149,12 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
     await runByTag(base.project.commands.runScenariosByTag, BASE_RERUN_TAG, base.checkout.path, {
       ADW_JUNIT_REPORT_PATH: reportPath,
       ADW_PROOF_DIR: proofDir,
+      ...devices,
     });
     return outcomeFromReport(reportPath);
   }
 
-  async function runUnderServer(base: PreparedBase): Promise<BaseScenarioOutcome> {
+  async function runUnderServer(base: PreparedBase, devices?: DeviceEnvironment): Promise<BaseScenarioOutcome> {
     const { startDevServer, healthCheckPath } = base.project.commands;
     const port = devServerPort(config.applicationUrl);
     if (!(await waitForFreePort(port, portAvailable))) {
@@ -160,7 +164,7 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
 
     const outcome = await withServer(
       { startCommand: startDevServer, port, healthPath: healthCheckPath || '/', cwd: base.checkout.path, outputPath: path.join(baselineDir, 'base-rerun-dev-server.log') },
-      () => runTagged(base),
+      () => runTagged(base, devices),
     );
     if (outcome.started) return outcome.result;
     record(`Base re-run: the base branch's dev server did not start; its output:\n${outcome.output.trimEnd()}`, 'warn');
@@ -169,20 +173,20 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
 
   // The checkout is disposable, so tagging a scenario in it changes nothing the run commits. The file is
   // restored all the same, so that the next re-run in this checkout sees no stale tag.
-  async function runLocated(base: PreparedBase, located: LocatedScenario): Promise<BaseScenarioOutcome> {
+  async function runLocated(base: PreparedBase, located: LocatedScenario, devices?: DeviceEnvironment): Promise<BaseScenarioOutcome> {
     const original = fs.readFileSync(located.file);
     fs.writeFileSync(located.file, withRerunTag(original.toString('utf-8'), located.headerLine, BASE_RERUN_TAG));
     try {
       // The scenario phase stops the change's own server and waits for it, but the wait gives up after
       // KILL_GRACE_MS + PROBE_INTERVAL_MS. So the run waits for the port before the base server starts, and
       // the base run's probe cannot be answered by the change's server.
-      return isDevServerConfigured(base.project.commands.startDevServer) ? await runUnderServer(base) : await runTagged(base);
+      return isDevServerConfigured(base.project.commands.startDevServer) ? await runUnderServer(base, devices) : await runTagged(base, devices);
     } finally {
       fs.writeFileSync(located.file, original);
     }
   }
 
-  async function rerunOnce(scenario: FailingScenario): Promise<BaseScenarioOutcome> {
+  async function rerunOnce(scenario: FailingScenario, devices?: DeviceEnvironment): Promise<BaseScenarioOutcome> {
     const name = describeFailingScenario(scenario);
     try {
       prepared ??= prepareBase();
@@ -194,18 +198,18 @@ export function buildBaseScenarioRerun(config: WorkflowConfig, deps: Partial<Bas
         record(`Base re-run: "${name}" was not found on the base branch`, 'info');
         return BaseScenarioOutcome.NotRun;
       }
-      return await runLocated(base, located);
+      return await runLocated(base, located, devices);
     } catch (error) {
       record(`Base re-run of "${name}" failed: ${error}`, 'warn');
       return BaseScenarioOutcome.NotRun;
     }
   }
 
-  return (scenario) => {
+  return (scenario, devices) => {
     const key = `${scenario.feature ?? ''}\u0000${scenario.name}`;
     const known = outcomes.get(key);
     if (known !== undefined) return known;
-    const started = rerunOnce(scenario);
+    const started = rerunOnce(scenario, devices);
     outcomes.set(key, started);
     return started;
   };

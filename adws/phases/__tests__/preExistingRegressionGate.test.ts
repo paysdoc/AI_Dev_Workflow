@@ -1,86 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
 import { AgentStateManager } from '../../core/agentState';
-import { AGENTS_STATE_DIR } from '../../core/config';
-import { BaselineStatus, type BaselineRecord } from '../../core/baselineGate';
-import { BaseScenarioOutcome, type FailingScenario, type ScenarioRerun } from '../../core/regressionTriage';
-import type { TestCaseResult } from '../../core/testReportParser';
+import { BaseScenarioOutcome, type FailingScenario } from '../../core/regressionTriage';
 import { ParkReason, buildParkComment, parkDirectives } from '../../forge/parkComment';
 import { createPreExistingRegressionGate, failingRegressionScenarios } from '../preExistingRegressionGate';
-import type { ScenarioProofResult, TagProofResult } from '../scenarioProof';
-import type { WorkflowConfig } from '../workflowInit';
+import {
+  ADW_ID,
+  BASE_BRANCH,
+  ExitSignal,
+  FEATURE,
+  PASSED_BASELINE,
+  WAIVED_BASELINE,
+  cleanUpGateFixtures,
+  executionLog,
+  failingRegression,
+  makeConfig,
+  proofOf,
+  scriptedRerun,
+  stubProcessExit,
+  tagResult,
+  testCase,
+} from './preExistingRegressionGate.helpers';
 
-class ExitSignal extends Error {
-  constructor(readonly code: unknown) {
-    super(`process.exit(${String(code)})`);
-  }
-}
-
-const ADW_ID = `pre-existing-gate-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
-const BASE_BRANCH = 'trunk';
-const FEATURE = 'Alpha';
-const tempDirs: string[] = [];
-
-const PASSED_BASELINE: BaselineRecord = { status: BaselineStatus.Passed, baseBranch: BASE_BRANCH, baseCommit: 'abc1234', recordedAt: '2026-10-04T10:00:00.000Z' };
-const WAIVED_BASELINE: BaselineRecord = { status: BaselineStatus.Waived, waivedPark: 'baseline_red', recordedAt: '2026-10-04T10:00:00.000Z' };
-
-function testCase(name: string, status: TestCaseResult['status'], classname: string | null = FEATURE): TestCaseResult {
-  return { name, status, attachments: [], ...(classname === null ? {} : { classname }) };
-}
-
-function tagResult(resolvedTag: string, overrides: Partial<TagProofResult> = {}): TagProofResult {
-  return { tag: resolvedTag, resolvedTag, severity: 'blocker', optional: false, passed: true, output: '', exitCode: 0, skipped: false, ...overrides };
-}
-
-function proofOf(...tagResults: TagProofResult[]): ScenarioProofResult {
-  return {
-    tagResults,
-    hasBlockerFailures: tagResults.some(result => result.severity === 'blocker' && !result.passed && !result.skipped),
-    perIssueImages: [],
-    resultsFilePath: '/proof.md',
-    artifactsDir: '/artifacts',
-  };
-}
-
-function failingRegression(...cases: TestCaseResult[]): ScenarioProofResult {
-  return proofOf(tagResult('@regression', { passed: false, exitCode: 1, cases }));
-}
-
-function makeConfig(commentOnIssue: (issueNumber: number, body: string) => void = vi.fn()): WorkflowConfig {
-  const orchestratorStatePath = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-gate-state-'));
-  tempDirs.push(orchestratorStatePath);
-  return {
-    adwId: ADW_ID,
-    issueNumber: 990,
-    defaultBranch: BASE_BRANCH,
-    orchestratorStatePath,
-    repoContext: { issueTracker: { commentOnIssue } },
-  } as unknown as WorkflowConfig;
-}
-
-function scriptedRerun(outcomes: Readonly<Record<string, BaseScenarioOutcome>>): { rerunOnBase: ScenarioRerun; rerun: ReturnType<typeof vi.fn> } {
-  const rerun = vi.fn(async (scenario: FailingScenario) => outcomes[scenario.name] ?? BaseScenarioOutcome.NotRun);
-  return { rerunOnBase: rerun, rerun };
-}
-
-function executionLog(config: WorkflowConfig): string {
-  return fs.readFileSync(path.join(config.orchestratorStatePath, 'execution.log'), 'utf-8');
-}
-
-beforeEach(() => {
-  vi.spyOn(process, 'exit').mockImplementation((code) => {
-    throw new ExitSignal(code);
-  });
-  vi.spyOn(console, 'log').mockImplementation(() => undefined);
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  fs.rmSync(path.join(AGENTS_STATE_DIR, ADW_ID), { recursive: true, force: true });
-  tempDirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, force: true }));
-});
+beforeEach(stubProcessExit);
+afterEach(cleanUpGateFixtures);
 
 describe('failingRegressionScenarios', () => {
   it('takes the failed cases of the @regression tag, with their classname as the feature', () => {

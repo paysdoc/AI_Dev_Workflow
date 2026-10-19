@@ -14,6 +14,7 @@ import {
   tearDownRerunFixture,
   type RerunFixture,
 } from './baseScenarioRerun.helpers';
+import { STAND_IN_DEVICES } from './scenarioTestPhase.helpers';
 
 let fixture: RerunFixture;
 
@@ -51,6 +52,16 @@ describe('the base scenario re-run — where the base branch declares a dev serv
       cwd: fixture.checkout.path,
     });
     expect(runner.calls).toHaveLength(1);
+  });
+
+  it('hands the devices to the run inside the base branch’s dev server', async () => {
+    const runner = fakeScenarioRunner(fixture.checkout.path, () => PASSING);
+    const server = fakeHealthyServer();
+
+    await buildRerun(runner, { withHealthyDevServer: server.withHealthyDevServer })(CANCEL_RESETS, STAND_IN_DEVICES);
+
+    expect(runner.calls).toHaveLength(1);
+    expect(runner.calls[0]?.env).toEqual(expect.objectContaining(STAND_IN_DEVICES));
   });
 
   it('waits until the run’s port is free before it starts the server', async () => {
