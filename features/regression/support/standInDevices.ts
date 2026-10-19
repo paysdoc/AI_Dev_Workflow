@@ -2,13 +2,17 @@
  * A stand-in for the host's device tools, `avdmanager`, `emulator`, `adb` and `xcrun simctl`: the real device lifecycle runs
  * over an executor that answers like a host on which the emulator and the simulator boot, or like one on which they do not,
  * and records each command it is given with the time it was issued and what it answered, so that no scenario reaches a real
- * SDK or creates a real device. No hooks and no steps: any step file may import it.
+ * SDK or creates a real device. It can also hold devices that workflows left behind, which the device janitor lists, shuts
+ * down and deletes over it. No hooks and no steps: any step file may import it.
  */
 
 import type { DeviceCommandResult, DeviceExecutor, DeviceProcess } from '../../../adws/core/deviceExecutor.ts';
 import { withDevices } from '../../../adws/core/deviceLifecycle.ts';
 import type { WaitClock } from '../../../adws/core/rateLimitWaitPolicy.ts';
 import type { ScenarioTestPhaseDeps } from '../../../adws/phases/scenarioTestPhase.ts';
+import { leftoverHolding, type StandInHeldDevices, type StandInLeftoverDevice } from './standInLeftoverDevices.ts';
+
+export type { StandInHeldDevices, StandInHeldSimulator, StandInLeftoverDevice } from './standInLeftoverDevices.ts';
 
 export const STAND_IN_UDID = '9B3D5F71-0A2C-4E86-8D14-C7E2A5B90F63';
 
@@ -35,6 +39,10 @@ export interface StandInDeviceOptions {
   readonly simulatorBootOutputs?: readonly string[];
   /** Programs that are not on the host. */
   readonly missingPrograms?: readonly string[];
+  /** The AVDs and simulators the host holds when the scenario begins, which its tools list, shut down and delete. */
+  readonly devices?: readonly StandInLeftoverDevice[];
+  /** What a command prints when it fails with exit code 1, by the command as issued, `argv` joined by spaces. */
+  readonly failing?: Readonly<Record<string, string>>;
 }
 
 export interface StandInDeviceExecutor {
@@ -43,12 +51,21 @@ export interface StandInDeviceExecutor {
   readonly commands: StandInDeviceCommand[];
   /** The serial of each emulator that was started and has not yet quit. */
   runningEmulators(): readonly string[];
+  /** The devices the host held when the scenario began. */
+  readonly leftovers: StandInHeldDevices;
+  /** The devices it holds now. */
+  held(): StandInHeldDevices;
 }
 
 export interface StandInDeviceHost {
   readonly withDevices: ScenarioTestPhaseDeps['withDevices'];
   readonly commands: readonly StandInDeviceCommand[];
+  /** What the host's device tools run over, for a caller that is not the device lifecycle. */
+  readonly executor: DeviceExecutor;
+  readonly clock: WaitClock;
   runningEmulators(): readonly string[];
+  readonly leftovers: StandInHeldDevices;
+  held(): StandInHeldDevices;
 }
 
 const OK: DeviceCommandResult = { exitCode: 0, output: '' };
@@ -68,7 +85,9 @@ export function steppingClock(): WaitClock {
 }
 
 export function standInDeviceExecutor(options: StandInDeviceOptions = {}): StandInDeviceExecutor {
-  const { udid = STAND_IN_UDID, emptyBootReads = 0, emulatorEarlyExits = 0, emulatorOutput = '', simulatorBootFailures = 0, simulatorBootOutputs = [''], missingPrograms = [] } = options;
+  const { udid = STAND_IN_UDID, emptyBootReads = 0, emulatorEarlyExits = 0, emulatorOutput = '', simulatorBootFailures = 0, simulatorBootOutputs = [''], missingPrograms = [], devices = [], failing = {} } = options;
+  const holding = leftoverHolding(devices);
+  const leftovers = holding.held();
   const commands: StandInDeviceCommand[] = [];
   const quitEmulator = new Map<string, () => void>();
   const running = new Set<string>();
@@ -96,6 +115,11 @@ export function standInDeviceExecutor(options: StandInDeviceOptions = {}): Stand
 
   function answer(argv: readonly string[]): DeviceCommandResult {
     if (missingPrograms.includes(argv[0])) return notInstalled(argv[0]);
+    const failure = failing[argv.join(' ')];
+    if (failure !== undefined) return { exitCode: 1, output: `${failure}\n` };
+    // The devices the host held to begin with are answered for first; the commands of the lifecycle's own devices are not about them.
+    const aboutLeftovers = holding.answer(argv);
+    if (aboutLeftovers !== undefined) return aboutLeftovers;
     if (argv[0] === 'adb' && argv[1] === '-s') return answerAdb(argv);
     const words = argv.slice(0, 3).join(' ');
     if (words === 'xcrun simctl create') return { exitCode: 0, output: `${udid}\n` };
@@ -130,7 +154,7 @@ export function standInDeviceExecutor(options: StandInDeviceOptions = {}): Stand
       return startEmulator(argv);
     },
   };
-  return { executor, commands, runningEmulators: () => [...running] };
+  return { executor, commands, runningEmulators: () => [...running], leftovers, held: holding.held };
 }
 
 let latest: StandInDeviceHost | undefined;
@@ -146,8 +170,9 @@ export function resetStandInDeviceHost(): void {
 }
 
 export function standInDeviceHost(options: StandInDeviceOptions = {}): StandInDeviceHost {
-  const { executor, commands, runningEmulators } = standInDeviceExecutor(options);
-  const deps = { executor, clock: steppingClock(), isPortAvailable: async () => true };
-  latest = { withDevices: (request, work) => withDevices(request, work, deps), commands, runningEmulators };
+  const { executor, commands, runningEmulators, leftovers, held } = standInDeviceExecutor(options);
+  const clock = steppingClock();
+  const deps = { executor, clock, isPortAvailable: async () => true };
+  latest = { withDevices: (request, work) => withDevices(request, work, deps), commands, executor, clock, runningEmulators, leftovers, held };
   return latest;
 }

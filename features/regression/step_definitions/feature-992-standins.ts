@@ -140,7 +140,7 @@ async function withoutNodeOptions<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /** `PATH` leads with the stand-ins only while `run` does, so that nothing outside the code under test finds them. */
-export function withStandInsOnPath<T>(si: StandIns, run: () => Promise<T>): Promise<T> {
+export function withStandInsOnPath<T>(si: Pick<StandIns, 'binDir'>, run: () => Promise<T>): Promise<T> {
   return withoutNodeOptions(async () => {
     const saved = process.env.PATH;
     process.env.PATH = `${si.binDir}${path.delimiter}${saved ?? ''}`;

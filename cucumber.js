@@ -24,6 +24,12 @@ const emptyTargetReposDir = mkdtempSync(join(tmpdir(), 'adw-cucumber-target-repo
 process.env.TARGET_REPOS_DIR = emptyTargetReposDir;
 process.on('exit', () => rmSync(emptyTargetReposDir, { recursive: true, force: true }));
 
+// The same tick also runs the device janitor, which lists and removes the AVDs and simulators of the host the suite runs on. Run
+// from a worktree, whose `agents/` directory holds none of the host's live workflows, it would take the devices of every one of them
+// for a dead workflow's. No scenario needs a janitor to run on a tick, so the cadence is put out of reach. It is read once, at
+// import, hence here; the scenarios that run the cron's janitor tick give it the cycle of this very variable.
+process.env.JANITOR_INTERVAL_CYCLES = '1000000';
+
 export default {
   paths: ['features/regression/**/*.feature', 'features/per-issue/**/*.feature'],
   import: [

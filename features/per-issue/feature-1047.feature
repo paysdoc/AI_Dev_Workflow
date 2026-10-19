@@ -6,7 +6,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
   Background:
     Given the ADW codebase is checked out
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048 @adw-1050
   Scenario: A successful run creates, boots and waits for the emulator and the simulator before the callback, then shuts down and deletes both, and the callback is given exactly "ADW_ANDROID_AVD", "ADW_ANDROID_SERIAL" and "ADW_IOS_UDID"
     Given these device sources:
       | section                   | value                                           |
@@ -43,7 +43,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
     And the callback was given "ADW_ANDROID_SERIAL" holding "emulator-" followed by the console port the emulator was started on
     And the callback was given "ADW_IOS_UDID" holding "8A1F6C52-3B7E-4D90-9C1A-2E5B7F0D4C13"
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1050
   Scenario: The device lifecycle creates the AVD from the system image and the device profile, and the simulator from the device type and the runtime, each under a name that carries the ADW ID, starts the emulator headless on a console port, and boots the simulator by the UDID its creation answered with
     Given these device sources:
       | section                   | value                                           |
@@ -59,7 +59,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
     And the simulator was created with "xcrun simctl create" of the device type "com.apple.CoreSimulator.SimDeviceType.iPhone-16" and the runtime "com.apple.CoreSimulator.SimRuntime.iOS-18-2", under a name that carries the ADW ID "k7m2p9-login-screen"
     And the simulator was booted with "xcrun simctl boot" by the UDID "8A1F6C52-3B7E-4D90-9C1A-2E5B7F0D4C13"
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1050
   Scenario: The device lifecycle waits for the emulator with "adb" until its device state is "device" and "sys.boot_completed" reads "1", and for the simulator with "xcrun simctl bootstatus", and afterwards shuts the emulator down with "adb", deletes its AVD with "avdmanager", and shuts down and deletes the simulator with "xcrun simctl"
     Given these device sources:
       | section                   | value                                           |
@@ -91,7 +91,7 @@ Feature: ADW creates, boots and destroys one Android emulator and one iOS simula
     And the device lifecycle ran "emulator" only once
     And the callback ran once
 
-  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048
+  @adw-1047 @adw-ko14m9-feat-adw-creates-boo @adw-1048 @adw-1050
   Scenario: A callback that throws still gets the emulator and the simulator shut down and deleted, and the device lifecycle fails with the error the callback threw
     Given these device sources:
       | section                   | value                                           |

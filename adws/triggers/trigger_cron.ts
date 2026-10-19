@@ -39,6 +39,7 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { probeRateLimit } from './rateLimitProbe';
 import type { ScanningCronIdentity } from './pauseQueueDecider';
 import { runJanitorPass } from './devServerJanitor';
+import { runDeviceJanitorPass } from './deviceJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
 import { runDocsIndexSweep } from './docsIndexSweep';
@@ -235,6 +236,25 @@ export async function runPauseQueueScanTick(cycleCount: number, scan: typeof sca
   await scan(cycleCount, probeRateLimit, { scanningCron });
 }
 
+export interface JanitorPasses {
+  readonly devServers: () => Promise<void>;
+  readonly devices: () => Promise<void>;
+}
+
+const JANITOR_PASSES: JanitorPasses = { devServers: () => runJanitorPass(), devices: () => runDeviceJanitorPass() };
+
+/**
+ * Janitor dispatch: on a cadence-eligible cron cycle (cycleCount a multiple of JANITOR_INTERVAL_CYCLES) runs the
+ * dev-server janitor and then the device janitor, which removes the emulators and simulators that dead workflows left
+ * behind under the same grace rules. Off-cadence cycles are a no-op. Exported (with injectable passes) so tests can drive
+ * the cadence gate and the order directly, following the file's injectable-tick idiom.
+ */
+export async function runJanitorTick(cycleCount: number, passes: JanitorPasses = JANITOR_PASSES): Promise<void> {
+  if (cycleCount % JANITOR_INTERVAL_CYCLES !== 0) return;
+  await passes.devServers();
+  await passes.devices();
+}
+
 /**
  * Runs one cron tick and contains any escaped rejection. `checkAndTrigger` is
  * fired-and-forgotten from the entry-script guard (initial call and the setInterval
@@ -382,9 +402,7 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
     runHungDetectorSweep(Date.now());
   }
 
-  if (cycleCount % JANITOR_INTERVAL_CYCLES === 0) {
-    await runJanitorPass();
-  }
+  await runJanitorTick(cycleCount);
 
   // The cadence gate, the no-launch-context skip, and the non-fatal swallow all live inside
   // runPerIssueScenarioSweepTick.
