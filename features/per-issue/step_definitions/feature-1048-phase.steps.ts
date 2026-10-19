@@ -39,11 +39,14 @@ function describeAttempt({ completed, error }: ReturnType<typeof requireAttempt>
 
 Given("the workflow's scenario test phase has run and parked the workflow as {string}", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld, stage: string) {
   assert.strictEqual(stage, PARKED_STAGE, `The stage a park leaves is "${PARKED_STAGE}"`);
+  const { adwId, issueNumber } = requireWorkflow();
+  // As `initializeWorkflow` does before any phase runs: `## Continue` waives a park only when the state names the issue it is posted on.
+  AgentStateManager.writeTopLevelState(adwId, { adwId, issueNumber });
   await attemptScenarioTestPhase(this);
 
   const attempt = requireAttempt();
   assert.ok(attempt.error instanceof TrappedExit && attempt.error.exitCode === 0, `Expected the scenario test phase to park the workflow (exit code 0), but ${describeAttempt(attempt)}`);
-  assert.strictEqual(stateOf(requireWorkflow().adwId)?.workflowStage, stage, `Expected the workflow to be parked as "${stage}"`);
+  assert.strictEqual(stateOf(adwId)?.workflowStage, stage, `Expected the workflow to be parked as "${stage}"`);
 });
 
 When("the resumed workflow's scenario test phase runs", { timeout: PHASE_TIMEOUT_MS }, async function (this: RegressionWorld) {
