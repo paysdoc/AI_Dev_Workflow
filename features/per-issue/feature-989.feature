@@ -341,7 +341,7 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
     And the park comment says what "## Retry" does for this park
     And the park comment says what "## Continue" does for this park
 
-  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990
+  @adw-989 @adw-i5ekhk-feat-static-check-fi @adw-990 @adw-1048
   Scenario: ADW would take none of the park comments for a directive, although each of them explains "## Retry" and "## Continue"
     When a park comment is built, with sample evidence, for each of these reasons:
       | reason                   |
@@ -350,5 +350,6 @@ Feature: Red static checks go to a fix loop without a cap that stops on no progr
       | fix_loop_stalled         |
       | missing_application_type |
       | base_server_down         |
+      | device_boot_failed       |
     Then each of those park comments mentions "## Retry" and "## Continue"
     And ADW would take none of them, as the latest comment on an issue, for a "## Retry", "## Continue" or "## Cancel" directive

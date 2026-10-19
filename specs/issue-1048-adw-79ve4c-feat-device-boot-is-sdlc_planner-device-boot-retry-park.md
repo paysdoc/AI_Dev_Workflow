@@ -12,7 +12,7 @@ This feature completes the lifecycle's failure handling, as the PRD's "Device li
 
 - **A closed outcome.** `withDevices` no longer throws for a device that does not come up. It returns one of:
   - `ready`, with the callback's result;
-  - `boot_failed`, with the platform, the attempt count and the combined output of the attempts;
+  - `boot_failed`, with the platform, the attempt count and the combined output of the attempts. That output includes what the device printed: the answer of a failed `xcrun simctl boot`, or the last lines the emulator wrote to its output file;
   - `tool_missing`, with the platform, the host tool and its output.
 
   A callback that throws still rejects with its own error, after teardown.
@@ -45,7 +45,7 @@ The device lifecycle from #1047 has one failure path. Whatever stops a device fr
 - **No recovery path.** No park reason exists for it. `## Retry` has no `human_gated` state to re-arm, and the park comment cannot say what `## Retry` or `## Continue` would do.
 
 ## Solution Statement
-1. **The executor says when a program is missing.** `DeviceCommandResult` gains an optional `programMissing: true`, set when the spawn fails with `ENOENT`. A started `DeviceProcess` gains `programMissing()`, true once a process that never started has settled. This is the process boundary's answer, read from `error.code` rather than from text.
+1. **The executor says when a program is missing.** `DeviceCommandResult` gains an optional `programMissing: true`, set when the spawn fails with `ENOENT`. A started `DeviceProcess` gains `programMissing()`, true once a process that never started has settled. This is the process boundary's answer, read from `error.code` rather than from text. A started `DeviceProcess` also gains `output()`, which reads back what the process has printed to its output file. The emulator prints why it cannot boot (`PANIC: Broken AVD system path…`) only there.
 2. **Pure tool knowledge in `deviceCommands.ts`.** It gains:
    - `MAX_BOOT_ATTEMPTS = 3`;
    - a `HostTool` enum (`avdmanager`, `emulator`, `adb`, `xcrun simctl`);
@@ -55,7 +55,7 @@ The device lifecycle from #1047 has one failure path. Whatever stops a device fr
    - on a failure, it records the failure in the run log (`warn` while another attempt follows, `error` for the last), tears down what the attempt created, and tries again;
    - on a missing tool, it stops at once.
 
-   After `MAX_BOOT_ATTEMPTS` failures it answers `boot_failed` with the combined output. Each attempt's block is `Attempt <n> of 3: <message>` followed by that attempt's output.
+   After `MAX_BOOT_ATTEMPTS` failures it answers `boot_failed` with the combined output. Each attempt's block is `Attempt <n> of 3: <message>` followed by that attempt's output. If an Android attempt started the emulator, its output ends with the last lines the emulator printed. They are read before the next attempt's start truncates the output file.
 4. **A smaller lifecycle module.** One attempt to bring up each device, and each device's teardown, move into a new module, `adws/core/deviceBringUp.ts`. They are moved unchanged, apart from the per-attempt port and the missing-tool reading. `deviceLifecycle.ts` keeps `withDevices`, its public types, the attempts loop and the outcome, so both files stay under 300 lines.
 5. **Outcome and teardown.** `withDevices` returns `DeviceOutcome<T>` once both devices' attempts have settled and every device created has been removed. When both fail, the outcome is a `tool_missing` first, then Android's failure, then iOS's.
 6. **A new park reason.** `ParkReason.DeviceBootFailed = 'device_boot_failed'`, with evidence `{ reason, failure: DeviceFailure }`. Its title, its directives and its description follow the existing builder's patterns: `inlineCode` for the platform and the tool, `quote` for the output, and no base-branch note.
@@ -82,7 +82,7 @@ Use these files to implement the feature:
 - `app_docs/feature-9gjajh-takeover-and-coordination.md` — Conditional doc for `## Retry`: `human_gated → phase_timeout` with `resumeAttempts: 0`, and the resume in place that skips completed phases.
 - `adws/core/deviceLifecycle.ts` — `withDevices`. It becomes outcome-returning, gains the attempts loop and keeps the public types.
 - `adws/core/deviceCommands.ts` — Pure device commands and readers. It gains `MAX_BOOT_ATTEMPTS`, `HostTool` and `missingToolOf`.
-- `adws/core/deviceExecutor.ts` — The process boundary. It reports a program that is not on the `PATH`, for both `run` and `start`.
+- `adws/core/deviceExecutor.ts` — The process boundary. It reports a program that is not on the `PATH`, for both `run` and `start`, and it reads back what a started process printed.
 - `adws/core/applicationType.ts` — The `Platform` enum used by the lifecycle. It imports `forge/parkComment.ts` at runtime, so `parkComment.ts` may only import lifecycle types with `import type`.
 - `adws/core/devServerLifecycle.ts` — Prior art: `MAX_START_ATTEMPTS = 3` and the closed `HealthyDevServerOutcome<T>`.
 - `adws/core/index.ts` — Re-exports the lifecycle. `DeviceLifecycleError` leaves the public surface, and the outcome types, `HostTool` and `MAX_BOOT_ATTEMPTS` join it.
@@ -102,23 +102,35 @@ Use these files to implement the feature:
 - `adws/phases/scenarioTestFixLoop.ts`, `adws/phases/reviewRetryLoop.ts` — The callers of `executeScenarioTestPhase`. Unchanged: a park exits the process from inside them.
 - `adws/triggers/retryHandler.ts` — `## Retry` on `human_gated` re-arms `phase_timeout`. Unchanged.
 - `adws/triggers/continueHandler.ts` and `adws/triggers/__tests__/continueHandler.test.ts` — `WAIVABLE_PARK_REASONS` stays the three base-branch parks. The test's `NOT_WAIVABLE` gains the new reason.
-- `features/regression/support/standInDevices.ts` — The BDD stand-in device executor. Its started process must implement `programMissing()`, and it may gain failure options for the `@adw-1048` steps.
-- `features/per-issue/step_definitions/feature-1047-lifecycle.steps.ts` — Calls `withDevices` directly and expects the callback's result. It must unwrap the `ready` outcome.
-- `features/per-issue/step_definitions/feature-989-park.steps.ts` — The park comment steps (`evidenceFor`), which the `@adw-1048` scenarios may reuse.
+- `features/regression/support/standInDevices.ts` — The BDD stand-in device executor. Its started process must implement `programMissing()` and `output()`. It and `standInDeviceHost()` gain failure options for the `@adw-1048` steps.
+- `features/per-issue/step_definitions/feature-1047-lifecycle.steps.ts` — Calls `withDevices` directly and expects the callback's result. It must:
+  - unwrap the `ready` outcome;
+  - rename its "came back with what the callback returned" step to the new wording, "came back ready, with what the callback returned";
+  - use a clock that moves its own time forward on `sleep`.
+- `features/per-issue/step_definitions/feature-989-park.steps.ts` — The park comment steps (`evidenceFor`), which the `@adw-1048` scenarios reuse. `evidenceFor` needs a `device_boot_failed` case.
+- `features/regression/step_definitions/feature-992-phase.steps.ts` — `runScenarioTestPhase`. Every scenario that runs the real scenario test phase goes through it. It must trap `process.exit`, so that a park is recorded instead of ending the cucumber process.
+- `features/per-issue/step_definitions/feature-988-phase.steps.ts` — `runPhaseTrappingExit`: prior art for running a phase that may park, with `process.exit` trapped.
+- `features/per-issue/step_definitions/feature-989-phase.steps.ts` — `{string} is posted on issue {int}`, "is parked as" and "no park comment was posted". The posting step accepts only `## Retry` today, and the `## Continue` scenario needs it to accept `## Continue` too.
+- `features/per-issue/step_definitions/feature-990-park.steps.ts`, `feature-991-workflow.steps.ts` — Park steps the scenarios reuse: "the park comment posted on issue … quotes / names", "is not parked" and "exactly one park comment was posted".
+- `features/per-issue/step_definitions/feature-1045-phase.steps.ts` — "the workflow's scenario test phase is attempted". It does not keep the scenario proof on the world yet.
+- `features/per-issue/step_definitions/feature-1047-phase.steps.ts`, `feature-1047-host.steps.ts` — The stand-in device host's phase steps. `bootedDevices()` reads the first emulator start and the first `xcrun simctl boot`.
 
 ### New Files
-- `adws/core/deviceBringUp.ts` — One attempt to create, boot and await each device, and each device's teardown, moved out of `deviceLifecycle.ts`. The attempt now allocates its own console port and reads a missing tool from the answer.
+- `adws/core/deviceBringUp.ts` — One attempt to create, boot and await each device, and each device's teardown, moved out of `deviceLifecycle.ts`. The attempt now:
+  - allocates its own console port;
+  - reads a missing tool from the answer;
+  - ends a failed Android attempt's output with what the emulator printed.
 - `adws/core/__tests__/deviceLifecycle.retries.test.ts` — The lifecycle's retry and missing-tool paths, driven through `withDevices` on the recording device host.
 - `adws/phases/__tests__/scenarioTestPhase.deviceBoot.test.ts` — The scenario phase parking with `device_boot_failed` on either failed outcome.
 - `features/per-issue/step_definitions/feature-1048-*.ts` — The step definitions the `@adw-1048` scenarios need, as many files as they need.
 
 ## Implementation Plan
 ### Phase 1: Foundation
-- Let the executor report a program that is not on the host's `PATH`, for both `run` and `start`.
-- Add the pure tool knowledge to `deviceCommands.ts`: `MAX_BOOT_ATTEMPTS`, `HostTool` and `missingToolOf`.
+- Let the executor report a program that is not on the host's `PATH`, for both `run` and `start`, and read back what a started process printed.
+- Add the pure tool knowledge to `deviceCommands.ts`: `MAX_BOOT_ATTEMPTS`, `HostTool`, `missingToolOf`, `EMULATOR_OUTPUT_LINES` and `lastLines`.
 - Extend the recording device host so that a test can script:
   - a command that fails a number of times before it succeeds;
-  - an emulator that exits early a number of times;
+  - an emulator that exits early a number of times, and what it prints;
   - a program that is missing.
 - Move one bring-up attempt and each device's teardown into `deviceBringUp.ts`. This is a pure move, and the existing lifecycle tests stay green.
 
@@ -130,7 +142,7 @@ Use these files to implement the feature:
 ### Phase 3: Integration
 - Make the scenario test phase park through an injected `park` (default `parkWorkflow`) on a failed outcome, after the devices and any dev server have been removed (tests first).
 - Pin that `## Continue` waives nothing for the new park.
-- Keep the BDD support (`standInDevices.ts`) and the `@adw-1047` lifecycle steps in step with the outcome type.
+- Keep the BDD support (`standInDevices.ts`) and the `@adw-1047` lifecycle steps in step with the outcome type. Trap `process.exit` in feature-992's `runScenarioTestPhase`.
 - Write the `@adw-1048` step definitions.
 - Update the README.
 - Run the validation commands.
@@ -143,11 +155,15 @@ Execute every step in order, top to bottom.
   - The test "resolves, and never rejects, for a program that does not exist" also asserts `result.programMissing` is `true`.
   - Add: a program that runs and fails (`sh -c 'exit 3'`) carries no `programMissing`.
   - Add: `start` of a program that does not exist answers `programMissing()` `true` once `exited` has settled, and a program that ran (`true`) answers `false`.
+  - Add: once `exited` has settled, `output()` of a started `sh -c 'echo "PANIC: Broken AVD system path"; exit 1'` resolves to text holding `PANIC: Broken AVD system path`. A process that never started answers `''`.
 - In `adws/core/deviceExecutor.ts`:
   - `DeviceCommandResult` gains `readonly programMissing?: true`. It is set only when the program is not on the host's `PATH`, so the command never ran. Every other answer stays exactly `{ exitCode, output }`, so the existing `toEqual` assertions on real results still hold.
   - `DeviceProcess` gains `programMissing(): boolean`, known once `exited` has settled.
   - `runDeviceCommand`'s `'error'` handler sets `programMissing: true` when `(error as NodeJS.ErrnoException).code === 'ENOENT'`. The synchronous `catch` never sets it.
   - `launch` notes an `ENOENT` in its `'error'` handler before it resolves `exited`. `NEVER_STARTED` answers `false`: an output file that cannot be opened is not a missing tool.
+  - `DeviceProcess` gains `output(): Promise<string>`, which never rejects. It is what the process has written to its output file so far.
+    - `launch` reads `outputPath` back with `fs.promises.readFile`, so nothing blocks the event loop, and answers `''` when the file cannot be read.
+    - `NEVER_STARTED` answers `''`.
 
 ### 2. Name the host tools and read a missing one from an answer
 In `adws/core/deviceCommands.ts`, which stays pure:
@@ -158,6 +174,8 @@ In `adws/core/deviceCommands.ts`, which stays pure:
   - `hostToolOf(command.argv)` when `result.programMissing`;
   - `HostTool.Simctl` when an `xcrun` command answered `unable to find utility "simctl"`, which is how a host with the Command Line Tools but no Xcode answers (exit code 72);
   - `null` otherwise. A tool that ran and failed is a boot failure, not a missing tool.
+- `export const EMULATOR_OUTPUT_LINES = 20;`. The emulator prints its start-up lines first and its reason for stopping last, so only its last lines are kept.
+- `lastLines(output, count): string`, the last `count` lines of the end-trimmed output, beside `lastLine`.
 
 ### 3. Script retries and missing tools in the recording device host
 In `adws/core/__tests__/fixtures/recordingDeviceHost.ts`, which stays under 300 lines:
@@ -165,7 +183,8 @@ In `adws/core/__tests__/fixtures/recordingDeviceHost.ts`, which stays under 300 
   - `failingTimes: Readonly<Record<string, number>>` — how many issues of a command in `failing` exit 1 before it answers as a healthy host, keyed by the same leading words. A command in `failing` with no count fails every time, as today.
   - `missingTools: readonly string[]` — programs that are not on the host. A command of one answers like the real executor: `{ exitCode: null, output: 'Error: spawn <program> ENOENT', programMissing: true }`. A started one has already exited with no exit code, and its `programMissing()` is `true`.
   - `emulatorEarlyExits: number` replaces `emulatorExitsEarly: boolean`. It is how many started emulators exit before they are ready: 0 by default, `Infinity` for every one. Update the one existing test that sets `emulatorExitsEarly: true`.
-- The started emulator implements `programMissing()`.
+  - `emulatorOutput: string` — what each started emulator prints, `''` by default.
+- The started emulator implements `programMissing()`, and `output()`, which answers `emulatorOutput`.
 - The `failing` and `failingTimes` count is kept per leading words, separately from the per-line poll counters.
 
 ### 4. Move one attempt and each device's teardown into `adws/core/deviceBringUp.ts` (refactor, still green)
@@ -197,6 +216,7 @@ In `adws/core/__tests__/fixtures/recordingDeviceHost.ts`, which stays under 300 
     - **Android succeeds on the third attempt.** The emulator exits early twice (`emulatorEarlyExits: 2`), then boots. The outcome is `ready`, and 3 emulators were started. After each failed attempt, `avdmanager delete avd` came before the next `avdmanager create avd`. The serial handed over is the console port of the emulator that booted.
     - **iOS fails three times.** `xcrun simctl boot` fails every time. The outcome is `{ kind: 'boot_failed', platform: Platform.Ios, attempts: 3 }`. Its `output` holds `Attempt 1 of 3`, `Attempt 2 of 3` and `Attempt 3 of 3`, and the scripted output three times. The callback never ran. Every simulator created was deleted, and the emulator and its AVD were removed, before the outcome came back (as many deletes as creates).
     - **Android never boots.** The emulator never reports that it has booted (`pollsUntilBootCompleted: Infinity`). The outcome is `boot_failed` for `Platform.Android` with 3 attempts, and the fake clock has passed at least `3 * DEVICE_BOOT_TIMEOUT_MS`. Each emulator was asked to quit, and its AVD deleted, before the next attempt's `avdmanager create avd`.
+    - **Android fails three times, printing why.** Every emulator prints `PANIC: Broken AVD system path…` (`emulatorOutput`) and exits early (`emulatorEarlyExits: Infinity`). The outcome is `boot_failed` for `Platform.Android` with 3 attempts. Each of the three blocks of its output holds the `PANIC` line.
     - **`MAX_BOOT_ATTEMPTS` is 3.**
     - **A fresh console port per attempt.** A test-local `isPortAvailable` reports the first candidate taken once an emulator has started. The second emulator then starts on the next candidate, and `ADW_ANDROID_SERIAL` follows it.
     - **Every console port is in use.** The outcome is `boot_failed` for Android with 3 attempts and the no-free-port message. No AVD was created, no emulator was started, and the simulator was removed.
@@ -239,6 +259,9 @@ In `adws/core/deviceLifecycle.ts` and `adws/core/deviceBringUp.ts`:
   - When no port is free, the attempt fails without creating anything. The message is the existing "No console port is free…" text.
   - The iOS attempt records its own creation line too.
   - These per-device lines replace the single up-front "Creating the devices of this workflow…" line.
+- **What the emulator printed.** When an Android attempt fails after it started the emulator, its output ends with `tools.lastLines(await handle.output(), EMULATOR_OUTPUT_LINES)`, after what `adb` last answered.
+  - The attempt reads it as it fails: before its teardown, and before the next attempt's `start` truncates the output file.
+  - The message still names the output file, which keeps the full output of the last attempt.
 - **The attempts loop.** One generic, never-rejecting function per device, taking that device's single-attempt bring-up and teardown. While fewer than `MAX_BOOT_ATTEMPTS` attempts have failed, it:
   - runs an attempt, and keeps the device if it is `ready`;
   - otherwise records the failure: `warn` with `attempt <n> of 3` when another attempt follows, `error` for the last attempt or a missing tool;
@@ -322,24 +345,63 @@ In `adws/core/deviceLifecycle.ts` and `adws/core/deviceBringUp.ts`:
 - Run the phase test files: all pass.
 
 ### 11. Keep the BDD support and the `@adw-1047` steps in step with the outcome
-- `features/regression/support/standInDevices.ts`: the started process implements `programMissing: () => false`. `standInDeviceHost().withDevices` passes the outcome through unchanged.
-- `features/per-issue/step_definitions/feature-1047-lifecycle.steps.ts`, `runLifecycle`: record a `ready` outcome's `result` as `returned`, and any other outcome as the `failure`. Then "the device lifecycle came back with what the callback returned" and "failed with the error the callback threw" keep their meaning.
-- No change to the feature-992 and feature-994 callers. They pass the stand-in `withDevices` to the phase, and the stand-in devices always boot, so they never reach the real `parkWorkflow`. Its `process.exit(0)` would end the cucumber run.
+- `features/regression/support/standInDevices.ts`: the started process implements `programMissing: () => false` and `output: async () => ''`. `standInDeviceHost().withDevices` passes the outcome through unchanged.
+- `features/per-issue/step_definitions/feature-1047-lifecycle.steps.ts`, `runLifecycle`: record a `ready` outcome's `result` as `returned`, and any other outcome as the `failure`.
+  - `feature-1047.feature` now says "the device lifecycle came back ready, with what the callback returned", and so does `feature-1048.feature`. Rename the step "the device lifecycle came back with what the callback returned" to that wording. It asserts a `ready` outcome that carries the callback's result. "failed with the error the callback threw" keeps its meaning.
+  - Its clock's `sleep` resolves at once and moves the clock's `now` forward by the time slept. With a wall-clock `now`, an emulator that never finishes booting would spin through `DEVICE_BOOT_TIMEOUT_MS` of real time on each of its three attempts.
+- feature-992's `runScenarioTestPhase` runs the phase with `process.exit` trapped, as feature-988's `runPhaseTrappingExit` does for the unit-test phase.
+  - A phase that parks then runs the real `parkWorkflow`. It writes `human_gated` and `parkReason` to the workflow's top-level state and posts the comment through the workflow's recording issue tracker.
+  - The trapped `process.exit(0)` throws instead of ending the cucumber run.
+  - A phase that does not park is unaffected.
+- feature-994's caller needs no change: its stand-in devices always boot.
 
 ### 12. Write the step definitions the `@adw-1048` scenarios need
-The scenario writer writes `features/per-issue/feature-1048.feature`, tagged `@adw-1048`. Its scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
+The scenario writer wrote `features/per-issue/feature-1048.feature`, tagged `@adw-1048`. It also added the tag to scenarios of three earlier features:
+- `feature-1047.feature`:
+  - the success sequence;
+  - the boot-completed polling, which does not boot the emulator again ("the device lifecycle ran "emulator" only once");
+  - the throwing callback.
+- `feature-1045.feature`: the device-source error, which fails the phase and does not park.
+- `feature-989.feature`: no park comment reads as a directive. `device_boot_failed` is now among its reasons.
+
+These scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
 - **Undefined steps.** Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --tags "@adw-1048"` to list them.
 - **Reuse every phrase that already has a definition,** and register no pattern twice:
   - feature-1047's lifecycle and stand-in device steps;
-  - feature-992's workflow and phase steps;
-  - feature-989's park comment steps. Extend `evidenceFor` with a `device_boot_failed` case if the scenarios use them;
-  - the promoted retry-directive vocabulary (`features/regression/retry-directive/`) for `## Retry` on a `human_gated` park.
-- **New phrases** go in `features/per-issue/step_definitions/feature-1048-*.ts`. Register the `@adw-1048` hooks in a world file in the style of `feature-1047-world.ts`: call `resetStandInDeviceHost()`, and make every reset safe to run twice.
+  - feature-992's workflow and phase steps, and feature-1045's "the workflow's scenario test phase is attempted";
+  - feature-989's park comment steps. Extend `evidenceFor` with a `device_boot_failed` case: the `platform`, `attempts` and `output` facts make a `boot_failed` failure, with sample values for the facts a table leaves out (the every-reason scenario gives none). Define "ADW would take the park comment, as the latest comment on an issue, for no … directive" beside these steps, over the comment they built;
+  - the park steps of features 989, 990 and 991, which read the workflow's top-level state and the comments of its recording issue tracker:
+    - "is parked as" and "is not parked";
+    - "the park comment posted on issue … names" and "… quotes";
+    - "no park comment was posted" and "exactly one park comment was posted";
+  - feature-989's `{string} is posted on issue {int}`, for both `## Retry` and `## Continue`.
+- **Reused steps that need a change:**
+  - `{string} is posted on issue {int}` accepts only `## Retry` today. It gains `## Continue`, which goes through `handleContinueDirective` with dependencies over the real top-level state (`buildContinueHandlerDeps()`).
+    - For this park, `## Continue` records no waiver and returns `false`. The step asserts nothing about its answer, and the scenario's Then steps read the state.
+    - `## Retry` keeps its path and its re-arm assertion.
+  - "the workflow's scenario test phase is attempted" keeps the scenario proof on the world when the phase completes, as "the workflow's scenario test phase runs" does, so that "the scenario proof records …" can read it.
+  - feature-1047's `bootedDevices()` reads the devices of the attempt that booted: the last emulator start and the last `xcrun simctl boot`, not the first.
+- **New phrases** go in `features/per-issue/step_definitions/feature-1048-*.ts`.
+  - Register the `@adw-1048` hooks in a world file in the style of `feature-1047-world.ts`. They begin and end the scenario, reset the worlds of features 991, 992, 1045 and 1047, and call `resetStandInDeviceHost()`. Every reset must be safe to run twice.
+  - "is parked for the reason" reads `parkReason` from the workflow's top-level state, and "the workflow's state records no waiver" reads `baseline` from it.
+  - "names the platform" reads the platform as the comment renders it: `` `android` `` or `` `ios` ``.
+  - "deleted every AVD and every simulator it created" counts only the creations the host answered with success. A create that failed for a missing tool created nothing.
 - **Scenarios that drive the lifecycle directly** call the real `withDevices` over a recording executor, never the real one.
-  - Extend `standInDeviceExecutor`'s options as needed, for example a command that fails a number of times, or a program that is missing. A missing program answers like the real executor: `exitCode: null`, `Error: spawn <program> ENOENT`, `programMissing: true`, and a started one has exited at once.
-  - Use a clock whose `sleep` resolves at once, and a port probe that reports every port free.
-- **Scenarios that run the scenario test phase** pass that host's `withDevices` and a recording `park` that throws a sentinel. Never use the real `parkWorkflow`. Read the comment with `buildParkComment(adwId, evidence)`.
-- **Scenarios about `## Retry`** go through `handleRetryDirective` with recording deps, as the retry-directive steps do: a `human_gated` state with `parkReason: 'device_boot_failed'` is re-armed to `phase_timeout` with `resumeAttempts: 0`. The phase run again on devices that boot runs the scenarios.
+  - Extend `standInDeviceExecutor`'s options as needed:
+    - a command that fails a number of times;
+    - an emulator that exits early a number of times;
+    - what a failing boot prints on each attempt;
+    - a program that is missing.
+  - A missing program answers like the real executor: `exitCode: null`, `Error: spawn <program> ENOENT`, `programMissing: true`. A started one has exited at once.
+  - A host on which "xcrun simctl" is not installed has no `xcrun`.
+  - An emulator whose boot fails "printing" a text exits early, and its `output()` answers that text, as the real executor reads it back from the output file.
+  - Use the clock of Task 11, whose `sleep` resolves at once and moves its `now` forward, and a port probe that reports every port free.
+- **Scenarios that run the scenario test phase** go through `runScenarioTestPhase`. It passes the stand-in host's `withDevices`, and the real `parkWorkflow` runs behind the trapped `process.exit` (Task 11).
+  - `standInDeviceHost()` takes the same failure options as the executor.
+  - Never let `process.exit` reach the cucumber process.
+- **Scenarios about `## Retry`** go through `handleRetryDirective`, as `{string} is posted on issue {int}` does.
+  - A `human_gated` state with `parkReason: 'device_boot_failed'` is re-armed to `phase_timeout` with `resumeAttempts: 0`.
+  - "the host has since been fixed" installs a new stand-in host whose devices boot. The resumed phase runs on that host and runs the scenarios.
 - **Run** `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1048"`. Every scenario passes, and none is undefined.
 
 ### 13. Update the README
@@ -367,6 +429,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
 - **`adws/core/__tests__/deviceLifecycle.retries.test.ts` (new).** PRD Testing Decisions 1: "the retry count and that a missing tool is not retried", and "teardown after a boot that fails on every attempt". It covers:
   - success on the third attempt, for iOS and for Android;
   - `boot_failed` after three attempts, with `attempts: 3` and the combined output, for both platforms;
+  - what the emulator printed, in each Android attempt's block;
   - teardown between attempts, and of everything before the outcome;
   - a fresh console port per attempt;
   - every console port in use;
@@ -379,7 +442,9 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   - a throwing callback still rejects with its own error after teardown;
   - each existing failure is a `boot_failed` outcome with the right platform and output, after teardown;
   - the creation lines are per device and per attempt.
-- **`adws/core/__tests__/deviceExecutor.test.ts`.** `programMissing` from `run` and from `start` for a program that does not exist, and absent or `false` for programs that ran.
+- **`adws/core/__tests__/deviceExecutor.test.ts`.**
+  - `programMissing` from `run` and from `start` for a program that does not exist, and absent or `false` for programs that ran.
+  - `output()` of a started process holds what it printed.
 - **`adws/forge/__tests__/parkComment.*.test.ts`.**
   - The new reason passes every per-reason structure test: heading, ADW ID line, `human_gated`, both directives, no stage, no directive line.
   - Its directives are pinned and distinct.
@@ -409,6 +474,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
 - **Every console port is in use.** No AVD is created and no emulator is started in any attempt. The outcome is `boot_failed` for Android with the no-free-port message, and the simulator is removed.
 - **A host with the Command Line Tools but no Xcode.** `xcrun` exists, but `simctl` does not (exit 72, `unable to find utility "simctl"`). The outcome is `tool_missing` `xcrun simctl`, with no retry.
 - **The `emulator` binary is missing.** The started process exits at once, and `programMissing()` turns the attempt into `tool_missing`, not a boot failure after the deadline.
+- **An emulator that prints why it cannot boot, and exits** (`PANIC: Broken AVD system path…`). Its last lines end the attempt's output. The attempt reads them before the next attempt's `start` truncates the output file, so the outcome, the execution log and the park comment hold every attempt's lines.
 - **A teardown command whose tool is missing,** such as `adb emu kill` with no `adb`. It stays a `warn` line, as today, and never changes the outcome.
 - **An executor that throws.** It is a failed attempt with no missing tool, so it is retried. After three attempts it is `boot_failed` with the thrown message in the output.
 - **A failing callback with a failing removal.** The callback's error still comes out unchanged.
@@ -424,7 +490,10 @@ Run every command in `Validation Commands` and fix any failure before finishing.
 
 ## Acceptance Criteria
 - With the recording device host, a device whose boot fails twice and succeeds on the third attempt is `ready`. `withDevices` returns `{ kind: 'ready', result }` with the callback's result, and the two failed attempts' devices have been removed.
-- A device whose boot fails three times gives `{ kind: 'boot_failed', platform, attempts: 3, output }`. `output` holds every attempt's message and output, and the outcome is returned only after everything created, on both platforms, has been removed. The callback never runs.
+- A device whose boot fails three times gives `{ kind: 'boot_failed', platform, attempts: 3, output }`.
+  - `output` holds every attempt's message and output, including what the emulator printed.
+  - The outcome is returned only after everything created, on both platforms, has been removed.
+  - The callback never runs.
 - A missing `avdmanager`, `emulator`, `adb` or `xcrun simctl` gives `{ kind: 'tool_missing', platform, tool, output }`, naming the tool, after one attempt with no retry. Whatever was created, including the other device, is removed.
 - Each Android attempt probes for its own console port, so a port taken since the last attempt is skipped.
 - A callback that throws still makes `withDevices` reject with the same error after teardown. A teardown command that fails is still only a `warn`.
@@ -444,7 +513,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   The real park writes `workflowStage: 'human_gated'` and `parkReason: 'device_boot_failed'`.
 - `## Retry` on that park re-arms `phase_timeout`, and the resumed run reaches the scenario phase again, which creates and boots new devices. `## Continue` records no waiver.
 - `cli` and `web` workflows are unchanged.
-- No unit test or BDD scenario runs a real `avdmanager`, `emulator`, `adb` or `xcrun`, or calls the real `parkWorkflow` from a cucumber process.
+- No unit test or BDD scenario runs a real `avdmanager`, `emulator`, `adb` or `xcrun`, and no park ends a cucumber process. A BDD scenario that parks runs the real `parkWorkflow` with `process.exit` trapped.
 - The `@adw-1048` scenarios pass, and the `@adw-1043`, `@adw-1045`, `@adw-1046`, `@adw-1047`, `@adw-989` and `@regression` scenarios still pass.
 - Every new or changed source and test file is under 300 lines. Unit tests, lint, both type checks and the build pass.
 
@@ -479,6 +548,15 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Why the issue's file names differ.** The issue lists `adws/forge/__tests__/parkComment.test.ts` and `adws/phases/__tests__/scenarioTestPhase.test.ts`. The park-comment tests are already split into `.helpers`, `.structure`, `.content` and `.quoting`, and the phase's device tests live in `.devices`. The new cases follow those splits, and `scenarioTestPhase.test.ts` stays unchanged. `deviceLifecycle.failures.test.ts` and `deviceExecutor.test.ts` change too, because the outcome type and the executor answer change.
 - **Why a fresh console port per attempt.** #1047's plan left a race: two boots choosing the same just-free port within seconds. The losing emulator refuses to start, and "#1048's retry absorbs it". A retry on the same port would lose the race again. Probing per attempt is what lets the retry recover. The single up-front "Creating the devices of this workflow" line becomes per-device, per-attempt lines, because the port is now known only inside the Android attempt.
 - **Why the executor reports a missing program, rather than ADW reading text.** `error.code === 'ENOENT'` is exact. The `emulator` is started, not run, and its spawn error never reached its output file, so `DeviceProcess` needs the flag anyway. `xcrun`'s `unable to find utility "simctl"` is the one missing tool that only text can show, because `xcrun` itself ran.
+- **Why the attempt reads back what the emulator printed.** The emulator is started, not run, so what it prints goes to its output file and never into an answer of the executor. Without reading it back, an Android `boot_failed` would quote only `adb`'s last poll and a file path. The park comment would then not show why the emulator stopped. Only the last lines are kept for two reasons:
+  - the emulator prints its reason for stopping after its start-up lines;
+  - the comment cuts each output at `MAX_PARK_OUTPUT_CHARS`, counted from its start.
+- **Why a BDD park runs the real `parkWorkflow`.** The scenarios read the park as an operator sees it:
+  - the stage and the reason in the workflow's top-level state;
+  - the comment on the issue;
+  - what `## Retry` and `## Continue` then do to that state.
+
+  Trapping `process.exit`, as the unit-test phase's scenarios already do, lets the real park path write them without ending the cucumber run.
 - **Why the park comment names the platform by its value** (`` `android` ``, `` `ios` ``). That is how the proof document names platforms. The device names ("The Android emulator…", "The iOS simulator…") appear in the quoted output anyway. It also keeps `parkComment.ts` free of a runtime import of `Platform`, which would close a runtime cycle (`applicationType.ts` imports `parkComment.ts` at runtime).
 - **Why `## Retry` needs no new code.** `parkWorkflow` writes `human_gated`, `## Retry` re-arms it to `phase_timeout` with `resumeAttempts: 0`, and the takeover resumes the ADW ID in place. On resume:
   - `isPhaseAlreadyCompleted` skips the named completed phases (`baseline`, `stepDef`), and the recovery stage skips plan, scenarios, alignment and build;
