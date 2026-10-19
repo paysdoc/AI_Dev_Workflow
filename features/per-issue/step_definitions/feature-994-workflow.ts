@@ -18,6 +18,7 @@ import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import { setProofUploaderForTesting } from '../../../adws/proof/proofUploader.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
+import { lastStandInDeviceHost, standInDeviceHost } from '../../regression/support/standInDevices.ts';
 
 import { REPO_ID, createScreenshotStore } from '../../regression/step_definitions/feature-937-world.ts';
 import { freshAdwFiles, setRunScenariosByTag, writeAdwFiles } from '../../regression/step_definitions/feature-992-adw-files.ts';
@@ -128,7 +129,9 @@ export async function runScenarioTests(world: RegressionWorld): Promise<void> {
   prepareWorkflow();
   writeScript(s.runner, buildScript());
 
-  const { scenarioProof } = await withRunnerOnPath(s.runner, () => executeScenarioTestPhase(config));
+  // A repository with platforms gets its devices from the stand-in device tools the scenario installed, or from new ones.
+  const { withDevices } = lastStandInDeviceHost() ?? standInDeviceHost();
+  const { scenarioProof } = await withRunnerOnPath(s.runner, () => executeScenarioTestPhase(config, { withDevices }));
   assert.ok(scenarioProof, 'Expected the scenario test phase to have run the scenarios of the repository');
   s.proof = scenarioProof;
   world.scenarioProofResult = scenarioProof;

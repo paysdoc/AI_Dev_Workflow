@@ -1,6 +1,9 @@
 import { APPLICATION_TYPE_PROFILES, type ApplicationProfile } from '../../core/applicationType';
+import { TEST_DEVICE_SOURCE } from '../../core/__tests__/fixtures/recordingDeviceHost';
 import { parseConditionalDocs } from '../../core/conditionalDocsRegistry';
 import type { HealthyDevServerConfig, HealthyDevServerOutcome } from '../../core/devServerLifecycle';
+import type { DeviceEnvironment, DeviceRequest } from '../../core/deviceLifecycle';
+import { parseDeviceSourceSections, type DeviceSourceSections } from '../../core/deviceSourceConfig';
 import type { ScenarioTestPhaseDeps } from '../scenarioTestPhase';
 import type { WorkflowConfig } from '../workflowInit';
 
@@ -34,6 +37,8 @@ export function makeConfig(overrides: {
   scenarioDirectory?: string;
   /** Defaults to the cli profile; null leaves the config without one. */
   applicationProfile?: ApplicationProfile | null;
+  /** Defaults to no section set. */
+  deviceSources?: DeviceSourceSections;
 } = {}): WorkflowConfig {
   const applicationProfile = overrides.applicationProfile === undefined ? APPLICATION_TYPE_PROFILES.cli : overrides.applicationProfile;
   return {
@@ -77,6 +82,7 @@ export function makeConfig(overrides: {
       scenarios: { scenarioDirectory: overrides.scenarioDirectory ?? 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
       scenariosMd: overrides.scenariosMd ?? 'some scenario content',
       applicationType: 'cli',
+      deviceSources: overrides.deviceSources ?? parseDeviceSourceSections(''),
     },
   } as unknown as WorkflowConfig;
 }
@@ -95,4 +101,30 @@ export function fakeLifecycle(behaviour: LifecycleBehaviour = 'starts'): {
     return { started: true, result: await work() };
   }) as ScenarioTestPhaseDeps['withHealthyDevServer'];
   return { withHealthyDevServer, configs };
+}
+
+export const EVERY_DEVICE_SOURCE: DeviceSourceSections = TEST_DEVICE_SOURCE;
+
+export const STAND_IN_DEVICES: DeviceEnvironment = {
+  ADW_ANDROID_AVD: 'adw-test-id',
+  ADW_ANDROID_SERIAL: 'emulator-5580',
+  ADW_IOS_UDID: '7C1B3A9E-2D4F-4E8A-B6C5-0F9E8D7A6B54',
+};
+
+/** The device lifecycle's answer: hands the work the stand-in devices, and notes when they exist in `events`. */
+export function fakeDevices(events: string[] = []): {
+  withDevices: ScenarioTestPhaseDeps['withDevices'];
+  requests: DeviceRequest[];
+} {
+  const requests: DeviceRequest[] = [];
+  const withDevices = (async <T>(request: DeviceRequest, work: (devices: DeviceEnvironment) => Promise<T>): Promise<T> => {
+    requests.push(request);
+    events.push('devices ready');
+    try {
+      return await work(STAND_IN_DEVICES);
+    } finally {
+      events.push('devices removed');
+    }
+  }) as ScenarioTestPhaseDeps['withDevices'];
+  return { withDevices, requests };
 }

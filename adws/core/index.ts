@@ -195,11 +195,13 @@ export { getWorkflowScript } from './workflowMapping';
 
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
+export { type DeviceCommand, type DeviceCommandResult, type DeviceExecutor, type DeviceProcess, systemDeviceExecutor } from './deviceExecutor';
+export { type DeviceEnvironment, type DeviceLifecycleDeps, type DeviceRequest, withDevices, deviceNameFor, emulatorConsolePortCandidates, DeviceLifecycleError, DEVICE_NAME_PREFIX } from './deviceLifecycle';
+
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
-export type { TokenTotals, ModelTokenEntry } from '../cost';
-export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
+export { type TokenTotals, type ModelTokenEntry, computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 
 export {
   getTargetRepoWorkspacePath,

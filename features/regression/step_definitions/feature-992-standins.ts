@@ -19,6 +19,8 @@ export interface StandInBehaviour {
   /** Tags (without the `@`) whose scenario fails unless the dev server answers when the run starts. */
   serverTags: string[];
   playwrightExitCode: number;
+  /** What the stand-in scenario command exits with, whatever its report says. */
+  scenarioExitCode: number;
   /** The health check path the stand-in `npx playwright test` asks the dev server for, before and after it holds. */
   probePath: string;
   holdMs: number;
@@ -30,6 +32,7 @@ export function defaultBehaviour(): StandInBehaviour {
     failingTags: [],
     serverTags: [],
     playwrightExitCode: 0,
+    scenarioExitCode: 0,
     probePath: '/health',
     holdMs: 300,
     devServer: { title: 'Stand-in application', healthPath: '/health', healthStatus: 200 },
@@ -109,7 +112,7 @@ export function writeStandIns(): StandIns {
   const { behaviour } = toolchain;
   for (const name of ['npm', 'npx', 'scenario-command']) {
     const program = path.join(si.binDir, name);
-    fs.writeFileSync(program, toolSource({ callsFile: si.callsFile, failingTags: behaviour.failingTags, serverTags: behaviour.serverTags, playwrightExitCode: behaviour.playwrightExitCode, probePath: behaviour.probePath, holdMs: behaviour.holdMs }), { mode: 0o755 });
+    fs.writeFileSync(program, toolSource({ callsFile: si.callsFile, failingTags: behaviour.failingTags, serverTags: behaviour.serverTags, playwrightExitCode: behaviour.playwrightExitCode, scenarioExitCode: behaviour.scenarioExitCode, probePath: behaviour.probePath, holdMs: behaviour.holdMs }), { mode: 0o755 });
   }
   fs.writeFileSync(si.serverScript, devServerSource(behaviour.devServer));
   return si;

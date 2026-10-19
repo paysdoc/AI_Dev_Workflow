@@ -1,7 +1,7 @@
 /**
  * This is a deep module — the caller passes WorkflowConfig and receives a
- * structured result; all dev-server lifecycle, subprocess management, and
- * proof file I/O are hidden inside.
+ * structured result; all dev-server lifecycle, device lifecycle, subprocess
+ * management, and proof file I/O are hidden inside.
  */
 
 import * as path from 'path';
@@ -27,7 +27,8 @@ import {
   withHealthyDevServer,
   type HealthyDevServerConfig,
 } from '../core/devServerLifecycle';
-import { DeviceSourceConfigError, resolveDeviceSource } from '../core/deviceSourceConfig';
+import { withDevices, type DeviceEnvironment, type DeviceRequest } from '../core/deviceLifecycle';
+import { DeviceSourceConfigError, resolveDeviceSource, type DeviceSource } from '../core/deviceSourceConfig';
 import { resolveScenarioRunner } from '../core/scenarioRunner';
 import { requireApplicationProfile } from './applicationTypeGate';
 import { readDeclaredDevServer } from './declaredDevServer';
@@ -35,10 +36,12 @@ import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
 
 const DEV_SERVER_LOG_FILE = 'dev-server.log';
+const EMULATOR_LOG_FILE = 'android-emulator.log';
 
 export interface ScenarioTestPhaseDeps {
   readonly readDeclaredDevServer: typeof readDeclaredDevServer;
   readonly withHealthyDevServer: typeof withHealthyDevServer;
+  readonly withDevices: typeof withDevices;
 }
 
 export interface ScenarioTestPhaseResult {
@@ -49,7 +52,7 @@ export interface ScenarioTestPhaseResult {
   phaseCostRecords: PhaseCostRecord[];
 }
 
-const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer };
+const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices };
 
 interface PhaseRun {
   readonly config: WorkflowConfig;
@@ -139,11 +142,21 @@ async function runUnderServer(
   return settleProof(run, outcome.result, { status: DevServerStartStatus.Started });
 }
 
-function requireDeviceSource(run: PhaseRun, platforms: readonly Platform[]): void {
+function requireDeviceSource(run: PhaseRun, platforms: readonly Platform[]): DeviceSource | null {
   const resolution = resolveDeviceSource(run.config.projectConfig.deviceSources, platforms);
-  if (resolution.kind !== 'missing') return;
+  if (resolution.kind === 'not_required') return null;
+  if (resolution.kind === 'resolved') return resolution.deviceSource;
   recordLine(run.config.orchestratorStatePath, `Scenario test phase failed before running anything: ${resolution.message}`, 'error');
   throw new DeviceSourceConfigError(resolution.section, resolution.message);
+}
+
+function deviceRequest({ config }: PhaseRun, deviceSource: DeviceSource): DeviceRequest {
+  return {
+    adwId: config.adwId,
+    deviceSource,
+    emulatorOutputPath: path.join(config.logsDir, EMULATOR_LOG_FILE),
+    record: (message, level) => recordLine(config.orchestratorStatePath, message, level),
+  };
 }
 
 /**
@@ -157,6 +170,11 @@ function requireDeviceSource(run: PhaseRun, platforms: readonly Platform[]): voi
  *
  * Starts only the dev server the repository declares, the one the baseline starts. When that server does not
  * start, no scenario runs and the result says so in `devServer`: what a failed start means is for the caller.
+ *
+ * For a profile with platforms, the proof runs on one emulator and one simulator that the device lifecycle creates for
+ * the workflow, inside the dev server when there is one. The scenario command gets their identities as `ADW_ANDROID_AVD`,
+ * `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`, and they are removed afterwards. A device that does not come up rejects with
+ * `DeviceLifecycleError`.
  */
 export async function executeScenarioTestPhase(
   config: WorkflowConfig,
@@ -168,7 +186,7 @@ export async function executeScenarioTestPhase(
 
   const { scenariosMd } = projectConfig;
   const applicationProfile = requireApplicationProfile(config);
-  requireDeviceSource(run, applicationProfile.platforms);
+  const deviceSource = requireDeviceSource(run, applicationProfile.platforms);
   const runner = resolveScenarioRunner(applicationProfile.runnerMode, projectConfig);
 
   if (!scenariosMd.trim() || runner.runByTagCommand.trim() === 'N/A') return skipPhase(run);
@@ -178,7 +196,7 @@ export async function executeScenarioTestPhase(
 
   const proofDir = path.join('agents', adwId, 'scenario-test');
 
-  const runProof = (): Promise<ScenarioProofResult> =>
+  const runProof = (devices?: DeviceEnvironment): Promise<ScenarioProofResult> =>
     runScenarioProof({
       scenariosMd,
       runByTagCommand: runner.runByTagCommand,
@@ -190,11 +208,15 @@ export async function executeScenarioTestPhase(
       proofDirPerTag: runner.proofDirPerTag,
       applicationProfile,
       featureDirectory: runner.featureDirectory,
-      env: { ADW_APPLICATION_URL: applicationUrl },
+      env: { ADW_APPLICATION_URL: applicationUrl, ...devices },
     });
 
+  const runProofOnDevices = deviceSource === null
+    ? () => runProof()
+    : () => lifecycle.withDevices(deviceRequest(run, deviceSource), runProof);
+
   const declaredServer = lifecycle.readDeclaredDevServer(worktreePath);
-  if (declaredServer === null) return settleProof(run, await runProof(), NO_DEV_SERVER_START);
+  if (declaredServer === null) return settleProof(run, await runProofOnDevices(), NO_DEV_SERVER_START);
 
   const server: HealthyDevServerConfig = {
     startCommand: declaredServer,
@@ -203,5 +225,5 @@ export async function executeScenarioTestPhase(
     cwd: worktreePath,
     outputPath: path.join(logsDir, DEV_SERVER_LOG_FILE),
   };
-  return runUnderServer(run, server, runProof, lifecycle);
+  return runUnderServer(run, server, runProofOnDevices, lifecycle);
 }

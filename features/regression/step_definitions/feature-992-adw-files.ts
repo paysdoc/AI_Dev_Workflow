@@ -25,7 +25,7 @@ const BDD_FRAMEWORK = 'BDD Framework';
 const STEP_DEF_DIRECTORY = 'Step Def Directory';
 
 /** Sample values of the fixture: the defaults `adw_init` writes for these sections are its own. */
-const SAMPLE_DEVICE_SOURCE: DeviceSource = {
+export const SAMPLE_DEVICE_SOURCE: DeviceSource = {
   androidSystemImage: 'system-images;android-35;google_apis;arm64-v8a',
   androidDeviceProfile: 'pixel_8',
   iosDeviceType: 'com.apple.CoreSimulator.SimDeviceType.iPhone-16',

@@ -377,7 +377,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       ```
       """
 
-  @adw-1046 @adw-lrbgfw-feat-per-issue-image
+  @adw-1046 @adw-lrbgfw-feat-per-issue-image @adw-1047
   Scenario: In a "mobile:kotlincm" repository the images a per-issue scenario's Android and iOS runs attach under "android/" and "ios/" are uploaded, shown in the "Review Passed" comment and on the pull request, and handed to the review agent, while the images it attaches outside a platform directory are listed to the review agent as unattributed and reach none of them
     Given a workflow for issue 104610 in a "mobile:kotlincm" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner's platform runs report with these outcomes and with attachments at these paths under the proof directory ADW gave the run:
@@ -387,6 +387,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       | features/regression/home.feature          | @regression   | The home screen opens            | android      | passed  | android/home-android.png                   |
       | features/regression/home.feature          | @regression   | The home screen opens            | ios          | passed  | ios/home-ios.png                           |
     And the stand-in review agent's verdict on every review is a pass
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the scenario test phase runs and the review phase judges its proof
     And the proof is published on pull request 4610
     Then the screenshot store received exactly these images, and nothing else:
@@ -411,7 +412,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       | appium/session.png |
     And the proof the review agent received has no platform coverage line
 
-  @adw-1046 @adw-lrbgfw-feat-per-issue-image
+  @adw-1046 @adw-lrbgfw-feat-per-issue-image @adw-1047
   Scenario: In a "mobile:kotlincm" repository a per-issue scenario shown on Android only fails no gate: the review agent receives a proof whose platform coverage line names "android" as present and "ios" as missing, and the review goes as the review agent's verdict says
     Given a workflow for issue 104611 in a "mobile:kotlincm" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner's platform runs report with these outcomes and with attachments at these paths under the proof directory ADW gave the run:
@@ -421,6 +422,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       | features/regression/home.feature          | @regression   | The home screen opens            | android      | passed  | android/home-android.png     |
       | features/regression/home.feature          | @regression   | The home screen opens            | ios          | passed  | ios/home-ios.png             |
     And the stand-in review agent's verdict on every review is a pass
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the scenario test phase runs and the review phase judges its proof
     Then the scenario proof records no blocker failures
     And the proof the review agent received has one platform coverage line for each of exactly these per-issue scenarios, naming the platforms present and the platforms missing:
@@ -430,7 +432,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       | image                |
       | greeting-android.png |
 
-  @adw-1046 @adw-lrbgfw-feat-per-issue-image
+  @adw-1046 @adw-lrbgfw-feat-per-issue-image @adw-1047
   Scenario: In a "mobile:kotlincm" repository whose per-issue scenarios opened no screen, the gate passes, nothing is uploaded, the "Review Passed" comment shows no image, and the proof the review agent receives states "no scenario opened a screen"
     Given a workflow for issue 104612 in a "mobile:kotlincm" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner's platform runs report with these outcomes and with attachments at these paths under the proof directory ADW gave the run:
@@ -440,6 +442,7 @@ Feature: For a profile with platforms, each selected per-issue image carries the
       | features/regression/home.feature          | @regression   | The home screen opens                 | android      | passed  | android/home-android.png |
       | features/regression/home.feature          | @regression   | The home screen opens                 | ios          | passed  | ios/home-ios.png         |
     And the stand-in review agent's verdict on every review is a pass
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the scenario test phase runs and the review phase judges its proof
     Then the scenario proof records no blocker failures
     And nothing was uploaded to the screenshot store
