@@ -203,10 +203,13 @@ Feature: A five-hour session limit with a known reset time is ridden out in-proc
           each wait suspended in real time for several heartbeat intervals;
         – "the hung-orchestrator detector did not report adwId X at the end of any wait": at the
           end of each wait, call `findHungOrchestrators(Date.now(), threshold, deps)` with deps
-          that list only X, read the real top-level state, and use real process liveness. Scale
-          the threshold to the test heartbeat the way production does (a 30 s heartbeat against
-          a 180 s threshold, so six ticks). Keep each wait suspended for longer than the
-          threshold, so that a stopped heartbeat WOULD be reported.
+          that list only X, read the real top-level state, and use real process liveness. Yield
+          to `setImmediate` before the call: after a stalled event loop the wait's timer can fire
+          ahead of an overdue heartbeat tick. Size the threshold in real time, not in heartbeat
+          ticks (production's 30 s against 180 s is six ticks, but a stall is absolute), far
+          enough above the test heartbeat that no single stall outlasts it, for example 500 ms
+          against a 20 ms heartbeat. Keep each wait suspended for longer than the threshold, so
+          that a stopped heartbeat WOULD be reported.
       Each of these steps fails when no wait happened at all.
     • CANDIDATES. "a candidate arrives at issue N during every wait" makes each wait run the REAL
       `evaluateCandidate` for issue N. Use a minimal launch boundary for `acme/widgets`, and
