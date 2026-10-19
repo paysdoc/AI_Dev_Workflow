@@ -79,7 +79,8 @@ export {
 } from '../cost';
 
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
-export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
+export { parseMarkdownSections } from './markdownSections';
 export type { ApplicationProfile, ApplicationProfiles, ApplicationType, ApplicationTypeResolution } from './applicationType';
 export { APPLICATION_TYPE_PROFILES, RunnerMode, EvidenceKind, Platform, resolveApplicationType, describeApplicationProfile } from './applicationType';
 

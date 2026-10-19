@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { APPLICATION_TYPE_PROFILES, Platform } from '../core/applicationType';
 import { runShellCommand } from '../core/checkRunner';
-import { parseMarkdownSections } from '../core/projectConfig';
+import { parseMarkdownSections } from '../core/markdownSections';
 import { inferStackLanguages, stackCoherenceCheck } from '../core/stackCoherenceCheck';
 import { isGherkinFramework, stepDefExtensionsFor } from '../core/stepDefDetection';
 import { parseJUnitXml, readJUnitReport } from '../core/testReportParser';

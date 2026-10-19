@@ -50,12 +50,12 @@ function requireParked(): Parked {
   return resolution;
 }
 
-function requireProjectConfig(): ProjectConfig {
+export function requireProjectConfig(): ProjectConfig {
   assert.ok(s.projectConfig, "Expected a repository's project configuration to have been read first");
   return s.projectConfig;
 }
 
-function makeRepository(): string {
+export function makeRepository(): string {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-991-repository-'));
   sharedWorld.directories.push(directory);
   s.repositoryDir = directory;

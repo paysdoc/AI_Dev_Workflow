@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import { ScenarioTagRole, fixedScenarioTags, shouldRunTag } from '../proofAssembler';
-import { NO_PER_ISSUE_SCENARIOS, NO_SCENARIO_OPENED_A_PAGE } from '../proofDocument';
+import { NO_PER_ISSUE_SCENARIOS, NO_SCENARIO_OPENED_A_PAGE, NO_SCENARIO_OPENED_A_SCREEN } from '../proofDocument';
 import {
   GENERATED_AT,
+  MOBILE_PROFILE,
   NOT_RUN,
   PER_ISSUE,
   PER_ISSUE_FEATURE,
   PROOF_DIR,
   REGRESSION,
   REGRESSION_FEATURE,
+  SIGN_IN_FEATURE,
   artifact,
   assemble,
   attachment,
@@ -66,7 +68,7 @@ describe('shouldRunTag', () => {
   });
 });
 
-describe('assembleScenarioProof — the two fixed lines', () => {
+describe('assembleScenarioProof — the fixed lines', () => {
   it('says that no scenario opened a page when a web proof holds no image, and the run does not fail for it', () => {
     const regressionRun = runOf(REGRESSION, reportOf(testCase('Wish list › The wish list opens')));
     const perIssueRun = runOf(PER_ISSUE, reportOf(testCase('Cart › The cart shows the total')));
@@ -74,7 +76,18 @@ describe('assembleScenarioProof — the two fixed lines', () => {
     const proof = assemble({ runs: [regressionRun, perIssueRun], scenarioIndex: indexOf(REGRESSION_FEATURE, PER_ISSUE_FEATURE) });
 
     expect(proof.document).toContain(NO_SCENARIO_OPENED_A_PAGE);
+    expect(proof.document).not.toContain(NO_SCENARIO_OPENED_A_SCREEN);
     expect(proof.document).not.toContain(NO_PER_ISSUE_SCENARIOS);
+    expect(proof.hasBlockerFailures).toBe(false);
+  });
+
+  it('says that no scenario opened a screen, and not that no scenario opened a page, when a proof of a profile with platforms holds no image, and the run does not fail for it', () => {
+    const perIssueRun = runOf(PER_ISSUE, reportOf(testCase('The user signs in')));
+
+    const proof = assemble({ applicationProfile: MOBILE_PROFILE, runs: [NOT_RUN(REGRESSION), perIssueRun], scenarioIndex: indexOf(SIGN_IN_FEATURE) });
+
+    expect(proof.document).toContain(NO_SCENARIO_OPENED_A_SCREEN);
+    expect(proof.document).not.toContain(NO_SCENARIO_OPENED_A_PAGE);
     expect(proof.hasBlockerFailures).toBe(false);
   });
 

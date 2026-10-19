@@ -120,7 +120,7 @@ Feature: The proof assembler selects the images of the per-issue scenarios, and 
       | lamp.png  |
       | chair.png |
 
-  @adw-994 @adw-eflw7o-feat-per-issue-scena
+  @adw-994 @adw-eflw7o-feat-per-issue-scena @adw-1046
   Scenario: In a "web" repository exactly the per-issue scenarios' images are uploaded, shown in the "Review Passed" comment and on the pull request, and handed to the review agent with the proof
     Given a workflow for issue 9944 in a "web" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner reports with these outcomes and attachments:
@@ -171,7 +171,7 @@ Feature: The proof assembler selects the images of the per-issue scenarios, and 
       | image                     |
       | cart-total-discounted.png |
 
-  @adw-994 @adw-eflw7o-feat-per-issue-scena
+  @adw-994 @adw-eflw7o-feat-per-issue-scena @adw-1046
   Scenario: In a "web" repository whose per-issue scenarios opened no page, the gate passes, nothing is uploaded, the "Review Passed" comment shows no image and the proof the review agent receives states "no scenario opened a page"
     Given a workflow for issue 9946 in a "web" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner reports with these outcomes and attachments:
@@ -186,7 +186,7 @@ Feature: The proof assembler selects the images of the per-issue scenarios, and 
     And the review agent received no image path with the proof
     And the proof the review agent received states "no scenario opened a page"
 
-  @adw-994 @adw-eflw7o-feat-per-issue-scena
+  @adw-994 @adw-eflw7o-feat-per-issue-scena @adw-1046
   Scenario: In a "cli" repository nothing is uploaded and no comment shows an image, even when the per-issue scenarios attach images, and the review agent receives no image path and no "no scenario opened a page" line
     Given a workflow for issue 9947 in a "cli" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's worktree holds these scenarios, which the stand-in scenario runner reports with these outcomes and attachments:

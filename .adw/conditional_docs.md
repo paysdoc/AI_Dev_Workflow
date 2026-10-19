@@ -933,7 +933,8 @@
     - adws/proof/**
   - Conditions:
     - When working on the proof assembler (`assembleScenarioProof`), fixed scenario tags (`@regression`, `@adw-{issueNumber}`), feature-file scenario indexing, or per-issue scenario image selection
-    - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page") or `runScenarioProof`
+    - When working on image platform attribution (`platformOfImage`, `scenarioPlatformCoverage`, `imagePlatform.ts`), per-scenario platform coverage ("On some platforms only"), or unattributed images left out of the proof for a profile with platforms (`mobile:kotlincm`)
+    - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page", "no scenario opened a screen") or `runScenarioProof`
     - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
@@ -1038,6 +1039,8 @@
     - adws/core/agentState.ts
     - adws/core/stateHelpers.ts
     - adws/core/projectConfig.ts
+    - adws/core/markdownSections.ts
+    - adws/core/deviceSourceConfig.ts
     - adws/core/adwYmlConfig.ts
     - adws/core/config.ts
     - adws/core/constants.ts
@@ -1045,6 +1048,8 @@
     - adws/core/index.ts
     - adws/core/__tests__/stateHelpers.test.ts
     - adws/core/__tests__/projectConfig.test.ts
+    - adws/core/__tests__/deviceSourceConfig.test.ts
+    - adws/core/__tests__/projectConfigDeviceSource.test.ts
     - adws/core/__tests__/adwYmlConfig.test.ts
     - adws/core/__tests__/environment.test.ts
     - adws/core/__tests__/topLevelState.test.ts
@@ -1052,6 +1057,8 @@
     - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
     - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
     - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+    - When working on the device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`), `ProjectConfig.deviceSources`, `resolveDeviceSource`, `DeviceSourceConfigError`, or `parseMarkdownSections`/`sectionValue`
+    - When troubleshooting a scenario phase that fails naming a missing or empty device-source section
   - Decisions:
     - 0003
     - 0005
@@ -1060,6 +1067,7 @@
     - 0043
     - 0050
     - 0057
+    - 0064
 
 - app_docs/feature-m363ky-comment-only-guard.md
   - Owns:

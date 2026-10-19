@@ -19,12 +19,19 @@ export function imageBytes(fileName: string): Buffer {
 
 export type CaseOutcome = 'passed' | 'failed' | 'skipped';
 
+/**
+ * Where the runner writes the files a test case attaches, inside the proof directory ADW gave the run. `case-directories`: in a
+ * directory of the case's own, as ADW's Playwright project lays them out. `named-paths`: each at exactly the path it names, as
+ * the screenshot hook of a repository with platforms writes its platform directories.
+ */
+export type ImageLayout = 'case-directories' | 'named-paths';
+
 export interface ScriptedCase {
   readonly name: string;
   readonly classname: string;
   readonly tags: readonly string[];
   readonly outcome: CaseOutcome;
-  /** File names; the runner writes each under the proof directory of the run. */
+  /** File names, or with `named-paths` the paths below the proof directory; the runner writes each there. */
   readonly attachments: readonly string[];
 }
 
@@ -42,9 +49,10 @@ export interface RunnerScript {
   readonly overrides: Readonly<Record<string, TagBehaviour>>;
   /** Files every run leaves in its proof directory, attached to no test case. */
   readonly strays: readonly string[];
+  readonly layout: ImageLayout;
 }
 
-export const EMPTY_SCRIPT: RunnerScript = { cases: [], overrides: {}, strays: [] };
+export const EMPTY_SCRIPT: RunnerScript = { cases: [], overrides: {}, strays: [], layout: 'case-directories' };
 
 export interface StandInRunner {
   readonly rootDir: string;
