@@ -106,13 +106,14 @@ Feature: The application type "mobile:kotlincm" resolves end to end: the gate le
     Then the registry counts "cucumber-jvm" as a Gherkin runtime
     And the registry looks for the step definitions of "cucumber-jvm" in files ending in ".kt" and ".java", and in no others
 
-  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045
+  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045 @adw-1047
   Scenario Outline: In a "mobile:kotlincm" repository whose ".adw/scenarios.md" names "cucumber-jvm", a <language> step definition file under the step definition directory it names is found: the scenario command runs for the issue's tag and the scenario proof is not skipped
     Given a workflow for issue <issue> whose worktree's ".adw/project.md" declares the application type "mobile:kotlincm"
     And the worktree's ".adw/project.md" names every device source
     And the worktree's ".adw/scenarios.md" names the BDD framework "cucumber-jvm" and the step definition directory "<step definition directory>"
     And the worktree's ".adw/" runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes
     And the worktree holds a feature tagged "@adw-<issue>" in the scenario directory ".adw/scenarios.md" names, and steps for it in the file "<step definition file>"
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the workflow's scenario test phase runs
     Then the scenario command ".adw/" configures ran in the worktree's root for the tag "@adw-<issue>"
     And the scenario proof records the tag "@adw-<issue>" as passed
@@ -122,13 +123,14 @@ Feature: The application type "mobile:kotlincm" resolves end to end: the gate le
       | 104308 | Kotlin   | scenarios/src/test/kotlin | scenarios/src/test/kotlin/com/example/steps/HomeScreenSteps.kt |
       | 104309 | Java     | scenarios/src/test/java   | scenarios/src/test/java/com/example/steps/HomeScreenSteps.java |
 
-  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045
+  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045 @adw-1047
   Scenario: Under "cucumber-jvm" a TypeScript file is not a step definition, although it would be under a runner ADW does not know: with no Kotlin or Java file under the step definition directory, the scenario proof is skipped and no tag is run
     Given a workflow for issue 104310 whose worktree's ".adw/project.md" declares the application type "mobile:kotlincm"
     And the worktree's ".adw/project.md" names every device source
     And the worktree's ".adw/scenarios.md" names the BDD framework "cucumber-jvm" and the step definition directory "scenarios/src/test/kotlin"
     And the worktree's ".adw/" runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes
     And the worktree holds a feature tagged "@adw-104310" in the scenario directory ".adw/scenarios.md" names, and steps for it in the file "scenarios/src/test/kotlin/com/example/steps/home.steps.ts"
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the workflow's scenario test phase runs
     Then the scenario proof ran no tag
     And the scenario proof notes that no step definition file was found in "scenarios/src/test/kotlin/"
@@ -193,7 +195,7 @@ Feature: The application type "mobile:kotlincm" resolves end to end: the gate le
     And the unit-test phase posted no comment headed "Stack Coherence" on issue 104312
     And issue 104312 was not labelled "adw:unverified"
 
-  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045
+  @adw-1043 @adw-z3fh5r-feat-the-mobile-kotl @adw-1045 @adw-1047
   Scenario Outline: The review agent of a "<type>" repository is started with the review guidance section "<section>" in its prompt, and with neither of the other two application types' sections
     Given a workflow for issue <issue> in a "<type>" repository, with a recording issue tracker, code host and screenshot store
     And the workflow's ".adw/project.md" names <device sources>
@@ -201,6 +203,7 @@ Feature: The application type "mobile:kotlincm" resolves end to end: the gate le
       | feature file                               | scenario tags | scenario                     | outcome | attachments |
       | features/per-issue/feature-<issue>.feature | @adw-<issue>  | The welcome message is shown | passed  |             |
     And the stand-in review agent's verdict on every review is a pass
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the scenario test phase runs and the review phase judges its proof
     Then the review agent was started on review attempt 1 with the review guidance section "<section>" in its prompt
     And the review agent was started on review attempt 1 without the review guidance section "<other section>" in its prompt

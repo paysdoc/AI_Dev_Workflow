@@ -119,16 +119,18 @@ Feature: ADW reads a repository's device sources from ".adw/project.md"; the sce
     Then resolving the device sources fails with an error that names "## Android Device Profile"
     And that error does not name "## iOS Runtime"
 
-  @adw-1045 @adw-m9cru8-feat-device-source-s
+  @adw-1045 @adw-m9cru8-feat-device-source-s @adw-1047
   Scenario Outline: In a "mobile:kotlincm" worktree whose ".adw/project.md" names <device sources>, the scenario test phase fails before it runs anything, with an error that names "<section>": the scenario command is not run and the workflow is not parked
     Given a workflow for issue <issue> whose worktree's ".adw/project.md" declares the application type "mobile:kotlincm"
     And the worktree's ".adw/project.md" names <device sources>
     And the worktree's ".adw/scenarios.md" names the BDD framework "cucumber-jvm" and the step definition directory "scenarios/src/test/kotlin"
     And the worktree's ".adw/" runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes
     And the worktree holds a feature tagged "@adw-<issue>" in the scenario directory ".adw/scenarios.md" names, and steps for it in the file "scenarios/src/test/kotlin/com/example/steps/HomeScreenSteps.kt"
+    And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot
     When the workflow's scenario test phase is attempted
     Then the scenario test phase failed with an error that names "<section>"
     And the scenario command ".adw/" configures was not run
+    And no device tool was run
     And the workflow for issue <issue> is not parked
     And no park comment was posted on issue <issue>
 

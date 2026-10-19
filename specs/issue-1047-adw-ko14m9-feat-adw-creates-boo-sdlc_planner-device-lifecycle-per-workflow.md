@@ -73,7 +73,8 @@ So that parallel workflows never share a device, an `adb` port or a simulator id
   - `cli` and `web` never reach `withDevices`, and their `env` stays exactly `{ ADW_APPLICATION_URL }`.
 - **Hermetic tests and scenarios.**
   - The phase's unit tests inject a stand-in `withDevices` from the shared helpers.
-  - The existing BDD scenarios that run the real phase on a `mobile:kotlincm` worktree (`@adw-1043` 104308–104310 and 104313; `@adw-1045`) inject a stand-in device host: the real lifecycle over an executor that answers like a healthy host. So no scenario touches a real SDK.
+  - The existing BDD scenarios that run the real phase on a `mobile:kotlincm` worktree (`@adw-1043` 104308–104310 and 104313; `@adw-1045` 104501–104503; `@adw-1046` 104610–104612) inject a stand-in device host: the real lifecycle over an executor that answers like a healthy host. So no scenario touches a real SDK.
+  - The scenario writer has tagged each of those scenarios `@adw-1047` and given it the step `And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot`, which installs that stand-in.
 
 ## Relevant Files
 Use these files to implement the feature:
@@ -129,9 +130,18 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/scenarioProofRun.test.ts` — read only. It already proves that extra `env` variables reach the run command beside `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`.
 - `adws/core/__tests__/applicationType.test.ts` — read only. Its guard "every consumer reads the mapping, never the type" fails if a new source module uses the identifier `applicationType`.
 - `features/regression/step_definitions/feature-992-phase.steps.ts` — `runScenarioTestPhase(workflow)` runs the real `executeScenarioTestPhase(workflow.config)`, which is reused by feature-1043's and feature-1045's `mobile:kotlincm` scenarios. It must pass the stand-in device host.
-- `features/per-issue/step_definitions/feature-994-workflow.ts` — `runScenarioTests` runs the real phase for the review outline 104313 (`mobile:kotlincm`). It must pass the stand-in device host.
-- `features/regression/step_definitions/feature-992-standins.ts` — read only. The stand-in scenario command records the `ADW_` variables of each run, which `@adw-1047` step definitions can read.
-- `features/per-issue/feature-1043.feature` and `features/per-issue/feature-1045.feature` — read only. Their phase scenarios on `mobile:kotlincm` worktrees must stay green.
+- `features/per-issue/step_definitions/feature-994-workflow.ts` — `runScenarioTests` runs the real phase for the review outline 104313 (`mobile:kotlincm`) and, through `runScenarioTestsThenReview`, for feature-1046's 104610–104612. It must pass the stand-in device host.
+- `features/per-issue/step_definitions/feature-1045-phase.steps.ts` — read only. Its `When the workflow's scenario test phase is attempted` runs the phase through feature-992's `runScenarioTestPhase`, so the stand-in reaches the missing-section outline too.
+- `features/regression/step_definitions/feature-992-standins.ts` and `feature-992-standin-source.ts`:
+  - The stand-in scenario command records the `ADW_` variables and the time (`at`) of each run, which `@adw-1047` step definitions can read.
+  - It always exits 0 today. It gains an exit code that a step can set, defaulting to 0 so that no existing scenario changes. The `@adw-1047` scenario whose stand-in "records each run, exits 1, and writes a JUnit report in which one scenario fails" needs it.
+- `features/regression/step_definitions/feature-992-adw-files.ts` — `SAMPLE_DEVICE_SOURCE`, the four values that `setEveryDeviceSource` writes. It is exported so that the `@adw-1047` steps can compare the create commands against it.
+- `features/per-issue/feature-1043.feature`, `features/per-issue/feature-1045.feature` and `features/per-issue/feature-1046.feature` — already updated by the scenario writer; the build does not edit them. Each scenario that runs the real phase on a `mobile:kotlincm` worktree now also carries `@adw-1047` and the step `And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot`:
+  - feature-1043: 104308–104310 and the review outline (104313–104315);
+  - feature-1045: the missing-section outline (104501–104503), which also asserts `And no device tool was run`;
+  - feature-1046: 104610–104612, which run feature-994's `runScenarioTestsThenReview`.
+
+  They must stay green.
 
 ### New Files
 - `adws/core/deviceExecutor.ts` — the `DeviceExecutor` port (`DeviceCommand`, `DeviceCommandResult`, `DeviceProcess`) and `systemDeviceExecutor`, its `child_process` implementation.
@@ -140,7 +150,8 @@ Use these files to implement the feature:
 - `adws/core/__tests__/deviceLifecycle.test.ts` — the lifecycle's unit tests (PRD Testing Decisions 1, this slice's part).
 - `adws/core/__tests__/deviceExecutor.test.ts` — the real executor against `sh`: output, exit code, stdin, timeout, spawn error, a started process.
 - `adws/phases/__tests__/scenarioTestPhase.devices.test.ts` — the phase's device cases: the variables reach the run command, the run happens inside the devices, and the log sink is the orchestrator log; `cli` and `web` make no device request.
-- `features/regression/support/standInDevices.ts` — the BDD stand-in device host: the real `withDevices` over an executor that answers like a host whose device tools work, recording each command. It has no hooks and no steps.
+- `features/regression/support/standInDevices.ts` — the BDD stand-in device host: the real `withDevices` over an executor that answers like a host whose device tools work, recording each command and the time it was issued. It has no hooks and no steps.
+- `features/per-issue/step_definitions/feature-1047-host.steps.ts` — the two steps the tagged scenarios of features 1043, 1045 and 1046 share with this feature's: the step that installs the stand-in device host, and `no device tool was run`.
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -161,7 +172,7 @@ Re-export the public surface from `adws/core/index.ts`.
 ### Phase 3: Integration
 - **Scenario phase.** `executeScenarioTestPhase` keeps the resolved device source. For a profile with platforms it runs the proof inside `withDevices` and merges the three variables into the run's `env`. The request's `record` writes to the orchestrator log, and the emulator log goes to `logsDir`. `cli` and `web` are untouched.
 - **Phase tests.** The shared helpers gain a stand-in `withDevices`. A new `scenarioTestPhase.devices.test.ts` covers the acceptance criteria at phase level, and the existing device-source test injects the stand-in.
-- **BDD harness.** The two real-phase BDD harnesses pass a stand-in device host, so that the existing `mobile:kotlincm` scenarios stay hermetic and green.
+- **BDD harness.** The two real-phase BDD harnesses pass a stand-in device host, the one the scenario's device-tools step installed. So the existing `mobile:kotlincm` scenarios of features 1043, 1045 and 1046 stay hermetic and green.
 - **Finish.** Write the `@adw-1047` step definitions and update the README.
 
 ## Step by Step Tasks
@@ -230,7 +241,7 @@ Create `adws/core/__tests__/fixtures/recordingDeviceHost.ts`. It does not import
   - `start(['emulator', …])` returns a process whose `exited` resolves when `adb -s <serial> emu kill` is run.
 - `DeviceHostScript` lets a test change that host:
   - `androidBootMs` and `iosBootMs` — the fake clock advances by this much at the boot-completed answer and in `simctl bootstatus`, so boot times are exact;
-  - `pollsUntilDevice` and `pollsUntilBootCompleted` — that many not-ready answers (`error: device 'emulator-…' not found` exit 1, then `0`) come first;
+  - `pollsUntilDevice` and `pollsUntilBootCompleted` — that many not-ready answers come first. For `get-state` that is `error: device 'emulator-…' not found` with exit 1. For `getprop sys.boot_completed` it is an empty output with exit 0, which is what a booting emulator answers and what the `@adw-1047` scenario scripts;
   - `failing` — commands, matched by prefix, that exit 1 with given output;
   - `takenPorts` — ports for which `isPortAvailable` answers `false`;
   - `emulatorIgnoresKill` — `exited` resolves only on `kill()`;
@@ -252,7 +263,7 @@ The callback calls `host.mark('callback')`. Assert the order with an `indexOf`-b
 **`deviceNameFor` and `emulatorConsolePortCandidates`:**
 - `deviceNameFor('abc123-device-test')` is `adw-abc123-device-test`.
 - The candidates of an ADW ID are 64 distinct even ports, all from 5554 to 5680, and the same on every call.
-- Two chosen ADW IDs have different first candidates. Choose two that do, and keep them as constants.
+- Two chosen ADW IDs have different first candidates. Use the two ADW IDs of the `@adw-1047` scenarios as constants, `k7m2p9-login-screen` and `q4w8z1-settings-page`: with this hash their first candidates are 5556 and 5660.
 
 **A successful run (acceptance criterion 1):**
 - The Android sub-sequence comes in this order:
@@ -284,7 +295,7 @@ The callback calls `host.mark('callback')`. Assert the order with an `indexOf`-b
 - With the first candidate in `takenPorts`, the emulator gets the second candidate. With only the first candidate's adb port (`+1`) taken, it also gets the second.
 
 **Readiness:**
-- With `pollsUntilDevice: 2` and `pollsUntilBootCompleted: 2`, `get-state` is asked three times and `getprop` three times. The callback comes after the last `getprop`, and the fake clock's `sleep` paced the polls. No real time passes.
+- With `pollsUntilDevice: 2` and `pollsUntilBootCompleted: 2` (two empty `getprop` answers), `get-state` is asked three times and `getprop` three times. The callback comes after the last `getprop`, and the fake clock's `sleep` paced the polls. No real time passes.
 
 **The run log (acceptance criterion 5):**
 - `lines` names `adw-<id>` for both devices when they are created, including the console port and the four device-source values.
@@ -352,7 +363,7 @@ Run the file and see it fail, because the module does not exist yet.
   3. Note the boot start on the clock, then `start` the emulator with the table's arguments and `emulatorOutputPath`. Track its exit.
   4. Poll until ready, at most every `BOOT_POLL_INTERVAL_MS`, until `DEVICE_BOOT_TIMEOUT_MS` after the boot start:
      - fail at once if the emulator has exited;
-     - otherwise `get-state`, then, once the last line is `device`, `getprop sys.boot_completed`, which is ready when its last line is `1`.
+     - otherwise `get-state`, then, once the last line is `device`, `getprop sys.boot_completed`, which is ready when its last line is `1`. An empty answer, which is what a booting emulator gives, is not ready.
 
      Extract one poll into a named function to keep nesting at depth 2.
   5. When ready, record `The Android emulator "<name>" (emulator-<port>) booted in <s>s` (`info`) and resolve `ready` with the AVD, the serial, the process and the boot time.
@@ -472,37 +483,64 @@ In `adws/phases/__tests__/scenarioTestPhase.deviceSource.test.ts`:
 - Run `bunx vitest run adws/phases/__tests__/scenarioTestPhase.deviceSource.test.ts`. It passes, and no device tool runs.
 
 ### 10. Keep the BDD scenarios that run the real phase on a `mobile:kotlincm` worktree hermetic
-- **Why.** These scenarios run the real `executeScenarioTestPhase` on a `mobile:kotlincm` worktree that names every device source:
+- **Why.** These scenarios run the real `executeScenarioTestPhase` on a `mobile:kotlincm` worktree that names device sources:
   - `@adw-1043`: 104308 and 104309, 104310, and the review outline row 104313;
-  - `@adw-1045`, through feature-992's `runScenarioTestPhase`.
+  - `@adw-1045`: the missing-section outline 104501–104503. Its `When the workflow's scenario test phase is attempted` calls feature-992's `runScenarioTestPhase`;
+  - `@adw-1046`: 104610, 104611 and 104612. Their `When the scenario test phase runs and the review phase judges its proof` calls feature-994's `runScenarioTests`.
 
-  After Task 8 they would run the real `avdmanager`, `emulator`, `adb` and `xcrun`. On a CI host those fail; on a developer's Mac they create real devices.
+  After Task 8, those that get past the device-source check would run the real `avdmanager`, `emulator`, `adb` and `xcrun`. On a CI host those fail; on a developer's Mac they create real devices.
+
+  The scenario writer has tagged each of these scenarios `@adw-1047` and given it the step `And the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot`. The missing-section outline also asserts `And no device tool was run`.
 - **Create `features/regression/support/standInDevices.ts`**, with a header comment in the style of `feature-992-standins.ts`: a stand-in for the host's device tools; no hooks and no steps. It exports:
   - `STAND_IN_UDID`.
-  - `export interface StandInDeviceHost { readonly withDevices: ScenarioTestPhaseDeps['withDevices']; readonly commands: readonly (readonly string[])[] }`.
+  - `export interface StandInDeviceCommand { readonly argv: readonly string[]; readonly at: number }`. `at` is when the command was issued, in milliseconds since the epoch, as each stand-in run in `feature-992-standins.ts` records its own `at`. With it, a step can place the device commands before the scenario command's first run and after its last.
+  - `export interface StandInDeviceHost { readonly withDevices: ScenarioTestPhaseDeps['withDevices']; readonly commands: readonly StandInDeviceCommand[] }`.
   - `export function standInDeviceHost(): StandInDeviceHost`. It builds the real `withDevices` over:
-    - an executor that records each command's argv and answers like a healthy host: `xcrun simctl create` prints `STAND_IN_UDID`, `get-state` prints `device`, `getprop sys.boot_completed` prints `1`, everything else exits 0, and the emulator exits on `emu kill`;
+    - an executor that records each command (`start` included) and answers like a healthy host: `xcrun simctl create` prints `STAND_IN_UDID`, `get-state` prints `device`, `getprop sys.boot_completed` prints `1`, everything else exits 0, and the emulator exits on `emu kill`;
     - a clock whose `sleep` resolves at once;
     - `isPortAvailable: async () => true`.
 
-    It keeps the most recent host, which `lastStandInDeviceHost()` returns, for steps that read the commands.
-- **Pass the stand-in to the two real-phase harnesses.**
-  - In `features/regression/step_definitions/feature-992-phase.steps.ts`, `runScenarioTestPhase` runs `executeScenarioTestPhase(workflow.config, { withDevices: standInDeviceHost().withDevices })`.
+    It keeps the new host as the most recent one. `lastStandInDeviceHost()` returns that host, or `undefined` when there is none, for steps that read the commands.
+  - `export function resetStandInDeviceHost(): void`, which forgets the most recent host.
+- **Pass the stand-in to the two real-phase harnesses.** Each harness passes the host the scenario installed, or a fresh one if the scenario installed none. So no harness run reaches the real device tools, whether or not the scenario has the step.
+  - In `features/regression/step_definitions/feature-992-phase.steps.ts`, `runScenarioTestPhase` runs `executeScenarioTestPhase(workflow.config, { withDevices: (lastStandInDeviceHost() ?? standInDeviceHost()).withDevices })`.
   - In `features/per-issue/step_definitions/feature-994-workflow.ts`, `runScenarioTests` does the same.
 
   `cli` and `web` scenarios never reach it. Use the `.ts` import extension of the features code.
-- **Run** `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` and `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"`. Both pass, and no real device tool runs.
+- **Define the two shared steps** in `features/per-issue/step_definitions/feature-1047-host.steps.ts`:
+  - `Given the host's device tools are stand-ins that record each run and answer as a host on which the emulator and the simulator boot` calls `standInDeviceHost()`.
+  - `Then no device tool was run` asserts that the scenario installed a stand-in device host and that the host recorded no command.
+- **Run** `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"`, `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"` and `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1046"`. All three pass, and no real device tool runs.
 
 ### 11. Write the step definitions the `@adw-1047` scenarios need
-The scenario writer writes `features/per-issue/feature-1047.feature`, tagged `@adw-1047`. Its scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
+The scenario writer has written `features/per-issue/feature-1047.feature`, tagged `@adw-1047`, and has also tagged the scenarios of features 1043, 1045 and 1046 listed in Task 10. These scenarios are the build's RED tests: write a scenario's steps, see it fail, then make it pass.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --tags "@adw-1047"` to list the undefined steps.
 - Reuse every phrase that already has a definition, and register no pattern twice. Steps likely to be reused:
   - feature-992's workflow, `.adw/`, stand-in scenario command and phase steps (`When the workflow's scenario test phase runs`);
   - feature-1045's device-source steps (`the worktree's {string} names every device source`);
-  - the recorded stand-in calls, whose `env` carries the `ADW_` variables the scenario command received.
-- New phrases go in `features/per-issue/step_definitions/feature-1047-*.ts`, with a `feature-1047-world.ts` that registers the `@adw-1047` hooks in the style of `feature-1045-world.ts`. Every reset must be safe to run twice.
-- Read the device commands from `lastStandInDeviceHost()`. Read the run log from the workflow's execution log under its orchestrator state path.
-- For scenarios that drive the lifecycle directly, call `withDevices` with a recording executor built in the step file. Never call the real executor.
+  - the recorded stand-in calls, whose `env` carries the `ADW_` variables the scenario command received;
+  - the device-tools stand-in step and `no device tool was run`, from Task 10.
+- New phrases go in `features/per-issue/step_definitions/feature-1047-*.ts`, with a `feature-1047-world.ts` that registers the `@adw-1047` hooks in the style of `feature-1045-world.ts`.
+  - Its `Before` hook also calls `resetStandInDeviceHost()`.
+  - The scenarios of features 1043, 1045 and 1046 that carry `@adw-1047` also run their own feature's hooks, so every reset must be safe to run twice.
+- Read the device commands from `lastStandInDeviceHost()`.
+  - Order them against the scenario command's recorded runs by `at`. Every create, boot and wait command comes at or before the first run's `at`, and every shut-down and delete command at or after the last run's `at`.
+  - The create commands carry the four values of `SAMPLE_DEVICE_SOURCE` in `feature-992-adw-files.ts`, which `the worktree's ".adw/project.md" names every device source` writes. Export that constant for the step.
+- Read the run log from the workflow's execution log under its orchestrator state path. It holds the `booted in <s>s` line of each device and, after them, `Removed the Android AVD …` and `Removed the iOS simulator …`. A `cli` or `web` log has no line that mentions an emulator, an AVD or a simulator.
+- The step `the worktree's ".adw/" runs scenarios by tag with a stand-in that records each run, exits 1, and writes a JUnit report in which one scenario fails` marks the issue's tag as failing, and sets the new exit code of the stand-in scenario command to 1.
+- For scenarios that drive the lifecycle directly, call `withDevices` with:
+  - a recording executor built in the step file. Never call the real executor;
+  - a clock whose `sleep` resolves at once;
+  - a port probe that reports every port free, so that each emulator gets its ADW ID's first candidate.
+
+  The executor answers a not-ready `getprop sys.boot_completed` with an empty output, and the UDID a step names when `xcrun simctl create` runs.
+- The rows of `the device lifecycle took these steps for each of the emulator and the simulator, in this order:` are the rows of the table in the Feature Description:
+  - `create`;
+  - `boot`, which for Android is `adb start-server` and then `emulator`;
+  - `wait until ready`;
+  - `run the callback`, the hand-over;
+  - `shut down`;
+  - `delete`.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1047"`. Every scenario passes and none is undefined.
 
 ### 12. Update the README
@@ -586,6 +624,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
 - **No scenarios** (`scenariosMd` empty or the run-by-tag command `N/A`): no device is created. A missing device-source section still throws first (#1045).
 - **A declared dev server for a mobile repository.** The devices live inside the server. When the server does not start, no device is created.
 - **`cli` and `web`.** No request reaches the lifecycle, `env` is unchanged, and the device-source sections are ignored.
+- **A scenario that fails.** A failed scenario is a result, not an error. The proof records the blocker failure as before, and both devices are removed after the scenario command's last run.
 - **The scenario fix loop and the review retries** re-run the phase. Each run creates and removes its own devices.
 - **An ADW ID or a device-source value holding shell metacharacters** cannot inject anything, because commands run as argv arrays without a shell.
 
@@ -605,7 +644,7 @@ Run every command in `Validation Commands` and fix any failure before finishing.
   - `booted in <s>s` for each device, timed by the injected clock;
   - a removal line for each device.
 - The executor and the clock are injected. No unit test or BDD scenario runs a real `avdmanager`, `emulator`, `adb` or `xcrun`.
-- The `@adw-1047` scenarios pass, and the `@adw-1043`, `@adw-1045` and `@regression` scenarios still pass.
+- The `@adw-1047` scenarios pass, and the `@adw-1043`, `@adw-1045`, `@adw-1046` and `@regression` scenarios still pass.
 - Every new or changed source and test file is under 300 lines, and only `core/projectConfig.ts` and `phases/applicationTypeGate.ts` use the identifier `applicationType`.
 - Unit tests, lint, both type checks and the build pass.
 
@@ -623,7 +662,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `wc -l adws/core/deviceLifecycle.ts adws/core/deviceExecutor.ts adws/phases/scenarioTestPhase.ts adws/phases/__tests__/scenarioTestPhase.helpers.ts adws/phases/__tests__/scenarioTestPhase.devices.test.ts adws/core/__tests__/deviceLifecycle.test.ts adws/core/__tests__/fixtures/recordingDeviceHost.ts features/regression/support/standInDevices.ts` — each under 300 lines.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1047"` — this issue's scenarios, none of them undefined.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1043"` — the `mobile:kotlincm` scenarios that run the real phase, now on the stand-in device host.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"` — the device-source scenarios, unchanged in outcome.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1045"` — the device-source scenarios, unchanged in outcome, and no device tool runs when a section is missing.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1046"` — the per-issue image scenarios of `mobile:kotlincm` workflows, now on the stand-in device host.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the regression suite, with zero regressions.
 
 ## Notes
