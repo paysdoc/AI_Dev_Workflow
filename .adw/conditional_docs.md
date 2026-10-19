@@ -192,6 +192,7 @@
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
     - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
+    - When the base-branch re-run of a failing regression scenario on a profile with platforms creates its own emulator and simulator (`withDevices` in `preExistingRegressionGate.ts`, `BaseScenarioRerun`'s `devices` argument) or parks as `device_boot_failed`
     - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
     - When the scenario phase does not start its dev server, reports `devServer: failed`, or starts a server the repository did not declare (`readDeclaredDevServer`, `declaredDevServer.ts`, `ScenarioTestPhaseResult.devServer`), or the fix loop hands a failed start back instead of calling the scenario fix agent
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
