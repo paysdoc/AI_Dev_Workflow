@@ -61,8 +61,8 @@ The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file'
 
 ## Decisions
 
-- [ADR-0002](../specs/adr/0002-worktree-per-issue.md) — One git worktree per issue
-- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
-- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
-- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
-- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0002](../docs/adr/0002-worktree-per-issue.md) — One git worktree per issue
+- [ADR-0034](../docs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0042](../docs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0047](../docs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0050](../docs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories

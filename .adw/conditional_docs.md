@@ -592,9 +592,9 @@
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:
-    - specs/**
+    - docs/**
   - Conditions:
-    - When working on product requirements documents, ADW specs, or feature PRDs in `specs/`
+    - When working on architecture decision records in `docs/adr/` or product requirements documents in `docs/prd/`
 
 - app_docs/feature-9gjajh-root-config.md
   - Owns:

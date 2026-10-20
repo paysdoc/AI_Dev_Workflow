@@ -10,7 +10,7 @@
  * must not be blocked; the sweep prunes it within one cadence.
  *
  * The gate also reads each indexed doc for its `## Decisions` section and holds
- * it to the entry's `Decisions:` block and to the records in `specs/adr/`.
+ * it to the entry's `Decisions:` block and to the records in `docs/adr/`.
  *
  * Run via: bunx tsx adws/checkLivingDocsIndex.ts [rootDir]
  * Exits 0 if the index is clean (warnings aside), 1 otherwise.
@@ -18,6 +18,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { DECISION_RECORD_DIR } from './core/docsDecisions';
 import {
   assessDocsIndexHealth,
   DEFAULT_COUNT_BAND,
@@ -148,7 +149,7 @@ export function runLivingDocsIndexCheck(rootDir: string): { exitCode: 0 | 1; lin
 
   pushCheck(
     lines,
-    'Decisions: every listed record exists in specs/adr/',
+    `Decisions: every listed record exists in ${DECISION_RECORD_DIR}/`,
     missingRecords.length === 0,
     missingRecords.length > 0 ? missingRecords.map(formatViolation).join('\n') : undefined,
   );

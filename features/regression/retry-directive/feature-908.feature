@@ -1,7 +1,7 @@
 @regression @retry-directive
 Feature: The `## Retry` directive revives a workflow stranded in the paused stage: it drops the workflow's pause-queue entry, respawns the orchestrator its top-level state names with the handling cron's own --target-repo, and says so on the issue, while paused_auth, every running stage and the human-gated branches behave exactly as before
 
-  Issue #908 is the directive slice of `specs/prd/rate-limit-indefinite-retry.md` (user stories
+  Issue #908 is the directive slice of `docs/prd/rate-limit-indefinite-retry.md` (user stories
   13–17). A workflow in `workflowStage: paused` whose pause-queue entry is gone has no way back.
   `paused` is in the terminal stage class, so the takeover handler skips it, and the cron filter
   marks it ineligible ("handled exclusively by the pause queue scanner"). `handleRetryDirective`

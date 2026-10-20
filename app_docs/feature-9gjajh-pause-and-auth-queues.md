@@ -42,6 +42,6 @@ This module provides two shared, file-backed primitives for cross-workflow coord
 
 ## Decisions
 
-- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
-- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
-- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue
+- [ADR-0025](../docs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0039](../docs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0055](../docs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

@@ -59,4 +59,4 @@ The device lifecycle gives a workflow its own Android emulator and iOS simulator
 
 ## Decisions
 
-- [ADR-0064](../specs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — A `mobile:kotlincm` application type: the repository's cucumber-jvm runner on devices ADW boots per workflow, images judged per platform
+- [ADR-0064](../docs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — A `mobile:kotlincm` application type: the repository's cucumber-jvm runner on devices ADW boots per workflow, images judged per platform

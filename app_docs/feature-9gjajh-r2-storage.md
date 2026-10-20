@@ -35,4 +35,4 @@ Three environment variables are required: `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KE
 
 ## Decisions
 
-- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0022](../docs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker

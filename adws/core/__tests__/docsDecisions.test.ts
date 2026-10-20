@@ -3,28 +3,32 @@ import { findAdrNumbers, parseDecisionLinks } from '../docsDecisions';
 import { ADR_44, ADR_53, DOC, bullets, docWithSection } from './fixtures/decisionDocs';
 
 describe('findAdrNumbers', () => {
-  it('picks the number of a record file directly under specs/adr/', () => {
-    expect([...findAdrNumbers(['specs/adr/0044-a.md', 'specs/adr/0053-b.md'])].sort()).toEqual(['0044', '0053']);
+  it('picks the number of a record file directly under docs/adr/', () => {
+    expect([...findAdrNumbers(['docs/adr/0044-a.md', 'docs/adr/0053-b.md'])].sort()).toEqual(['0044', '0053']);
   });
 
   it.each([
-    'specs/adr/README.md',
-    'specs/adr/sub/0001-x.md',
-    'specs/adr/44-x.md',
-    'specs/adr/0044.md',
-    'specs/adr/0044-x.txt',
+    'docs/adr/README.md',
+    'docs/adr/sub/0001-x.md',
+    'docs/adr/44-x.md',
+    'docs/adr/0044.md',
+    'docs/adr/0044-x.txt',
     'app_docs/0044-x.md',
   ])('ignores %s', (file) => {
     expect(findAdrNumbers([file]).size).toBe(0);
   });
 
-  it('is empty for a repository without specs/adr/', () => {
+  it('ignores a record file left in the retired record directory', () => {
+    expect(findAdrNumbers(['specs/adr/0044-a.md']).size).toBe(0);
+  });
+
+  it('is empty for a repository without docs/adr/', () => {
     expect(findAdrNumbers(['README.md', 'adws/core/a.ts']).size).toBe(0);
   });
 });
 
 describe('parseDecisionLinks', () => {
-  it('extracts the links of the ## Decisions section and resolves ../specs/adr/… against the doc', () => {
+  it('extracts the links of the ## Decisions section and resolves ../docs/adr/… against the doc', () => {
     const links = parseDecisionLinks(DOC, docWithSection(`../${ADR_44}`, `../${ADR_53}`));
 
     expect(links).toEqual([
@@ -40,7 +44,7 @@ describe('parseDecisionLinks', () => {
   });
 
   it('ends the section at the next ## heading but not at a ### heading', () => {
-    const doc = ['## Decisions', '', ...bullets([`../${ADR_44}`]), '', '### Older', '', ...bullets([`../${ADR_53}`]), '', '## Gotchas', '', ...bullets(['../specs/adr/0001-x.md']), ''].join('\n');
+    const doc = ['## Decisions', '', ...bullets([`../${ADR_44}`]), '', '### Older', '', ...bullets([`../${ADR_53}`]), '', '## Gotchas', '', ...bullets(['../docs/adr/0001-x.md']), ''].join('\n');
 
     expect(parseDecisionLinks(DOC, doc).map((l) => l.adr)).toEqual(['0044', '0053']);
   });
@@ -99,43 +103,47 @@ describe('parseDecisionLinks', () => {
   });
 
   it('ignores the ADR index, other docs and URLs that do not end in a record path', () => {
-    const doc = docWithSection('../specs/adr/README.md', 'feature-b.md', 'https://example.com/page.md', '../specs/adr/0044-x.txt');
+    const doc = docWithSection('../docs/adr/README.md', 'feature-b.md', 'https://example.com/page.md', '../docs/adr/0044-x.txt');
 
     expect(parseDecisionLinks(DOC, doc)).toEqual([]);
   });
 
+  it('ignores a link into the retired record directory', () => {
+    expect(parseDecisionLinks(DOC, docWithSection('../specs/adr/0044-x.md'))).toEqual([]);
+  });
+
   it('treats a URL that ends in a record path as a decision link that is not a repository file', () => {
-    const url = 'https://github.com/o/r/blob/dev/specs/adr/0044-x.md';
+    const url = 'https://github.com/o/r/blob/dev/docs/adr/0044-x.md';
 
     const [link] = parseDecisionLinks(DOC, docWithSection(url));
 
     expect(link.adr).toBe('0044');
     expect(link.target).toBe(url);
-    expect(link.resolvedPath).not.toBe('specs/adr/0044-x.md');
+    expect(link.resolvedPath).not.toBe('docs/adr/0044-x.md');
   });
 
   it('reports a link missing its ../ with the path it resolves to from the doc directory', () => {
-    const [link] = parseDecisionLinks(DOC, docWithSection('specs/adr/0044-x.md'));
+    const [link] = parseDecisionLinks(DOC, docWithSection('docs/adr/0044-x.md'));
 
-    expect(link.resolvedPath).toBe('app_docs/specs/adr/0044-x.md');
+    expect(link.resolvedPath).toBe('app_docs/docs/adr/0044-x.md');
   });
 
   it('resolves a root-relative target from the repository root', () => {
-    const [link] = parseDecisionLinks(DOC, docWithSection('/specs/adr/0044-x.md'));
+    const [link] = parseDecisionLinks(DOC, docWithSection('/docs/adr/0044-x.md'));
 
-    expect(link.resolvedPath).toBe('specs/adr/0044-x.md');
+    expect(link.resolvedPath).toBe('docs/adr/0044-x.md');
   });
 
   it('resolves a root-level doc against the root, with no ../', () => {
-    const [link] = parseDecisionLinks('README.md', docWithSection('specs/adr/0044-x.md'));
+    const [link] = parseDecisionLinks('README.md', docWithSection('docs/adr/0044-x.md'));
 
-    expect(link.resolvedPath).toBe('specs/adr/0044-x.md');
+    expect(link.resolvedPath).toBe('docs/adr/0044-x.md');
   });
 
   it('resolves against a nested doc directory', () => {
-    const [link] = parseDecisionLinks('adws/README.md', docWithSection('../specs/adr/0044-x.md'));
+    const [link] = parseDecisionLinks('adws/README.md', docWithSection('../docs/adr/0044-x.md'));
 
-    expect(link.resolvedPath).toBe('specs/adr/0044-x.md');
+    expect(link.resolvedPath).toBe('docs/adr/0044-x.md');
   });
 
   it('reads a doc with CRLF line endings, tilde fences included', () => {

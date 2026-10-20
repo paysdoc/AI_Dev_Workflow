@@ -84,12 +84,12 @@ The test and scenario phases validate the implementation against the project's s
 
 ## Decisions
 
-- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
-- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
-- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
-- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
-- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
-- [ADR-0058](../specs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
-- [ADR-0059](../specs/adr/0059-fix-loops-no-progress-stop-and-suppression-guard.md) — Static-check fixes are retried until they stop making progress and may not suppress; test fix loops keep their caps
-- [ADR-0060](../specs/adr/0060-baseline-gate-on-the-base-branch.md) — A red base branch parks the issue before any work; pre-existing failures are not the fix agent's job
-- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
+- [ADR-0014](../docs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0018](../docs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0031](../docs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0043](../docs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0049](../docs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
+- [ADR-0058](../docs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
+- [ADR-0059](../docs/adr/0059-fix-loops-no-progress-stop-and-suppression-guard.md) — Static-check fixes are retried until they stop making progress and may not suppress; test fix loops keep their caps
+- [ADR-0060](../docs/adr/0060-baseline-gate-on-the-base-branch.md) — A red base branch parks the issue before any work; pre-existing failures are not the fix agent's job
+- [ADR-0062](../docs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review

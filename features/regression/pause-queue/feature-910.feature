@@ -1,7 +1,7 @@
 @regression @pause-queue-reset-time
 Feature: The pause queue waits for the reset time the CLI reported — the pause records it, a pure decider gates every entry on it, the scanner runs no probe before it, and only a confirmed non-rate-limit failure counts a strike, with an eviction that leaves the workflow paused and names ## Retry as the recovery
 
-  Issue #910 is the pause-queue slice of `specs/prd/rate-limit-indefinite-retry.md` (section
+  Issue #910 is the pause-queue slice of `docs/prd/rate-limit-indefinite-retry.md` (section
   "Pause queue", and the reset-time parts of "Wait policy"; user stories 7–10, 12 and 42).
 
   On 2026-09-22 the orchestrator for #840 hit a five-hour session limit at 11:57 UTC. The agent's
@@ -104,7 +104,7 @@ Feature: The pause queue waits for the reset time the CLI reported — the pause
       takes the entry off the queue before the orchestrator is spawned.
   The rest of #911's behaviour is specified in `features/per-issue/feature-911.feature`.
 
-  AMENDED BY #912 (`specs/prd/rate-limit-indefinite-retry.md`, "Wait policy"). #912 puts a pure
+  AMENDED BY #912 (`docs/prd/rate-limit-indefinite-retry.md`, "Wait policy"). #912 puts a pure
   wait policy in front of this file's pause path. The phase runner now waits out a five-hour
   limit with a known reset time in-process, so that limit never reaches the pause queue. Every
   other rejection still takes the pause path specified here, and no scenario in this file

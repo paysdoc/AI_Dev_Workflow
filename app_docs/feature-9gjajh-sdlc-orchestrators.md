@@ -57,11 +57,11 @@ Per-repo configuration (read from the worktree at init time):
 
 ## Decisions
 
-- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
-- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
-- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
-- [ADR-0045](../specs/adr/0045-kpi-module-removed.md) — KPI module removed
-- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
-- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
+- [ADR-0001](../docs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0014](../docs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0024](../docs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0031](../docs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0045](../docs/adr/0045-kpi-module-removed.md) — KPI module removed
+- [ADR-0048](../docs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0062](../docs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review

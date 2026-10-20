@@ -3,7 +3,7 @@ Feature: The stream-json envelope conformance gate comes back to life — green 
 
   Issue #909 revives ADW's only contract with the Claude CLI's stream-json output. Anthropic has
   declined to publish a stable schema for it (claude-code#53516), yet the parent PRD
-  (`specs/prd/rate-limit-indefinite-retry.md`, "Envelope conformance gate") builds the whole
+  (`docs/prd/rate-limit-indefinite-retry.md`, "Envelope conformance gate") builds the whole
   indefinite-retry path on that envelope. The path reads three things from it:
     • the `rate_limit_event` a paused agent is detected by;
     • the error fields of the `result` envelope;

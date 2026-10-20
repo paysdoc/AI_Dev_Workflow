@@ -42,4 +42,4 @@ No configuration file. `CLAUDE_CODE_PATH`, `GITHUB_PAT`, `LOGS_DIR`, and `SPECS_
 
 ## Decisions
 
-- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
+- [ADR-0057](../docs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
