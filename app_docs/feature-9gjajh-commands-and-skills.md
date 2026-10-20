@@ -7,7 +7,9 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 ## Responsibilities
 
 - Define the `prime` command: instructs the agent to read `git ls-files`, `README.md`, `adws/README.md`, and the `conditional_docs.md` guide to orient itself to the codebase before any task.
-- Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/patch`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
+- Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
+- Define `/patch`: returns the complete patch plan (`# Patch: …`, in the plan format) as its response and writes no file. The patch phase forwards the response text to the build agent.
+- Keep `/pull_request` and `/resolve_conflict` off committed `specs/` paths: the PR body never links or names `plan_file` (it is read-only context, and stays `$2` so later positional args keep their indices), and the conflict prompt's incoming-branch intent falls back local plan, then PR body, then `git log`/`git diff --stat`, with no `git show` of the incoming branch's `specs/`.
 - Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands including the `## Test Directory` and `## Test Framework` descriptor fields, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup). It also creates `.github/adw.yml` only when absent (heredoc byte-identical to `ADW_YML_TEMPLATE`) and writes the Comments entry into the target's coding guidelines.
 - Keep `adw_init` from ever detecting `mobile:kotlincm`: step 1 detects only `cli` and `web`, and a mobile app (one that runs on Android or iOS) is undecided, never `cli`. Step 3 preserves a hand-set type verbatim. When the preserved type is `mobile:kotlincm`, `adw_init` writes, even with no manifest:
   - `commands.md`: a Gradle unit-test command (every module's `test` except `:scenarios:test`, JUnit reports merged into `$ADW_UNIT_TEST_REPORT_PATH`; replaces a `## Run Tests` that holds only `N/A`, keeps any other custom command), a Gradle build command that passes while no Gradle wrapper or settings file exists (so the bootstrap issue's baseline is green), and `N/A` for the dev server (keyed on the type step 3 writes).
@@ -25,7 +27,7 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 - Command files with `target: true` in frontmatter are deployed to target repos via `adw_init`; files with `target: false` (or no frontmatter) remain ADW-framework-only.
 - The `$0`, `$1`, `$2`, `$3` positional parameters map to `issueNumber`, `adwId`, `issueJson`, and `frameworkRepoRoot` respectively; these positions are fixed and must not be swapped.
-- Planning commands produce a plan document in `specs/` — they do not modify source code.
+- Planning commands (other than `/patch`) produce a plan document in `specs/`; they do not modify source code. `/patch` writes no file.
 - The `prime` command is a lightweight read-only orientation step; it does not make any changes.
 - Commands that reference `conditional_docs.md` first check `.adw/conditional_docs.md` in the target repo, falling back to `.claude/commands/conditional_docs.md` in the ADW framework.
 

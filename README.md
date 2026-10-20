@@ -583,6 +583,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
 │   │   │   ├── leftoverDevicesHost.ts  # Recording host that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
+│   │   │   ├── leftoverDevicesHost.ts  # Device host fake that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   │   ├── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   │   └── recordingDeviceHost.ts  # Recording device host for the device lifecycle tests: an executor that answers like a host on which the emulator and the simulator boot, a fake clock and a port probe, changed by a script (a command that fails some times before it succeeds, an emulator that exits early, a program that is not installed)
