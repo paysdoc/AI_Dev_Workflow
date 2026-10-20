@@ -9,7 +9,7 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 branchName: $0, default to current branch if not provided
 issue: $1
-plan_file: $2
+plan_file: $2 - path to the implementation plan in the worktree; read it for context when writing the summary (if it exists), never link it
 adwId: $3
 defaultBranch: $4, defaults to the output of `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` if not provided
 repoOwner: $5, the owner of the repository where the issue lives (may be empty for same-repo PRs)
@@ -21,13 +21,13 @@ repoName: $6, the name of the repository where the issue lives (may be empty for
 - Generate a pull request title in the format: `<issue_type>: #<issueNumber> - <issue_title>`
 - The PR body should include:
   - A summary section with the issue context
-  - Link to the implementation `plan_file` if it exists
   - Reference to the issue using BOTH markers on their own lines (the first lets GitHub auto-close the issue on merge; the second is the bare marker ADW's linked-PR detectors match on — emit both):
     - A closing keyword: if `repoOwner` and `repoName` are provided and non-empty, use `Closes repoOwner/repoName#<issueNumber>`; otherwise use `Closes #<issueNumber>`
     - `Implements #<issueNumber>` (always the bare same-repo form, even for cross-repo issues)
   - ADW tracking ID
   - A checklist of what was done
   - A summary of key changes made
+- Do not link or name `plan_file`, or any other path under `specs/`, in the PR body: plan files exist only in the worktree and are never committed.
 - Extract issue number, type, and title from the issue JSON
 - Examples of PR titles:
   - `feat: #123 - Add user authentication`

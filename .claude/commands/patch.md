@@ -3,7 +3,7 @@ target: false
 ---
 # Patch Plan
 
-Create a **focused patch plan** to resolve a specific issue based on the `reviewChangeRequest`. Follow the `Instructions` to create a concise plan that addresses the issue with minimal, targeted changes.
+Return a **focused patch plan** in your response to resolve a specific issue based on the `reviewChangeRequest`. Follow the `Instructions` to write a concise plan that addresses the issue with minimal, targeted changes.
 
 ## Variables
 
@@ -19,8 +19,7 @@ issueScreenshots: $4 (optional) - commaSeparated list of screenshot paths if pro
 - Read the original specification (spec) file at `specPath` if provided to understand the context and requirements.
 - Use the `reviewChangeRequest` as the basis for your patch plan.
 - If `issueScreenshots` are provided, examine them to better understand the visual context of the issue.
-- Create the patch plan in `specs/patch/` directory with filename: `patch-adw-{adwId}-{descriptive-name}.md`
-  - Replace `{descriptive-name}` with a short name based on the issue (e.g., "fix-button-color", "update-validation", "correct-layout")
+- IMPORTANT: Do not write the patch plan to a file. Write no file in the `specs` directory, or anywhere else. Your final response is the patch plan: the build agent receives that response text as its plan.
 - IMPORTANT: This is a PATCH — keep the scope minimal. Only fix what's described in the `reviewChangeRequest` and nothing more.
 - Before detailing the implementation, consider multiple approaches and pick the one with the fewest code changes.
 - Run `git diff --stat` to understand what's been done in the codebase.
@@ -89,5 +88,5 @@ Execute every command to validate the patch is complete with zero regressions.
 ```
 
 ## Report
-- Summarize the work you've just done in a concise bullet point list.
-- Include the full path to the patch plan file you created (e.g., `specs/patch/patch-adw-abc123-fix-button-color.md`)
+- Return ONLY the complete patch plan, in the `Plan Format` markdown above and not wrapped in a code fence. It begins with the `# Patch: <concise patch title>` heading and has every placeholder filled in.
+- Add no preamble, summary, or trailing commentary: your entire response is used verbatim as the plan.
