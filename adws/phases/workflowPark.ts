@@ -1,5 +1,5 @@
 import { log, AgentStateManager } from '../core';
-import { buildParkComment, type ParkEvidence } from '../forge/parkComment';
+import { buildParkComment, parkStage, type ParkEvidence } from '../forge/parkComment';
 import type { WorkflowConfig } from './workflowInit';
 
 type ParkConfig = Pick<WorkflowConfig, 'adwId' | 'issueNumber' | 'orchestratorStatePath' | 'repoContext'>;
@@ -20,11 +20,12 @@ function postParkComment(config: ParkConfig, evidence: ParkEvidence): void {
  * re-arms it. The board and the labels stay as they are, as with the other human-gated parks.
  */
 export function parkWorkflow(config: ParkConfig, evidence: ParkEvidence): never {
-  const message = `Workflow parked as human_gated: ${evidence.reason}`;
+  const stage = parkStage(evidence.reason);
+  const message = `Workflow parked as ${stage}: ${evidence.reason}`;
   log(message, 'warn');
   AgentStateManager.appendLog(config.orchestratorStatePath, message);
   // Written before the comment is posted: whoever sees the comment and then reads the state must find it.
-  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'human_gated', parkReason: evidence.reason });
+  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: stage, parkReason: evidence.reason });
   postParkComment(config, evidence);
   process.exit(0);
 }

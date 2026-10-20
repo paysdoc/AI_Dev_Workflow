@@ -23,7 +23,7 @@ const WAIVABLE = [ParkReason.BaselineRed, ParkReason.BaseServerDown, ParkReason.
 const NOT_WAIVABLE = [ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed, 'a_future_park'];
 const NOT_PARKED_STAGES = [
   'phase_timeout', 'paused', 'paused_auth', 'awaiting_merge', 'merge_blocked',
-  'review_failed', 'build_running', 'completed', 'abandoned',
+  'review_failed', 'worktree_lost', 'build_running', 'completed', 'abandoned',
 ];
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
@@ -66,6 +66,10 @@ describe('decideContinueAction', () => {
 
   it.each(NOT_WAIVABLE)('is not a baseline park when human_gated for %s', (parkReason) => {
     expect(decideContinueAction({ workflowStage: 'human_gated', parkReason })).toEqual({ kind: 'not_a_baseline_park' });
+  });
+
+  it('is not a baseline park when the plan was lost with the worktree, since a waiver cannot bring the plan back', () => {
+    expect(decideContinueAction({ workflowStage: 'worktree_lost', parkReason: ParkReason.WorktreeLost })).toEqual({ kind: 'not_a_baseline_park' });
   });
 
   it('is not a baseline park when human_gated without a recorded park reason', () => {

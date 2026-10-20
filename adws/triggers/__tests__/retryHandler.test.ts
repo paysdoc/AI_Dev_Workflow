@@ -149,6 +149,27 @@ describe('handleRetryDirective', () => {
     });
   });
 
+  it('re-arms worktree_lost → phase_timeout with resumeAttempts:0 and returns true', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'worktree_lost', parkReason: 'worktree_lost', resumeAttempts: 1 }));
+
+    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(result).toBe(true);
+    expect(deps.writeTopLevelState).toHaveBeenCalledOnce();
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', {
+      workflowStage: 'phase_timeout',
+      resumeAttempts: 0,
+    });
+  });
+
+  it('names the stage it re-arms from in its log line', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'worktree_lost' }));
+
+    handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('worktree_lost → phase_timeout'), 'success');
+  });
+
   it('does not write and returns false when workflowStage is review_passed', () => {
     const deps = makeDeps(makeState({ workflowStage: 'review_passed' }));
 
@@ -176,6 +197,7 @@ describe('decideRetryAction', () => {
     ['merge_blocked', { kind: 'reset_merge_blocked' }],
     ['human_gated', { kind: 'rearm_phase_timeout', from: 'human_gated' }],
     ['review_failed', { kind: 'rearm_phase_timeout', from: 'review_failed' }],
+    ['worktree_lost', { kind: 'rearm_phase_timeout', from: 'worktree_lost' }],
     ['paused', { kind: 'resume_paused' }],
     ['paused_auth', { kind: 'noop', reason: 'paused_auth' }],
     ['starting', { kind: 'noop', reason: 'active' }],

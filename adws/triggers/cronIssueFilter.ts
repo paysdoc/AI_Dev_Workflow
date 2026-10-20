@@ -124,6 +124,12 @@ export function evaluateIssue(
     return { eligible: false, reason: 'review_failed' };
   }
 
+  // worktree_lost bypasses grace period — the plan went with a removed worktree. Never auto-spawned,
+  // so the planner never runs again on its own; `## Retry` re-arms it to phase_timeout.
+  if (resolution.stage === 'worktree_lost') {
+    return { eligible: false, reason: 'worktree_lost' };
+  }
+
   const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
   if (now - activityMs < gracePeriodMs) {
     return { eligible: false, reason: 'grace_period' };

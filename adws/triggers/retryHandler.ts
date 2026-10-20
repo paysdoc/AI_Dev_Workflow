@@ -1,8 +1,10 @@
 /**
- * Four recovery paths, decided by decideRetryAction:
+ * Five recovery paths, decided by decideRetryAction:
  *   merge_blocked  → awaiting_merge  (clears mergeRetryCount)
  *   human_gated    → phase_timeout   (re-arms resumeAttempts to 0)
  *   review_failed  → phase_timeout   (re-arms resumeAttempts to 0; review re-runs)
+ *   worktree_lost  → phase_timeout   (re-arms resumeAttempts to 0; the resumed run parks
+ *                                      again while the plan is still missing)
  *   paused         → drops any pause-queue entry for the adwId, respawns the
  *                     orchestrator resolveResumeSpawn resolves from top-level
  *                     state, and posts the resumed comment
@@ -28,7 +30,7 @@ import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 
 export type RetryAction =
   | { readonly kind: 'reset_merge_blocked' }
-  | { readonly kind: 'rearm_phase_timeout'; readonly from: 'human_gated' | 'review_failed' }
+  | { readonly kind: 'rearm_phase_timeout'; readonly from: 'human_gated' | 'review_failed' | 'worktree_lost' }
   | { readonly kind: 'resume_paused' }
   | { readonly kind: 'noop'; readonly reason: 'no_state' | 'paused_auth' | 'active' | 'not_retriable' };
 
@@ -38,6 +40,7 @@ export function decideRetryAction(stage: string | undefined): RetryAction {
   if (stage === 'merge_blocked') return { kind: 'reset_merge_blocked' };
   if (stage === 'human_gated') return { kind: 'rearm_phase_timeout', from: 'human_gated' };
   if (stage === 'review_failed') return { kind: 'rearm_phase_timeout', from: 'review_failed' };
+  if (stage === 'worktree_lost') return { kind: 'rearm_phase_timeout', from: 'worktree_lost' };
   if (stage === 'paused') return { kind: 'resume_paused' };
   if (stage === 'paused_auth') return { kind: 'noop', reason: 'paused_auth' };
   if (classifyStageString(stage) === 'active') return { kind: 'noop', reason: 'active' };

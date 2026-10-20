@@ -10,6 +10,7 @@ import { join } from 'path';
 
 import type { PhaseCostRecord } from '../../../adws/cost/index.ts';
 import { OrchestratorId } from '../../../adws/core/index.ts';
+import type { RecoveryState } from '../../../adws/types/workflowTypes.ts';
 import { CostTracker, runPhase } from '../../../adws/core/phaseRunner.ts';
 import { readSpawnLockRecord } from '../../../adws/triggers/spawnGate.ts';
 import { executeDepauditSetup } from '../../../adws/phases/depauditSetup.ts';
@@ -82,14 +83,20 @@ export async function withExitTrap<T>(run: () => Promise<T>): Promise<Trapped<T>
   }
 }
 
+/** A surface row runs a fresh workflow, unless it hands the phase what recovery read from an earlier run's comments. */
+function withRecoveryState(config: WorkflowConfig, recoveryState: RecoveryState | undefined): WorkflowConfig {
+  return recoveryState ? { ...config, recoveryState } : config;
+}
+
 async function runDefinedPhase(
   world: RegressionWorld,
   adwId: string,
   orchestrator: string,
   phase: string,
   { fn, phaseName }: PhaseDefinition,
+  recoveryState?: RecoveryState,
 ): Promise<PhaseOutcome> {
-  const config = buildPhaseConfig(world, adwId, orchestrator);
+  const config = withRecoveryState(buildPhaseConfig(world, adwId, orchestrator), recoveryState);
   deliverStubManifest(world, config.worktreePath);
   restoreUnitReportPathOnCleanup(world);
 
@@ -100,12 +107,18 @@ async function runDefinedPhase(
 }
 
 /** The definition is looked up first, so an unknown name fails before anything is written. */
-export async function runSurfacePhase(world: RegressionWorld, adwId: string, orchestrator: string, phase: string): Promise<PhaseOutcome> {
-  return runDefinedPhase(world, adwId, orchestrator, phase, phaseDefinition(orchestrator, phase));
+export async function runSurfacePhase(
+  world: RegressionWorld,
+  adwId: string,
+  orchestrator: string,
+  phase: string,
+  recoveryState?: RecoveryState,
+): Promise<PhaseOutcome> {
+  return runDefinedPhase(world, adwId, orchestrator, phase, phaseDefinition(orchestrator, phase), recoveryState);
 }
 
-export async function runDirectSurfacePhase(world: RegressionWorld, adwId: string, phase: string): Promise<PhaseOutcome> {
-  return runDefinedPhase(world, adwId, DIRECT_PHASE_ORCHESTRATOR, phase, directPhaseDefinition(phase));
+export async function runDirectSurfacePhase(world: RegressionWorld, adwId: string, phase: string, recoveryState?: RecoveryState): Promise<PhaseOutcome> {
+  return runDefinedPhase(world, adwId, DIRECT_PHASE_ORCHESTRATOR, phase, directPhaseDefinition(phase), recoveryState);
 }
 
 export async function runSurfaceLifecycle(world: RegressionWorld, adwId: string, orchestrator: string): Promise<LifecycleOutcome> {
