@@ -66,7 +66,6 @@ export function classifyStage(stage: WorkflowStage): StageClass {
     case 'plan_building':
     case 'plan_created':
     case 'planFile_created':
-    case 'plan_committing':
     case 'build_progress':
     case 'build_completed':
     case 'build_committing':

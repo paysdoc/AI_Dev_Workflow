@@ -42,7 +42,7 @@ import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
-import { copyClaudeAssetsToWorktree } from './worktreeSetup';
+import { copyClaudeAssetsToWorktree, ignoreSpecsInWorktree } from './worktreeSetup';
 import { recordStartupFailure } from './startupFailureLog';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
@@ -285,6 +285,7 @@ async function initializeWorkflowSteps(
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath, gitCtx);
+    ignoreSpecsInWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
@@ -308,6 +309,8 @@ async function initializeWorkflowSteps(
         worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
         copyClaudeAssetsToWorktree(worktreePath, gitCtx);
         gitCtx.fetchAndResetToRemote(defaultBranch, worktreePath);
+        // After the reset, which restores the tracked .gitignore and would discard the entry.
+        ignoreSpecsInWorktree(worktreePath);
       }
     }
     log(`Worktree path: ${worktreePath}`, 'info');

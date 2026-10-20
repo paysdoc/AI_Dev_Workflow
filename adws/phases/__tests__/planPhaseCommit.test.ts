@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { GitContext, createLiteralTokenProvider } from '@paysdoc/devplatform/git';
 import { detectRecoveryState } from '../../core';
 import { executePlanPhase } from '../planPhase';
+import { ignoreSpecsInWorktree } from '../worktreeSetup';
 import type { WorkflowConfig } from '../workflowInit';
 
 const mockRunPlanAgent = vi.hoisted(() => vi.fn());
@@ -15,7 +16,7 @@ vi.mock('../../agents', async (importOriginal) => ({
   runPlanAgent: mockRunPlanAgent,
 }));
 
-describe('executePlanPhase — the plan commit', () => {
+describe('executePlanPhase — the plan stays in the worktree', () => {
   const PLAN_FILE = 'specs/issue-7-adw-abc123-sdlc_planner-plan.md';
   const PROMPT = '.claude/commands/scenario_writer.md';
   const planAgentResult = { success: true, output: 'plan written', totalCostUsd: 0.01, modelUsage: {} };
@@ -59,6 +60,7 @@ describe('executePlanPhase — the plan commit', () => {
     git('config user.email "test@adw.local"');
     git('config user.name "ADW Test"');
     write('README.md', 'readme\n');
+    write('.gitignore', 'node_modules/\n');
     write(PROMPT, 'branch copy\n');
     git('add -A');
     git('commit -q -m init');
@@ -75,36 +77,40 @@ describe('executePlanPhase — the plan commit', () => {
     fs.rmSync(stateDir, { recursive: true, force: true });
   });
 
-  it('fails the phase naming the path when the planner changes a prompt, and adds no commit', async () => {
+  it('leaves the plan in the worktree and adds no commit to the branch', async () => {
     mockRunPlanAgent.mockImplementation(async () => {
       write(PLAN_FILE, '# Plan\n');
+      return planAgentResult;
+    });
+    const headBefore = git('rev-parse HEAD');
+
+    await executePlanPhase(planConfig());
+
+    expect(git('rev-parse HEAD')).toBe(headBefore);
+    expect(git('log --format=%H -- specs/')).toBe('');
+    expect(fs.readFileSync(path.join(repo, PLAN_FILE), 'utf-8')).toBe('# Plan\n');
+  });
+
+  it('leaves the planner\'s other changes uncommitted, whatever they touch', async () => {
+    mockRunPlanAgent.mockImplementation(async () => {
+      write(PLAN_FILE, '# Plan\n');
+      write('docs/notes.md', 'notes\n');
+      write('README.md', 'readme, edited\n');
       write(PROMPT, 'planner rewrote this prompt\n');
       return planAgentResult;
     });
     const headBefore = git('rev-parse HEAD');
 
-    await expect(executePlanPhase(planConfig())).rejects.toThrow(PROMPT);
+    await executePlanPhase(planConfig());
 
     expect(git('rev-parse HEAD')).toBe(headBefore);
+    expect(git('status --porcelain --untracked-files=all').split('\n').sort()).toEqual(
+      [` M ${PROMPT}`, ' M README.md', '?? docs/notes.md', `?? ${PLAN_FILE}`].sort(),
+    );
   });
 
-  it('commits the plan file and nothing else, leaving the planner\'s other changes uncommitted', async () => {
-    mockRunPlanAgent.mockImplementation(async () => {
-      write(PLAN_FILE, '# Plan\n');
-      write('docs/notes.md', 'notes\n');
-      write('README.md', 'readme, edited\n');
-      return planAgentResult;
-    });
-
-    await executePlanPhase(planConfig());
-
-    expect(git('show --name-only --format= HEAD')).toBe(PLAN_FILE);
-    expect(git('log -1 --format=%s')).toBe('plan-orchestrator: feat: add plan for issue #7');
-    expect(git('status --porcelain --untracked-files=all').split('\n').sort()).toEqual([' M README.md', '?? docs/notes.md']);
-  });
-
-  it('does not fail on a prompt change that was already in the worktree when the phase began, and does not commit it', async () => {
-    write(PROMPT, 'stale copy left by worktree setup\n');
+  it('leaves the plan ignored by git in a worktree that worktree setup prepared', async () => {
+    ignoreSpecsInWorktree(repo);
     mockRunPlanAgent.mockImplementation(async () => {
       write(PLAN_FILE, '# Plan\n');
       return planAgentResult;
@@ -112,7 +118,7 @@ describe('executePlanPhase — the plan commit', () => {
 
     await executePlanPhase(planConfig());
 
-    expect(git('show --name-only --format= HEAD')).toBe(PLAN_FILE);
-    expect(git('status --porcelain')).toBe(` M ${PROMPT}`);
+    expect(git('status --porcelain --untracked-files=all')).toBe(' M .gitignore');
+    expect(fs.existsSync(path.join(repo, PLAN_FILE))).toBe(true);
   });
 });

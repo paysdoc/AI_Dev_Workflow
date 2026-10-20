@@ -3,6 +3,7 @@ import {
   isRetryComment,
   isCancelComment,
   RETRY_COMMENT_PATTERN,
+  ADW_SIGNATURE,
   parseWorkflowStageFromComment,
   extractPlanPathFromComment,
   detectRecoveryState,
@@ -117,5 +118,25 @@ describe('detectRecoveryState — plan path', () => {
 
     expect(state.planPath).toBe(CURRENT_PLAN_PATH);
     expect(state.lastCompletedStage).toBe('build_running');
+  });
+});
+
+describe('detectRecoveryState — a run that posted the retired "Committing Plan" comment', () => {
+  // The formatter is gone, so the body a run on the previous release posted is spelled out here.
+  const committingPlanBody = `## :floppy_disk: Committing Plan\n\nCommitting implementation plan to branch...\n\n**ADW ID:** \`${ADW_ID}\`${ADW_SIGNATURE}`;
+
+  it('reads the retired heading as no stage', () => {
+    expect(parseWorkflowStageFromComment(committingPlanBody)).toBeNull();
+  });
+
+  it('resumes after plan_created and keeps the plan path', () => {
+    const state = detectRecoveryState([
+      issueComment(planCreatedBody(CURRENT_PLAN_PATH), '2026-10-20T10:00:00Z'),
+      issueComment(committingPlanBody, '2026-10-20T10:01:00Z'),
+    ]);
+
+    expect(state.lastCompletedStage).toBe('plan_created');
+    expect(state.canResume).toBe(true);
+    expect(state.planPath).toBe(CURRENT_PLAN_PATH);
   });
 });

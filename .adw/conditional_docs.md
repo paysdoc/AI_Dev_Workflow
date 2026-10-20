@@ -224,8 +224,8 @@
     - When working on the promoted rate-limit detection scenario (`features/regression/rate-limit/feature-907.feature`, `feature-907.steps.ts`, `@rate-limit-detection`, vocabulary phrases W-RD1/T-RD1–11) covering the limit type and reset time carried through the stream parser, `RateLimitError` and the pause-queue probe, authentication failures reported as confirmed failures, and the order-independent `CLAUDE_CODE_PATH` restore
     - When working on the promoted in-process rate-limit wait scenario (`features/regression/rate-limit/feature-912.feature`, `feature-912.steps.ts`, `@rate-limit-in-process-wait`, vocabulary phrases G-RW/W-RW/T-RW) covering the wait policy, announced waits, heartbeat and spawn lock liveness while waiting, and the pause-path fallback, or the hung-detector probe's timing (`TEST_HUNG_THRESHOLD_MS`, `WAIT_SUSPEND_REAL_MS`, the `setImmediate` yield before the probe, flaky `not reported hung` failures in the Docker leg)
     - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
-    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5, T-SP6/T-SP7), or the `<name>-smoke-<N>` adwId shape
-    - When working on the promoted plan-commit scenario (`features/regression/plan-commit/feature-930.feature`, `@plan-commit-guard`) or its relocated step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
+    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5), or the `<name>-smoke-<N>` adwId shape
+    - When working on the promoted plan-worktree scenario (`features/regression/plan-commit/feature-930.feature`, `@plan-worktree-only`) or its step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
     - When working on the promoted cost-records scenario (`features/regression/cost/feature-936.feature`, `@cost-records`): its `feature-936-*` step definitions, the `drivers/feature-936-*-driver.ts` child processes, reported vs computed cost, the cost API's `reported_cost_usd`/`computed_cost_usd`, or Worker deploy change detection
     - When working on the promoted dead-orchestrator takeover scenario (`features/regression/takeover/feature-959.feature`, `@dead-orchestrator-takeover`), its `feature-959*` step definitions, the shared `feature-796.steps.ts`/`feature-820.steps.ts`/`feature-932-world.ts` now in `features/regression/step_definitions/`, or vocabulary phrases G-DT/W-DT/T-DT
     - When the Background phrase G18 `the ADW codebase is checked out` is undefined or ambiguous, or a `.feature` file sits outside the `cucumber.js` paths and never runs
@@ -256,8 +256,6 @@
     - adws/phases/__tests__/planPhase.test.ts
     - adws/phases/buildPhase.ts
     - adws/phases/planPhase.ts
-    - adws/phases/planCommitGuard.ts
-    - adws/phases/__tests__/planCommitGuard*.test.ts
     - adws/phases/__tests__/planPhaseCommit.test.ts
     - adws/phases/planValidationPhase.ts
     - adws/phases/installPhase.ts
@@ -265,7 +263,7 @@
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
-    - When working on the plan commit (plan-file-only commit, `PlanCommitGuardError`, `capturePlanPhaseBaseline`, `assertPlanPhaseLeftOffLimitsAlone`, `commitPlanFileOnly`) or troubleshooting a plan phase that fails because `.claude/` or `.adw/` changed
+    - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
   - Decisions:
     - 0023
     - 0024
@@ -285,7 +283,7 @@
     - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
     - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
     - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
-    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
+    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, `ignoreSpecsInWorktree` (the runtime `specs/` ignore), or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)

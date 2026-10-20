@@ -34,7 +34,6 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
   plan_building:           'resumable',
   plan_created:            'resumable',
   planFile_created:        'resumable',
-  plan_committing:         'resumable',
   build_progress:          'resumable',
   build_completed:         'resumable',
   build_committing:        'resumable',

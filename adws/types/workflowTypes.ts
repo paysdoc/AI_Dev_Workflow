@@ -6,7 +6,6 @@ export type WorkflowStage =
   | 'plan_building'
   | 'plan_created'
   | 'planFile_created'
-  | 'plan_committing'
   | 'build_running'
   | 'build_progress'
   | 'build_completed'

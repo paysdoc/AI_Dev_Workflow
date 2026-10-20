@@ -12,7 +12,7 @@
       "edits": [
         {
           "path": ".adw-stub-payload.json",
-          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"verdict\\\":\\\"safe\\\",\\\"reason\\\":\\\"The surface diff adds only a plan file.\\\"}\"}]\n"
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"verdict\\\":\\\"safe\\\",\\\"reason\\\":\\\"The surface diff adds only a scenario file.\\\"}\"}]\n"
         }
       ]
     }
