@@ -24,7 +24,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Branch-name guard** — `checkBranchNames.ts` (`bun run lint:branch-names`, wired into `.github/workflows/git-cli-guard.yml`) fails when non-test code or markdown under `adws/`, or a slash command under `.claude/commands/`, writes `main`, `master`, `dev` or `develop` down as a branch to act on. That covers a literal name, an `origin/<name>` or `refs/heads/<name>` ref, a backticked name, a "<name> branch" phrase, or the words `master`/`develop`. Code resolves the base branch from the code host at run time (ADR-0019), and `.github/dependabot.yml` is the one file allowed to name it.
 - **Model-literal guard** — `checkModelLiterals.ts` (`bun run lint:model-literals`) fails when a call site under `adws/` or `scripts/` names a model literally instead of routing through `core/modelRouting.ts`, keeping model/effort choice in one place.
 - **Target-repo agent guardrails injection** — every target-repo `claude` spawn gets a `--settings` injection. `resolveGuardrailsDecision` (`guardrailsGate.ts`) withholds it only for the `ADW_TARGET_GUARDRAILS=off` kill switch, a self-host run, or a failed memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking; there is no per-repository switch. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
-- **Plan-phase off-limits guard** — `planCommitGuard.ts` snapshots `.claude/` and `.adw/` (content hashes plus HEAD) before the planner runs, throws `PlanCommitGuardError` if the planner modified or committed anything there, and commits only the plan file.
+- **Worktree-only plans** — worktree setup (`ignoreSpecsInWorktree`, `adws/phases/worktreeSetup.ts`) appends `specs/` to the tracked `.gitignore` of each worktree it creates, so a plan stays in the worktree that wrote it, where the later phases read it by path, and no commit carries it. The plan phase commits nothing.
 - **Stateless pipeline agents** — every `claude` process ADW starts runs under one shared launch environment, `buildClaudeLaunchEnv()` (`adws/core/environment.ts`): the allowlisted variables, then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, so no caller can turn memory back on. That covers the pipeline agents, the rate-limit, JSONL-schema and guardrails probes, both `claude auth status` checks and the health check's `claude --version`. No such process ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for. Providers are assembled by `@paysdoc/devplatform/providers`'s `forgeProviders()` — the library's one public entry point, refusing an unknown forge name or a mismatched `gitContext` by name before constructing anything — called from `adws/core/launchGitContext.ts`'s `buildLaunchBoundary`, ADW's only production caller. Since issue #840, `adws/providers/` and `adws/gitContext/` no longer exist in this repo at all: the port/domain model, the forge adapters, and the git core they used to hold now live in `@paysdoc/devplatform` (three entry points — `@paysdoc/devplatform` for ports/domain model, `@paysdoc/devplatform/providers` for `forgeProviders()`/adapters, `@paysdoc/devplatform/git` for `GitContext`). `adws/github/` was already gone before that, deleted in #823 along with `adws/providers/repoContext.ts`, the last in-tree file that constructed a `GitContext` outside the launch boundary. The ADW-application helpers that used to sit atop the old free-function layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) live in `adws/forge/`; ADW's own environment-to-config wiring for the forge adapters lives in `adws/core/forgeWiring.ts`.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
@@ -583,7 +583,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
 │   │   │   ├── leftoverDevicesHost.ts  # Recording host that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
-│   │   │   ├── leftoverDevicesHost.ts  # Device host fake that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   │   ├── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
 │   │   │   └── recordingDeviceHost.ts  # Recording device host for the device lifecycle tests: an executor that answers like a host on which the emulator and the simulator boot, a fake clock and a port probe, changed by a script (a command that fails some times before it succeeds, an emulator that exits early, a program that is not installed)
@@ -869,7 +868,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
-│   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
 │   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
 │   │   ├── applicationTypeGate.helpers.ts
 │   │   ├── applicationTypeGate.park.test.ts
@@ -889,8 +887,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
-│   │   ├── planCommitGuard.test.ts
-│   │   ├── planCommitGuardPhase.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
 │   │   ├── preExistingRegressionGate.devices.test.ts
@@ -962,7 +958,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── installPhase.ts # Install phase implementation
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
-│   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through; for a profile with platforms it re-runs them on an emulator and a simulator created for the re-run and removed after it, and parks `device_boot_failed` when a device does not boot (createPreExistingRegressionGate)
@@ -997,7 +992,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check). The launch boundary is the only source of forge providers: defaultBranch comes from boundary.providers.codeHost, and exported resolveWorkflowProviders(boundary, callerRepoId?) decides identity/provider reuse — a caller-supplied repoId that contradicts the boundary is refused (throws) rather than served a second, ad-hoc-minted provider set (#796)
 │   ├── workflowPark.ts  # parkWorkflow — a deliberate human-gated stop with a park comment; `## Retry` re-arms it
 │   ├── workflowRepoIdentity.ts  # resolveWorkflowRepoId(config) — repoContext.repoId → gitContext → targetRepo precedence, replacing every phase's own `?? getRepoInfo()` wrong-repo fallback (#820)
-│   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
+│   └── worktreeSetup.ts  # Gitignore and worktree setup helpers, including the runtime `specs/` ignore
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
 │   ├── dataTypes.ts
@@ -1311,7 +1306,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
-│   ├── plan-commit/    # Regression scenarios covering the plan commit that carries only the plan file, the plan-phase guard on .claude/ and .adw/, and worktree setup leaving the framework's own tracked Claude assets as the branch has them (#930)
+│   ├── plan-commit/    # One regression scenario proving the plan phase leaves the plan in the worktree and no commit on the branch touches `specs/`
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
@@ -1329,7 +1324,7 @@ features/               # BDD feature files (Gherkin .feature)
 docs/                   # Durable design records
 ├── adr/                # Architecture Decision Records, one per design decision (index: docs/adr/README.md)
 └── prd/                # Product requirement documents
-specs/                  # Per-run implementation plans written by the plan agent
+specs/                  # Per-run implementation plans, ignored at runtime by worktree setup, so each lives only in the worktree that wrote it
 scripts/                # Standalone operational scripts
 └── guardrails-probe.ts # Startup probe run as a subprocess by guardrailsGate.ts to verify target-repo guardrails injection is safe before use
 .env.sample             # Environment variable template

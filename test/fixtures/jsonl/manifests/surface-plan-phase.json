@@ -16,7 +16,7 @@
         },
         {
           "path": "specs/issue-1002-adw-surface-02-sdlc_planner-surface-plan-phase.md",
-          "contents": "# Implementation Plan: surface plan phase\n\n## Steps\n1. Add the surface plan-phase stub\n2. Run the plan phase in-process\n3. Commit the plan\n"
+          "contents": "# Implementation Plan: surface plan phase\n\n## Steps\n1. Add the surface plan-phase stub\n2. Run the plan phase in-process\n"
         }
       ]
     }

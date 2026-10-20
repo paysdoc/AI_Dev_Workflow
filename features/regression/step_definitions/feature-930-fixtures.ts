@@ -1,6 +1,7 @@
 /**
- * Git fixtures for feature-930.feature: real temporary repositories and a real GitContext, so
- * the scenarios assert on what git recorded rather than on what a mock was called with.
+ * Git fixtures for feature-930.feature and the per-issue scenarios of feature-1077.feature that share
+ * its steps: real temporary repositories and a real GitContext, so the scenarios assert on what git
+ * recorded rather than on what a mock was called with.
  */
 
 import { execFileSync } from 'child_process';
@@ -45,6 +46,10 @@ export function readRepoFile(dir: string, relPath: string): string {
   return fs.readFileSync(path.join(dir, relPath), 'utf-8');
 }
 
+export function repoFileExists(dir: string, relPath: string): boolean {
+  return fs.existsSync(path.join(dir, relPath));
+}
+
 /** Staged, unstaged and untracked paths; untracked directories are expanded to their files. */
 export function uncommittedPaths(dir: string): string[] {
   return git(dir, 'status', '--porcelain', '--untracked-files=all')
@@ -55,10 +60,6 @@ export function uncommittedPaths(dir: string): string[] {
 
 export function commitsSince(dir: string, base: string): string[] {
   return git(dir, 'rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean);
-}
-
-export function pathsInCommit(dir: string, sha: string): string[] {
-  return git(dir, 'show', '--name-only', '--no-renames', '--format=', sha).split('\n').filter(Boolean);
 }
 
 export function newGitContext(owner: string, repo: string, root: string): GitContext {

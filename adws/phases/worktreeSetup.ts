@@ -13,11 +13,20 @@ export const REQUIRED_ADW_FILES = [
   'scenarios.md',
 ] as const;
 
+const SLASH_COMMANDS_GITIGNORE_COMMENT = '# ADW: copied slash commands (do not commit)';
+
+export const SPECS_GITIGNORE_ENTRY = 'specs/';
+const SPECS_GITIGNORE_COMMENT = '# ADW: per-run plans stay in the worktree that wrote them (do not commit)';
+
 /**
  * Creates the `.gitignore` file if it doesn't exist. Idempotent — safe to call
  * multiple times without duplicating the entry.
  */
-export function ensureGitignoreEntry(worktreePath: string, entry: string): void {
+export function ensureGitignoreEntry(
+  worktreePath: string,
+  entry: string,
+  comment: string = SLASH_COMMANDS_GITIGNORE_COMMENT,
+): void {
   const gitignorePath = path.join(worktreePath, '.gitignore');
   const existing = fs.existsSync(gitignorePath)
     ? fs.readFileSync(gitignorePath, 'utf-8')
@@ -29,7 +38,6 @@ export function ensureGitignoreEntry(worktreePath: string, entry: string): void 
     return;
   }
 
-  const comment = '# ADW: copied slash commands (do not commit)';
   const hasComment = lines.includes(comment);
   const suffix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
   const appendContent = hasComment
@@ -60,12 +68,15 @@ export function ensureGitignoreEntries(worktreePath: string, entries: readonly s
     return;
   }
 
-  const comment = '# ADW: copied slash commands (do not commit)';
   const suffix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
-  const appendContent = `${suffix}${comment}\n${newEntries.join('\n')}\n`;
+  const appendContent = `${suffix}${SLASH_COMMANDS_GITIGNORE_COMMENT}\n${newEntries.join('\n')}\n`;
 
   fs.writeFileSync(gitignorePath, existing + appendContent, 'utf-8');
   log(`Added ${newEntries.length} gitignore entr${newEntries.length === 1 ? 'y' : 'ies'} to ${gitignorePath}`, 'info');
+}
+
+export function ignoreSpecsInWorktree(worktreePath: string): void {
+  ensureGitignoreEntry(worktreePath, SPECS_GITIGNORE_ENTRY, SPECS_GITIGNORE_COMMENT);
 }
 
 /** Returns `false` if the file doesn't exist, has no frontmatter, or the `target` field is absent/false. */

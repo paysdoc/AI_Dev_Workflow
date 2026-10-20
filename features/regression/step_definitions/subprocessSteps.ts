@@ -12,6 +12,7 @@ import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
 import { createRemoteBranch } from '../support/fixtureTargetRepo.ts';
+import { realGit } from '../support/fixtureWorktree.ts';
 import { harnessOrchestrator, isLaunchOf, isOrchestratorLaunch } from '../support/harnessOrchestrators.ts';
 import { describeLaunches, recordedLaunches } from '../support/launchRecorder.ts';
 import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
@@ -28,6 +29,15 @@ function seededIssueFields(world: RegressionWorld): { issueNumber?: number } {
 
 function lastLines(output: string): string {
   return output.trim().split('\n').slice(-OUTPUT_TAIL_LINES).join('\n');
+}
+
+function branchExists(workspacePath: string, branch: string): boolean {
+  try {
+    realGit(workspacePath, 'rev-parse', '--verify', '--quiet', `refs/heads/${branch}`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 Given(
@@ -82,6 +92,19 @@ Then('the mock GitHub API recorded a merge of PR {int}', function (this: Regress
 Then("the orchestrator subprocess's output contains {string}", function (this: RegressionWorld, text: string) {
   assert.ok(this.lastOutput.includes(text), `Expected the process's output to contain "${text}". Last output:\n${lastLines(this.lastOutput)}`);
 });
+
+Then(
+  'the branch of the workflow for adwId {string} has no commit touching {string}',
+  function (this: RegressionWorld, adwId: string, relPath: string) {
+    const { workspacePath } = requireHarness(this);
+    assert.ok(workspacePath, 'Expected the subprocess harness to hold the target workspace the run worked in');
+    const branch = AgentStateManager.readTopLevelState(adwId)?.branchName;
+    assert.ok(branch, `Expected the state file for adwId "${adwId}" to record a branchName`);
+    assert.ok(branchExists(workspacePath, branch), `Expected the workspace to hold the branch "${branch}"`);
+    const touching = realGit(workspacePath, 'log', '--format=%H', branch, '--', relPath);
+    assert.strictEqual(touching, '', `Expected no commit on "${branch}" to touch "${relPath}"; found: ${touching.split('\n').join(', ')}`);
+  },
+);
 
 Then('the cron launched no orchestrator', function (this: RegressionWorld) {
   const { recorder } = requireHarness(this);
