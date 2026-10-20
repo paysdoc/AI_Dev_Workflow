@@ -6,6 +6,7 @@ The build and plan phases translate issue analysis into a committed implementati
 
 ## Responsibilities
 
+- `lostPlanGate.ts` — `planCreatedByEarlierRun(recoveryState)` (pure: `canResume && !shouldExecuteStage('plan_created', …)`) and `parkIfPlanLost(config, phase)`, which parks a resumed workflow as `worktree_lost` via `parkWorkflow` when an earlier run created the plan and this run's worktree has none; otherwise it returns. Called by the plan phase (top, before its first `await`, only when `!planFileExists`), the plan-validation phase (in its `!planContent` branch) and the build phase (in its plan-read `catch`), always before the throw or the planner
 - `installPhase.ts` — runs the install agent in the worktree, parses tool results (Read/Bash) from the JSONL output into a `<project-context>` preamble, caches it to `agents/{adwId}/install_cache.md`, and populates `config.installContext` for injection into later agents; entirely non-fatal
 - `planPhase.ts` — runs `runPlanAgent` with the issue type slash command, corrects swapped plan filenames, reads the plan file for the issue comment summary, commits nothing, and posts stage comments at each step (`plan_building`, `plan_created`)
 - `planPhase.ts` — `buildContinuationPrompt(originalPlanContent, previousOutput, reason, baseBranch?, checkpointCommitsPresent?)`: pure string builder for the git-authoritative continuation prompt given to a restarted build agent, whether restarted within the same orchestrator run (token limit / context compaction) or across orchestrators (resume-in-place after a phase timeout or liveness reclaim). When `checkpointCommitsPresent` is `true` (or `reason` is `'resumed_in_place'`), it instructs the agent to inspect committed state (`git log`, `git diff`) and uncommitted state (`git status`, `git diff --staged`) before writing code, demoting the previous-output tail to a secondary hint; when `false`, it preserves the legacy prompt shape used by fresh first-pass builds.
@@ -36,6 +37,10 @@ The build and plan phases translate issue analysis into a committed implementati
 - `alignmentPhase.ts` never throws — an `OutputValidationError` (or any other alignment-agent failure) is caught, logged, and converted into an `aligned: true` result carrying a single warning, so a broken alignment agent never blocks the workflow
 - `alignmentPhase.ts` posts `plan_aligning`/`plan_aligned` stage comments only when `config.repoContext` is set; it never constructs its own forge context (the #796/#820 "skip when no repoContext" precedent)
 
+- `parkIfPlanLost` is called only by a phase that has already found no plan, and it never returns when it parks. A fresh run, or a resume before `plan_created`, returns, so the planner runs or `Cannot read plan file` is thrown exactly as before.
+- The planner never runs again once an earlier run created the plan. The recovery state is read once at init from the issue's comments, so it reflects earlier runs only and never this run's planner.
+- The park names the earlier run's plan path (`recoveryState.planPath`), falling back to `getPlanFilePath`, and the worktree. It posts no phase-opening comment and starts no agent; in a parallel group the plan phase parks before the scenario phase starts.
+
 ## Configuration
 
 - `MAX_CONTEXT_RESETS` — maximum agent respawns per batch before a checkpoint commit
@@ -60,6 +65,9 @@ The build and plan phases translate issue analysis into a committed implementati
 - `planPhase.ts` is kept under the 300-line ceiling per coding guidelines; adding further continuation reasons or wrapper functions should stay within that bound.
 - The resume signal is only known at runtime, so it is injected through the composed prompt rather than by editing `implement.md` — the static command file is deliberately left untouched, both to satisfy the "no regression to fresh build" invariant and to avoid the recurring out-of-scope command-file revert hazard.
 - `buildContinuationPrompt`, `buildResumeInPlacePrompt`, and `shouldResumeBuildInPlace` are unit-tested directly in `adws/phases/__tests__/planPhase.test.ts` (no-checkpoint, with-checkpoint, and `resumed_in_place` prompt bodies; the wrapper's equivalence to a checkpointed `buildContinuationPrompt` call; and the predicate's true/false branches) — independent of a live orchestrator run.
+
+- An empty plan file counts as missing (`planFileExists` requires content), so a resumed run parks on it.
+- `adwBuild.tsx`'s own pre-flight check for a missing plan runs before the build phase and never parks.
 
 ## Decisions
 
