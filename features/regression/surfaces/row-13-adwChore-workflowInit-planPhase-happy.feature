@@ -1,7 +1,8 @@
 @regression @surface
 Feature: adwChore — planPhase — happy path
 
-  Scenario: chore orchestrator's plan phase runs in-process under /chore, succeeds and posts its plan stage comments
+  @adw-1077
+  Scenario: chore orchestrator's plan phase runs in-process under /chore, succeeds and posts its plan stage comments, none of them "Committing Plan"
     Given an issue 1013 exists in the mock issue tracker
     And the worktree for adwId "surface-13" is initialised at branch "surface-13"
     And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-chore-plan-phase.json"
@@ -11,4 +12,4 @@ Feature: adwChore — planPhase — happy path
     And the mock GitHub API recorded a comment containing the text "Issue classified as: **chore**"
     And the mock GitHub API recorded a comment containing the text "## :pencil: Building Implementation Plan"
     And the mock GitHub API recorded a comment containing the text "## :white_check_mark: Implementation Plan Created"
-    And the mock GitHub API recorded a comment containing the text "## :floppy_disk: Committing Plan"
+    And the mock harness recorded zero comment posts on issue 1013 containing the text "Committing Plan"
