@@ -39,4 +39,4 @@ This module provides structured console logging and Slack webhook notifications 
 
 ## Decisions
 
-- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0020](../docs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules

@@ -158,5 +158,5 @@ The regression suite runs via Cucumber.js. Configuration (paths, require globs, 
 
 ## Decisions
 
-- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
-- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0021](../docs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0037](../docs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary

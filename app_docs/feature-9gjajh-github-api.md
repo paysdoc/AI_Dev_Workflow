@@ -46,5 +46,5 @@ This module documents:
 
 ## Decisions
 
-- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
-- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code
+- [ADR-0041](../docs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0051](../docs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code

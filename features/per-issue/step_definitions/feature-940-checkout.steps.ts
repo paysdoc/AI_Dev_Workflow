@@ -75,7 +75,7 @@ Given("a copy of the ADW checkout's living-docs index, module docs and decision 
   mkdirSync(join(root, '.adw'), { recursive: true });
   writeFileSync(join(root, INDEX_PATH), indexText);
   cpSync(join(REPO_ROOT, 'app_docs'), join(root, 'app_docs'), { recursive: true });
-  cpSync(join(REPO_ROOT, 'specs', 'adr'), join(root, 'specs', 'adr'), { recursive: true });
+  cpSync(join(REPO_ROOT, 'docs', 'adr'), join(root, 'docs', 'adr'), { recursive: true });
   for (const docPath of indexedDocPaths(indexText)) copyFileIfPresent(docPath, root);
   copy.root = root;
 });

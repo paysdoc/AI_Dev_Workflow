@@ -1,7 +1,7 @@
 @regression @rate-limit-in-process-wait
 Feature: A five-hour session limit with a known reset time is ridden out in-process — a pure wait policy decides, the phase runner announces each wait on the issue and sleeps through an injected clock until the reset time, re-running the phase without bound while the workflow stays running, heartbeating and lock-holding, and every other rejection still exits through the pause path
 
-  Issue #912 is the wait-policy slice of `specs/prd/rate-limit-indefinite-retry.md` (section
+  Issue #912 is the wait-policy slice of `docs/prd/rate-limit-indefinite-retry.md` (section
   "Wait policy"; user stories 1–6, 22–25, 32, 34 and 35).
 
   On 2026-09-22 the orchestrator for #840 hit a five-hour session limit at 11:57 UTC. The CLI

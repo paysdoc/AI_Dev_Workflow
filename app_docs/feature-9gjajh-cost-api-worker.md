@@ -38,5 +38,5 @@ Worker secrets required: `COST_API_TOKEN`, and `ALLOWED_ORIGINS` (optional, for 
 
 ## Decisions
 
-- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
-- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
+- [ADR-0026](../docs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0030](../docs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand

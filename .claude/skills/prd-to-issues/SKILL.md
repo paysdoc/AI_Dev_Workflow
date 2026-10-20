@@ -66,7 +66,7 @@ Create issues in dependency order (blockers first) so you can reference real iss
 <issue-template>
 ## Parent PRD
 
-Link to the PRD GitHub issue (`#<number>`) or the local PRD file path (`specs/prd/<filename>.md`).
+Link to the PRD GitHub issue (`#<number>`) or the local PRD file path (`docs/prd/<filename>.md`).
 
 ## What to build
 

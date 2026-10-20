@@ -16,7 +16,7 @@ function readerOf(docs: Record<string, string>): (docPath: string) => string | n
 }
 
 describe('findDecisionViolations', () => {
-  const files = [DOC, ADR_44, ADR_53, 'specs/adr/0001-first.md', 'specs/adr/0002-second.md', 'specs/adr/0003-third.md'];
+  const files = [DOC, ADR_44, ADR_53, 'docs/adr/0001-first.md', 'docs/adr/0002-second.md', 'docs/adr/0003-third.md'];
 
   const run = (decisions: string[], doc: string | null, repoFiles: readonly string[] = files) =>
     findDecisionViolations(registryOf(entry(DOC, decisions)), repoFiles, readerOf(doc === null ? {} : { [DOC]: doc }));
@@ -38,7 +38,7 @@ describe('findDecisionViolations', () => {
   });
 
   it('reports both differences when the two sides each hold a record the other lacks', () => {
-    expect(run(['0001', '0002'], docWithSection('../specs/adr/0001-first.md', '../specs/adr/0003-third.md'))).toEqual([
+    expect(run(['0001', '0002'], docWithSection('../docs/adr/0001-first.md', '../docs/adr/0003-third.md'))).toEqual([
       { kind: 'decisions-mismatch', docPath: DOC, onlyInBlock: ['0002'], onlyInSection: ['0003'] },
     ]);
   });
@@ -75,8 +75,8 @@ describe('findDecisionViolations', () => {
   });
 
   it('reports only a dead link when the slug is wrong but the numbers agree', () => {
-    expect(run(['0044'], docWithSection('../specs/adr/0044-old-slug.md'))).toEqual([
-      { kind: 'dead-decision-link', docPath: DOC, target: '../specs/adr/0044-old-slug.md' },
+    expect(run(['0044'], docWithSection('../docs/adr/0044-old-slug.md'))).toEqual([
+      { kind: 'dead-decision-link', docPath: DOC, target: '../docs/adr/0044-old-slug.md' },
     ]);
   });
 
@@ -101,7 +101,7 @@ describe('findDecisionViolations', () => {
   });
 
   it('orders an entry\'s findings: unknown records, then dead links, then the mismatch', () => {
-    const kinds = run(['0099'], docWithSection('../specs/adr/0044-old.md')).map((v) => v.kind);
+    const kinds = run(['0099'], docWithSection('../docs/adr/0044-old.md')).map((v) => v.kind);
 
     expect(kinds).toEqual(['unknown-decision', 'dead-decision-link', 'decisions-mismatch']);
   });

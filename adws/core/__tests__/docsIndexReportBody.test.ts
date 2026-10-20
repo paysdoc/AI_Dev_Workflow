@@ -19,7 +19,7 @@ const ORPHAN: DocsIndexViolation = { kind: 'orphan-doc', docPath: 'app_docs/feat
 const COUNT: DocsIndexViolation = { kind: 'count-out-of-band', count: 70, band: { min: 25, max: 60 } };
 const MISMATCH: DocsIndexViolation = { kind: 'decisions-mismatch', docPath: 'app_docs/feature-mismatch.md', onlyInBlock: ['0044'], onlyInSection: [] };
 const UNKNOWN: DocsIndexViolation = { kind: 'unknown-decision', docPath: 'app_docs/feature-unknown.md', adr: '0099' };
-const DEAD: DocsIndexViolation = { kind: 'dead-decision-link', docPath: 'app_docs/feature-dead.md', target: '../specs/adr/0044-old.md' };
+const DEAD: DocsIndexViolation = { kind: 'dead-decision-link', docPath: 'app_docs/feature-dead.md', target: '../docs/adr/0044-old.md' };
 
 describe('docsIndexViolationFingerprint', () => {
   it('is stable across violation ordering', () => {

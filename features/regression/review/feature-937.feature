@@ -1,7 +1,7 @@
 @regression @review-comment-screenshots
 Feature: The review comment on the issue shows the screenshots of the proof the review judged, each embedded from the URL its upload returned, and a screenshot never decides or blocks the review
 
-  Issue #937 resolves two `## Divergence` items in `specs/adr/`. Those items are the specification:
+  Issue #937 resolves two `## Divergence` items in `docs/adr/`. Those items are the specification:
     • ADR-0024, item 1 (`0024-tdd-in-build-phase-single-pass-alignment.md`). The step-definition
       independence check that #307 specified is missing from the review prompt
       (`.claude/commands/review.md`). Ruling (owner, 2026-09-29): the check is required; its

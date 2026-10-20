@@ -2,7 +2,7 @@
 Feature: hashComputer — a pure deep module that computes the framework's content hash from declared inputs
 
   Issue #537 builds the first deep module of the "ADW init via content hash"
-  redesign (parent PRD `specs/prd/adw-init-hash-and-label-classification.md`,
+  redesign (parent PRD `docs/prd/adw-init-hash-and-label-classification.md`,
   User Story 3). `hashComputer` reads the `hashInputs:` frontmatter on
   `/adw_init.md`, resolves the listed files, concatenates their bytes in a
   canonical (order-independent) order, and returns a SHA256 hex digest. The

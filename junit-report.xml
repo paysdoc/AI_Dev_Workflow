@@ -3032,23 +3032,23 @@
         </testcase>
     </testsuite>
     <testsuite name="adws/core/__tests__/docsDecisions.test.ts" timestamp="2026-10-06T17:53:43.799Z" hostname="macmini.local" tests="30" failures="0" errors="0" skipped="0" time="0.005318125">
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; picks the number of a record file directly under specs/adr/" time="0.000931334">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; picks the number of a record file directly under docs/adr/" time="0.000931334">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores specs/adr/README.md" time="0.000123">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores docs/adr/README.md" time="0.000123">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores specs/adr/sub/0001-x.md" time="0.000052459">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores docs/adr/sub/0001-x.md" time="0.000052459">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores specs/adr/44-x.md" time="0.000049084">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores docs/adr/44-x.md" time="0.000049084">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores specs/adr/0044.md" time="0.000049">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores docs/adr/0044.md" time="0.000049">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores specs/adr/0044-x.txt" time="0.000038625">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores docs/adr/0044-x.txt" time="0.000038625">
         </testcase>
         <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; ignores app_docs/0044-x.md" time="0.000039">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; is empty for a repository without specs/adr/" time="0.000050666">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="findAdrNumbers &gt; is empty for a repository without docs/adr/" time="0.000050666">
         </testcase>
-        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="parseDecisionLinks &gt; extracts the links of the ## Decisions section and resolves ../specs/adr/… against the doc" time="0.000513084">
+        <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="parseDecisionLinks &gt; extracts the links of the ## Decisions section and resolves ../docs/adr/… against the doc" time="0.000513084">
         </testcase>
         <testcase classname="adws/core/__tests__/docsDecisions.test.ts" name="parseDecisionLinks &gt; ignores ADR links in other sections" time="0.000122375">
         </testcase>

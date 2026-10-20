@@ -45,10 +45,10 @@ The review and diff phases govern the quality gate before a PR is merged. The re
 
 ## Decisions
 
-- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
-- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
-- [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
-- [ADR-0058](../specs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
-- [ADR-0061](../specs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) — The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project
-- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
-- [ADR-0063](../specs/adr/0063-per-issue-scenario-images-are-the-visual-evidence.md) — Every per-issue scenario image in a `web` repository is visual evidence; the reviewer judges it before the pull request exists
+- [ADR-0027](../docs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0031](../docs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0038](../docs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
+- [ADR-0058](../docs/adr/0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md) — Static checks are deterministic gates in the test phase; the reviewer runs nothing and `review_proof.md` is gone
+- [ADR-0061](../docs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) — The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project
+- [ADR-0062](../docs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
+- [ADR-0063](../docs/adr/0063-per-issue-scenario-images-are-the-visual-evidence.md) — Every per-issue scenario image in a `web` repository is visual evidence; the reviewer judges it before the pull request exists

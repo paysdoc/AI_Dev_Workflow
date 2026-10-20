@@ -17,7 +17,7 @@ import {
   type ConditionalDocEntry,
   type ConditionalDocsRegistry,
 } from './conditionalDocsRegistry';
-import { findDecisionViolations, type DecisionViolation } from './docsDecisions';
+import { DECISION_RECORD_DIR, findDecisionViolations, type DecisionViolation } from './docsDecisions';
 
 export interface CountBand {
   readonly min: number;
@@ -264,7 +264,7 @@ export function formatViolation(violation: DocsIndexViolation): string {
     case 'decisions-mismatch':
       return `decisions mismatch: ${violation.docPath} — only in its Decisions: block: ${formatRecordNumbers(violation.onlyInBlock)}; only in its ## Decisions section: ${formatRecordNumbers(violation.onlyInSection)}`;
     case 'unknown-decision':
-      return `unknown decision record: ${violation.docPath} lists ${violation.adr}, which has no file in specs/adr/`;
+      return `unknown decision record: ${violation.docPath} lists ${violation.adr}, which has no file in ${DECISION_RECORD_DIR}/`;
     case 'dead-decision-link':
       return `dead decision link: ${violation.docPath} links ${violation.target}, which is not a file`;
   }

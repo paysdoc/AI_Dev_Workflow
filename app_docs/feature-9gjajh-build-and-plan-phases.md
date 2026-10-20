@@ -70,7 +70,7 @@ The build and plan phases translate issue analysis into a committed implementati
 
 ## Decisions
 
-- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
-- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
-- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
-- [ADR-0056](../specs/adr/0056-planner-commits-only-the-plan.md) — The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it
+- [ADR-0023](../docs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0024](../docs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0047](../docs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0056](../docs/adr/0056-planner-commits-only-the-plan.md) — The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it

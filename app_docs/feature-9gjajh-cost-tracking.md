@@ -46,4 +46,4 @@ Exchange rates are fetched at runtime (see `cost/exchangeRates.ts`). The currenc
 
 ## Decisions
 
-- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0026](../docs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database

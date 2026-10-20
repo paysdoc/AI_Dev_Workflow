@@ -104,9 +104,9 @@ Guard configuration lives in `adws/checkGitGhGuard.ts` (`EXEMPT_DIR_NAMES`, `EXE
 
 ## Decisions
 
-- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
-- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
-- [ADR-0011](../specs/adr/0011-provider-ports-and-immutable-repo-context.md) — Platform access goes through provider ports bound to an immutable RepoContext
-- [ADR-0016](../specs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
-- [ADR-0046](../specs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh
-- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code
+- [ADR-0003](../docs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0005](../docs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0011](../docs/adr/0011-provider-ports-and-immutable-repo-context.md) — Platform access goes through provider ports bound to an immutable RepoContext
+- [ADR-0016](../docs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
+- [ADR-0046](../docs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh
+- [ADR-0051](../docs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code

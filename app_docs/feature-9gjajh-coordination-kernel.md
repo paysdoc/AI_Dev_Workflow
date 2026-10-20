@@ -43,6 +43,6 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 
 ## Decisions
 
-- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
-- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
-- [ADR-0035](../specs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it
+- [ADR-0023](../docs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0034](../docs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0035](../docs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it

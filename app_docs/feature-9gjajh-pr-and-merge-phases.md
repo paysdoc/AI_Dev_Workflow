@@ -54,8 +54,8 @@ GitHub App authentication is resolved per-command through the `TokenProvider` po
 
 ## Decisions
 
-- [ADR-0016](../specs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
-- [ADR-0019](../specs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
-- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0016](../docs/adr/0016-github-app-identity.md) — ADW acts on GitHub as a GitHub App, not as the owner
+- [ADR-0019](../docs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0031](../docs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0048](../docs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

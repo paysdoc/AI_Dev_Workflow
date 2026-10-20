@@ -262,12 +262,12 @@ describe('formatViolation', () => {
   it('renders an unknown decision record', () => {
     const line = formatViolation({ kind: 'unknown-decision', docPath: 'app_docs/feature-a.md', adr: '0099' });
 
-    expect(line).toBe('unknown decision record: app_docs/feature-a.md lists 0099, which has no file in specs/adr/');
+    expect(line).toBe('unknown decision record: app_docs/feature-a.md lists 0099, which has no file in docs/adr/');
   });
 
   it('renders a dead decision link', () => {
-    const line = formatViolation({ kind: 'dead-decision-link', docPath: 'app_docs/feature-a.md', target: '../specs/adr/0044-old.md' });
+    const line = formatViolation({ kind: 'dead-decision-link', docPath: 'app_docs/feature-a.md', target: '../docs/adr/0044-old.md' });
 
-    expect(line).toBe('dead decision link: app_docs/feature-a.md links ../specs/adr/0044-old.md, which is not a file');
+    expect(line).toBe('dead decision link: app_docs/feature-a.md links ../docs/adr/0044-old.md, which is not a file');
   });
 });

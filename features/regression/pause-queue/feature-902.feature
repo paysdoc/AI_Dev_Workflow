@@ -61,7 +61,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
 
     §4  TYPE-CHECK BACKSTOP.
 
-  AMENDED BY #907 (`specs/prd/rate-limit-indefinite-retry.md`, "Detection"). #907 makes three
+  AMENDED BY #907 (`docs/prd/rate-limit-indefinite-retry.md`, "Detection"). #907 makes three
   changes that affect this file:
     • It deletes the text fallback. Output with no parseable JSON is now `unknown`, whatever it says.
     • It classifies `api_retry` by the documented enum, in which overload is `overloaded`, not
@@ -78,7 +78,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
   `@adw-907` tag, because a promoted scenario drops its `@adw-` tags. The rest of #907's behaviour
   is specified in `features/per-issue/feature-907.feature`.
 
-  AMENDED BY #910 (`specs/prd/rate-limit-indefinite-retry.md`, "Pause queue"). #910 puts the
+  AMENDED BY #910 (`docs/prd/rate-limit-indefinite-retry.md`, "Pause queue"). #910 puts the
   scanner behind a pure decider and lets a queue entry carry the limit's reset time. It also
   rewrites the eviction comment: instead of asking for a manual restart, it names `## Retry`
   (#908) as the recovery. In this file:
@@ -92,7 +92,7 @@ Feature: The pause-queue probe recognises a session limit the way the agents do 
   The rest of #910's behaviour is specified in
   `features/regression/pause-queue/feature-910.feature`.
 
-  FLAGGED BY #911 (`specs/prd/rate-limit-indefinite-retry.md`, "Pause queue": ownership and
+  FLAGGED BY #911 (`docs/prd/rate-limit-indefinite-retry.md`, "Pause queue": ownership and
   remove-before-spawn). Every scan now runs as one cron, and a cron acts only on the entries it
   owns. The shared scanner step runs as the cron polling `acme/widgets`, which owns every entry
   seeded here, so no scenario in this file changes. Two of them also carry

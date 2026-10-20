@@ -1,5 +1,5 @@
-export const ADR_44 = 'specs/adr/0044-living-docs-per-module.md';
-export const ADR_53 = 'specs/adr/0053-docs-index-health-gate-and-sweep.md';
+export const ADR_44 = 'docs/adr/0044-living-docs-per-module.md';
+export const ADR_53 = 'docs/adr/0053-docs-index-health-gate-and-sweep.md';
 export const DOC = 'app_docs/feature-a.md';
 
 export function bullets(targets: string[]): string[] {
