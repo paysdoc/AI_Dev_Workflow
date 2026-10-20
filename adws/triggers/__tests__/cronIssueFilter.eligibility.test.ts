@@ -128,6 +128,54 @@ describe('evaluateIssue — human_gated skip-terminal', () => {
   });
 });
 
+describe('evaluateIssue — worktree_lost skip-terminal', () => {
+  it('returns ineligible with reason worktree_lost for a worktree_lost issue', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('worktree_lost');
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('worktree_lost');
+    expect(result.action).toBeUndefined();
+  });
+
+  it('worktree_lost takes precedence over grace period check', () => {
+    const recentDate = new Date(NOW - 1000).toISOString();
+    const issue = makeIssue({ updatedAt: recentDate });
+    const resolveStage = () => makeResolution('worktree_lost', 'adw-id', NOW - 1000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('worktree_lost');
+  });
+
+  it('stays ineligible long after the grace period, since no age re-arms it', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('worktree_lost', 'adw-id', NOW - 30 * 24 * 60 * 60_000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('worktree_lost');
+  });
+});
+
+describe('filterEligibleIssues — worktree_lost annotation', () => {
+  it('annotates a worktree_lost issue in filteredAnnotations and leaves it out of the eligible list', () => {
+    const lostIssue = makeIssue({ number: 7, updatedAt: OLD_DATE });
+    const abandonedIssue = makeIssue({ number: 8, updatedAt: OLD_DATE });
+    const resolveStage = (comments: { body: string }[]) =>
+      comments === lostIssue.comments ? makeResolution('worktree_lost') : makeResolution('abandoned', 'aband-id', NOW - 200_000);
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues([lostIssue, abandonedIssue], NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(filteredAnnotations).toContain('#7(worktree_lost)');
+    expect(eligible.map(e => e.issue.number)).toEqual([8]);
+  });
+});
+
 describe('filterEligibleIssues — human_gated annotation', () => {
   it('annotates human_gated issue in filteredAnnotations', () => {
     const issue = makeIssue({ number: 7, updatedAt: OLD_DATE });

@@ -53,6 +53,10 @@ export type WorkflowStage =
   // Escalation target for the bounded resume cap; non-retriable;
   // recoverable only via ## Retry, which re-arms resumeAttempts.
   | 'human_gated'
+  // A resumed workflow whose plan went with its removed worktree is parked here; never
+  // auto-resumed, so the planner never re-runs on its own; recoverable only via ## Retry,
+  // which re-arms it to phase_timeout (and parks again while the plan is still missing).
+  | 'worktree_lost'
   // Agent watchdog timeout — phase marked failed; orchestrator exits. Recovered on the next
   // cron tick via reset-from-remote takeover.
   | 'phase_timeout';

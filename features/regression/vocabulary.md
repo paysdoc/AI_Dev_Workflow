@@ -923,6 +923,37 @@ checked out` (G18, Background).
 
 ---
 
+## Given/When/Then — A Plan Lost With Its Worktree on Resume (@plan-lost-on-resume)
+
+These phrases extend the subprocess pattern ("Smoke processes" above): the real SDLC orchestrator runs
+twice as a child process under the same adwId, through the hermetic subprocess harness, against the
+`acme/widgets` workspace the harness lays out under a temporary `TARGET_REPOS_DIR`. The Claude CLI stub
+answers the planner with a plan written into the worktree and the build agent rate-limited for the
+`seven_day` window, so the first run records `paused` with the plan created and nothing more. Between
+the runs, W-PL1 removes the worktree and leaves its branch; the second run rebuilds the worktree from the
+branch alone, which holds no plan, because a plan is never committed. The harness keeps what the first run
+left: W1's second claim of an adwId leaves its state, and the `gh` shadow serves the second run the
+comments the first one posted, so the second run resumes after the stage the first one reached. Every
+assertion targets a runtime artefact: the state file, the comment requests the mock GitHub API recorded,
+the exit code, and the workspace's worktrees and branches. No step reads, greps or parses a source file,
+satisfying the Rot-Detection Rubric. The definitions live in `features/regression/step_definitions/feature-1078.steps.ts`.
+The scenario needs no hook of its own: the `@regression and (@subprocess or @webhook)` hooks give it
+the mock server and the subprocess harness.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| W-PL1 | `the worktree of the workflow for adwId {string} is removed, leaving its branch` | Reads the `branchName` from the adwId's top-level state, finds the worktree checked out on that branch among the workspace's worktrees (`git worktree list --porcelain`) and removes it with `git worktree remove --force`, which takes its uncommitted and ignored files with it. Fails when the state records no branch or the workspace lists no worktree on it. Then asserts that the directory is gone and that `git rev-parse --verify refs/heads/<branch>` still succeeds in the workspace. Fails without the subprocess harness, for the reason W1 does | subprocess | git artefacts (workspace worktrees and branch) |
+| T-PL1 | `the mock GitHub API recorded exactly {int} comment(s) on issue {int} containing the text {string}` | Counts the recorded POSTs to `/issues/N/comments` whose JSON `body` contains the text, and asserts the count equals the expected one. Fails giving the count and, for each matching comment, the first line of its body | mock-query | recorded requests |
+
+This section also reuses eight already-registered phrases, so they need no new row: `the ADW codebase is
+checked out` (G18, Background), `the claude-cli-stub is loaded with manifest {string}` (G3), `an issue {int}
+exists in the mock issue tracker` (G4), `the {string} orchestrator is invoked with adwId {string} and issue {int}`
+(W1), `the state file for adwId {string} records workflowStage {string}` (T1), `the mock GitHub API recorded a
+comment containing the text {string}` (T3), `the orchestrator subprocess exited {int}` (T5) and `the mock harness
+recorded zero comment posts on issue {int} containing the text {string}` (T-S6).
+
+---
+
 ## Given/When/Then — Cost Records, the Cost API and Worker Deploy Detection (@cost-records)
 
 These phrases drive three things. First, the real `handleAgentProcess` (phase-import): a fake Claude

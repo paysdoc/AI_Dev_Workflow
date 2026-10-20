@@ -10,7 +10,7 @@ import {
   isRetryComment,
   parseWorkflowStageFromComment,
 } from '../../core/workflowCommentParsing';
-import { ParkReason, buildParkComment, parkDirectives } from '../parkComment';
+import { ParkReason, buildParkComment, parkDirectives, parkStage } from '../parkComment';
 import { ADW_ID, LINT, REASONS, SAMPLE, lines, toolMissing } from './parkComment.helpers';
 
 describe.each(REASONS)('buildParkComment — %s', (reason) => {
@@ -26,8 +26,8 @@ describe.each(REASONS)('buildParkComment — %s', (reason) => {
     expect(comment.endsWith(ADW_SIGNATURE)).toBe(true);
   });
 
-  it('says that the workflow is parked as human_gated', () => {
-    expect(comment).toContain('`human_gated`');
+  it('says that the workflow is parked as the stage the reason records', () => {
+    expect(comment).toContain(`The workflow is parked as \`${parkStage(reason)}\`.`);
   });
 
   it('carries both directives, each with its meaning for this park', () => {
@@ -67,7 +67,7 @@ describe('buildParkComment — the base-branch note', () => {
     expect(comment).toContain('This fails on the base branch `trunk`');
   });
 
-  it.each([ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed])('carries no base-branch note for %s', (reason) => {
+  it.each([ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed, ParkReason.WorktreeLost])('carries no base-branch note for %s', (reason) => {
     const comment = buildParkComment(ADW_ID, SAMPLE[reason]);
 
     expect(comment).not.toContain('base branch');
@@ -123,9 +123,29 @@ describe('parkDirectives — what each directive does for each park', () => {
     expect(parkDirectives(toolMissing())).toEqual(directives);
   });
 
+  it('worktree_lost: Retry re-runs the workflow and parks again while the plan is missing; Continue waives nothing and points to Cancel', () => {
+    const directives = parkDirectives(SAMPLE[ParkReason.WorktreeLost]);
+
+    expect(directives.retry).toContain('re-runs the workflow under the same ADW ID');
+    expect(directives.retry).toContain('parks the issue again if the plan is still not in the worktree');
+    expect(directives.retry).toContain('never re-runs the planner');
+    expect(directives.continue).toContain('waives nothing');
+    expect(directives.continue).toContain('`## Cancel`');
+  });
+
   it('gives each reason directives of its own', () => {
     const distinct = new Set(REASONS.map(reason => JSON.stringify(parkDirectives(SAMPLE[reason]))));
 
-    expect(distinct.size).toBe(5);
+    expect(distinct.size).toBe(6);
+  });
+});
+
+describe('parkStage — the stage a park records', () => {
+  it.each(REASONS.filter(reason => reason !== ParkReason.WorktreeLost))('records human_gated for %s', (reason) => {
+    expect(parkStage(reason)).toBe('human_gated');
+  });
+
+  it('records worktree_lost for a plan lost with the worktree, the one park that has a stage of its own', () => {
+    expect(parkStage(ParkReason.WorktreeLost)).toBe('worktree_lost');
   });
 });

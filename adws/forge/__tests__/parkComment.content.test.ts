@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { HostTool } from '../../core/deviceCommands';
 import { FixLoopStall } from '../../core/staticCheckFixLoop';
+import { detectRecoveryState, extractPlanPathFromComment, parseWorkflowStageFromComment } from '../../core/workflowCommentParsing';
 import { ParkReason, buildParkComment } from '../parkComment';
 import { ADW_ID, LINT, SAMPLE, TYPE_CHECK, stalled, toolMissing } from './parkComment.helpers';
 
@@ -168,5 +169,57 @@ describe('buildParkComment — a host tool that is missing', () => {
 
   it('is not the comment of a boot that failed', () => {
     expect(comment).not.toContain('did not boot in');
+  });
+});
+
+describe('buildParkComment — a plan lost with the worktree', () => {
+  const evidence = SAMPLE[ParkReason.WorktreeLost];
+  const comment = buildParkComment(ADW_ID, evidence);
+
+  it('is headed with the title of the park', () => {
+    expect(comment.startsWith('## :raised_hand: ADW Parked — The Plan Was Lost with the Worktree')).toBe(true);
+  });
+
+  it('names the phase that found no plan, the plan path and the worktree path as code spans', () => {
+    expect(comment).toContain('The `build` phase of this resumed run found no plan at `specs/issue-42-adw-k3x9ab-feat-park-comment-sdlc_planner-widget.md`');
+    expect(comment).toContain('in the worktree `/srv/adw/.worktrees/feature-issue-42-widget`');
+  });
+
+  it('names the phase the evidence names', () => {
+    const planValidation = buildParkComment(ADW_ID, { reason: ParkReason.WorktreeLost, phase: 'plan validation', worktreePath: '/srv/adw/.worktrees/w', planPath: 'specs/issue-42-plan.md' });
+
+    expect(planValidation).toContain('The `plan validation` phase of this resumed run');
+    expect(planValidation).not.toContain('The `build` phase');
+  });
+
+  it('says that the plan is never committed, so that it lived only in the worktree that was removed', () => {
+    expect(comment).toContain('a plan is never committed');
+    expect(comment).toContain('lived only in that run’s worktree, which was removed');
+  });
+
+  it('says that ADW does not run the planner again on its own, and why', () => {
+    expect(comment).toContain('ADW does not run the planner again on its own');
+    expect(comment).toContain('a second plan would be written against a branch that may already hold part of the build');
+  });
+
+  it('says what both directives do: Retry parks again while the plan is missing, Cancel starts the issue over', () => {
+    expect(comment).toContain('- `## Retry` — re-runs the workflow under the same ADW ID and parks the issue again if the plan is still not in the worktree');
+    expect(comment).toContain('- `## Continue` — waives nothing');
+    expect(comment).toContain('`## Cancel`, which clears the workflow and re-queues the issue');
+  });
+
+  it('is not the comment of any other park', () => {
+    expect(comment).not.toContain('base branch');
+    expect(comment).not.toContain('The full output of each check');
+  });
+
+  it('leaves recovery alone: the comment is no lifecycle stage, so its plan path never becomes the resume point', () => {
+    expect(parseWorkflowStageFromComment(comment)).toBeNull();
+    expect(extractPlanPathFromComment(comment)).toBe('specs/issue-42-adw-k3x9ab-feat-park-comment-sdlc_planner-widget.md');
+    expect(detectRecoveryState([{ id: '1', body: comment, author: 'adw', createdAt: '2026-01-01T00:00:00Z' }])).toMatchObject({
+      canResume: false,
+      lastCompletedStage: null,
+      planPath: null,
+    });
   });
 });

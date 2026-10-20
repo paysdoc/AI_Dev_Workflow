@@ -188,7 +188,7 @@
     - When a red static check should be fixed by the static-check fix loop (`runStaticCheckFixLoop`, `staticCheckGate.ts`, `staticCheckFixRound.ts`) rather than end the run, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
     - When working on the fix-round guard (`evaluateFixRound`, `buildFixRoundGuardConfig`, `FRAMEWORK_SUPPRESSION_PATTERNS`, `PROTECTED_PATH_RULES`, `parseUnifiedDiff`), the `## Suppression Patterns` section of `.adw/commands.md`, or a fix round rejected for adding a suppression comment or editing protected configuration
     - When a static-check fix loop stops on identical output or a rejected round, parks as `human_gated` (`parkWorkflow`), or `## Retry` should resume it
-    - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`) and what `## Retry`/`## Continue` mean for each park reason
+    - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`, `parkStage`) and what `## Retry`/`## Continue` mean for each park reason, including the `worktree_lost` park of a plan lost with its worktree, the one park that records a stage of its own
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
     - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
@@ -232,6 +232,7 @@
     - When working on the promoted envelope conformance scenario (`features/regression/envelope/feature-909.feature`, `@envelope-conformance`), its step definitions (`feature-909.steps.ts`, `feature-909-tooling.steps.ts`), the vocabulary phrases G-EC1–11, W-EC1–7, T-EC1–15, or detector parity between the real rate-limit capture and the Claude CLI stub
     - When a promotion issue lists fewer step-def sources than the feature needs (sibling `feature-N-*.steps.ts` imports) and a Cucumber load fails with a dangling import
     - When working on the promoted `## Retry` directive scenario (`features/regression/retry-directive/feature-908.feature`, `@retry-directive`) or its step definitions (`feature-908.steps.ts`: G19, T27, G-RD1–8, W-RD1–3, T-RD1–12, hooks re-keyed from `@adw-908`)
+    - When working on the regression scenario of a resumed workflow whose plan went with its removed worktree (`features/regression/resume/feature-1078.feature`, `@plan-lost-on-resume`): its step definitions (`features/regression/step_definitions/feature-1078.steps.ts`, vocabulary phrases W-PL1 and T-PL1), the `adw-sdlc-paused-at-build.json` manifest that pauses the SDLC run at its build, or the optional recovery-state parameter of `runSurfacePhase`/`runDirectSurfacePhase`
     - When working on the promoted pause-queue rate-limit probe scenario (`features/regression/pause-queue/feature-902.feature`, `@pause-queue-probe`): the probe's `limited`/`unknown`/`clear` verdicts, detector parity with `handleAgentProcess`, a limited probe never striking, vocabulary phrases T-PP1/T-PP2, or the harness hooks' `@pause-queue-probe` scope
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the promoted review-comment screenshots scenario (`features/regression/review/feature-937.feature`, `@review-comment-screenshots`), its step-definition closure (`feature-937*.ts`), vocabulary phrases G-RS/W-RS/T-RS covering the review comment's screenshots of the judged proof run, the stand-in screenshot store and review agent, or the order-independent `CLAUDE_CODE_PATH` restore under the `@regression` teardown
@@ -257,13 +258,18 @@
     - adws/phases/buildPhase.ts
     - adws/phases/planPhase.ts
     - adws/phases/__tests__/planPhaseCommit.test.ts
+    - adws/phases/__tests__/planPhaseResume.test.ts
     - adws/phases/planValidationPhase.ts
+    - adws/phases/__tests__/planValidationPhase.test.ts
+    - adws/phases/lostPlanGate.ts
+    - adws/phases/__tests__/lostPlanGate.test.ts
     - adws/phases/installPhase.ts
     - adws/phases/alignmentPhase.ts
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
     - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
+    - When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume
   - Decisions:
     - 0023
     - 0024

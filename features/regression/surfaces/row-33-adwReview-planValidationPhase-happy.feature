@@ -5,6 +5,7 @@ Feature: planValidationPhase — happy path, driven directly
   and the review orchestrators run the alignment phase in its place. This row drives the phase
   directly, over a committed plan and a committed scenario for the issue.
 
+  @adw-1078
   Scenario: the plan validation phase, driven directly, finds the committed plan and the issue's committed scenario aligned and posts its validating and validated comments
     Given an issue 1033 exists in the mock issue tracker
     And the worktree for adwId "surface-33" is initialised at branch "surface-33"

@@ -1,7 +1,7 @@
 @regression @surface
 Feature: adwPlan — planPhase — happy path
 
-  @adw-1077
+  @adw-1077 @adw-1078
   Scenario: plan orchestrator's plan phase runs in-process, succeeds and posts its plan stage comments, none of them "Committing Plan"
     Given an issue 1002 exists in the mock issue tracker
     And the worktree for adwId "surface-02" is initialised at branch "surface-02"

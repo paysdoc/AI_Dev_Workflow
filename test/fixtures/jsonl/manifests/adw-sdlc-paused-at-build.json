@@ -1,0 +1,82 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"SDLC paused-at-build stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The implementation plan for issue 107801 was written.\\n\"}]\n" },
+        { "path": "specs/issue-107801-adw-worktree-lost-smoke-107801-sdlc_planner-worktree-lost.md", "contents": "# Implementation Plan: worktree lost\n\n## Steps\n1. Add src/worktreeLost.ts\n2. Export the worktree-lost value\n" }
+      ]
+    },
+    "/scenario_writer": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": "features/feature-107801.feature", "contents": "@adw-107801\nFeature: worktree lost\n\n  Scenario: the worktree-lost value is exported\n    Given the worktree-lost module\n    When its value is read\n    Then it is the worktree-lost value\n" }
+      ]
+    },
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n" }
+      ]
+    },
+    "/implement-tdd": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The build agent is rate-limited, so this payload is never streamed.\\n\"}]\n" }
+      ],
+      "response": { "kind": "rate-limited", "rateLimitType": "seven_day", "resetsAt": 4102444800 }
+    },
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"The build agent is rate-limited, so this payload is never streamed.\\n\"}]\n" }
+      ],
+      "response": { "kind": "rate-limited", "rateLimitType": "seven_day", "resetsAt": 4102444800 }
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The SDLC review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n" }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"Documentation written.\\napp_docs/feature-worktree-lost-smoke-107801-worktree-lost.md\\n\"}]\n" },
+        { "path": "app_docs/feature-worktree-lost-smoke-107801-worktree-lost.md", "contents": "# Feature: worktree lost\n\nThe paused-at-build run's document phase wrote this page.\n" }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"feat: #107801 - Issue 107801\\\",\\\"body\\\":\\\"Closes #107801\\\\nImplements #107801\\\\n\\\\nADW tracking ID: worktree-lost-smoke-107801\\\"}\"}]\n" }
+      ]
+    }
+  }
+}

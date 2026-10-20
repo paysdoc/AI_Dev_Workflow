@@ -24,6 +24,13 @@ const EVIDENCE: ParkEvidence = {
   rejections: [],
 };
 
+const LOST_PLAN: ParkEvidence = {
+  reason: ParkReason.WorktreeLost,
+  phase: 'build',
+  worktreePath: '/srv/adw/.worktrees/feature-issue-989-widget',
+  planPath: 'specs/issue-989-adw-park-test-sdlc_planner-widget.md',
+};
+
 const adwId = `park-test-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 const tempDirs: string[] = [];
 
@@ -157,6 +164,7 @@ describe('parkWorkflow', () => {
       { reason: ParkReason.PreExistingRegression, baseBranch: 'trunk', scenario: 'A scenario' },
       { reason: ParkReason.MissingApplicationType, found: null },
       { reason: ParkReason.BaseServerDown, baseBranch: 'trunk', output: 'EADDRINUSE' },
+      LOST_PLAN,
     ];
 
     reasons.forEach((evidence) => {
@@ -171,5 +179,54 @@ describe('parkWorkflow', () => {
 
     const stage = AgentStateManager.readTopLevelState(adwId)?.workflowStage;
     expect(decideRetryAction(stage)).toEqual({ kind: 'rearm_phase_timeout', from: 'human_gated' });
+  });
+});
+
+describe('parkWorkflow — a plan lost with the worktree', () => {
+  it('writes worktree_lost as the top-level workflow stage, and the reason beside it', () => {
+    park(makeConfig(), LOST_PLAN);
+
+    expect(AgentStateManager.readTopLevelState(adwId)).toMatchObject({ workflowStage: 'worktree_lost', parkReason: 'worktree_lost' });
+  });
+
+  it('has written that stage by the time the comment is posted', () => {
+    const stageAtPost: Array<string | undefined> = [];
+    const commentOnIssue = vi.fn(() => {
+      stageAtPost.push(AgentStateManager.readTopLevelState(adwId)?.workflowStage);
+    });
+
+    park(makeConfig(commentOnIssue), LOST_PLAN);
+
+    expect(stageAtPost).toEqual(['worktree_lost']);
+  });
+
+  it('appends a line to the execution log that names the stage and the reason', () => {
+    const config = makeConfig();
+
+    park(config, LOST_PLAN);
+
+    expect(executionLog(config)).toContain('Workflow parked as worktree_lost: worktree_lost');
+  });
+
+  it('posts exactly the park comment of the evidence on the issue', () => {
+    const commentOnIssue = vi.fn();
+
+    park(makeConfig(commentOnIssue), LOST_PLAN);
+
+    expect(commentOnIssue).toHaveBeenCalledTimes(1);
+    expect(commentOnIssue).toHaveBeenCalledWith(989, buildParkComment(adwId, LOST_PLAN));
+  });
+
+  it('ends the process with exit code 0', () => {
+    park(makeConfig(), LOST_PLAN);
+
+    expect(process.exit).toHaveBeenCalledWith(0);
+  });
+
+  it('leaves the workflow in a stage that "## Retry" re-arms to phase_timeout', () => {
+    park(makeConfig(), LOST_PLAN);
+
+    const stage = AgentStateManager.readTopLevelState(adwId)?.workflowStage;
+    expect(decideRetryAction(stage)).toEqual({ kind: 'rearm_phase_timeout', from: 'worktree_lost' });
   });
 });

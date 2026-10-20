@@ -17,11 +17,15 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
+import { parkIfPlanLost } from './lostPlanGate';
 import { BoardStatus } from '@paysdoc/devplatform';
 
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
+
+  // Before the first await: in a parallel group, a park here ends the process before the phase beside this one has started.
+  if (!planFileExists(issueNumber, worktreePath)) parkIfPlanLost(config, 'plan');
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
