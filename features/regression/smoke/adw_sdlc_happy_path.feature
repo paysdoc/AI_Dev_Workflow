@@ -8,6 +8,7 @@ Feature: SDLC Orchestrator — Happy Path
   awaiting_merge with the pull request open. Worktree setup ignores the plan directory, so the plan
   the planner writes stays in the worktree and no commit carries it.
 
+  @adw-1078
   Scenario: adwSdlc completes the full pipeline end-to-end
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 100 exists in the mock issue tracker

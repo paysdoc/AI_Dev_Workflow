@@ -46,7 +46,19 @@ So that I restart it deliberately instead of the planner silently producing a se
    - `## Retry` (`adws/triggers/retryHandler.ts`) re-arms `worktree_lost` to `phase_timeout`, as it does for `human_gated` and `review_failed`. The resumed run parks again while the plan is still missing and continues if the plan was put back. This keeps the invariant `workflowPark.test.ts` asserts: every park is re-armable by `## Retry`.
    - `## Continue` waives nothing; `continueHandler` acts only on `human_gated` baseline parks, so it needs no change.
    - The takeover keeps its `human_gated`-class default (`spawn_fresh`). A relaunch resumes, finds the plan still missing, and parks again. It never re-plans.
-6. **A regression scenario.** Add one under `features/regression/` (phase-import pattern, surface harness). The worktree is removed between the plan and the build, the workflow is resumed, and the scenario asserts the recorded stage `worktree_lost` and exactly one plan-created comment. A second scenario proves that a fresh run with no plan still fails as before. Register the step definitions and their vocabulary.
+6. **Scenarios.** They are already written; this feature adds their step definitions and manifests.
+   - The regression scenario is `features/regression/resume/feature-1078.feature` (`@regression @subprocess @plan-lost-on-resume`). It runs the real SDLC orchestrator through the subprocess harness:
+     - the first run creates the plan, and a rate limit pauses it during its build;
+     - the worktree is then removed, leaving its branch;
+     - the orchestrator is invoked again under the same adwId.
+     The scenario asserts the recorded stage `worktree_lost` and exactly one plan-created comment, and that neither the planner nor the build runs again.
+   - The per-issue scenarios in `features/per-issue/feature-1078.feature` cover:
+     - the park in each of the three phases;
+     - the paths that do not change: the plan still present, a resume before `plan_created`, and a fresh run;
+     - the cron's exclusion;
+     - the type check.
+   - The four existing regression rows tagged `@adw-1078` show that fresh runs are unchanged: the SDLC smoke run and the plan, build and plan-validation surface rows.
+   - Implement the six new phrases, and register in the vocabulary the two that the regression scenario uses.
 
 ## Relevant Files
 Use these files to implement the feature:
@@ -82,12 +94,32 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/buildPhase.test.ts`: build-phase test setup to extend. It mocks `getPlanFilePath` as `plan.md` and runs on a fresh recovery state.
 - `adws/phases/__tests__/planPhaseCommit.test.ts`: prior art for driving `executePlanPhase` against a real temporary repository with a mocked `runPlanAgent`.
 - `adws/triggers/__tests__/retryHandler.test.ts`, `adws/triggers/__tests__/cronIssueFilter.eligibility.test.ts`, `adws/triggers/__tests__/cronIssueFilterFixtures.ts`, `adws/triggers/__tests__/continueHandler.test.ts`: trigger tests to extend.
-- `features/regression/vocabulary.md`: the phrase registry and rot-detection rubric. Register the new phrases in a new `@plan-lost-on-resume` section with the `PL` prefix, which is unused. Reuse G18, G3, G4, G11, W-S1, T1, T-S6 and T-S10.
-- `features/regression/support/phaseConfig.ts`, `features/regression/support/phaseRun.ts`, `features/regression/support/mockForgeProviders.ts`, `features/regression/support/fixtureWorktree.ts`: the in-process surface harness. It provides `buildConfigFor`, the `ORCHESTRATORS` table (`chore` runs `plan` then `build`; `build` names `build`), `withExitTrap`, `NonPostingCostTracker`, `deliverStubManifest`, the comment-recording mock forge, and `realGit` and `initialiseFixtureWorktree`. `realGit` matters because the `@regression` git mock no-ops `clone`.
-- `features/regression/step_definitions/feature-930.steps.ts`, `feature-930-plan-fixture.ts`: the plan-phase in-process fixtures of the plan-worktree-only scenario, which is prior art.
-- `features/regression/takeover/feature-959.feature`, `features/regression/retry-directive/feature-908.feature`: orchestrator-resilience prior art. Phrases G-RD2–G-RD5, W-RD1 and T-RD11 can drive the `## Retry` re-arm scenario.
-- `test/fixtures/jsonl/manifests/surface-chore-plan-phase.json`, `surface-plan-phase.json`: Claude CLI stub manifests under which the plan phase writes the plan.
-- `cucumber.js`: picks up `features/regression/**/*.feature` and `features/regression/step_definitions/**/*.ts`, so a new `features/regression/resume/` directory needs no configuration.
+- `features/regression/vocabulary.md`: the phrase registry and rot-detection rubric. Register the regression scenario's two new phrases, W-PL1 and T-PL1, in a new `@plan-lost-on-resume` section with the `PL` prefix, which is unused. That scenario also reuses G18, G3, G4, W1, T1, T3, T5 and T-S6. Phrases only the per-issue scenarios use get no row.
+- `features/regression/resume/feature-1078.feature`: the issue's regression scenario, which the alignment phase moved here from the per-issue file. It is `@regression @subprocess @plan-lost-on-resume`, tagged `@adw-1078`.
+- `features/per-issue/feature-1078.feature`: the nine per-issue scenarios the scenario phase wrote (step 12).
+- `features/regression/smoke/adw_sdlc_happy_path.feature`, and the surface rows `features/regression/surfaces/row-02-adwPlan-planPhase-happy.feature`, `row-04-adwBuild-buildPhase-happy.feature` and `row-33-adwReview-planValidationPhase-happy.feature`: fresh-run rows the scenario phase tagged `@adw-1078`. They must pass unchanged.
+- `features/regression/support/subprocessHarness.ts`, `subprocessRun.ts`, `forgeShadow.ts`, `hooks.ts`: the subprocess harness the regression scenario runs on.
+  - W1's second claim of an adwId keeps what the first run left.
+  - Each run's forge state is written from the mock server's state, so the second run reads the first run's comments.
+  - The `@regression and (@subprocess or @webhook)` hook sets the harness up.
+- `features/regression/support/phaseConfig.ts`, `features/regression/support/phaseRun.ts`, `features/regression/support/mockForgeProviders.ts`, `features/regression/support/fixtureWorktree.ts`: the in-process surface harness the per-issue `@surface` scenarios run on. It provides:
+  - `buildConfigFor`, which always builds a fresh recovery state (`detectRecoveryState([])`);
+  - the `ORCHESTRATORS` table (`plan`/`plan`, and `build`/`build` with the phase name `build`) and the direct `plan validation` phase;
+  - `runSurfacePhase`, `runDirectSurfacePhase`, `withExitTrap`, `NonPostingCostTracker` and `deliverStubManifest`;
+  - the comment-recording mock forge;
+  - `realGit`, which runs real git where the `@regression` git mock would no-op `clone` and `fetch`.
+- `features/regression/step_definitions/subprocessSteps.ts`, `thenSteps.ts`, `surfaceSteps.ts`: W1, T1, T3, T5, W-S1, W-S4, T-S1, T-S6 and T-S10, which the new phrases sit beside. `surfaceSteps.ts`'s `commentBodyContains` is the comment-body match T-PL1 needs.
+- `features/regression/support/seededRecords.ts`: reads back what the Givens seeded into the mock server's state. `seededIssue()` returns no comments.
+- `features/per-issue/step_definitions/feature-1077.steps.ts`: prior art for two things. Its per-issue `Before`/`After` hooks give a scenario without `@regression` what the `@regression` hooks give. Its `branchOfWorkflow` and `worktreeOfBranch` read a workflow's branch from its top-level state and find that branch's worktree in the harness workspace.
+- `features/regression/takeover/feature-959.feature`, `features/regression/retry-directive/feature-908.feature`: orchestrator-resilience prior art.
+  - Phrases G-RD2–G-RD5, W-RD1 and T-RD11 can drive the optional `## Retry` re-arm scenario.
+  - The per-issue cron scenario reuses feature-959's launch-boundary, seeded-workflow, poll and launch phrases. It gets feature-959's hooks through its `@dead-orchestrator-takeover` tag.
+- `features/regression/smoke/pause_resume_rate_limit.feature`, `test/fixtures/jsonl/manifests/rate-limit-pause-resume.json`: prior art for an SDLC subprocess run that a `seven_day` rate limit pauses. The run records `paused` and exits 0.
+- `test/fixtures/jsonl/manifests/adw-sdlc-happy.json`: the base of the new `adw-sdlc-paused-at-build.json`.
+- `test/fixtures/jsonl/manifests/surface-plan-phase.json`, `surface-build-phase.json`, `surface-plan-validation-phase.json`: the stub manifests the per-issue surface scenarios name. `surface-plan-phase.json` writes issue 1002's plan, so the resume-before-plan scenario gets a manifest of its own.
+- `adws/triggers/pauseQueueResume.ts`: `resumeWorkflow` never resumes a paused workflow whose worktree is gone. It posts an error and leaves the workflow paused for `## Retry`, which respawns the orchestrator under the same adwId. The regression scenario stands for that respawn by invoking the orchestrator again. Reference only.
+- `adws/triggers/perIssueScenarioSweep.ts`: removes `features/per-issue/feature-<N>.feature` and its `features/per-issue/step_definitions/feature-<N>*` files 14 days after the PR merges. The regression scenario's steps must therefore live under `features/regression/step_definitions/` and import nothing from `features/per-issue/`.
+- `cucumber.js`: picks up `features/regression/**/*.feature`, `features/per-issue/**/*.feature` and both step-definition directories, so the new `features/regression/resume/` directory needs no configuration.
 - `.adw/conditional_docs.md`: index entries to extend for the new module, tests and regression scenario. Keep `bun run lint:docs-index` green.
 - `app_docs/feature-9gjajh-build-and-plan-phases.md`: conditional doc for build, plan and plan-validation phase work and resume. It owns `planPhase.ts`, `buildPhase.ts` and `planValidationPhase.ts`.
 - `app_docs/feature-9gjajh-takeover-and-coordination.md`: conditional doc for the exhaustive stage classifier, `## Retry` and resume-cap work. It owns `stageClassifier.ts` and its test.
@@ -104,8 +136,11 @@ Use these files to implement the feature:
 - `adws/phases/__tests__/lostPlanGate.test.ts`: the predicate's truth table, and the park or return of `parkIfPlanLost`.
 - `adws/phases/__tests__/planPhaseResume.test.ts`: `executePlanPhase` on resume. It parks on a lost plan without running the planner, and runs as before on a fresh run or a resume before `plan_created`.
 - `adws/phases/__tests__/planValidationPhase.test.ts`: `executePlanValidationPhase` with a missing plan. It parks on resume and throws as before on a fresh run.
-- `features/regression/resume/feature-1078.feature`: the `@regression @plan-lost-on-resume` regression scenarios, tagged `@adw-1078`. Create it only if the scenario or alignment phases have not already placed these scenarios under `features/regression/`.
-- `features/regression/step_definitions/feature-1078.steps.ts`: step definitions for the new phrases, built on the surface harness.
+- `features/regression/step_definitions/feature-1078.steps.ts`: W-PL1 and T-PL1, the two new phrases of the regression scenario.
+- `features/per-issue/step_definitions/feature-1078.steps.ts`: the hooks of the per-issue `@surface` scenarios and the four phrases only the per-issue scenarios use.
+- `test/fixtures/jsonl/manifests/adw-sdlc-paused-at-build.json`: `adw-sdlc-happy.json` with the build agent answered rate-limited for the `seven_day` window.
+- `test/fixtures/jsonl/manifests/surface-plan-phase-resumed.json`: `surface-plan-phase.json` with the planner writing the plan of issue 107804 for adwId `surface-1078-04`.
+- `features/regression/resume/feature-1078.feature` is not new work: the alignment phase has already written it. Do not duplicate its scenario.
 
 ## Implementation Plan
 ### Phase 1: Foundation
@@ -129,7 +164,11 @@ The fresh-run paths (planner runs; `Cannot read plan file` is thrown) are untouc
 - Exclude `worktree_lost` in the cron filter with an inline, grace-period-bypassing check.
 - Let `## Retry` re-arm it to `phase_timeout`.
 - Confirm `## Continue` and the takeover need no change.
-- Add the regression scenario (worktree removed between plan and build, resume, recorded stage `worktree_lost`, exactly one plan-created comment), plus the fresh-run scenario and the optional `## Retry` scenario, with step definitions and vocabulary.
+- Make the scenarios pass:
+  - the regression scenario `features/regression/resume/feature-1078.feature`: the worktree is removed between the plan and the build, the workflow is resumed, the recorded stage is `worktree_lost`, and there is exactly one plan-created comment;
+  - the nine per-issue scenarios;
+  - the four fresh-run rows tagged `@adw-1078`.
+  This takes the six new phrases' step definitions, two stub manifests, the per-issue hooks and two vocabulary rows. The `## Retry` scenario is optional.
 - Update the README and the conditional-docs index.
 
 ## Step by Step Tasks
@@ -235,59 +274,75 @@ In `adws/forge/parkComment.ts`:
 - `adws/triggers/__tests__/retryHandler.test.ts`: `decideRetryAction('worktree_lost')` returns the re-arm. `handleRetryDirective` on a `worktree_lost` state writes `{ workflowStage: 'phase_timeout', resumeAttempts: 0 }` and returns true.
 - `adws/triggers/__tests__/continueHandler.test.ts`: `decideContinueAction({ workflowStage: 'worktree_lost', parkReason: 'worktree_lost' })` is `{ kind: 'not_a_baseline_park' }`.
 
-### 12. Regression scenario, step definitions and vocabulary
-- Check `features/regression/**` and `features/per-issue/**` for `@adw-1078` scenarios the scenario and alignment phases wrote:
-  - If a `@regression` scenario for the acceptance criterion exists, implement its step definitions and register its phrases; do not duplicate it.
-  - Otherwise create `features/regression/resume/feature-1078.feature`, tagged `@regression @plan-lost-on-resume`, with `@adw-1078` scenarios along these lines. Final wording must match registered phrases or new registered ones.
+### 12. Scenarios, step definitions and vocabulary
+The scenarios are already written; do not add or duplicate any. The scenario phase wrote ten per-issue scenarios. The alignment phase then moved one of them, the issue's regression scenario, into the regression suite, because the issue asks for a regression scenario under `features/regression/` and the per-issue sweep deletes per-issue files after the merge. Write the step definitions for all of them.
 
-```gherkin
-@regression @plan-lost-on-resume
-Feature: A resumed workflow whose plan went with its removed worktree parks as worktree_lost and never plans again
-
-  The plan is never committed: it lives only in the worktree of the run that wrote it. When that worktree is
-  removed between the plan and the build, the worktree a resumed run rebuilds from the branch has no plan. The
-  resumed run parks with the stage worktree_lost instead of running the planner a second time against a branch
-  that may already hold part of the build. A fresh run is unchanged.
-
-  Background:
-    Given the ADW codebase is checked out
-
-  @adw-1078
-  Scenario: The worktree is removed between the plan and the build, and the resumed workflow parks as worktree_lost
-    Given an issue 1078 exists in the mock issue tracker
-    And the worktree for adwId "surface-1078-lost" is initialised at branch "feature-issue-1078-lost-plan"
-    And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/surface-chore-plan-phase.json"
-    And the "plan" phase of the "chore" orchestrator ran earlier for adwId "surface-1078-lost"
-    And the worktree for adwId "surface-1078-lost" has been removed and rebuilt from its branch
-    When the "chore" orchestrator resumes adwId "surface-1078-lost" through its "plan" and "build" phases
-    Then the state file for adwId "surface-1078-lost" records workflowStage "worktree_lost"
-    And issue 1078 received exactly 1 comment headed "Implementation Plan Created"
-    And the resumed run parked the workflow and ended the process with exit code 0
-
-  @adw-1078
-  Scenario: A fresh run whose build phase finds no plan still fails, and does not park
-    Given an issue 1078 exists in the mock issue tracker
-    And the worktree for adwId "surface-1078-fresh" is initialised at branch "feature-issue-1078-fresh"
-    When the "build" phase of the "build" orchestrator runs for adwId "surface-1078-fresh"
-    Then the "build" phase run failed with an error that names "Cannot read plan file"
-    And the mock harness recorded zero comment posts on issue 1078 containing the text "ADW Parked"
-```
-
-- Optionally add an `@adw-1078` scenario to `features/regression/retry-directive/feature-908.feature` so it inherits that file's hooks: `## Retry` on a workflow at `worktree_lost` re-arms it to `phase_timeout` with a resume attempt count of 0. Compose it only from the existing phrases G-RD2–G-RD5, W-RD1, T1 and T-RD11.
-- Implement the new phrases in `features/regression/step_definitions/feature-1078.steps.ts` on the surface harness (`phaseConfig.ts`, `phaseRun.ts`, `mockForgeProviders.ts`, `fixtureWorktree.ts`). Use the phase-import pattern only; no step reads a source file.
-  - **G-PL1** `the {string} phase of the {string} orchestrator ran earlier for adwId {string}`: runs the phase as W-S1 does, on a fresh recovery state, and asserts it resolved. This leaves the planner's uncommitted plan in the worktree and the `Implementation Plan Created` comment in the mock forge.
-  - **G-PL2** `the worktree for adwId {string} has been removed and rebuilt from its branch`:
-    - Copies the branch's committed state with `realGit` (the `@regression` git mock no-ops `clone`), deletes the worktree directory, and puts the copy in its place. Nothing uncommitted survives, the plan included.
-    - Re-registers the path for the adwId.
-    - Asserts the plan file is absent afterwards, so a scenario that does not lose the plan fails loudly.
-  - **W-PL1** `the {string} orchestrator resumes adwId {string} through its {string} and {string} phases`:
-    - Builds the config as `buildConfigFor` does, with the recovery state set to `detectRecoveryState(<the comments the mock forge holds for the issue>)`. Its `body` and `createdAt` give `canResume: true` and a last completed stage of `plan_created`.
-    - Delivers the stub manifest.
-    - Runs the two phases in order through `runPhase` and `NonPostingCostTracker` inside `withExitTrap`, as the orchestrator would, and records `resolved`, `error` and `exitCode`.
-  - **T-PL1** `issue {int} received exactly {int} comment(s) headed {string}`: counts the recorded comment posts on issue N whose first `## ` line contains the text. On failure it lists the headings.
-  - **T-PL2** `the resumed run parked the workflow and ended the process with exit code {int}`: asserts W-PL1's outcome did not resolve, threw no error, and exited with the code.
-  - Scope any `Before`/`After` hooks with `{ tags: '@plan-lost-on-resume' }`. Clean up through the World's cleanup as G11 does, and remove `agents/<adwId>/`.
-- Register G-PL1, G-PL2, W-PL1, T-PL1 and T-PL2 in `features/regression/vocabulary.md`, in a new section `## Given/When/Then — A Plan Lost With Its Worktree on Resume (@plan-lost-on-resume)`. Mirror the `@plan-worktree-only` section's prose: pattern, harness, artefacts asserted (state file, recorded comment requests, phase-run outcome), and a rot-rubric compliance sentence. List the reused phrases (G18, G3, G4, G11, W-S1, T1, T-S6, T-S10, and the feature-908 phrases if used).
+- **The scenarios, already in place:**
+  - `features/regression/resume/feature-1078.feature` (`@regression @subprocess @plan-lost-on-resume`, the scenario tagged `@adw-1078`). This scenario meets the issue's acceptance criterion:
+    - An SDLC run creates the plan, and a rate limit pauses it during its build.
+    - Its worktree is removed, leaving its branch.
+    - The orchestrator is invoked again under the same adwId, which is what `## Retry` does for a paused workflow.
+    - The resumed run must exit 0 and record `worktree_lost`.
+    - It must leave exactly one `Implementation Plan Created`, one `Building Implementation Plan` and one `Running Build` comment, no `ADW Workflow Error` comment, and a comment that names `worktree_lost`.
+    - Today the resumed build throws, the run records `abandoned` and posts an error, so the scenario is RED.
+    - In `adwSdlc` the plan phase runs on every resume (`runPhasesParallel` passes no phase name), so its gate parks the run before the scenario, alignment and build phases start.
+  - `features/per-issue/feature-1078.feature`, nine scenarios:
+    - **Parks `worktree_lost`** with no plan in the worktree, without posting the phase's opening comment and without starting its agent:
+      - the plan phase, resumed after `plan_created`;
+      - the build phase, resumed after `build_running`;
+      - the plan-validation phase, driven directly and resumed after `plan_created`.
+      The build and plan-validation phases read the plan before they post `build_running` or `plan_validating`, so a park in the plan-read branch posts neither.
+    - **Unchanged:**
+      - the plan phase resumed after `plan_created` with the plan committed: it skips the planner and does not park;
+      - the plan phase resumed after `plan_building`: it runs the planner, posts `Implementation Plan Created` and does not park;
+      - the build phase resumed after `build_running` with the plan committed: it builds, records `build_completed` and does not park;
+      - the fresh build phase with no plan: it fails with `Cannot read plan file` and does not park.
+    - **The cron** (`@dead-orchestrator-takeover`): it never relaunches a workflow at `worktree_lost` and leaves its worktree alone, while the same poll takes over a neighbour at `abandoned`. All of its phrases are feature-959's.
+    - **The type check** (T22).
+  - The fresh-run rows tagged `@adw-1078`: the SDLC smoke run, and surface rows 02, 04 and 33. They must pass unchanged.
+- **Regression phrases**, in `features/regression/step_definitions/feature-1078.steps.ts`:
+  - **W-PL1** `the worktree of the workflow for adwId {string} is removed, leaving its branch`:
+    - reads `branchName` from the adwId's top-level state;
+    - finds the worktree on that branch in the harness workspace with `git worktree list --porcelain`, as `worktreeOfBranch` in `feature-1077.steps.ts` does, and fails when there is none;
+    - removes it with `realGit(<workspace>, 'worktree', 'remove', '--force', <path>)`;
+    - asserts that the directory is gone and that `git rev-parse --verify refs/heads/<branch>` still succeeds in the workspace.
+    - The resumed orchestrator rebuilds the worktree from the branch itself (`ensureWorktree` in `initializeWorkflow`), so nothing uncommitted survives, the plan included.
+  - **T-PL1** `the mock GitHub API recorded exactly {int} comment(s) on issue {int} containing the text {string}`:
+    - counts the recorded POSTs to `/issues/N/comments` whose JSON `body` contains the text, matching as `commentBodyContains` in `surfaceSteps.ts` does;
+    - asserts the count;
+    - on failure, lists the first line of each matching body.
+  - **Constraints:**
+    - These steps import nothing from `features/per-issue/`, which the per-issue sweep deletes after the merge.
+    - The scenario needs no hook of its own: the `@regression and (@subprocess or @webhook)` hooks give it the mock server and the subprocess harness.
+    - Both orchestrator runs share one harness. W1's second claim keeps the first run's state, and the gh shadow serves the first run's comments to the second, so `detectRecoveryState` resumes after `build_running`.
+- **Stub manifests:**
+  - `test/fixtures/jsonl/manifests/adw-sdlc-paused-at-build.json`: `adw-sdlc-happy.json`, with both build-agent commands (`/implement-tdd`, and `/implement` too) answered `{ "kind": "rate-limited", "rateLimitType": "seven_day", "resetsAt": 4102444800 }`, as `rate-limit-pause-resume.json` answers.
+    - The phase runner hands a seven-day limit to the pause queue rather than waiting it out in-process, so the first run records `paused` and exits 0.
+    - Every other command answers as in the happy run.
+    - The second run parks before it reaches the build.
+  - `test/fixtures/jsonl/manifests/surface-plan-phase-resumed.json`: `surface-plan-phase.json`, except that its `/feature` writes `specs/issue-107804-adw-surface-1078-04-sdlc_planner-surface-plan-phase.md` instead of issue 1002's plan.
+- **Per-issue phrases and hooks**, in `features/per-issue/step_definitions/feature-1078.steps.ts`. They get no vocabulary row.
+  - **Hooks.** The `@surface` scenarios carry no `@regression`, so the regression hooks give them no mock infrastructure and run no cleanup.
+    - Add `Before`/`After` hooks keyed on `@adw-1078 and @surface and not @regression`.
+    - They do what the `@regression` hooks of `features/regression/support/hooks.ts` do: `setupMockInfrastructure`, then `runCleanup`, `teardownMockInfrastructure` and the World resets. `feature-1077.steps.ts` is the prior art.
+    - The cron scenario runs under feature-959's `@dead-orchestrator-takeover` hooks, and the type-check scenario needs no hook.
+  - `issue {int} holds the workflow comments an earlier run of workflow {string} posted, up to the stage {string}`:
+    - seeds the stage comments an earlier run under that adwId posted, from `starting` through `STAGE_ORDER` up to and including the named stage;
+    - formats each with the production formatter (`formatWorkflowComment`), giving it the adwId, the worktree's branch and, from `plan_created` on, the plan path `specs/issue-<N>-adw-<adwId>-sdlc_planner-surface-plan.md`;
+    - stamps them an hour ago, in stage order;
+    - seeds them through the mock server's state (`mockContext.setState({ comments })`), never through recorded requests, so the zero-post Thens (T-S6) count only the resumed run's posts.
+  - `the {string} phase of the {string} orchestrator runs for adwId {string}, resuming the earlier run` and `the {string} phase, which no orchestrator runs, is driven directly for adwId {string}, resuming the earlier run`:
+    - run as W-S1 and W-S4 do, but with `config.recoveryState` set to `detectRecoveryState` over the comments the mock server holds for the issue;
+    - get that recovery state through an optional parameter of `runSurfacePhase`/`runDirectSurfacePhase` (`features/regression/support/phaseRun.ts`), so W-S1 and W-S4 stay unchanged;
+    - assert `canResume: true` first, so a seeding mistake fails here and not in a Then.
+  - `the {string} phase run stopped the workflow without an error`: asserts that the recorded outcome is for that phase, did not resolve, threw no error and ended the process with exit code 0. That exit is the park's `process.exit(0)`, which `withExitTrap` records.
+- **Vocabulary.** In `features/regression/vocabulary.md`, add the section `## Given/When/Then — A Plan Lost With Its Worktree on Resume (@plan-lost-on-resume)` with the rows W-PL1 and T-PL1. Mirror the prose of the `@plan-worktree-only` section:
+  - the pattern (subprocess) and the harness;
+  - the artefacts asserted: the state file, the recorded comment requests, the exit code, and the workspace's worktrees and branches;
+  - a sentence on rot-rubric compliance;
+  - the reused phrases: G18, G3, G4, W1, T1, T3, T5 and T-S6.
+- **Optional:** add an `@adw-1078` scenario to `features/regression/retry-directive/feature-908.feature`, so it inherits that file's hooks. In it, `## Retry` on a workflow at `worktree_lost` re-arms it to `phase_timeout` with a resume attempt count of 0. Compose it only from the existing phrases G-RD2–G-RD5, W-RD1, T1 and T-RD11.
+- No step reads a source file.
 
 ### 13. Documentation and the conditional-docs index
 - `README.md`:
@@ -297,7 +352,7 @@ Feature: A resumed workflow whose plan went with its removed worktree parks as w
 - `.adw/conditional_docs.md`:
   - `app_docs/feature-9gjajh-build-and-plan-phases.md` entry: add `adws/phases/lostPlanGate.ts`, `adws/phases/__tests__/lostPlanGate.test.ts`, `adws/phases/__tests__/planPhaseResume.test.ts` and `adws/phases/__tests__/planValidationPhase.test.ts` to `Owns`. Add a condition: "When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume."
   - `app_docs/feature-9gjajh-test-and-scenario-phases.md` entry: mention `worktree_lost` and `parkStage` in the park-comment-builder condition.
-  - `app_docs/feature-9gjajh-bdd-regression-suite.md` entry: add a condition for the new regression scenario (`features/regression/resume/feature-1078.feature`, `@plan-lost-on-resume`, `feature-1078.steps.ts`, phrases G-PL/W-PL/T-PL).
+  - `app_docs/feature-9gjajh-bdd-regression-suite.md` entry: add a condition for the new regression scenario. Name `features/regression/resume/feature-1078.feature`, `@plan-lost-on-resume`, `features/regression/step_definitions/feature-1078.steps.ts`, the phrases W-PL1 and T-PL1, and `adw-sdlc-paused-at-build.json`. Do not list per-issue files under `Owns`: the per-issue sweep deletes them.
   - Every `Owns:` glob must point at a file that exists.
 - Leave the app_docs prose and any ADR to the document phase. See the Notes.
 
@@ -328,6 +383,15 @@ Feature: A resumed workflow whose plan went with its removed worktree parks as w
   - `## Retry` re-arms it to `phase_timeout` with `resumeAttempts: 0`.
   - `## Continue` treats it as `not_a_baseline_park`.
 
+### BDD Scenarios
+- **Regression** (`features/regression/resume/feature-1078.feature`): a real SDLC run is paused during its build, its worktree is removed and it is resumed. It records `worktree_lost`, exits 0, and posts exactly one plan-created comment and no second planner or build comment.
+- **Per-issue** (`features/per-issue/feature-1078.feature`), in-process:
+  - the plan, build and plan-validation phases park on a resume with no plan;
+  - they go on as before with the plan present, or on a resume before `plan_created`;
+  - a fresh build with no plan still fails.
+  The cron scenario never relaunches `worktree_lost`, and the type check passes.
+- **Fresh runs unchanged:** the SDLC smoke run and surface rows 02, 04 and 33, all tagged `@adw-1078`.
+
 ### Edge Cases
 - A fresh run (`canResume: false`) whose build or plan-validation phase finds no plan still throws `Cannot read plan file` and never parks. A fresh plan phase still runs the planner.
 - On a resume whose last completed stage is before `plan_created` (`classified`, `branch_created`, `plan_building`), the plan was never recorded as created. The planner runs, and the single plan-created comment it posts is the first.
@@ -340,13 +404,14 @@ Feature: A resumed workflow whose plan went with its removed worktree parks as w
 - A park comment that cannot be posted, or no `repoContext`: the state is still `worktree_lost` and the process exits 0 (existing `parkWorkflow` behaviour).
 - `## Retry` on `worktree_lost` re-arms to `phase_timeout`. The takeover resumes, and the run parks again while the plan is missing; it never re-plans. `## Retry` on `human_gated` and `review_failed` is unchanged.
 - The cron never relaunches `worktree_lost`, even within the grace period. A webhook-driven `spawn_fresh` relaunch resumes and re-parks without re-planning.
+- A paused workflow whose worktree was removed is not resumed by the pause-queue scanner: `resumeWorkflow` posts an error and leaves it paused. `## Retry` respawns it under the same adwId, and the respawned run parks as `worktree_lost` instead of throwing. The regression scenario covers this respawn.
 - The park comment contains the plan path in backticks, but `detectRecoveryState` ignores it because its heading is not a lifecycle stage.
 
 ## Acceptance Criteria
-- A `@regression` scenario under `features/regression/` removes the worktree between the plan phase and the build phase and resumes the workflow. It then shows that the top-level state records `workflowStage` `worktree_lost` and that the issue has exactly one `Implementation Plan Created` comment (no second plan).
+- The `@regression` scenario `features/regression/resume/feature-1078.feature` passes. Its SDLC run creates the plan and is paused during its build, the worktree is removed, and the workflow is resumed. The top-level state then records `workflowStage` `worktree_lost`, and the issue has exactly one `Implementation Plan Created` comment, so there is no second plan.
 - `worktree_lost` is a `WorkflowStage` literal, classified `human_gated` by `classifyStage`. The existing exhaustiveness test (`Record<WorkflowStage, StageClass>` in `adws/core/__tests__/stageClassifier.test.ts`) is extended with it and passes.
 - A resumed workflow whose plan was created by an earlier run and is missing parks as `worktree_lost` from the plan, plan-validation or build phase. The park comment is headed `ADW Parked — The Plan Was Lost with the Worktree` and names the worktree path and the plan path. The planner is not called.
-- A fresh, non-resumed run is unchanged: the planner runs, and the build and plan-validation phases throw `Cannot read plan file` on a missing plan, without parking. A regression scenario and unit tests cover this.
+- A fresh, non-resumed run is unchanged: the planner runs, and the build and plan-validation phases throw `Cannot read plan file` on a missing plan, without parking. Unit tests cover this, as do the fresh-run regression rows tagged `@adw-1078` and the per-issue fresh-build scenario.
 - The cron excludes `worktree_lost`. `## Retry` re-arms it to `phase_timeout`. All existing parks still record `human_gated`.
 - The unit suite, the type checks (`bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`), lint, build, the docs-index gate, the `@adw-1078` scenarios and the `@regression` suite are all green.
 
@@ -360,9 +425,9 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx vitest run adws/core/__tests__/stageClassifier.test.ts adws/forge/__tests__/parkComment.structure.test.ts adws/forge/__tests__/parkComment.content.test.ts adws/phases/__tests__/workflowPark.test.ts adws/phases/__tests__/lostPlanGate.test.ts adws/phases/__tests__/planPhaseResume.test.ts adws/phases/__tests__/planValidationPhase.test.ts adws/phases/__tests__/buildPhase.test.ts adws/triggers/__tests__/retryHandler.test.ts adws/triggers/__tests__/cronIssueFilter.eligibility.test.ts adws/triggers/__tests__/continueHandler.test.ts`: the focused unit tests for this feature.
 - `bun run test:unit`: the full unit suite, with zero regressions.
 - `bun run lint:docs-index`: the conditional-docs index stays clean after the `Owns`/condition edits.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1078"`: the issue's scenarios, including the worktree-removed resume scenario and the fresh-run scenario.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-1078"`: all 14 of the issue's scenarios. They are the regression scenario, the nine per-issue scenarios, and the four fresh-run regression rows. A dry run before this feature lists six undefined phrases; none may remain.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@plan-lost-on-resume"`: the new regression feature by its tag.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"`: the whole BDD regression suite, with zero regressions (including `@plan-worktree-only`, `@retry-directive`, `@dead-orchestrator-takeover` and the surface rows).
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"`: the whole BDD regression suite, with zero regressions (including `@plan-worktree-only`, `@retry-directive`, `@dead-orchestrator-takeover` and the surface rows). The suite holds 350 scenarios, one more than before because of the new resume scenario.
 
 ## Notes
 - Strictly follow `.adw/coding_guidelines.md`:
@@ -381,4 +446,6 @@ Execute every command to validate the feature works correctly with zero regressi
   - `adwMerge.tsx` and `autoMergePhase.ts` already tolerate a missing plan.
 - The deliberate restart that user story 19 asks for is `## Cancel`, which kills the orchestrator, removes the worktrees, deletes the state, clears the comments and re-queues the issue, followed by a fresh run with a new plan. `## Retry` resumes under the same ADW ID and parks again unless an operator has put the plan back into the rebuilt worktree. A dedicated "re-plan this workflow" directive is out of scope.
 - `parkDirectives`' doc comment says each directive's meaning comes from the park's decision record. The PRD's follow-up ADR, the lifetime split of `specs/` versus `docs/`, is the natural place to record what `## Retry`, `## Continue` and `## Cancel` mean for `worktree_lost`. Leave that and the app_docs prose to the document phase and the `write-an-adr` skill.
-- The scenario writer routes per-issue output to `features/per-issue/` and never promotes to the regression suite on its own. The issue explicitly asks for a regression scenario, so step 12 creates or completes it under `features/regression/`, as #1077 did for `feature-930.feature`. Implement step definitions for whatever `@adw-1078` scenarios the scenario and alignment phases produced, and do not create duplicates.
+- The scenario writer routes its output to `features/per-issue/` and never promotes a scenario to the regression suite on its own. The issue explicitly asks for a regression scenario under `features/regression/`, and per-issue files are deleted 14 days after the merge. So the alignment phase moved the worktree-removed resume scenario, unchanged, to `features/regression/resume/feature-1078.feature` and tagged it `@regression @subprocess @plan-lost-on-resume`.
+  - That scenario replaces the in-process chore scenario and the fresh-run regression scenario this plan first drafted. The per-issue scenarios and the four tagged fresh-run rows already cover both, so writing them would duplicate coverage.
+  - Its steps and vocabulary rows (W-PL1, T-PL1) must live in the regression suite.
