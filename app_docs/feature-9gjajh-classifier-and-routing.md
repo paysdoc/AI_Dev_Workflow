@@ -14,7 +14,7 @@ This module classifies GitHub issues into ADW workflow types and routes them to 
 - Maps every slash command to a Claude model tier (opus / sonnet / haiku) and reasoning effort level
 - Selects cost-optimized model and effort maps when the issue body contains `/fast` or `/cheap`
 - Resolves which orchestrator script to spawn for a classified issue type (`getWorkflowScript`)
-- Parses workflow stage, ADW ID, branch name, plan path, and PR URL out of GitHub comment bodies (pure, no API calls)
+- Parses workflow stage, ADW ID, branch name, plan path, and PR URL out of GitHub comment bodies (pure, no API calls). `extractPlanPathFromComment` accepts both the current `specs/issue-{N}-adw-{adwId}-sdlc_planner-{name}.md` and the legacy `specs/issue-{N}-plan.md` (still written by `/pr_review`), so resume recovers the plan path from either
 - Detects recovery state from a comment history to support workflow resume
 - Identifies human directive comments: `## Continue`, `## Cancel`, `## Retry`
 

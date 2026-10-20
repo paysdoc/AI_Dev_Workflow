@@ -581,6 +581,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── fixtures/
 │   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
 │   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
+│   │   │   ├── leftoverDevicesHost.ts  # Recording host that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   │   ├── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
@@ -605,6 +606,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── deviceCommands.test.ts
 │   │   ├── deviceExecutor.test.ts
+│   │   ├── deviceInventory.test.ts
 │   │   ├── deviceLifecycle.failures.test.ts
 │   │   ├── deviceLifecycle.retries.test.ts
 │   │   ├── deviceLifecycle.test.ts
@@ -1005,6 +1007,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
+│   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
 │   │   │   ├── promotionSweepDefaultsHarness.ts  # Shared fakes and constants for the promotion-sweep defaults tests
@@ -1023,6 +1026,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── deviceJanitor.decisions.test.ts
+│   │   ├── deviceJanitor.failures.test.ts
+│   │   ├── deviceJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
 │   │   ├── docsIndexSweepDefaults.test.ts
@@ -1227,7 +1233,7 @@ test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
 │   ├── cli-tool/       # Fixture target repo for BDD scenario testing (Node.js/TypeScript)
 │   │   ├── .adw/       # ADW config for fixture repo
-│   │   ├── src/        # Minimal CLI tool source
+│   │   ├── src/        # Minimal CLI tool source (cli.ts)
 │   │   ├── README.md
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -1237,7 +1243,7 @@ test/                   # Integration test infrastructure
 │   │   ├── README.md
 │   │   ├── calculator.py
 │   │   └── pyproject.toml
-│   ├── github/         # GitHub API response fixtures (issue, PR, comments)
+│   ├── github/         # GitHub API response fixtures (default-issue.json, default-pr.json, default-comments.json)
 │   ├── jsonl/          # JSONL fixture files for testing
 │   │   ├── envelopes/  # Stub envelope templates — checked by `bun run jsonl:check`
 │   │   │   ├── assistant-message.jsonl
@@ -1246,9 +1252,9 @@ test/                   # Integration test infrastructure
 │   │   │   ├── result-message.jsonl
 │   │   │   ├── result-rate-limited.jsonl
 │   │   │   └── system-message.jsonl
-│   │   ├── manifests/  # Named scenario manifests for stub sequencing
-│   │   └── payloads/
-│   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
+│   │   ├── manifests/  # Named scenario manifests for stub sequencing (adw-sdlc, adw-init, adw-upgrade, review, pr-review, promotion-threshold, scenario-writer, surface-* phases, rate-limit-pause-resume, diff-verdict)
+│   │   └── payloads/   # Canned agent payloads (plan, build, review, issue classification)
+│   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing: app.py, features/, tests/)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   ├── fixtures/
