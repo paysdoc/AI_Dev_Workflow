@@ -156,9 +156,9 @@ export function extractPrUrlFromComment(commentBody: string): string | null {
   return match ? match[1] : null;
 }
 
-/** Pattern: `specs/issue-{number}-plan.md` */
+/** Matches `specs/issue-{N}-adw-{adwId}-sdlc_planner-{name}.md` and the legacy `specs/issue-{N}-plan.md`, which /pr_review still writes. */
 export function extractPlanPathFromComment(commentBody: string): string | null {
-  const match = commentBody.match(/`(specs\/issue-\d+-plan\.md)`/);
+  const match = commentBody.match(/`(specs\/issue-\d+-(?:plan|adw-[a-z0-9-]+-sdlc_planner-[a-z0-9-]+)\.md)`/);
   return match ? match[1] : null;
 }
 
