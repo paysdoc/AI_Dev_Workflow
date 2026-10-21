@@ -1,7 +1,7 @@
 @regression @rate-limit-detection
 Feature: Rate-limit decisions rest on structured stream-json facts end to end — the parser captures the limit type and reset time, the rate-limit error carries them, and the pause-queue probe classifies from documented signals with no text fallback
 
-  Issue #907 is the detection slice of `specs/prd/rate-limit-indefinite-retry.md` (sections
+  Issue #907 is the detection slice of `docs/prd/rate-limit-indefinite-retry.md` (sections
   "Detection" and "Further Notes"). Two incidents motivate it:
     • 2026-09-22: issue #840's orchestrator hit a five-hour session limit at 11:57 UTC. The agent's
       own stream-json said when the limit would reset (12:50 UTC), and ADW threw that away. The

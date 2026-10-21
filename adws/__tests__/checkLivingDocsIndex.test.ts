@@ -142,11 +142,11 @@ describe('runLivingDocsIndexCheck', () => {
 
 describe('runLivingDocsIndexCheck — decisions', () => {
   const SECTION_LABEL = "Decisions: each doc's ## Decisions section matches its Decisions: block";
-  const EXISTS_LABEL = 'Decisions: every listed record exists in specs/adr/';
+  const EXISTS_LABEL = 'Decisions: every listed record exists in docs/adr/';
   const DOC = 'app_docs/feature-decided.md';
 
   function writeAdr(dir: string, record: string, slug = 'first'): void {
-    writeDocFile(dir, `specs/adr/${record}-${slug}.md`, `# ADR-${record}\n`);
+    writeDocFile(dir, `docs/adr/${record}-${slug}.md`, `# ADR-${record}\n`);
   }
 
   function sectionLinking(...targets: string[]): string {
@@ -174,7 +174,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
   it('exits 0 when the section links exactly the records of the block and the records exist', () => {
     const dir = makeFixtureDir();
     writeAdr(dir, '0001');
-    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md'));
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../docs/adr/0001-first.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
 
@@ -201,7 +201,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
     const dir = makeFixtureDir();
     writeAdr(dir, '0001');
     writeAdr(dir, '0002', 'second');
-    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md', '../specs/adr/0002-second.md'));
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../docs/adr/0001-first.md', '../docs/adr/0002-second.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
 
@@ -213,7 +213,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
   it('exits 1 on a block that lists a record with no file, naming the finding and the record', () => {
     const dir = makeFixtureDir();
     writeAdr(dir, '0001');
-    indexWithDecidedDoc(dir, ['0099'], sectionLinking('../specs/adr/0099-missing.md'));
+    indexWithDecidedDoc(dir, ['0099'], sectionLinking('../docs/adr/0099-missing.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
     const report = lines.join('\n');
@@ -226,7 +226,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
 
   it('exits 1 on a block in a repository with no ADRs, naming the doc and the record', () => {
     const dir = makeFixtureDir();
-    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-first.md'));
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../docs/adr/0001-first.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
     const report = lines.join('\n');
@@ -239,7 +239,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
   it('exits 1 on a section link with the wrong slug for an existing record', () => {
     const dir = makeFixtureDir();
     writeAdr(dir, '0001');
-    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../specs/adr/0001-old-slug.md'));
+    indexWithDecidedDoc(dir, ['0001'], sectionLinking('../docs/adr/0001-old-slug.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
 
@@ -251,7 +251,7 @@ describe('runLivingDocsIndexCheck — decisions', () => {
   it('exits 1 on a section without a block, because the block is authoritative', () => {
     const dir = makeFixtureDir();
     writeAdr(dir, '0001');
-    indexWithDecidedDoc(dir, [], sectionLinking('../specs/adr/0001-first.md'));
+    indexWithDecidedDoc(dir, [], sectionLinking('../docs/adr/0001-first.md'));
 
     const { exitCode, lines } = runLivingDocsIndexCheck(dir);
 

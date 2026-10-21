@@ -28,18 +28,18 @@ incomingBranch: $2 - the branch being merged in (e.g., the repository's default 
 - Read the spec file at `specPath` to understand the goals, relevant files, and implementation steps for the current branch
 
 **Incoming branch plan:**
-- Search for the incoming branch's implementation plan:
+- Search for the incoming branch's implementation plan, falling back through these sources in order:
   1. Extract the issue number from `incomingBranch` if it follows the pattern `{type}-{issueNumber}-adw-{adwId}-{slug}` or `{type}-issue-{issueNumber}-...`
-  2. Search `specs/` for a matching spec file using the extracted issue number (e.g., `specs/issue-{issueNumber}-*.md`)
-  3. If no spec file is found locally, check the incoming branch for spec files: `git show {incomingBranch}:specs/` and read the matching file with `git show {incomingBranch}:<specPath>`
-  4. If no plan is found through any method, use `git log {incomingBranch} --oneline -20` and `git diff HEAD...{incomingBranch} --stat` to infer the intent of the incoming changes
-- Read the incoming branch's plan to understand its goals, relevant files, and implementation steps
+  2. **Local plan:** search the worktree's `specs/` for a matching plan using the extracted issue number (e.g., `specs/issue-{issueNumber}-*.md`) and read it if present
+  3. **PR body:** if no local plan is found and step 1 extracted an issue number, so `incomingBranch` is a feature branch and not the repository's default branch, read the body of the pull request whose head is `incomingBranch`, if one exists (e.g., `gh pr list --head {incomingBranch} --state all --json number,title,body --limit 1`), and use its summary and checklist as the incoming intent. When `incomingBranch` is the default branch, skip this step and go straight to step 4 (commit log and diff stat), because a pull request whose head is the default branch, such as a release PR, describes changes other than the ones being merged in
+  4. **Commit log and diff stat:** if neither exists, as when `incomingBranch` is the default branch, use `git log {incomingBranch} --oneline -20` and `git diff HEAD...{incomingBranch} --stat` to infer the intent of the incoming changes
+- Use whichever source you found (plan, PR body, or log and diff stat) to understand the incoming branch's goals, relevant files, and changes
 
 ### 3. Analyze Conflicts
 
 For each conflicted file:
 - Read the file to see the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`)
-- Cross-reference both implementation plans to understand:
+- Cross-reference both branches' intent to understand:
   - **What the current branch intended** for this file
   - **What the incoming branch intended** for this file
   - **Whether the changes are complementary** (both can coexist) or **contradictory** (only one approach can survive)

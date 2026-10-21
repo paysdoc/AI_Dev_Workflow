@@ -2,6 +2,7 @@
 import type { DeviceFailure } from '../core/deviceLifecycle';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
 import { FixLoopStall } from '../core/staticCheckFixLoop';
+import type { WorkflowStage } from '../types/workflowTypes';
 
 export enum ParkReason {
   BaselineRed = 'baseline_red',
@@ -10,7 +11,11 @@ export enum ParkReason {
   MissingApplicationType = 'missing_application_type',
   BaseServerDown = 'base_server_down',
   DeviceBootFailed = 'device_boot_failed',
+  WorktreeLost = 'worktree_lost',
 }
+
+/** The phases that read the plan by path, and so the ones that can find it gone. */
+export type PlanReadingPhase = 'plan' | 'plan validation' | 'build';
 
 export interface ParkedCheck {
   readonly check: string;
@@ -32,7 +37,8 @@ export type ParkEvidence =
     }
   | { readonly reason: ParkReason.MissingApplicationType; readonly found: string | null }
   | { readonly reason: ParkReason.BaseServerDown; readonly baseBranch: string; readonly output: string }
-  | { readonly reason: ParkReason.DeviceBootFailed; readonly failure: DeviceFailure };
+  | { readonly reason: ParkReason.DeviceBootFailed; readonly failure: DeviceFailure }
+  | { readonly reason: ParkReason.WorktreeLost; readonly phase: PlanReadingPhase; readonly worktreePath: string; readonly planPath: string };
 
 export interface ParkDirectives {
   readonly retry: string;
@@ -46,6 +52,23 @@ const QUOTE_INDENT = '    ';
 const NO_OUTPUT = '(no output)';
 const CUT_MARKER = `… output cut after ${MAX_PARK_OUTPUT_CHARS} characters; the full output is in the run’s execution log`;
 
+export type ParkStage = Extract<WorkflowStage, 'human_gated' | 'worktree_lost'>;
+
+// Only a lost plan has a stage of its own: the state, and so the cron, shows that the plan is gone without reading the park reason.
+const STAGES: Readonly<Record<ParkReason, ParkStage>> = {
+  [ParkReason.BaselineRed]: 'human_gated',
+  [ParkReason.PreExistingRegression]: 'human_gated',
+  [ParkReason.FixLoopStalled]: 'human_gated',
+  [ParkReason.MissingApplicationType]: 'human_gated',
+  [ParkReason.BaseServerDown]: 'human_gated',
+  [ParkReason.DeviceBootFailed]: 'human_gated',
+  [ParkReason.WorktreeLost]: 'worktree_lost',
+};
+
+export function parkStage(reason: ParkReason): ParkStage {
+  return STAGES[reason];
+}
+
 const TITLES: Readonly<Record<ParkReason, string>> = {
   [ParkReason.BaselineRed]: 'Static Checks Fail on the Base Branch',
   [ParkReason.PreExistingRegression]: 'A Regression Scenario Also Fails on the Base Branch',
@@ -53,6 +76,7 @@ const TITLES: Readonly<Record<ParkReason, string>> = {
   [ParkReason.MissingApplicationType]: 'Application Type Unknown',
   [ParkReason.BaseServerDown]: 'Dev Server Does Not Start on the Base Branch',
   [ParkReason.DeviceBootFailed]: 'A Device Did Not Boot',
+  [ParkReason.WorktreeLost]: 'The Plan Was Lost with the Worktree',
 };
 
 const BASELINE_DIRECTIVES: ParkDirectives = {
@@ -85,6 +109,12 @@ export function parkDirectives(evidence: ParkEvidence): ParkDirectives {
       return {
         retry: 're-runs the scenario phase, which creates and boots the devices again, and parks the issue again if a device still does not boot',
         continue: 'waives nothing, because no scenario can run without the devices: fix the host, then use `## Retry`',
+      };
+    case ParkReason.WorktreeLost:
+      return {
+        retry: 're-runs the workflow under the same ADW ID and parks the issue again if the plan is still not in the worktree, because ADW never re-runs the planner on its own',
+        continue:
+          'waives nothing, because no phase after the plan can run without it: to start the issue over with a new plan, use `## Cancel`, which clears the workflow and re-queues the issue',
       };
     default: {
       const unhandled: never = evidence;
@@ -181,11 +211,22 @@ function describeFailure(evidence: ParkEvidence): string {
       return ['The dev server did not start. Its output:', quote(evidence.output)].join('\n\n');
     case ParkReason.DeviceBootFailed:
       return describeDeviceFailure(evidence.failure);
+    case ParkReason.WorktreeLost:
+      return describeLostPlan(evidence);
     default: {
       const unhandled: never = evidence;
       throw new Error(`Unhandled park reason: ${JSON.stringify(unhandled)}`);
     }
   }
+}
+
+function describeLostPlan({ phase, planPath, worktreePath }: Extract<ParkEvidence, { reason: ParkReason.WorktreeLost }>): string {
+  return (
+    `The ${inlineCode(phase)} phase of this resumed run found no plan at ${inlineCode(planPath)} in the worktree ${inlineCode(worktreePath)}. ` +
+    'An earlier run of this workflow wrote the plan there, but a plan is never committed: it lived only in that run’s worktree, which was removed, ' +
+    'and the worktree rebuilt for this run has none. ADW does not run the planner again on its own, ' +
+    'because a second plan would be written against a branch that may already hold part of the build.'
+  );
 }
 
 function describeMissingApplicationType(found: string | null): string {
@@ -208,7 +249,7 @@ function baseBranchNote(evidence: ParkEvidence): string | null {
 }
 
 function describeParking(evidence: ParkEvidence): string {
-  const parked = 'The workflow is parked as `human_gated`.';
+  const parked = `The workflow is parked as \`${parkStage(evidence.reason)}\`.`;
   const checkBased = evidence.reason === ParkReason.BaselineRed || evidence.reason === ParkReason.FixLoopStalled;
   return checkBased ? `${parked} The full output of each check is in the run’s execution log.` : parked;
 }

@@ -62,7 +62,7 @@ function setEntryDecisions(docPath: string, decisions: string[], decisionsHeader
 }
 
 function decisionsSection(records: string[]): string {
-  const bullets = records.map((record) => `- [ADR-${record}](../specs/adr/${adrFileName(record)}) — Record ${record}`);
+  const bullets = records.map((record) => `- [ADR-${record}](../docs/adr/${adrFileName(record)}) — Record ${record}`);
   return ['## Decisions', '', ...bullets, ''].join('\n');
 }
 
@@ -83,12 +83,12 @@ Given('a fixture repository whose living-docs index and module docs are healthy'
 
 Given('the fixture repository holds the decision records {string}', function (records: string) {
   for (const record of splitList(records)) {
-    writeFixtureFile(requireRoot(), `specs/adr/${adrFileName(record)}`, `# ADR-${record}\n`);
+    writeFixtureFile(requireRoot(), `docs/adr/${adrFileName(record)}`, `# ADR-${record}\n`);
   }
 });
 
 Given('the fixture repository has no ADR directory', function () {
-  rmSync(join(requireRoot(), 'specs', 'adr'), { recursive: true, force: true });
+  rmSync(join(requireRoot(), 'docs', 'adr'), { recursive: true, force: true });
 });
 
 Given('the index entry for {string} carries a Decisions block listing {string}', function (docPath: string, records: string) {

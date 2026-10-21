@@ -25,6 +25,7 @@ import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '@paysdoc/devplatform';
 import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
+import { parkIfPlanLost } from './lostPlanGate';
 
 /**
  * Includes token limit recovery: when the agent approaches the token limit,
@@ -47,6 +48,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     planContent = fs.readFileSync(planPath, 'utf-8');
     log(`Plan loaded from: ${planPath}`, 'success');
   } catch (error) {
+    parkIfPlanLost(config, 'build');
     throw new Error(`Cannot read plan file at ${planPath}: ${error}`);
   }
 

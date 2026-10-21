@@ -16,20 +16,16 @@ import {
   correctPlanFileNaming,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepoIdentity';
-import {
-  assertPlanPhaseLeftOffLimitsAlone,
-  buildPlanCommitMessage,
-  capturePlanPhaseBaseline,
-  commitPlanFileOnly,
-} from './planCommitGuard';
+import { workflowLaunchContext } from './workflowRepoIdentity';
+import { parkIfPlanLost } from './lostPlanGate';
 import { BoardStatus } from '@paysdoc/devplatform';
 
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
-  const gitCtx = requireWorkflowGitContext(config);
-  const baseline = capturePlanPhaseBaseline(gitCtx, worktreePath);
+
+  // Before the first await: in a parallel group, a park here ends the process before the phase beside this one has started.
+  if (!planFileExists(issueNumber, worktreePath)) parkIfPlanLost(config, 'plan');
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -128,18 +124,6 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     if (planResult.modelUsage) modelUsage = planResult.modelUsage;
   } else {
     log('Skipping Plan Agent (plan already exists or completed)', 'info');
-  }
-
-  if (shouldExecuteStage('plan_committing', recoveryState)) {
-    if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'plan_committing', ctx);
-    }
-    assertPlanPhaseLeftOffLimitsAlone(gitCtx, worktreePath, baseline);
-    const planFile = getPlanFilePath(issueNumber, worktreePath);
-    const committed = commitPlanFileOnly(gitCtx, worktreePath, planFile, buildPlanCommitMessage(issueType, issueNumber));
-    log(committed ? `Plan committed: ${planFile}` : `Plan already committed, nothing to commit: ${planFile}`, committed ? 'success' : 'info');
-  } else {
-    log('Skipping plan commit (already completed)', 'info');
   }
 
   const phaseCostRecords = createPhaseCostRecords({

@@ -51,4 +51,4 @@ The set of files that contribute to the framework hash is declared in the `hashI
 
 ## Decisions
 
-- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0042](../docs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes

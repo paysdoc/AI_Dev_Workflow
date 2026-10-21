@@ -89,12 +89,12 @@ Guardrails injection is additionally governed by:
 
 ## Decisions
 
-- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
-- [ADR-0010](../specs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
-- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
-- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
-- [ADR-0023](../specs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
-- [ADR-0026](../specs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
-- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
-- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
-- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0001](../docs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0010](../docs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
+- [ADR-0015](../docs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0020](../docs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0023](../docs/adr/0023-context-exhaustion-is-a-reset.md) — Context exhaustion restarts the agent with fresh context; git state carries the work over
+- [ADR-0026](../docs/adr/0026-cost-computed-locally-persisted-in-d1.md) — Cost computed locally and persisted in a D1 database
+- [ADR-0039](../docs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0050](../docs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0052](../docs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory

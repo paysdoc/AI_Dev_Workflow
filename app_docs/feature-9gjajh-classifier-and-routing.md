@@ -14,7 +14,7 @@ This module classifies GitHub issues into ADW workflow types and routes them to 
 - Maps every slash command to a Claude model tier (opus / sonnet / haiku) and reasoning effort level
 - Selects cost-optimized model and effort maps when the issue body contains `/fast` or `/cheap`
 - Resolves which orchestrator script to spawn for a classified issue type (`getWorkflowScript`)
-- Parses workflow stage, ADW ID, branch name, plan path, and PR URL out of GitHub comment bodies (pure, no API calls)
+- Parses workflow stage, ADW ID, branch name, plan path, and PR URL out of GitHub comment bodies (pure, no API calls). `extractPlanPathFromComment` accepts both the current `specs/issue-{N}-adw-{adwId}-sdlc_planner-{name}.md` and the legacy `specs/issue-{N}-plan.md` (still written by `/pr_review`), so resume recovers the plan path from either
 - Detects recovery state from a comment history to support workflow resume
 - Identifies human directive comments: `## Continue`, `## Cancel`, `## Retry`
 
@@ -47,7 +47,7 @@ Fast/cheap mode is activated per-issue by the presence of `/fast` or `/cheap` (c
 
 ## Decisions
 
-- [ADR-0010](../specs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
-- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
-- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
-- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
+- [ADR-0010](../docs/adr/0010-model-and-effort-routing-per-command.md) — Model and reasoning effort are routed per slash command from central tables
+- [ADR-0032](../docs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0041](../docs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0049](../docs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline

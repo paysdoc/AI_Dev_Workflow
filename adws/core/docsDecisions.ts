@@ -1,7 +1,7 @@
 /**
  * Module doc ↔ ADR mapping checks. An index entry's `Decisions:` block is authoritative; the
  * doc's `## Decisions` section mirrors it. Pure: doc text arrives through the caller's `readDoc`,
- * and a repository with no `specs/adr/`, no blocks and no sections yields nothing.
+ * and a repository with no `docs/adr/`, no blocks and no sections yields nothing.
  */
 
 import * as path from 'path';
@@ -18,14 +18,16 @@ export type DecisionViolation =
   | { readonly kind: 'unknown-decision'; readonly docPath: string; readonly adr: string }
   | { readonly kind: 'dead-decision-link'; readonly docPath: string; readonly target: string };
 
-const ADR_FILE_RE = /^specs\/adr\/(\d{4})-[^/]+\.md$/;
-const ADR_LINK_TARGET_RE = /(?:^|\/)specs\/adr\/(\d{4})-[^/]+\.md$/;
+export const DECISION_RECORD_DIR = 'docs/adr';
+
+const ADR_FILE_RE = new RegExp(`^${DECISION_RECORD_DIR}/(\\d{4})-[^/]+\\.md$`);
+const ADR_LINK_TARGET_RE = new RegExp(`(?:^|/)${DECISION_RECORD_DIR}/(\\d{4})-[^/]+\\.md$`);
 const LINK_RE = /\[[^\]]*\]\(([^)\s]+)[^)]*\)/g;
 const FENCE_RE = /^\s*(`{3,}[^`]*|~{3,}.*)$/;
 const SECTION_BOUNDARY_RE = /^#{1,2} /;
 const DECISIONS_HEADING_RE = /^## Decisions\s*$/;
 
-/** The numbers whose record file sits directly under `specs/adr/`; the index and nested paths are not records. */
+/** The numbers whose record file sits directly under `docs/adr/`; the index and nested paths are not records. */
 export function findAdrNumbers(files: readonly string[]): ReadonlySet<string> {
   const numbers = files.map((file) => ADR_FILE_RE.exec(file)?.[1]);
   return new Set(numbers.filter((adr): adr is string => adr !== undefined));
@@ -105,7 +107,7 @@ function checkEntry(
 
 /**
  * Every entry's doc is read, entries without a block included: a section with no block is a
- * mismatch too. Never skipped when `specs/adr/` is missing — a block there names records that
+ * mismatch too. Never skipped when `docs/adr/` is missing — a block there names records that
  * do not exist, and `/document` must not invent records in a target repo.
  */
 export function findDecisionViolations(

@@ -43,5 +43,5 @@ No configuration. All types are static compile-time definitions.
 
 ## Decisions
 
-- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
-- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0015](../docs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0029](../docs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state

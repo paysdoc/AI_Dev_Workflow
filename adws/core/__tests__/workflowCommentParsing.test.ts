@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { isRetryComment, isCancelComment, RETRY_COMMENT_PATTERN, parseWorkflowStageFromComment } from '../workflowCommentParsing';
+import {
+  isRetryComment,
+  isCancelComment,
+  RETRY_COMMENT_PATTERN,
+  ADW_SIGNATURE,
+  parseWorkflowStageFromComment,
+  extractPlanPathFromComment,
+  detectRecoveryState,
+} from '../workflowCommentParsing';
+import { formatWorkflowComment } from '../../forge/workflowCommentsIssue';
+import type { IssueComment } from '@paysdoc/devplatform';
 
 describe('isRetryComment', () => {
   it('matches exact "## Retry" heading', () => {
@@ -57,5 +67,76 @@ describe('parseWorkflowStageFromComment — compaction recovery headings', () =>
 
   it('reads the unit-test compaction recovery heading as its stage', () => {
     expect(parseWorkflowStageFromComment(commentHeaded(':warning: Test Compaction Recovery'))).toBe('test_compaction_recovery');
+  });
+});
+
+const ADW_ID = 'a69x2i-bug-resume-recovers';
+const CURRENT_PLAN_PATH = 'specs/issue-1080-adw-a69x2i-bug-resume-recovers-sdlc_planner-fix-resume-plan-path-parsing.md';
+const LEGACY_PLAN_PATH = 'specs/issue-1080-plan.md';
+
+const planCreatedBody = (planPath: string, planOutput?: string): string =>
+  formatWorkflowComment('plan_created', { issueNumber: 1080, adwId: ADW_ID, planPath, planOutput });
+
+const issueComment = (body: string, createdAt: string): IssueComment =>
+  ({ id: createdAt, author: 'adw-bot', createdAt, body });
+
+describe('extractPlanPathFromComment', () => {
+  it('ignores a spec path that is not a plan file', () => {
+    expect(extractPlanPathFromComment('See `specs/prd/specs-worktree-only-and-docs-relocation.md`')).toBeNull();
+  });
+});
+
+describe('detectRecoveryState — plan path', () => {
+  it('recovers a current-format plan path from an Implementation Plan Created comment', () => {
+    const state = detectRecoveryState([issueComment(planCreatedBody(CURRENT_PLAN_PATH), '2026-10-20T10:00:00Z')]);
+
+    expect(state.planPath).toBe(CURRENT_PLAN_PATH);
+    expect(state.lastCompletedStage).toBe('plan_created');
+    expect(state.canResume).toBe(true);
+  });
+
+  it('still recovers a legacy issue-N-plan.md path', () => {
+    const state = detectRecoveryState([issueComment(planCreatedBody(LEGACY_PLAN_PATH), '2026-10-20T10:00:00Z')]);
+
+    expect(state.planPath).toBe(LEGACY_PLAN_PATH);
+    expect(state.lastCompletedStage).toBe('plan_created');
+    expect(state.canResume).toBe(true);
+  });
+
+  it('takes the plan file line, not a plan named in the plan summary', () => {
+    const summary = 'Follows `specs/issue-930-adw-6k869a-feat-promote-930-sce-sdlc_planner-promote-930-plan-commit-regression.md`.';
+    const state = detectRecoveryState([issueComment(planCreatedBody(CURRENT_PLAN_PATH, summary), '2026-10-20T10:00:00Z')]);
+
+    expect(state.planPath).toBe(CURRENT_PLAN_PATH);
+  });
+
+  it('keeps the recovered plan path when a later stage comment carries none', () => {
+    const state = detectRecoveryState([
+      issueComment(planCreatedBody(CURRENT_PLAN_PATH), '2026-10-20T10:00:00Z'),
+      issueComment(formatWorkflowComment('build_running', { issueNumber: 1080, adwId: ADW_ID }), '2026-10-20T10:05:00Z'),
+    ]);
+
+    expect(state.planPath).toBe(CURRENT_PLAN_PATH);
+    expect(state.lastCompletedStage).toBe('build_running');
+  });
+});
+
+describe('detectRecoveryState — a run that posted the retired "Committing Plan" comment', () => {
+  // The formatter is gone, so the body a run on the previous release posted is spelled out here.
+  const committingPlanBody = `## :floppy_disk: Committing Plan\n\nCommitting implementation plan to branch...\n\n**ADW ID:** \`${ADW_ID}\`${ADW_SIGNATURE}`;
+
+  it('reads the retired heading as no stage', () => {
+    expect(parseWorkflowStageFromComment(committingPlanBody)).toBeNull();
+  });
+
+  it('resumes after plan_created and keeps the plan path', () => {
+    const state = detectRecoveryState([
+      issueComment(planCreatedBody(CURRENT_PLAN_PATH), '2026-10-20T10:00:00Z'),
+      issueComment(committingPlanBody, '2026-10-20T10:01:00Z'),
+    ]);
+
+    expect(state.lastCompletedStage).toBe('plan_created');
+    expect(state.canResume).toBe(true);
+    expect(state.planPath).toBe(CURRENT_PLAN_PATH);
   });
 });

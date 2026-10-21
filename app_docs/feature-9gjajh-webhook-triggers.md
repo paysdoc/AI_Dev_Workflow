@@ -74,12 +74,12 @@ Server port defaults to `process.env.PORT || 8001`. `GITHUB_WEBHOOK_SECRET` enab
 
 ## Decisions
 
-- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
-- [ADR-0008](../specs/adr/0008-webhook-endpoint-via-cloudflare-tunnel.md) — Webhook endpoint through a Cloudflare Tunnel, with signed payloads
-- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
-- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
-- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
-- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
-- [ADR-0046](../specs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh
+- [ADR-0001](../docs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0008](../docs/adr/0008-webhook-endpoint-via-cloudflare-tunnel.md) — Webhook endpoint through a Cloudflare Tunnel, with signed payloads
+- [ADR-0012](../docs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0032](../docs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0036](../docs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../docs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0041](../docs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0046](../docs/adr/0046-gitcontext-as-sole-git-authority.md) — GitContext is the only way to run git or gh

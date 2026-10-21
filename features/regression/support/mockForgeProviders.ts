@@ -46,7 +46,7 @@ function parseJson(body: string): unknown {
 }
 
 /** GitHub's REST comment, as the port's `IssueComment`. */
-function toIssueComment(raw: unknown): IssueComment {
+export function toIssueComment(raw: unknown): IssueComment {
   const record = isRecord(raw) ? raw : {};
   const user = isRecord(record['user']) ? record['user'] : {};
   return {

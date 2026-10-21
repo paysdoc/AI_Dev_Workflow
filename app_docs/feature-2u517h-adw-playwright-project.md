@@ -38,4 +38,4 @@ ADW owns the Playwright BDD project that runs the Gherkin scenarios of `web` rep
 
 ## Decisions
 
-- [ADR-0061](../specs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) — The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project
+- [ADR-0061](../docs/adr/0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) — The application type decides the evidence; `web` repositories run their Gherkin on an ADW-owned Playwright project

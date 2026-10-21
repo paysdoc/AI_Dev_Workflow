@@ -2,8 +2,8 @@
 Feature: adw:none stops every spawn path, a repository's cron defines every ADW label on it, and a major-upgrade issue is routed by its label
 
   Issue #932 implements three owner rulings that ADR-0041 (items 1 and 2) and ADR-0033 (item 1)
-  record as divergences (`specs/adr/0041-label-based-classification.md`,
-  `specs/adr/0033-depaudit-as-dependency-gate.md`):
+  record as divergences (`docs/adr/0041-label-based-classification.md`,
+  `docs/adr/0033-depaudit-as-dependency-gate.md`):
 
     1. `adw:none` opts an issue out "entirely" (the PRD's word); on 2026-10-01 the owner ruled that
        it "always wins, on every path". Today only two functions read it: `decideIssueOpenedRoute`

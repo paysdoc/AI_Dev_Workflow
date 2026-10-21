@@ -42,6 +42,12 @@ export const SAMPLE: Readonly<Record<ParkReason, ParkEvidence>> = {
     reason: ParkReason.DeviceBootFailed,
     failure: { kind: 'boot_failed', platform: Platform.Ios, attempts: 3, output: BOOT_ATTEMPT_OUTPUTS.join('\n\n') },
   },
+  [ParkReason.WorktreeLost]: {
+    reason: ParkReason.WorktreeLost,
+    phase: 'build',
+    worktreePath: '/srv/adw/.worktrees/feature-issue-42-widget',
+    planPath: 'specs/issue-42-adw-k3x9ab-feat-park-comment-sdlc_planner-widget.md',
+  },
 };
 
 export const REASONS = Object.values(ParkReason);

@@ -51,11 +51,11 @@ Since #820, every orchestrator in this module reaches the forge exclusively thro
 
 ## Decisions
 
-- [ADR-0001](../specs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
-- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
-- [ADR-0038](../specs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
-- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
-- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
-- [ADR-0062](../specs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review
+- [ADR-0001](../docs/adr/0001-script-per-orchestrator-driving-claude-code-cli.md) — One script per orchestrator, each driving the Claude Code CLI as a subprocess
+- [ADR-0027](../docs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0036](../docs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0038](../docs/adr/0038-stateless-merge-gate.md) — The merge gate is one stateless rule: no `hitl` label, or an approved PR
+- [ADR-0042](../docs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0048](../docs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0062](../docs/adr/0062-dev-server-start-failure-is-a-failed-review.md) — A dev server that will not start on the issue branch is a failed review

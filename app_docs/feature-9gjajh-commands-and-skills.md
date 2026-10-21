@@ -7,7 +7,9 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 ## Responsibilities
 
 - Define the `prime` command: instructs the agent to read `git ls-files`, `README.md`, `adws/README.md`, and the `conditional_docs.md` guide to orient itself to the codebase before any task.
-- Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/patch`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
+- Define workflow planning commands (`/feature`, `/bug`, `/chore`, `/pr_review`): generate implementation plan documents in `specs/` following the canonical plan format, parameterised with issue number (`$0`), ADW ID (`$1`), and issue JSON (`$2`).
+- Define `/patch`: returns the complete patch plan (`# Patch: …`, in the plan format) as its response and writes no file. The patch phase forwards the response text to the build agent.
+- Keep `/pull_request` and `/resolve_conflict` off committed `specs/` paths: the PR body never links or names `plan_file` (it is read-only context, and stays `$2` so later positional args keep their indices), and the conflict prompt's incoming-branch intent falls back local plan, then PR body, then `git log`/`git diff --stat`, with no `git show` of the incoming branch's `specs/`.
 - Define `adw_init`: analyzes a target repo's codebase and generates the `.adw/` configuration directory (commands including the `## Test Directory` and `## Test Framework` descriptor fields, project config, providers, vocabulary template, coding guidelines, review proof config, and depaudit setup). It also creates `.github/adw.yml` only when absent (heredoc byte-identical to `ADW_YML_TEMPLATE`) and writes the Comments entry into the target's coding guidelines.
 - Keep `adw_init` from ever detecting `mobile:kotlincm`: step 1 detects only `cli` and `web`, and a mobile app (one that runs on Android or iOS) is undecided, never `cli`. Step 3 preserves a hand-set type verbatim. When the preserved type is `mobile:kotlincm`, `adw_init` writes, even with no manifest:
   - `commands.md`: a Gradle unit-test command (every module's `test` except `:scenarios:test`, JUnit reports merged into `$ADW_UNIT_TEST_REPORT_PATH`; replaces a `## Run Tests` that holds only `N/A`, keeps any other custom command), a Gradle build command that passes while no Gradle wrapper or settings file exists (so the bootstrap issue's baseline is green), and `N/A` for the dev server (keyed on the type step 3 writes).
@@ -25,7 +27,7 @@ The `.claude/commands/` directory contains the slash command definitions that Cl
 
 - Command files with `target: true` in frontmatter are deployed to target repos via `adw_init`; files with `target: false` (or no frontmatter) remain ADW-framework-only.
 - The `$0`, `$1`, `$2`, `$3` positional parameters map to `issueNumber`, `adwId`, `issueJson`, and `frameworkRepoRoot` respectively; these positions are fixed and must not be swapped.
-- Planning commands produce a plan document in `specs/` — they do not modify source code.
+- Planning commands (other than `/patch`) produce a plan document in `specs/`; they do not modify source code. `/patch` writes no file.
 - The `prime` command is a lightweight read-only orientation step; it does not make any changes.
 - Commands that reference `conditional_docs.md` first check `.adw/conditional_docs.md` in the target repo, falling back to `.claude/commands/conditional_docs.md` in the ADW framework.
 
@@ -50,17 +52,17 @@ Commands are stored as markdown files in `.claude/commands/`. Claude Code automa
 
 ## Decisions
 
-- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
-- [ADR-0014](../specs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
-- [ADR-0015](../specs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
-- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
-- [ADR-0024](../specs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
-- [ADR-0027](../specs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
-- [ADR-0031](../specs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
-- [ADR-0033](../specs/adr/0033-depaudit-as-dependency-gate.md) — depaudit as the dependency gate for ADW-managed repositories
-- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
-- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
-- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
-- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
-- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
-- [ADR-0064](../specs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — `mobile:kotlincm` type: descriptor runner, devices booted by ADW
+- [ADR-0005](../docs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0014](../docs/adr/0014-bdd-as-validation-contract-unit-tests-removed.md) — BDD scenarios as the validation contract, ADW unit tests removed
+- [ADR-0015](../docs/adr/0015-slash-commands-as-single-spawn-path.md) — Agents are spawned through one function, and their prompt is a slash command
+- [ADR-0018](../docs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0024](../docs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0027](../docs/adr/0027-llm-diff-gate-for-chores.md) — LLM diff gate for chores
+- [ADR-0031](../docs/adr/0031-active-test-phase-passive-review-judge.md) — Active test phase, passive review judge
+- [ADR-0033](../docs/adr/0033-depaudit-as-dependency-gate.md) — depaudit as the dependency gate for ADW-managed repositories
+- [ADR-0037](../docs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0042](../docs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0043](../docs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0050](../docs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0054](../docs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
+- [ADR-0064](../docs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — `mobile:kotlincm` type: descriptor runner, devices booted by ADW

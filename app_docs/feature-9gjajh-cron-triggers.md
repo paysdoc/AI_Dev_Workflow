@@ -56,12 +56,12 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 
 ## Decisions
 
-- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
-- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
-- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
-- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
-- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
-- [ADR-0041](../specs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
-- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0012](../docs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0029](../docs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0032](../docs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0034](../docs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0036](../docs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../docs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0041](../docs/adr/0041-label-based-classification.md) — Issues are classified by `adw:*` labels; issue text never triggers a workflow
+- [ADR-0048](../docs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow

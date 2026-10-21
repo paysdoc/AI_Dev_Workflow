@@ -38,7 +38,7 @@ describe('findViolations — decisions', () => {
 });
 
 describe('assessDocsIndexHealth — decisions', () => {
-  const ADR_44 = 'specs/adr/0044-living-docs-per-module.md';
+  const ADR_44 = 'docs/adr/0044-living-docs-per-module.md';
 
   function docLinking(...targets: string[]): string {
     return ['# Module', '', '## Decisions', '', ...targets.map((t) => `- [ADR](${t}) — a title`), ''].join('\n');
@@ -51,7 +51,7 @@ describe('assessDocsIndexHealth — decisions', () => {
     ];
     const docs: Record<string, string> = {
       'app_docs/feature-a.md': '# A\n',
-      'app_docs/feature-b.md': docLinking('../specs/adr/0099-missing.md'),
+      'app_docs/feature-b.md': docLinking('../docs/adr/0099-missing.md'),
     };
     const files = [...entries.map((e) => e.docPath), ADR_44];
 
@@ -64,7 +64,21 @@ describe('assessDocsIndexHealth — decisions', () => {
     expect(assessment.violations).toEqual([
       { kind: 'decisions-mismatch', docPath: 'app_docs/feature-a.md', onlyInBlock: ['0044'], onlyInSection: [] },
       { kind: 'unknown-decision', docPath: 'app_docs/feature-b.md', adr: '0099' },
-      { kind: 'dead-decision-link', docPath: 'app_docs/feature-b.md', target: '../specs/adr/0099-missing.md' },
+      { kind: 'dead-decision-link', docPath: 'app_docs/feature-b.md', target: '../docs/adr/0099-missing.md' },
+    ]);
+  });
+
+  it('reports a block naming a record that still sits in the retired record directory as unknown', () => {
+    const entries = [entry({ docPath: 'app_docs/feature-a.md', decisions: ['0044'] })];
+    const files = [entries[0].docPath, 'specs/adr/0044-living-docs-per-module.md'];
+
+    const assessment = assessDocsIndexHealth(
+      { content: serializeConditionalDocs(registryOf(entries)), files, readDoc: () => docLinking(`../${ADR_44}`) },
+      null,
+    );
+
+    expect(assessment.violations.filter((v) => v.kind === 'unknown-decision')).toEqual([
+      { kind: 'unknown-decision', docPath: 'app_docs/feature-a.md', adr: '0044' },
     ]);
   });
 

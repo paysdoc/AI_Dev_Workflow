@@ -1,13 +1,14 @@
 /**
  * What a row's Givens seeded into the mock server's state, read back as the port types the phases
- * work with. G4 seeds the issue; G-S2 seeds the pull request and its review comment.
+ * work with. G4 seeds the issue; G-S2 seeds the pull request and its review comment; a row that resumes
+ * a workflow seeds the comments of its earlier run.
  */
 
 import assert from 'assert';
-import type { Issue, PullRequest, ReviewComment } from '@paysdoc/devplatform';
+import type { Issue, IssueComment, PullRequest, ReviewComment } from '@paysdoc/devplatform';
 
 import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
-import { SURFACE_REPO } from './mockForgeProviders.ts';
+import { SURFACE_REPO, toIssueComment } from './mockForgeProviders.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -46,6 +47,11 @@ export function seededIssue(): Issue {
   );
   const [key, raw] = entries[0];
   return toPortIssue(key, raw);
+}
+
+/** What the server holds under an issue's number is GitHub's REST comments, which a Given seeds and the forge serves back. */
+export function seededIssueComments(issueNumber: number): IssueComment[] {
+  return (getMockServerState().comments[String(issueNumber)] ?? []).map(toIssueComment);
 }
 
 function toPortPullRequest(key: string, raw: unknown): PullRequest {

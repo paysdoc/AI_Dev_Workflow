@@ -43,7 +43,7 @@ The JSONL schema module is ADW's only contract with the Claude CLI's `--output-f
 
 ## Decisions
 
-- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
-- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
-- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue
-- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
+- [ADR-0021](../docs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0052](../docs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../docs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue
+- [ADR-0057](../docs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

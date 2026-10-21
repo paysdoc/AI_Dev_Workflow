@@ -51,11 +51,11 @@ Target-repo configuration is file-driven: create `.adw/commands.md`, `.adw/proje
 
 ## Decisions
 
-- [ADR-0003](../specs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
-- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
-- [ADR-0020](../specs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
-- [ADR-0029](../specs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
-- [ADR-0043](../specs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
-- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
-- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
-- [ADR-0064](../specs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — A `mobile:kotlincm` application type: the repository's cucumber-jvm runner on devices ADW boots per workflow, images judged per platform
+- [ADR-0003](../docs/adr/0003-external-target-repo-workspaces.md) — ADW runs from its own repository against target repositories cloned into external workspaces
+- [ADR-0005](../docs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0020](../docs/adr/0020-shared-phase-runner-and-core-decomposition.md) — Phases run through a shared phase runner, and the core is split into single-purpose modules
+- [ADR-0029](../docs/adr/0029-top-level-state-file-as-source-of-truth.md) — One top-level state file per adwId is the source of truth for workflow state
+- [ADR-0043](../docs/adr/0043-multi-language-test-seam.md) — Multi-language test seam: detected descriptor, Gherkin mandate, JUnit report rail
+- [ADR-0050](../docs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0057](../docs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
+- [ADR-0064](../docs/adr/0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) — A `mobile:kotlincm` application type: the repository's cucumber-jvm runner on devices ADW boots per workflow, images judged per platform

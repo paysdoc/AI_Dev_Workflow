@@ -98,6 +98,12 @@ vi.mock('../worktreeSetup', () => ({
   copyClaudeAssetsToWorktree: vi.fn(),
   ensureGitignoreEntry: vi.fn(),
   ensureGitignoreEntries: vi.fn(),
+  ignoreSpecsInWorktree: vi.fn(),
+}));
+
+vi.mock('../../core/targetRepoManager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/targetRepoManager')>()),
+  ensureTargetRepoWorkspace: vi.fn().mockReturnValue('/tmp/fake-target-workspace'),
 }));
 
 vi.mock('../phaseCommentHelpers', () => ({
@@ -153,9 +159,12 @@ import { allocateRandomPort } from '../../core/portAllocator';
 import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import { getDefaultProjectConfig, loadProjectConfig, type ProjectConfig } from '../../core/projectConfig';
 import { runApplicationTypeGate, buildApplicationTypeGateDeps } from '../applicationTypeGate';
+import { copyClaudeAssetsToWorktree, ignoreSpecsInWorktree } from '../worktreeSetup';
 import { Platform } from '@paysdoc/devplatform';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
+const mockCopyClaudeAssets = vi.mocked(copyClaudeAssetsToWorktree);
+const mockIgnoreSpecs = vi.mocked(ignoreSpecsInWorktree);
 const mockGate = vi.mocked(runApplicationTypeGate);
 const mockBuildGateDeps = vi.mocked(buildApplicationTypeGateDeps);
 const mockLoadProjectConfig = vi.mocked(loadProjectConfig);
@@ -509,6 +518,45 @@ describe('initializeWorkflow: a startup failure is written to the orchestrator e
 
     expect(initializeState).not.toHaveBeenCalled();
     initializeState.mockRestore();
+  });
+});
+
+describe('initializeWorkflow: a new worktree ignores the plan directory', () => {
+  const adwId = `${BASE_ADW_ID}-specs-ignore`;
+  const orderOf = (mock: { mock: { invocationCallOrder: number[] } }): number => mock.mock.invocationCallOrder[0];
+
+  beforeEach(() => {
+    mockAgent.mockResolvedValue({ ...baseAgentResult, branchName: 'feature-issue-9000-specs-ignore' });
+  });
+
+  afterEach(() => cleanupAdwId(adwId));
+
+  it('ignores specs/ once in a newly created local worktree, after the reset that would discard the change', async () => {
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockIgnoreSpecs).toHaveBeenCalledTimes(1);
+    expect(mockIgnoreSpecs).toHaveBeenCalledWith(FAKE_WORKTREE_PATH);
+    expect(orderOf(mockGitCtx.fetchAndResetToRemote)).toBeLessThan(orderOf(mockIgnoreSpecs));
+  });
+
+  it('leaves a local worktree it finds for the branch as it is', async () => {
+    mockGitCtx.getWorktreeForBranch.mockReturnValue(FAKE_WORKTREE_PATH);
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockGitCtx.ensureWorktree).not.toHaveBeenCalled();
+    expect(mockIgnoreSpecs).not.toHaveBeenCalled();
+  });
+
+  it('ignores specs/ once in a newly created worktree of a target repository, right after the Claude assets are copied in', async () => {
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', {
+      issueType: '/feature',
+      targetRepo: { owner: 'acme', repo: 'widgets', cloneUrl: '' },
+    });
+
+    expect(mockIgnoreSpecs).toHaveBeenCalledTimes(1);
+    expect(mockIgnoreSpecs).toHaveBeenCalledWith(FAKE_WORKTREE_PATH);
+    expect(orderOf(mockCopyClaudeAssets)).toBeLessThan(orderOf(mockIgnoreSpecs));
   });
 });
 

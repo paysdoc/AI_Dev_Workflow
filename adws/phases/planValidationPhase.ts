@@ -20,6 +20,7 @@ import {
 import type { ValidationResult } from "../agents";
 import type { WorkflowConfig } from "./workflowInit";
 import { workflowLaunchContext } from "./workflowRepoIdentity";
+import { parkIfPlanLost } from "./lostPlanGate";
 
 export async function executePlanValidationPhase(
   config: WorkflowConfig
@@ -51,6 +52,7 @@ export async function executePlanValidationPhase(
 
   const planContent = readPlanFile(issueNumber, worktreePath);
   if (!planContent) {
+    parkIfPlanLost(config, 'plan validation');
     const planPath = getPlanFilePath(issueNumber, worktreePath);
     throw new Error(`Cannot read plan file at ${planPath}`);
   }

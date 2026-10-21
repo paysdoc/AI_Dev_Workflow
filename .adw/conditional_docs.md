@@ -188,7 +188,7 @@
     - When a red static check should be fixed by the static-check fix loop (`runStaticCheckFixLoop`, `staticCheckGate.ts`, `staticCheckFixRound.ts`) rather than end the run, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
     - When working on the fix-round guard (`evaluateFixRound`, `buildFixRoundGuardConfig`, `FRAMEWORK_SUPPRESSION_PATTERNS`, `PROTECTED_PATH_RULES`, `parseUnifiedDiff`), the `## Suppression Patterns` section of `.adw/commands.md`, or a fix round rejected for adding a suppression comment or editing protected configuration
     - When a static-check fix loop stops on identical output or a rejected round, parks as `human_gated` (`parkWorkflow`), or `## Retry` should resume it
-    - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`) and what `## Retry`/`## Continue` mean for each park reason
+    - When working on the park comment builder (`buildParkComment`, `parkDirectives`, `ParkReason`, `parkStage`) and what `## Retry`/`## Continue` mean for each park reason, including the `worktree_lost` park of a plan lost with its worktree, the one park that records a stage of its own
     - When a `cli-tool` fixture `.adw/commands.md` static-check command (fenced, wrong heading) turns a regression surface row or smoke run red
     - When working on the baseline gate (`executeBaselinePhase`, `runBaselineChecks`, `baseWorktree.ts`) that checks the base branch before any work and parks `baseline_red`/`base_server_down`, or the `baseline` record in top-level state
     - When a regression scenario failing on the base branch parks the issue as `pre_existing_regression` (`regressionTriage.ts`, `baseScenarioRerun.ts`, `preExistingRegressionGate.ts`), or `## Continue` waives a baseline park (`continueHandler.ts`)
@@ -222,16 +222,17 @@
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
     - When working on the full-pipeline smoke scenarios (`adw_chore_diff_verdicts`, `adw_sdlc_happy_path`, `pause_resume_rate_limit`) that run real `adwChore`/`adwSdlc` subprocesses, their `byCommand` manifests (`safe-verdict.json`, `regression-possible-verdict.json`, `adw-sdlc-happy.json`, `rate-limit-pause-resume.json`), or the harness's `agents/paused_queue.json` snapshot and restore
     - When working on the promoted rate-limit detection scenario (`features/regression/rate-limit/feature-907.feature`, `feature-907.steps.ts`, `@rate-limit-detection`, vocabulary phrases W-RD1/T-RD1–11) covering the limit type and reset time carried through the stream parser, `RateLimitError` and the pause-queue probe, authentication failures reported as confirmed failures, and the order-independent `CLAUDE_CODE_PATH` restore
-    - When working on the promoted in-process rate-limit wait scenario (`features/regression/rate-limit/feature-912.feature`, `feature-912.steps.ts`, `@rate-limit-in-process-wait`, vocabulary phrases G-RW/W-RW/T-RW) covering the wait policy, announced waits, heartbeat and spawn lock liveness while waiting, and the pause-path fallback
+    - When working on the promoted in-process rate-limit wait scenario (`features/regression/rate-limit/feature-912.feature`, `feature-912.steps.ts`, `@rate-limit-in-process-wait`, vocabulary phrases G-RW/W-RW/T-RW) covering the wait policy, announced waits, heartbeat and spawn lock liveness while waiting, and the pause-path fallback, or the hung-detector probe's timing (`TEST_HUNG_THRESHOLD_MS`, `WAIT_SUSPEND_REAL_MS`, the `setImmediate` yield before the probe, flaky `not reported hung` failures in the Docker leg)
     - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
-    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5, T-SP6/T-SP7), or the `<name>-smoke-<N>` adwId shape
-    - When working on the promoted plan-commit scenario (`features/regression/plan-commit/feature-930.feature`, `@plan-commit-guard`) or its relocated step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
+    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5), or the `<name>-smoke-<N>` adwId shape
+    - When working on the promoted plan-worktree scenario (`features/regression/plan-commit/feature-930.feature`, `@plan-worktree-only`) or its step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
     - When working on the promoted cost-records scenario (`features/regression/cost/feature-936.feature`, `@cost-records`): its `feature-936-*` step definitions, the `drivers/feature-936-*-driver.ts` child processes, reported vs computed cost, the cost API's `reported_cost_usd`/`computed_cost_usd`, or Worker deploy change detection
     - When working on the promoted dead-orchestrator takeover scenario (`features/regression/takeover/feature-959.feature`, `@dead-orchestrator-takeover`), its `feature-959*` step definitions, the shared `feature-796.steps.ts`/`feature-820.steps.ts`/`feature-932-world.ts` now in `features/regression/step_definitions/`, or vocabulary phrases G-DT/W-DT/T-DT
     - When the Background phrase G18 `the ADW codebase is checked out` is undefined or ambiguous, or a `.feature` file sits outside the `cucumber.js` paths and never runs
     - When working on the promoted envelope conformance scenario (`features/regression/envelope/feature-909.feature`, `@envelope-conformance`), its step definitions (`feature-909.steps.ts`, `feature-909-tooling.steps.ts`), the vocabulary phrases G-EC1–11, W-EC1–7, T-EC1–15, or detector parity between the real rate-limit capture and the Claude CLI stub
     - When a promotion issue lists fewer step-def sources than the feature needs (sibling `feature-N-*.steps.ts` imports) and a Cucumber load fails with a dangling import
     - When working on the promoted `## Retry` directive scenario (`features/regression/retry-directive/feature-908.feature`, `@retry-directive`) or its step definitions (`feature-908.steps.ts`: G19, T27, G-RD1–8, W-RD1–3, T-RD1–12, hooks re-keyed from `@adw-908`)
+    - When working on the regression scenario of a resumed workflow whose plan went with its removed worktree (`features/regression/resume/feature-1078.feature`, `@plan-lost-on-resume`): its step definitions (`features/regression/step_definitions/feature-1078.steps.ts`, vocabulary phrases W-PL1 and T-PL1), the `adw-sdlc-paused-at-build.json` manifest that pauses the SDLC run at its build, or the optional recovery-state parameter of `runSurfacePhase`/`runDirectSurfacePhase`
     - When working on the promoted pause-queue rate-limit probe scenario (`features/regression/pause-queue/feature-902.feature`, `@pause-queue-probe`): the probe's `limited`/`unknown`/`clear` verdicts, detector parity with `handleAgentProcess`, a limited probe never striking, vocabulary phrases T-PP1/T-PP2, or the harness hooks' `@pause-queue-probe` scope
     - When working on the promoted pause-queue reset-time scenario (`features/regression/pause-queue/feature-910.feature`) or the relocated pause-queue harness step definitions (`feature-902.steps.ts`, `feature-902-queue.steps.ts`, `feature-910.steps.ts`) and the codebase backstop steps (`codebaseBackstopSteps.ts`: type-check, git/gh guard)
     - When working on the promoted review-comment screenshots scenario (`features/regression/review/feature-937.feature`, `@review-comment-screenshots`), its step-definition closure (`feature-937*.ts`), vocabulary phrases G-RS/W-RS/T-RS covering the review comment's screenshots of the judged proof run, the stand-in screenshot store and review agent, or the order-independent `CLAUDE_CODE_PATH` restore under the `@regression` teardown
@@ -256,16 +257,19 @@
     - adws/phases/__tests__/planPhase.test.ts
     - adws/phases/buildPhase.ts
     - adws/phases/planPhase.ts
-    - adws/phases/planCommitGuard.ts
-    - adws/phases/__tests__/planCommitGuard*.test.ts
     - adws/phases/__tests__/planPhaseCommit.test.ts
+    - adws/phases/__tests__/planPhaseResume.test.ts
     - adws/phases/planValidationPhase.ts
+    - adws/phases/__tests__/planValidationPhase.test.ts
+    - adws/phases/lostPlanGate.ts
+    - adws/phases/__tests__/lostPlanGate.test.ts
     - adws/phases/installPhase.ts
     - adws/phases/alignmentPhase.ts
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
-    - When working on the plan commit (plan-file-only commit, `PlanCommitGuardError`, `capturePlanPhaseBaseline`, `assertPlanPhaseLeftOffLimitsAlone`, `commitPlanFileOnly`) or troubleshooting a plan phase that fails because `.claude/` or `.adw/` changed
+    - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
+    - When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume
   - Decisions:
     - 0023
     - 0024
@@ -285,7 +289,7 @@
     - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
     - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
     - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
-    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
+    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, `ignoreSpecsInWorktree` (the runtime `specs/` ignore), or `verifyAdwRegen` in `worktreeSetup.ts` is relevant, including leaving the framework's own tracked `.claude/` assets untouched
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
@@ -592,9 +596,9 @@
 
 - app_docs/feature-9gjajh-specs-and-prd.md
   - Owns:
-    - specs/**
+    - docs/**
   - Conditions:
-    - When working on product requirements documents, ADW specs, or feature PRDs in `specs/`
+    - When working on architecture decision records in `docs/adr/` or product requirements documents in `docs/prd/`
 
 - app_docs/feature-9gjajh-root-config.md
   - Owns:

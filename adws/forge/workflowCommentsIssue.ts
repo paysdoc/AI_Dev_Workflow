@@ -97,10 +97,6 @@ function formatPlanFileCreatedComment(ctx: WorkflowContext): string {
   return `## :page_facing_up: Plan File Created\n\nPlan file confirmed at: \`${ctx.planPath}\`\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
-function formatPlanCommittingComment(ctx: WorkflowContext): string {
-  return `## :floppy_disk: Committing Plan\n\nCommitting implementation plan to branch...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
-}
-
 function formatBuildRunningComment(ctx: WorkflowContext): string {
   return `## :hammer_and_wrench: Running Build\n\nRunning Build Agent to implement the solution...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
@@ -327,7 +323,6 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'plan_building': return formatPlanBuildingComment(ctx);
     case 'plan_created': return formatPlanCreatedComment(ctx);
     case 'planFile_created': return formatPlanFileCreatedComment(ctx);
-    case 'plan_committing': return formatPlanCommittingComment(ctx);
     case 'build_running': return formatBuildRunningComment(ctx);
     case 'build_progress': return formatBuildProgressComment(ctx);
     case 'build_completed': return formatBuildCompletedComment(ctx);

@@ -45,7 +45,7 @@ The table below summarizes the `StageClass` → decision mapping both `evaluateC
 | `awaiting_merge` | `awaiting_merge` | eligible → `merge` | `spawn_fresh` |
 | `retriable` | `abandoned` | eligible → `spawn` | probe → reuse/reset → reconcile → `take_over_adwId` (no kill) |
 | `terminal` | `completed`, `discarded`, `paused`, `paused_auth` | exclude (inline checks) | `skip_terminal` (release lock) |
-| `human_gated` | `merge_blocked`, `human_gated`, `review_failed` | exclude (inline checks + explicit guard for `review_failed`) | `spawn_fresh` |
+| `human_gated` | `merge_blocked`, `human_gated`, `review_failed`, `worktree_lost` | exclude (inline checks + explicit guards for `review_failed` and `worktree_lost`) | `spawn_fresh` |
 | `resumable` | all remaining literals including `phase_timeout`, `error`, `plan_building`, etc. | exclude by default; `phase_timeout` explicitly eligible | `spawn_fresh` by default; `phase_timeout` explicitly cap-gated |
 
 ## Contracts & Invariants
@@ -62,6 +62,7 @@ The table below summarizes the `StageClass` → decision mapping both `evaluateC
 - `EvaluateCandidateInput` is `{ issueNumber, boundary }` — `boundary: LaunchBoundary` is required (#821: no more optional/legacy-callers split). Identity, worktree base path (`boundary.gitContext.worktreePathFor(branchName)`), and providers all come from it; every caller (`trigger_cron.ts`, `webhookGatekeeper.ts`, `scanAuthQueue.ts`) passes its own boundary — `cronBoundary` for the cron, the per-event `commentBoundary`/`eventBoundary` for the webhook. `buildDefaultTakeoverDeps(boundary, reconcileDeps = buildDefaultReconcileDeps(boundary))` wires `deriveStageFromRemote` as `(adwId) => deriveStageFromRemote(adwId, reconcileDeps)`; `deriveStageFromRemote` itself dropped its long-unused `issueNumber`/`repoInfo` positional parameters and is now just `(adwId, deps: ReconcileDeps)`. The optional `reconcileDeps` parameter exists so tests can pin `branchExistsOnRemote` without a real git remote.
 - `nextResumeAction` is pure (no I/O): `attempts < max → 'resume'`; `attempts >= max → 'escalate'`; identical inputs always produce identical output. `state.resumeAttempts` is cumulative — incremented on each automatic `phase_timeout` resume, cleared only on `## Retry` — and survives cron ticks because `writeTopLevelState` shallow-merges. The `escalate_human_gated` decision never spawns; both `trigger_cron` and `webhookGatekeeper` skip the spawn on this kind.
 - `phase_timeout` recovery is via per-consumer raw-stage branches, not reclassification — `phase_timeout` stays `resumable` in `classifyStage`. Both `evaluateIssue` (cron) and `evaluateCandidate` (takeover) add an explicit `if (stage === 'phase_timeout')` branch keyed on the raw string, checked after the `retriable`/class checks.
+- `worktree_lost` (a resumed workflow whose plan went with its removed worktree, set by `parkWorkflow` through `parkStage`) is `human_gated`: the cron excludes it without a grace period and `## Retry` re-arms it to `phase_timeout`; the resumed run parks again while the plan is missing. `## Continue` waives nothing for it.
 - `## Retry` on `human_gated` or `review_failed` resets to `{ workflowStage: 'phase_timeout', resumeAttempts: 0 }`; on `merge_blocked` it resets to `{ workflowStage: 'awaiting_merge', mergeRetryCount: 0 }`; on `paused` it removes the pause-queue entry (if any) and respawns, writing no top-level state at all — the child rewrites its own stage at init exactly as it does after a scanner resume; on `paused_auth`, every active stage, and any other stage it is a no-op. The `review_failed` cron exclusion guard is placed **before** the grace-period and processedSpawns checks — placement before is load-bearing, since placing it after would let a just-failed review become eligible after a period of inactivity.
 - No PR exists when `review_failed` is written — the orchestrator that writes it returns before its PR phase, so the `review_failed` comment points the operator at the (PR-less) branch. No SIGKILL happens on `phase_timeout` — `handlePhaseTimeout` already calls `process.exit(0)`, so the orchestrator is dead before the stage is written and the takeover branch skips straight to the cap gate.
 - `cronStageResolver.isActiveStage` (compatibility bridge for `devServerJanitor` and `webhookHandlers`) preserves the historical "in progress" set `{starting, *_running, *_completed}`, which differs from the `active` class: `cls === 'active' && stage !== 'resuming'` OR `cls === 'resumable' && stage.endsWith('_completed')`.
@@ -92,15 +93,15 @@ The table below summarizes the `StageClass` → decision mapping both `evaluateC
 
 ## Decisions
 
-- [ADR-0012](../specs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
-- [ADR-0025](../specs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
-- [ADR-0028](../specs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
-- [ADR-0032](../specs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
-- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
-- [ADR-0035](../specs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it
-- [ADR-0036](../specs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
-- [ADR-0039](../specs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
-- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
-- [ADR-0048](../specs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
-- [ADR-0052](../specs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
-- [ADR-0055](../specs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue
+- [ADR-0012](../docs/adr/0012-webhook-gatekeeper-cron-sweeper.md) — Webhook as real-time gatekeeper, cron as backlog sweeper
+- [ADR-0025](../docs/adr/0025-rate-limit-pause-and-resume-queue.md) — A rate-limited workflow pauses into a queue and is resumed by the cron trigger
+- [ADR-0028](../docs/adr/0028-orchestrators-stop-at-awaiting-merge.md) — Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator
+- [ADR-0032](../docs/adr/0032-explicit-cancel-and-retry-directives.md) — A human steers a workflow with `## Cancel` and `## Retry` comments
+- [ADR-0034](../docs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0035](../docs/adr/0035-single-host-per-repo.md) — One host runs the triggers for a repo; this is a convention and the code does not enforce it
+- [ADR-0036](../docs/adr/0036-stage-taxonomy-and-exhaustive-classifier.md) — Every workflow stage has one recovery class, and the compiler checks that none is missed
+- [ADR-0039](../docs/adr/0039-host-wide-auth-gate.md) — An expired Claude login closes a host-wide gate until a human logs in again
+- [ADR-0047](../docs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0048](../docs/adr/0048-one-adwid-per-issue-and-review-failed-gate.md) — One adwId per issue, and a failed review blocks the workflow
+- [ADR-0052](../docs/adr/0052-stateless-pipeline-agents.md) — Pipeline agents never load Claude auto-memory
+- [ADR-0055](../docs/adr/0055-rate-limit-structured-signals-two-tier-wait.md) — Rate limits are read from structured signals and waited out without limit, in the process or in the queue

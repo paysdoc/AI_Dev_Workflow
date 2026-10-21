@@ -3,7 +3,7 @@ target: false
 ---
 # Document Feature
 
-Generate or update concise current-state module documentation for implemented features by analyzing code changes against the default branch. This command creates or rewrites documentation in the `app_docs/` directory and keeps `.adw/conditional_docs.md` converged — one entry per module, never appending a duplicate. An entry may also name the decision records in `specs/adr/` that govern its module; the module doc lists the same records.
+Generate or update concise current-state module documentation for implemented features by analyzing code changes against the default branch. This command creates or rewrites documentation in the `app_docs/` directory and keeps `.adw/conditional_docs.md` converged — one entry per module, never appending a duplicate. An entry may also name the decision records in `docs/adr/` that govern its module; the module doc lists the same records.
 
 ## Variables
 
@@ -62,7 +62,7 @@ defaultBranch: $3 if provided, otherwise the branch on the `HEAD branch:` line o
   - **Regenerate** its `Conditions:` block from the rewritten doc's current content — never leave stale conditions; the semantic matcher must keep matching against accurate text.
   - **Regenerate** the doc's Overview section to reflect current source truth.
   - Ensure its `Owns:` globs cover all touched files (add any missing globs, keeping existing ones; use the union of the collapsed siblings' globs if this was a collapse).
-  - Keep its `Decisions:` block. It is authoritative: never drop a record from it while rewriting. Add a record only when that record governs this module and is not yet listed, for example a record this change adds under `specs/adr/`.
+  - Keep its `Decisions:` block. It is authoritative: never drop a record from it while rewriting. Add a record only when that record governs this module and is not yet listed, for example a record this change adds under `docs/adr/`.
   - Write the doc's `## Decisions` section from that block (see Documentation Format); a rewrite must never lose it.
   - **Do NOT** add a second entry for the same `docPath`. Never duplicate a `docPath`.
 
@@ -73,13 +73,13 @@ defaultBranch: $3 if provided, otherwise the branch on the `HEAD branch:` line o
   - Replace `{descriptive-name}` with a short module name (e.g., "vcs-module", "trigger-core").
 - Write the documentation in current-state module reference format (see Documentation Format below).
 - Append exactly **one new entry** to `.adw/conditional_docs.md` in the Conditional Docs Entry Format below, including an explicit `Owns:` glob block covering the touched files so future runs can route to this entry by glob or semantic match.
-- If `specs/adr/` exists, read `specs/adr/README.md` and name every record that governs the new module. A record governs a module when its decision shapes that module's own code. It does not govern a module that only calls such code or follows a rule that applies everywhere. A record whose status is `superseded`, in whole, governs nothing. List the numbers in the entry's `Decisions:` block and link the records in the doc's `## Decisions` section. If no record governs the module, or `specs/adr/` does not exist, write neither.
+- If `docs/adr/` exists, read `docs/adr/README.md` and name every record that governs the new module. A record governs a module when its decision shapes that module's own code. It does not govern a module that only calls such code or follows a rule that applies everywhere. A record whose status is `superseded`, in whole, governs nothing. List the numbers in the entry's `Decisions:` block and link the records in the doc's `## Decisions` section. If no record governs the module, or `docs/adr/` does not exist, write neither.
 
 ### 8. Check decisions
-- Skip when the repository has no `specs/adr/`. In that case no entry may carry a `Decisions:` block and no doc a `## Decisions` section.
+- Skip when the repository has no `docs/adr/`. In that case no entry may carry a `Decisions:` block and no doc a `## Decisions` section.
 - For each entry you wrote or rewrote:
   - its doc's `## Decisions` section links exactly the records in its `Decisions:` block, each by an inline link relative to the doc that resolves to the record's file;
-  - every number in the block has a file in `specs/adr/`;
+  - every number in the block has a file in `docs/adr/`;
   - an entry without a block has no section in its doc.
 - If `adws/checkLivingDocsIndex.ts` exists, run `bunx tsx adws/checkLivingDocsIndex.ts` and resolve every decisions finding for the entries you wrote. Leave other findings alone.
 
@@ -130,7 +130,7 @@ Use this current-state module reference template (no per-run history, no changel
 
 <Only when the entry has a `Decisions:` block. One bullet per record, in the block's order, linked relative to this doc>
 
-- [ADR-<NNNN>](../specs/adr/<NNNN>-<slug>.md) — <the record's title from specs/adr/README.md>
+- [ADR-<NNNN>](../docs/adr/<NNNN>-<slug>.md) — <the record's title from docs/adr/README.md>
 ```
 
 ## Conditional Docs Entry Format
@@ -147,10 +147,10 @@ Use this format when creating a new entry in `.adw/conditional_docs.md`:
     - When implementing <related functionality>
     - When troubleshooting <specific issues>
   - Decisions:
-    - <four-digit number of a record in specs/adr/ that governs this module, e.g. 0044>
+    - <four-digit number of a record in docs/adr/ that governs this module, e.g. 0044>
 ```
 
-`Decisions:` is the entry's last block. Write it only when at least one record governs the module, and never when `specs/adr/` does not exist.
+`Decisions:` is the entry's last block. Write it only when at least one record governs the module, and never when `docs/adr/` does not exist.
 
 When updating an existing entry, replace its `Owns:` and `Conditions:` blocks in place (same `docPath` line, same position in the file) and keep its `Decisions:` block. Never duplicate the `docPath` line.
 

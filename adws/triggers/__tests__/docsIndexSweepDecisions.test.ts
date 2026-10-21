@@ -11,7 +11,7 @@ import type { DocsIndexReportIssueSpec } from '../../core/docsIndexReportBody';
 import { entry, registryContent, makeFakeBoundary } from './fixtures/docsIndexSweepHarness';
 
 describe('runDocsIndexSweep — decisions', () => {
-  const ADR_44 = 'specs/adr/0044-living-docs-per-module.md';
+  const ADR_44 = 'docs/adr/0044-living-docs-per-module.md';
   const DECIDED = 'app_docs/feature-decided.md';
   const DECISIONS_DOC = `# Module\n\n## Decisions\n\n- [ADR-0044](../${ADR_44}) — One living doc per module, rewritten in place\n`;
 

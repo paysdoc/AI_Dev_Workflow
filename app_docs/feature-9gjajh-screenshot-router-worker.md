@@ -33,5 +33,5 @@ Three Worker secrets are required (set via `wrangler secret put`): `CLOUDFLARE_A
 
 ## Decisions
 
-- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
-- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
+- [ADR-0022](../docs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0030](../docs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand

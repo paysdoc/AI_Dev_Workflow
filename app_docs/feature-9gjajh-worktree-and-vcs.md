@@ -26,7 +26,8 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 - `hasUncommittedChanges`: returns true when `git status --porcelain` is non-empty.
 - `pushBranch`: pushes the branch to `origin` using `--force-with-lease --force-if-includes`. First refreshes the remote-tracking ref via `git fetch origin "<branch>"` (fetch errors are tolerated for first-push case). On a genuine lease refusal (remote moved underneath ADW), throws a distinct actionable error rather than propagating a raw git error. All feature-branch push call sites (`prPhase`, `documentPhase`, `reviewPhase`, `scenarioFixPhase`, `prReviewPhase`) route through this single function.
 - `copyClaudeAssetsToWorktree`: copies all `.claude/commands/*.md` and `.claude/skills/` directories from the ADW framework repo into the worktree, applying gitignore entries for assets not marked `target: true`. When the worktree belongs to the framework's own repository (target `owner/repo` equals the identity of the framework checkout's `origin`, via `readLocalRepoIdentity` and `sameRepoIdentity`), files the worktree's branch already tracks are left as the branch has them; files only the running checkout has are still copied. It takes an optional `frameworkRepoRoot` (default `REPO_ROOT`).
-- `ensureGitignoreEntry` / `ensureGitignoreEntries`: idempotently appends entries to the worktree's `.gitignore`.
+- `ensureGitignoreEntry(worktreePath, entry, comment?)` / `ensureGitignoreEntries`: idempotently append entries to the worktree's `.gitignore` under a header comment (default `# ADW: copied slash commands (do not commit)`); a missing file is created and a missing trailing newline is added.
+- `ignoreSpecsInWorktree(worktreePath)`: appends `specs/` (`SPECS_GITIGNORE_ENTRY`) to the tracked `.gitignore` under its own `# ADW:` header, so per-run plans stay in the worktree that wrote them. `initializeWorkflow` calls it on the `--target-repo` path right after `copyClaudeAssetsToWorktree`, and on the local new-worktree path after `fetchAndResetToRemote` (the reset restores the tracked `.gitignore`). `--cwd` and reused worktrees are not touched. A second call changes nothing.
 - `verifyAdwRegen`: checks that all six canonical `.adw/` config files exist and are non-empty, that `vocabulary.md` exists, and that `.adw/.regen-receipt` carries the expected framework hash.
 - `decideWorktreeReuse` (`worktreeReuseGate`): pure guard-clause function over a `WorktreeProbe` record of Class-A git-operability signals. Returns `{ reuse: true }` when all health conditions hold (no live owner, lock absent/orphaned, no interrupted op, HEAD on expected branch, registration healthy); returns `{ reuse: false, reason }` for any failure, with a typed `WorktreeResetReason`. No I/O — table-testable over `WorktreeProbe` permutations.
 - `probeWorktree` (`worktreeProbe`): thin I/O shell that gathers `WorktreeProbe` signals from a real worktree. All I/O is injected via `ProbeDeps` (existsSync, resolveGitDir, currentBranch, worktreeRegistration, isProcessLive) so the function is unit-testable without a real git repo. Detects orphaned vs live-held `index.lock`, interrupted rebase/merge/cherry-pick, HEAD vs expected branch, `git worktree list --porcelain` registration (healthy/locked/prunable/missing), and live owner via `isProcessLive`.
@@ -61,8 +62,8 @@ The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file'
 
 ## Decisions
 
-- [ADR-0002](../specs/adr/0002-worktree-per-issue.md) — One git worktree per issue
-- [ADR-0034](../specs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
-- [ADR-0042](../specs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
-- [ADR-0047](../specs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
-- [ADR-0050](../specs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories
+- [ADR-0002](../docs/adr/0002-worktree-per-issue.md) — One git worktree per issue
+- [ADR-0034](../docs/adr/0034-coordination-kernel.md) — A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote
+- [ADR-0042](../docs/adr/0042-hash-versioned-self-upgrade.md) — Target repos upgrade themselves when the framework hash changes
+- [ADR-0047](../docs/adr/0047-resume-in-place.md) — A recovered workflow continues in its existing worktree when git can still work there
+- [ADR-0050](../docs/adr/0050-target-repo-guardrails.md) — ADW injects its own guardrails into agent runs on target repositories

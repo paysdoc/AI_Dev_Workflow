@@ -16,15 +16,15 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review with blocking gate** — the reviewer runs nothing and is reached only once the static checks, unit tests and scenarios are green. It judges what a machine cannot: whether the diff does what the issue asks, no more and no less; whether the per-issue scenarios test the issue independently of the implementation; the per-issue images of a `web` repository, which it opens, or their absence; the coding guidelines; and the guidance section for the repository's application type. A suppression comment or a weakened check configuration in the diff is a blocker. It classifies findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **A dev server that will not start on the issue branch is a failed review** — the scenario phase starts only the dev server the repository declares (`readDeclaredDevServer`, `adws/phases/declaredDevServer.ts`), the one the baseline starts. When it does not start after the lifecycle's retries, no scenario runs and the failed start (`DevServerStart`, `adws/core/devServerFailure.ts`) goes to the review loop (`runReviewRetryLoop`, `adws/phases/reviewRetryLoop.ts`, the one owner of the review attempt counter): the builder gets a blocker that carries the server's output through the review patch loop, and each failed start uses one review attempt, up to `review_failed`. A start that follows a failed start resets the failed-review count to zero; a server that starts every time never does. The baseline still parks: a base-branch start failure is `base_server_down`, not a failed review.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
-- **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Continue` on a base-branch park (`baseline_red`, `base_server_down`, `pre_existing_regression`) records a waiver and re-arms the workflow (`adws/triggers/continueHandler.ts`), so that run fixes the pre-existing failures too. `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
+- **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge`, or a `human_gated`/`review_failed`/`worktree_lost` workflow to `phase_timeout` (all state-only, no worktree teardown); on a `paused` workflow it also respawns: drops the workflow's pause-queue entry first, spawns the orchestrator `resolveResumeSpawn` resolves from top-level state with the handling process's own `--target-repo`, and posts the resumed comment — a no-op for `paused_auth` (owned by the auth queue scanner) and for every running stage (never duplicate a live orchestrator). `## Continue` on a base-branch park (`baseline_red`, `base_server_down`, `pre_existing_regression`) records a waiver and re-arms the workflow (`adws/triggers/continueHandler.ts`), so that run fixes the pre-existing failures too. `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority, forge-neutral, now a library import** — since issue #840, `GitContext` and the forge-neutral `exec()` executor it exposes (one spawn site, one env merge, one cwd resolution, one ENOENT-rewrap) are no longer owned in-tree: ADW imports them from `@paysdoc/devplatform/git`, and the GitHub forge adapter (`GhRepoApi`, `ghIssueApi`/`ghPrApi`/repo-label-secret-board ops, `ghCommandRunner.ts`) from `@paysdoc/devplatform/providers`. `adws/core/launchGitContext.ts` is ADW's sole wiring layer over the library: it constructs the one `GitContext` at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), and the library resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace) and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs that motivated the original design. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the argv) spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `ENOENT` on the spawned program (`spawnSync /bin/sh ENOENT` before devplatform 2.0.0, `spawnSync git ENOENT` since) (issue #777). Since `@paysdoc/devplatform` 2.0.0 every git/gh command is an argv array spawned without a shell, so an issue title or commit message carrying quotes, backticks or `$(...)` reaches the program as one verbatim argument (issue #1029). GitContext's own 35-method `gh` surface (fetchIssue/commentOnIssue/listOpenIssues/createPR/moveIssueToStatus/…) was deleted well before the library extraction; every caller reaches those operations through the library's `GhRepoApi`. Since #844, ADW's own callers (the workflow issue record, the HITL board notifier, the health-check probes) reach issue/PR reads through the `IssueTracker`/`CodeHost` ports instead of `ghRepoApi` directly — only the GitHub adapter inside the library still constructs a `GhRepoApi`.
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for three independent violation classes: a direct `git`/`gh` shell-out (`git-gh-shellout`) — since issue #840 moved the git core and the GitHub forge adapter into `@paysdoc/devplatform`, `EXEMPT_PACKAGES` is deliberately **empty** and nothing may ever be added back to it, since no in-repo package is permitted to shell out to git or gh at all; a `gitContextForRepo(…)` or `forgeProviders({ identity })` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769; `CONTEXT_CONSTRUCTOR_NAMES` since #823); or ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped allowlist (`unsanctioned-construction`, #795) — the allowlist is exactly one PERMANENT entry, `adws/core/launchGitContext.ts` (the library's own `forgeProviders.ts` assembly module lives outside this repo since #840 and is no longer a second site to sanction), and nothing may ever be added to it, with a self-cleaning ratchet failing the build if a stale transitional entry is ever left behind. The extraction-readiness rule (`extractionRule.ts`) was retired along with the `adws/gitContext`/`adws/providers` packages it guarded. The three remaining rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`).
 - **JSONL schema conformance checking** — `adws/jsonl/` (`schemaProbe.ts`, `conformanceCheck.ts`, `fixtureUpdater.ts`, plus the pure helpers in `schemaFields.ts`/`schemaMerge.ts`) probes the real Claude CLI's streamed JSONL envelope shape, persists it to `adws/jsonl/schema.json` keyed by `type` or `type/subtype`, and validates recorded test fixtures (`adws/jsonl/fixtures/` and the regression stub's `test/fixtures/jsonl/envelopes/`) against both that schema and ADW's own `claudeStreamParser.ts` parsers (`bun run jsonl:probe` / `jsonl:probe:check` / `jsonl:check` / `jsonl:update`), failing the build on drift so a CLI output-format change is caught before it silently breaks stream parsing. Probe-owned entries (`system/init`, `assistant`, `result/success`) are reconciled from a live one-turn probe; capture-owned entries (`rate_limit_event`, `system/api_retry`, `result/error_during_execution`) come from real captures and are hand-curated. `.github/workflows/envelope-conformance.yml` runs `jsonl:check` and the live `jsonl:probe:check` on every pull request against a pinned Claude CLI version; the live check authenticates with the `ANTHROPIC_API_KEY` secret, and a missing secret fails the run.
-- **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, a module doc whose `## Decisions` section disagrees with its entry's `Decisions:` block or names a record missing from `specs/adr/`, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/decisions/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
+- **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, a module doc whose `## Decisions` section disagrees with its entry's `Decisions:` block or names a record missing from `docs/adr/`, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/decisions/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
 - **Branch-name guard** — `checkBranchNames.ts` (`bun run lint:branch-names`, wired into `.github/workflows/git-cli-guard.yml`) fails when non-test code or markdown under `adws/`, or a slash command under `.claude/commands/`, writes `main`, `master`, `dev` or `develop` down as a branch to act on. That covers a literal name, an `origin/<name>` or `refs/heads/<name>` ref, a backticked name, a "<name> branch" phrase, or the words `master`/`develop`. Code resolves the base branch from the code host at run time (ADR-0019), and `.github/dependabot.yml` is the one file allowed to name it.
 - **Model-literal guard** — `checkModelLiterals.ts` (`bun run lint:model-literals`) fails when a call site under `adws/` or `scripts/` names a model literally instead of routing through `core/modelRouting.ts`, keeping model/effort choice in one place.
 - **Target-repo agent guardrails injection** — every target-repo `claude` spawn gets a `--settings` injection. `resolveGuardrailsDecision` (`guardrailsGate.ts`) withholds it only for the `ADW_TARGET_GUARDRAILS=off` kill switch, a self-host run, or a failed memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking; there is no per-repository switch. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
-- **Plan-phase off-limits guard** — `planCommitGuard.ts` snapshots `.claude/` and `.adw/` (content hashes plus HEAD) before the planner runs, throws `PlanCommitGuardError` if the planner modified or committed anything there, and commits only the plan file.
+- **Worktree-only plans** — worktree setup (`ignoreSpecsInWorktree`, `adws/phases/worktreeSetup.ts`) appends `specs/` to the tracked `.gitignore` of each worktree it creates, so a plan stays in the worktree that wrote it, where the later phases read it by path, and no commit carries it. The plan phase commits nothing. A resumed workflow that finds its plan gone with a removed worktree is parked as `worktree_lost` (`adws/phases/lostPlanGate.ts`) by the plan, plan-validation or build phase, whichever reaches the plan first, instead of planning again: the park comment names the worktree and the plan, `## Retry` re-runs the workflow and parks it again while the plan is still missing, and `## Cancel` starts the issue over with a new plan. A fresh run is unchanged.
 - **Stateless pipeline agents** — every `claude` process ADW starts runs under one shared launch environment, `buildClaudeLaunchEnv()` (`adws/core/environment.ts`): the allowlisted variables, then the caller's overlay, then `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, so no caller can turn memory back on. That covers the pipeline agents, the rate-limit, JSONL-schema and guardrails probes, both `claude auth status` checks and the health check's `claude --version`. No such process ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for. Providers are assembled by `@paysdoc/devplatform/providers`'s `forgeProviders()` — the library's one public entry point, refusing an unknown forge name or a mismatched `gitContext` by name before constructing anything — called from `adws/core/launchGitContext.ts`'s `buildLaunchBoundary`, ADW's only production caller. Since issue #840, `adws/providers/` and `adws/gitContext/` no longer exist in this repo at all: the port/domain model, the forge adapters, and the git core they used to hold now live in `@paysdoc/devplatform` (three entry points — `@paysdoc/devplatform` for ports/domain model, `@paysdoc/devplatform/providers` for `forgeProviders()`/adapters, `@paysdoc/devplatform/git` for `GitContext`). `adws/github/` was already gone before that, deleted in #823 along with `adws/providers/repoContext.ts`, the last in-tree file that constructed a `GitContext` outside the launch boundary. The ADW-application helpers that used to sit atop the old free-function layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) live in `adws/forge/`; ADW's own environment-to-config wiring for the forge adapters lives in `adws/core/forgeWiring.ts`.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
@@ -147,8 +147,8 @@ If you want to evaluate the codebase directly, the recommended reading order is:
 4. `adws/core/processLiveness.ts`, `adws/core/heartbeat.ts`, and `adws/core/hungOrchestratorDetector.ts` — the liveness model.
 5. `@paysdoc/devplatform/providers` (`forgeProviders()`) together with `@paysdoc/devplatform`'s port types — the provider abstraction, now supplied by the library rather than in-tree; `adws/core/launchGitContext.ts` calls `forgeProviders()` to assemble the same provider triple at the launch boundary, bound to the same identity as the GitContext.
 6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
-7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
-8. [specs/adr/README.md](specs/adr/README.md) — one record per design decision, including the ones that were replaced, each with its sources.
+7. [docs/prd/orchestrator-coordination-resilience.md](docs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
+8. [docs/adr/README.md](docs/adr/README.md) — one record per design decision, including the ones that were replaced, each with its sources.
 
 ---
 
@@ -581,6 +581,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── fixtures/
 │   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
 │   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
+│   │   │   ├── leftoverDevicesHost.ts  # Recording host that reports emulators and simulators left behind, for the device inventory and janitor tests
 │   │   │   ├── docsIndexEntries.ts  # Shared conditional-docs entry fixtures for the docs-index health tests
 │   │   │   ├── rateLimitIncident.ts  # Shared fixture data for rate-limit probe/decider tests
 │   │   │   ├── recordingClaudeCli.ts  # Recording Claude CLI stand-in for environment/launch tests
@@ -605,6 +606,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── deviceCommands.test.ts
 │   │   ├── deviceExecutor.test.ts
+│   │   ├── deviceInventory.test.ts
 │   │   ├── deviceLifecycle.failures.test.ts
 │   │   ├── deviceLifecycle.retries.test.ts
 │   │   ├── deviceLifecycle.test.ts
@@ -701,9 +703,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceBringUp.ts  # One attempt to create, boot and await each device (on a console port it probes for), and each device's teardown; it reads a missing host tool from the executor's answer
 │   ├── deviceCommands.ts  # Pure: what ADW says to the device tools (the adw-<adwId> names, the console port candidates, the avdmanager, adb, emulator and xcrun simctl commands with their timeouts) and how it reads their answers, including which host tool (HostTool) a missing program or an xcrun without simctl means; MAX_BOOT_ATTEMPTS
 │   ├── deviceExecutor.ts  # The process boundary of the device lifecycle: runs avdmanager, emulator, adb and xcrun simctl as argv arrays without a shell (systemDeviceExecutor); it says when a program is not on the PATH, and reads back what a started process printed
+│   ├── deviceInventory.ts  # Finds the emulators and simulators named adw-<adwId> on the host and removes one, through the injected executor, for the device janitor sweep
 │   ├── deviceLifecycle.ts  # withDevices: creates, boots and hands over one AVD and one simulator named adw-<adwId>, trying each boot three times, and returns ready, boot failed or tool missing, after removing everything it created
 │   ├── deviceSourceConfig.ts  # Pure: the four device-source sections of .adw/project.md (parseDeviceSourceSections) and the device source a profile with platforms needs (resolveDeviceSource, DeviceSourceConfigError)
-│   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from specs/adr/
+│   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from docs/adr/
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
 │   ├── docsIndexReportBody.ts  # Formats docs-index health findings into a report body
@@ -865,7 +868,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
-│   │   │   ├── planCommitGuardHarness.ts  # Shared harness for the plan-commit-guard tests
 │   │   │   └── worktreeSetupHarness.ts  # Shared harness for the worktree-setup tests
 │   │   ├── applicationTypeGate.helpers.ts
 │   │   ├── applicationTypeGate.park.test.ts
@@ -884,11 +886,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── declaredDevServer.test.ts
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
+│   │   ├── lostPlanGate.test.ts  # planCreatedByEarlierRun truth table; parkIfPlanLost parks a resumed workflow as worktree_lost or returns
 │   │   ├── orchestratorLock.test.ts
-│   │   ├── planCommitGuard.test.ts
-│   │   ├── planCommitGuardPhase.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
+│   │   ├── planPhaseResume.test.ts  # executePlanPhase on resume: parks on a lost plan without running the planner
+│   │   ├── planValidationPhase.test.ts  # executePlanValidationPhase with a missing plan: parks on resume, throws on a fresh run
 │   │   ├── preExistingRegressionGate.devices.test.ts
 │   │   ├── preExistingRegressionGate.helpers.ts  # Shared helpers for the pre-existing regression gate tests
 │   │   ├── preExistingRegressionGate.test.ts
@@ -956,9 +959,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init) — propagateSecret takes a CodeHost (defaulting to config.repoContext?.codeHost) and calls setSecret; no repoContext means the secret is recorded skipped with a warning, not a construction attempt (#796)
 │   ├── installPhase.ts # Install phase implementation
+│   ├── lostPlanGate.ts  # Parks a resumed workflow whose plan went with its removed worktree (worktree_lost); planCreatedByEarlierRun, parkIfPlanLost
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
-│   ├── planCommitGuard.ts  # Plan-phase guard: snapshots `.claude/`/`.adw/` before planning, fails the phase if the planner changed them, and commits only the plan file
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through; for a profile with platforms it re-runs them on an emulator and a simulator created for the re-run and removed after it, and parks `device_boot_failed` when a device does not boot (createPreExistingRegressionGate)
@@ -991,9 +994,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch. buildDefaultUpgradeGateDeps(providers, ...) reads createIssue/applyLabel/updateIssueBody/findOpenUpgradeIssue/moveToStatus off the boundary's providers — no per-call createRepoContext (#796)
 │   ├── workflowCompletion.ts  # Workflow completion/error handling; describeRateLimitPauseReason names the limit type and reset time (UTC) on the paused comment when known
 │   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check). The launch boundary is the only source of forge providers: defaultBranch comes from boundary.providers.codeHost, and exported resolveWorkflowProviders(boundary, callerRepoId?) decides identity/provider reuse — a caller-supplied repoId that contradicts the boundary is refused (throws) rather than served a second, ad-hoc-minted provider set (#796)
-│   ├── workflowPark.ts  # parkWorkflow — a deliberate human-gated stop with a park comment; `## Retry` re-arms it
+│   ├── workflowPark.ts  # parkWorkflow — a deliberate human-gated stop with a park comment; records the stage the park reason maps to (human_gated, or worktree_lost for a lost plan); `## Retry` re-arms it
 │   ├── workflowRepoIdentity.ts  # resolveWorkflowRepoId(config) — repoContext.repoId → gitContext → targetRepo precedence, replacing every phase's own `?? getRepoInfo()` wrong-repo fallback (#820)
-│   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
+│   └── worktreeSetup.ts  # Gitignore and worktree setup helpers, including the runtime `specs/` ignore
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
 │   ├── dataTypes.ts
@@ -1004,6 +1007,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
+│   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
 │   │   │   ├── promotionSweepDefaultsHarness.ts  # Shared fakes and constants for the promotion-sweep defaults tests
@@ -1022,6 +1026,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── deviceJanitor.decisions.test.ts
+│   │   ├── deviceJanitor.failures.test.ts
+│   │   ├── deviceJanitor.test.ts
 │   │   ├── docsIndexSweep.test.ts
 │   │   ├── docsIndexSweepDecisions.test.ts
 │   │   ├── docsIndexSweepDefaults.test.ts
@@ -1068,6 +1075,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in ADW-managed (.adw-marked) target repo worktrees
+│   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
 │   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
@@ -1225,7 +1233,7 @@ test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
 │   ├── cli-tool/       # Fixture target repo for BDD scenario testing (Node.js/TypeScript)
 │   │   ├── .adw/       # ADW config for fixture repo
-│   │   ├── src/        # Minimal CLI tool source
+│   │   ├── src/        # Minimal CLI tool source (cli.ts)
 │   │   ├── README.md
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -1235,7 +1243,7 @@ test/                   # Integration test infrastructure
 │   │   ├── README.md
 │   │   ├── calculator.py
 │   │   └── pyproject.toml
-│   ├── github/         # GitHub API response fixtures (issue, PR, comments)
+│   ├── github/         # GitHub API response fixtures (default-issue.json, default-pr.json, default-comments.json)
 │   ├── jsonl/          # JSONL fixture files for testing
 │   │   ├── envelopes/  # Stub envelope templates — checked by `bun run jsonl:check`
 │   │   │   ├── assistant-message.jsonl
@@ -1244,9 +1252,9 @@ test/                   # Integration test infrastructure
 │   │   │   ├── result-message.jsonl
 │   │   │   ├── result-rate-limited.jsonl
 │   │   │   └── system-message.jsonl
-│   │   ├── manifests/  # Named scenario manifests for stub sequencing
-│   │   └── payloads/
-│   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
+│   │   ├── manifests/  # Named scenario manifests for stub sequencing (adw-sdlc, adw-init, adw-upgrade, review, pr-review, promotion-threshold, scenario-writer, surface-* phases, rate-limit-pause-resume, diff-verdict)
+│   │   └── payloads/   # Canned agent payloads (plan, build, review, issue classification)
+│   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing: app.py, features/, tests/)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   ├── fixtures/
@@ -1302,7 +1310,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
-│   ├── plan-commit/    # Regression scenarios covering the plan commit that carries only the plan file, the plan-phase guard on .claude/ and .adw/, and worktree setup leaving the framework's own tracked Claude assets as the branch has them (#930)
+│   ├── plan-commit/    # One regression scenario proving the plan phase leaves the plan in the worktree and no commit on the branch touches `specs/`
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
@@ -1317,14 +1325,10 @@ features/               # BDD feature files (Gherkin .feature)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Top-level step definitions (repo-identity persistence scenario)
 └── support/            # Top-level Cucumber support (tsx registration; cucumberChildRun.ts, the shared runner for nested cucumber-js child runs)
-specs/                  # Generated implementation specs
-├── issue-*.md          # Per-issue plan specs committed by the plan agent
-├── adr/                # Architecture Decision Records, one per design decision (index: specs/adr/README.md)
-├── ADW_PYTHON_SUPPORT_RECOMMENDATION.md  # Standalone recommendation doc (Python stack support)
-├── prd-cost-module-revamp.md  # Standalone PRD draft (cost module revamp)
-├── patch/              # Generated patch specs
-├── prd/                # Product requirement documents
-└── runbooks/           # Standalone runbooks (e.g. gitcontext extraction)
+docs/                   # Durable design records
+├── adr/                # Architecture Decision Records, one per design decision (index: docs/adr/README.md)
+└── prd/                # Product requirement documents
+specs/                  # Per-run implementation plans, ignored at runtime by worktree setup, so each lives only in the worktree that wrote it
 scripts/                # Standalone operational scripts
 └── guardrails-probe.ts # Startup probe run as a subprocess by guardrailsGate.ts to verify target-repo guardrails injection is safe before use
 .env.sample             # Environment variable template

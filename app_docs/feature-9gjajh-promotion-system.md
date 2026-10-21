@@ -133,4 +133,4 @@ The promotion system carries a per-issue BDD scenario in `features/per-issue/fea
 
 ## Decisions
 
-- [ADR-0049](../specs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline
+- [ADR-0049](../docs/adr/0049-promotion-sweep-files-human-gated-issue.md) — Promotion sweep files a human-gated issue for the normal pipeline

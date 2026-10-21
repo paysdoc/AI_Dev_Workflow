@@ -1,6 +1,6 @@
 ---
 name: write-a-prd
-description: Create a PRD through user interview, codebase exploration, and module design, then save to specs/prd/. Use when user wants to write a PRD, create a product requirements document, or plan a new feature.
+description: Create a PRD through user interview, codebase exploration, and module design, then save to docs/prd/. Use when user wants to write a PRD, create a product requirements document, or plan a new feature.
 target: true
 ---
 
@@ -21,7 +21,7 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
-5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. The PRD should be written as .md file to the specs/prd directory.
+5. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. The PRD should be written as .md file to the docs/prd directory.
 
 <prd-template>
 

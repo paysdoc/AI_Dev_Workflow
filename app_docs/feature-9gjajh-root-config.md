@@ -13,7 +13,7 @@ The root of the ADW repository (`ai-dev-workflow`) is a TypeScript/Bun monorepo 
 - The `workers/` directory contains two independent Cloudflare Workers (`cost-api/` and `screenshot-router/`), each with its own `package.json`, `wrangler.toml`, and build/deploy lifecycle.
 - The `adws/` directory is the main framework source: orchestrators (`adwSdlc.tsx`, `adwChore.tsx`, etc.), phases, providers, cost, promotion, r2, jsonl, and types modules.
 - The `features/` directory holds regression and per-issue BDD scenarios.
-- The `specs/` directory holds implementation plans and PRDs.
+- The `specs/` directory holds per-run implementation plans; the `docs/` directory holds the ADRs (`docs/adr/`) and PRDs (`docs/prd/`).
 - The `app_docs/` directory holds living module reference documents (this file among them).
 - `.github/` holds repo-level automation config: CI workflows (`workflows/`), the ADW policy file (`adw.yml`), and the Dependabot config (`dependabot.yml`).
 
@@ -34,14 +34,14 @@ TypeScript configuration is in `tsconfig.json` at the root. ESLint configuration
 
 ## Decisions
 
-- [ADR-0005](../specs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
-- [ADR-0009](../specs/adr/0009-bun-as-package-manager-node-as-runtime.md) — Bun is the package manager and launcher; Node is the runtime
-- [ADR-0018](../specs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
-- [ADR-0019](../specs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
-- [ADR-0021](../specs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
-- [ADR-0022](../specs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
-- [ADR-0030](../specs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
-- [ADR-0037](../specs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
-- [ADR-0051](../specs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code
-- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
-- [ADR-0057](../specs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key
+- [ADR-0005](../docs/adr/0005-adw-directory-config-per-target-repo.md) — Each target repository describes itself in a `.adw/` directory of Markdown files
+- [ADR-0009](../docs/adr/0009-bun-as-package-manager-node-as-runtime.md) — Bun is the package manager and launcher; Node is the runtime
+- [ADR-0018](../docs/adr/0018-unit-tests-restored-alongside-bdd.md) — Unit tests restored alongside BDD scenarios
+- [ADR-0019](../docs/adr/0019-dev-and-main-branches-with-runner-clone.md) — Pipeline work lands on `dev`; the runner executes a separate clone of `main`
+- [ADR-0021](../docs/adr/0021-behavioural-test-harness-with-mocked-boundaries.md) — Behavioural test harness with mocked external boundaries
+- [ADR-0022](../docs/adr/0022-review-proof-in-r2-behind-router-worker.md) — Proof images stored in R2 and served by a router Worker
+- [ADR-0030](../docs/adr/0030-cloudflare-dns-managed-by-hand.md) — Cloudflare DNS records managed by hand
+- [ADR-0037](../docs/adr/0037-tiered-regression-suite-with-fixed-vocabulary.md) — Tiered regression suite with a fixed vocabulary
+- [ADR-0051](../docs/adr/0051-forge-agnostic-core-and-devplatform-dependency.md) — ADW depends on `@paysdoc/devplatform` and contains no forge-specific code
+- [ADR-0054](../docs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
+- [ADR-0057](../docs/adr/0057-subscription-by-default-api-key-by-choice.md) — The pipeline runs on the Claude subscription by default; an operator may choose API billing by setting the key

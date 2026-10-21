@@ -10,7 +10,6 @@ export const STAGE_ORDER: WorkflowStage[] = [
   'plan_building',
   'plan_created',
   'planFile_created',
-  'plan_committing',
   'plan_validating',
   'plan_aligning',
   'build_running',
@@ -32,7 +31,6 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':pencil: Building Implementation Plan': 'plan_building',
   ':white_check_mark: Implementation Plan Created': 'plan_created',
   ':page_facing_up: Plan File Created': 'planFile_created',
-  ':floppy_disk: Committing Plan': 'plan_committing',
   ':mag: Validating Plan-Scenario Alignment': 'plan_validating',
   ':arrows_counterclockwise: Aligning Plan and Scenarios': 'plan_aligning',
   ':hammer_and_wrench: Running Build': 'build_running',
@@ -156,9 +154,9 @@ export function extractPrUrlFromComment(commentBody: string): string | null {
   return match ? match[1] : null;
 }
 
-/** Pattern: `specs/issue-{number}-plan.md` */
+/** Matches `specs/issue-{N}-adw-{adwId}-sdlc_planner-{name}.md` and the legacy `specs/issue-{N}-plan.md`, which /pr_review still writes. */
 export function extractPlanPathFromComment(commentBody: string): string | null {
-  const match = commentBody.match(/`(specs\/issue-\d+-plan\.md)`/);
+  const match = commentBody.match(/`(specs\/issue-\d+-(?:plan|adw-[a-z0-9-]+-sdlc_planner-[a-z0-9-]+)\.md)`/);
   return match ? match[1] : null;
 }
 

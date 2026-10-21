@@ -33,4 +33,4 @@
 
 ## Decisions
 
-- [ADR-0054](../specs/adr/0054-comment-discipline.md) — Comments say only what the code cannot
+- [ADR-0054](../docs/adr/0054-comment-discipline.md) — Comments say only what the code cannot

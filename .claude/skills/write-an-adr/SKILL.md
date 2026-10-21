@@ -1,6 +1,6 @@
 ---
 name: write-an-adr
-description: Record an architecture decision as a MADR-based ADR in specs/adr/, with provenance, supersede links and divergence tracking. Use when user wants to write an ADR, record or document an architecture or design decision, supersede an earlier decision, or mentions "ADR" or "decision record".
+description: Record an architecture decision as a MADR-based ADR in docs/adr/, with provenance, supersede links and divergence tracking. Use when user wants to write an ADR, record or document an architecture or design decision, supersede an earlier decision, or mentions "ADR" or "decision record".
 target: true
 ---
 
@@ -9,16 +9,16 @@ Read and execute .claude/commands/prime.md
 
 # Write an ADR
 
-One ADR records one decision. ADRs live in `specs/adr/` and use [TEMPLATE.md](TEMPLATE.md), which is MADR 4.0.0 with extra front matter (`recorded`, `provenance`, `supersedes`, `superseded-by`) and a `## Divergence` section.
+One ADR records one decision. ADRs live in `docs/adr/` and use [TEMPLATE.md](TEMPLATE.md), which is MADR 4.0.0 with extra front matter (`recorded`, `provenance`, `supersedes`, `superseded-by`) and a `## Divergence` section.
 
 ## Workflow
 
 1. **Pin down the decision.** Ask the user, one question at a time, for whatever is missing: the problem, what was decided, which options were actually weighed, and why this one won.
 2. **Check it against the code.** Explore the repo to establish whether the decision is in force. Name the check you ran in `### Confirmation`. If the code does something else, do not pick a side: ask the user whether the difference is deliberate, then write `## Divergence`.
-3. **Number and name the file.** Take the next free four-digit number in `specs/adr/`. Filename: `NNNN-short-kebab-title.md`. Numbers are never reused or renumbered.
+3. **Number and name the file.** Take the next free four-digit number in `docs/adr/`. Filename: `NNNN-short-kebab-title.md`. Numbers are never reused or renumbered.
 4. **Write the ADR** from [TEMPLATE.md](TEMPLATE.md). Remove optional sections you have nothing to put in.
 5. **Link supersession at both ends.** See below.
-6. **Update the index** in `specs/adr/README.md`: one table row per ADR (number, date, title, status).
+6. **Update the index** in `docs/adr/README.md`: one table row per ADR (number, date, title, status).
 
 ## Never invent
 

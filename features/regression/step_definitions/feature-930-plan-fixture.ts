@@ -1,6 +1,7 @@
 /**
- * The plan phase's fixture for feature-930.feature: a real temporary repository and GitContext, a
- * WorkflowConfig for executePlanPhase, and the Claude CLI stand-in.
+ * The plan phase's fixture for feature-930.feature and the plan-phase scenarios of feature-1077.feature:
+ * a real temporary repository and GitContext, a WorkflowConfig for executePlanPhase, and the Claude CLI
+ * stand-in.
  *
  * The stand-in is test/mocks/claude-cli-stub.ts, reached through a wrapper script that hands it a
  * manifest kept OUTSIDE the worktree: the stub's own marker file would otherwise sit in the
@@ -18,7 +19,7 @@ import { AgentStateManager, detectRecoveryState } from '../../../adws/core/index
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import { clearClaudeCodePathCache } from '../../../adws/core/environment.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import { git, initRepo, appendLine, readRepoFile, writeRepoFile, newGitContext } from './feature-930-fixtures.ts';
+import { git, initRepo, readRepoFile, newGitContext } from './feature-930-fixtures.ts';
 
 const FRAMEWORK_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const CLAUDE_CLI_STUB_PATH = path.join(FRAMEWORK_ROOT, 'test/mocks/claude-cli-stub.ts');
@@ -27,9 +28,7 @@ const PLAN_PAYLOAD_PATH = path.join(FRAMEWORK_ROOT, 'test/fixtures/jsonl/payload
 interface StandInManifest {
   jsonlPath: string;
   edits: { path: string; contents: string }[];
-  deletes: string[];
   stage: string[];
-  commitAll?: { subject: string };
   onCommitCommand: 'stage-all-and-commit';
 }
 
@@ -63,7 +62,7 @@ export function newPlanScenario(issueNumber: number, repoFullName: string): Plan
     issueNumber,
     adwId,
     planFile: `specs/issue-${issueNumber}-adw-${adwId}-sdlc_planner-plan-only.md`,
-    manifest: { jsonlPath: PLAN_PAYLOAD_PATH, edits: [], deletes: [], stage: [], onCommitCommand: 'stage-all-and-commit' },
+    manifest: { jsonlPath: PLAN_PAYLOAD_PATH, edits: [], stage: [], onCommitCommand: 'stage-all-and-commit' },
     manifestPath: path.join(root, 'stand-in-manifest.json'),
     headBefore: '',
     phaseError: null,
@@ -109,7 +108,7 @@ export function restoreClaudeCli(): void {
   standInPath = null;
 }
 
-export function buildIssue(sc: PlanScenario) {
+function buildIssue(sc: PlanScenario) {
   return {
     id: String(sc.issueNumber),
     number: sc.issueNumber,
@@ -148,31 +147,20 @@ export function buildWorkflowConfig(sc: PlanScenario): WorkflowConfig {
   } as unknown as WorkflowConfig;
 }
 
-type Change = 'creates' | 'modifies' | 'modifies and stages' | 'deletes';
+type Change = 'modifies' | 'modifies and stages';
 
 export function asChange(raw: string): Change {
-  assert.ok(['creates', 'modifies', 'modifies and stages', 'deletes'].includes(raw), `Unknown change "${raw}"`);
-  return raw as Change;
+  assert.ok(raw === 'modifies' || raw === 'modifies and stages', `Unknown change "${raw}"`);
+  return raw;
 }
 
 export function planPlannerChange(sc: PlanScenario, change: Change, relPath: string): void {
-  if (change === 'deletes') {
-    sc.manifest.deletes.push(relPath);
-    return;
-  }
-  const contents = change === 'creates'
-    ? 'created by the planner\n'
-    : `${readRepoFile(sc.worktreePath, relPath)}modified by the planner\n`;
-  sc.manifest.edits.push({ path: relPath, contents });
+  sc.manifest.edits.push({ path: relPath, contents: `${readRepoFile(sc.worktreePath, relPath)}modified by the planner\n` });
   if (change === 'modifies and stages') sc.manifest.stage.push(relPath);
 }
 
-export function leaveChangeInWorktree(sc: PlanScenario, change: Change, relPath: string): void {
-  assert.ok(change === 'creates' || change === 'modifies', `Worktree setup only creates or modifies files, not "${change}"`);
-  if (change === 'creates') writeRepoFile(sc.worktreePath, relPath, 'left by worktree setup\n');
-  else appendLine(sc.worktreePath, relPath, 'stale copy left by worktree setup');
-}
+export const PLAN_FILE_CONTENTS = '# Plan\n\nThe plan the planner wrote.\n';
 
 export function planPlanFile(sc: PlanScenario): void {
-  sc.manifest.edits.push({ path: sc.planFile, contents: '# Plan\n\nThe plan the planner wrote.\n' });
+  sc.manifest.edits.push({ path: sc.planFile, contents: PLAN_FILE_CONTENTS });
 }
