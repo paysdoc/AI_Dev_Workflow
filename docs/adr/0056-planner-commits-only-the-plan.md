@@ -8,7 +8,7 @@ provenance:
   - kind: contemporaneous
     source: commits d45d708e and ca72a4a7 (2026-06-16), bebda8dd and c3606f9e (2026-09-24)
 supersedes: []
-superseded-by: []
+superseded-by: ["0065"]
 ---
 
 # The planner commits only the plan; `.claude/` and `.adw/` are off-limits to it
@@ -54,3 +54,4 @@ No guard exists.
 
 * Not settled: the plan commit ca72a4a7 also carried `features/per-issue/feature-583.feature`. Whether the per-issue scenario file belongs in the plan commit was not asked.
 * A regeneration chore, not a plan commit, caused a third loss of the same kind (commit 1ab26649, see ADR-0043). This decision does not cover it.
+* Superseded in part by [ADR-0065](0065-specs-is-worktree-only-records-live-in-docs.md) on 2026-10-20: the plan phase no longer commits at all, so what the plan commit may carry is no longer a question and the guard asked for here was never built. The rule that the planner must not touch `.claude/` or `.adw/` still stands as a scope rule for the planner, with no commit to enforce it on.
