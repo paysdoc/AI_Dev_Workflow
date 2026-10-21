@@ -77,3 +77,6 @@ output.jsonl
 .claude/skills/promote-regression-vocabulary/
 .claude/skills/refactor/
 .claude/skills/write-a-skill/
+
+# stray JUnit reports written at the repo root by a manual vitest/cucumber run
+junit*.xml
