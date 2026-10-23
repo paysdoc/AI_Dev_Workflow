@@ -16,7 +16,7 @@ import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 import { executeUnitTestPhase } from '../../../adws/phases/unitTestPhase.ts';
 
 import { installCompactingCli, readRuns, emptyBehaviour, type InstalledCli } from '../../regression/step_definitions/feature-929-compacting-cli.ts';
-import { isHeaded } from './feature-929-comments.ts';
+import { isHeaded } from '../../regression/step_definitions/feature-929-comments.ts';
 import { createWorkflow, commentsOn, type Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
 import { s, recordingProcessRunner, writeStaticChecks, type PhaseOutcome } from '../../regression/step_definitions/feature-988-world.ts';
 

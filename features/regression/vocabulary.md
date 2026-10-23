@@ -1254,3 +1254,104 @@ checked out` (G18, Background), `the framework content hash is computed for the 
 (W-HC1), `the recorded hashes are all different` (T-HC3), `the scenario proof records no blocker
 failures` (T-PY3), `the scenario proof records a blocker failure for the tag {string}` (T-S12) and `the
 ADW TypeScript type-check passes` (T22).
+
+---
+
+## Given/When/Then — The "mobile:kotlincm" Descriptors adw_init Writes (@kotlincm-descriptors)
+
+These phrases prove that the `.adw/` descriptors `adw_init` writes for a hand-set `mobile:kotlincm`
+carry a repository from its bootstrap issue through ADW. Four code paths are driven over throwaway
+fixtures under `os.tmpdir()`:
+
+1. `executeUpgrade` over a throwaway target repository, with the `/adw_init` agent stubbed
+   (phase-import).
+2. A real `adwSdlc` orchestrator process through the hermetic subprocess harness, with stand-in device
+   tools (`avdmanager`, `emulator`, `adb`, `xcrun`) leading its `PATH` (subprocess).
+3. `executeStepDefPhase` and `executeScenarioTestPhase` over a throwaway workflow worktree, with a
+   throwaway Claude CLI and a stand-in Gradle wrapper (phase-import).
+4. The worktree's `## Run Tests` command, run through the shell from its root as the `/test` agent's
+   shell runs it (phase-import).
+
+The fixtures are inputs to the system under test: the `.adw/` files, derived from what
+`.claude/commands/adw_init.md` tells the agent to write; the fixture framework copy; the stand-in
+scripts; and the target repositories. Every assertion targets a runtime artefact: the regen commit's
+blobs, read through ADW's own parsers; the stubbed agent's record of its worktree; the workflow's
+top-level state and execution log; the comments the process posted; the throwaway CLI's run log; the
+stand-in Gradle wrapper's call log; the JUnit report a run wrote; and the scenario proof the phase
+returned. The three generator rows (T-KC9–T-KC11) read the instructions that the slash command the
+recorded generator run names gives for the runner mode it was started in: the prompt ADW hands the
+generator.
+
+The definitions live in `feature-1044-framework.steps.ts` (G-KC1, W-KC1, T-KC1, T-KC3),
+`feature-1044-baseline.steps.ts` (G-KC2, T-KC5, T-KC6), `feature-990.steps.ts` (G-KC3, W-KC2),
+`feature-990-baseline.steps.ts` (T-KC4, T-KC7, T-KC8), `feature-1044-proof.steps.ts` (G-KC4, G-KC5,
+G-KC7–G-KC9, T-KC15–T-KC18), `feature-1043-proof.steps.ts` (G-KC6, T-KC14),
+`feature-1044-unit-tests.steps.ts` (G-KC10, W-KC3, T-KC12, T-KC13), `feature-1044-generator.steps.ts`
+(T-KC9–T-KC11) and `feature-991-upgrade.steps.ts` (T-KC2). Their helpers are `feature-1044-gradle.ts`,
+`feature-1044-prompt.ts`, `feature-1044-world.ts`, `feature-990-run.ts`, `feature-990-devices.ts`,
+`feature-990-manifest.ts`, `feature-990-world.ts`, `feature-990-read.ts`, `feature-990-scripts.ts`,
+`feature-990-target.ts`, `feature-989-comments.ts`, `feature-929-comments.ts` and
+`feature-962-parameters.ts`, which defines the `{reportedStepStatus}` parameter type.
+
+The hooks are keyed on `@kotlincm-descriptors`, so a scenario that uses these phrases must carry that
+tag. `Before` resets the shared workflow world, the `@web-playwright-project` state and this feature's
+state; for a scenario whose steps run an orchestrator it also brings up the mock infrastructure and
+the subprocess harness. `feature-931.steps.ts`'s upgrade hooks key on the tag too. `After` tears the
+harness down, restores `ADW_UNIT_TEST_REPORT_PATH`, restores `CLAUDE_CODE_PATH` unless the
+`@regression` teardown already has, disposes of the stand-ins, and removes the throwaway directories
+and `agents/<adwId>`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-KC1 | `the {string} agent writes a complete ADW configuration whose {string} declares the application type {string} and has the device-source sections the {string} command tells it to write` | Scripts the stubbed `/adw_init` agent the upgrade runs (as G-WP6). It writes every required `.adw/` file. Its `.adw/project.md` is the one `adw_init.md` tells it to write over the `.adw/project.md` it found in its worktree: the type, plus each of the four device-source sections, holding the value the found file sets or else the prompt's default. The file must be `.adw/project.md`, the command the agent's own, and the type `mobile:kotlincm` | phase-import | stub behaviour (scripted init agent) |
+| G-KC2 | `a target repository whose default branch {string} holds the {string} that {string} writes for the application type {string}, and no manifest and no Gradle wrapper yet` | Describes the orchestrator row's target repository. Its base branch holds the `.adw/` files `adw_init.md` tells the agent to write for the hand-set type with no manifest, and none of the fixture's application files (`package.json`, `tsconfig.json`, `src`). Nothing is committed until W-KC2. Branch `dev`, directory `.adw/`, command `adw_init` | subprocess | target repository fixture (SUT input) |
+| G-KC3 | `a workflow of the {string} orchestrator for issue {int} in that repository` | Claims the adwId `throwaway<N>-bdd990` and the issue in the subprocess harness. Seeds the issue in the mock forge (open, an hour old, labelled `adw:feature`) and points the `gh` shadow at the mock server | subprocess | mock server state (SUT input) |
+| G-KC4 | `a workflow for issue {int} whose worktree holds the {string} that {string} writes for the application type {string}` | Builds a throwaway workflow for the issue (as G-WP10, for the fictional `adw-fixture/void-1044`). Its `.adw/` is what `adw_init.md` tells the agent to write for the hand-set type with no manifest, written just before a phase or command runs. Directory `.adw/`, command `adw_init` | phase-import | workflow config + worktree fixture (SUT input) |
+| G-KC5 | `the worktree holds a feature tagged {string} in the scenario directory {string} names, and no step definition file` | Writes a one-scenario feature carrying the tag in the scenario directory the workflow's `.adw/scenarios.md` names, and no step definition file. The file must be `.adw/scenarios.md` | phase-import | worktree fixture (SUT input) |
+| G-KC6 | `the worktree holds a feature tagged {string} in the scenario directory {string} names, and steps for it in the file {string}` | As G-KC5, plus a step definition file at the path | phase-import | worktree fixture (SUT input) |
+| G-KC7 | `the worktree holds a feature tagged {string} in the scenario directory {string} names, whose one scenario is {string}, and steps for it in the file {string}` | As G-KC6, the one scenario carrying the title | phase-import | worktree fixture (SUT input) |
+| G-KC8 | `the worktree's Gradle wrapper is a stand-in that records each run and writes a JUnit report in which every scenario passes` | Puts a stand-in `gradlew` in the worktree's root. Each run records its argv, working directory, `ADW_` variables and cucumber tag filter (`-Dcucumber.filter.tags=`), and writes a passing JUnit report at `$ADW_JUNIT_REPORT_PATH` | phase-import | stub behaviour (stand-in Gradle wrapper) |
+| G-KC9 | `the worktree's Gradle wrapper is a stand-in that runs each scenario of the tag once on each of these platforms, saves its screenshot under the platform's directory in {string}, and reports every run as a {reportedStepStatus} test case named after the scenario that attaches the screenshot by its path from the JUnit report's directory:` | As G-KC8. For each scenario and table row, it saves the screenshot under `<platform>/` in `$ADW_PROOF_DIR` and reports a test case titled with the scenario that attaches it by its path relative to the report's directory. Variable `ADW_PROOF_DIR`, status `passed` | phase-import | stub behaviour (stand-in Gradle wrapper) |
+| G-KC10 | `the worktree's Gradle wrapper is a stand-in that, run for the task {string}, writes the JUnit report of each of these test classes under its module's {string} directory, and exits with code {int}:` | As G-KC8. Run for the task, it writes one JUnit report per row (module, class, case, status) under the module's `build/test-results/` and exits with the code. Task `test`, directory `build/test-results/` | phase-import | stub behaviour (stand-in Gradle wrapper) |
+| W-KC1 | `the {string} command in the fixture framework is edited below its frontmatter` | Inserts a line directly below the closing frontmatter fence of the fixture framework's copy of `.claude/commands/<command>.md`, leaving the frontmatter as it was | phase-import | fixture input (SUT input, not source) |
+| W-KC2 | `the workflow runs` | Commits the described target repository to its base branch, and writes the recorder scripts and the Claude CLI stub's manifest (SDLC answers for the issue and adwId). Runs the real orchestrator with `bunx tsx` through the subprocess harness, with `CLAUDE_CODE_PATH` at the recorder that logs each agent's start, and with stand-in `avdmanager`, `emulator`, `adb` and `xcrun` leading `PATH`, so that the real device lifecycle of the repository's platforms boots devices that exist nowhere. Records the exit code and output, and hands the comments the process posted to the recording tracker. 340 s timeout | subprocess | exit code + state files + recorded comments |
+| W-KC3 | `the {string} command of the worktree's {string} is run as written from the worktree's root, with {string} holding the unit-test phase's report path` | Writes the worktree's `.adw/` and loads the command with ADW's `loadProjectConfig`. Points `ADW_UNIT_TEST_REPORT_PATH` at the unit-test phase's report file in the workflow's logs directory, removing any earlier one. Runs the command through the shell from the worktree's root in the environment ADW starts the `/test` agent with (`buildClaudeLaunchEnv`), and records the exit code and output. Heading `## Run Tests`, file `.adw/commands.md`, variable `ADW_UNIT_TEST_REPORT_PATH` | phase-import | exit code + JUnit report (run artefact) |
+| T-KC1 | `the {string} agent ran in a worktree whose {string} was the default branch's` | From the stubbed agent's record of the `.adw/` files it found, asserts it ran once and that the file equalled the default branch's blob at the commit recorded before the upgrade | phase-import | recorded init-agent run + git artefact (blob) |
+| T-KC2 | `ADW reads the application type {string} from the regen commit's {string}` | Parses the regen commit's blob with ADW's `parseApplicationType` and asserts the type | phase-import | git artefact (regen commit blob) |
+| T-KC3 | `ADW reads these device sources from the regen commit's {string}:` | Parses the regen commit's blob with ADW's `parseDeviceSourceSections` and asserts each of the four sections reads as the table has it. File `.adw/project.md` | phase-import | git artefact (regen commit blob) |
+| T-KC4 | `the workflow's state records that the baseline passed on the base branch {string}` | In the workflow's top-level state, `baseline` is `passed` on the branch, its commit is the branch's tip, and it holds the time it was recorded | subprocess | state file artefact |
+| T-KC5 | `the baseline's {string} check {reportedStepStatus} on the base branch {string} with a Gradle command` | From the execution log, the baseline checked the branch out and logged `Base branch check passed: <check> — <command>` with a command running `./gradlew`. Only `passed` is accepted | subprocess | log stream (execution log) |
+| T-KC6 | `the baseline started no dev server on its worktree of the base branch {string}` | The baseline checked the branch out; the dev-server recorder holds no start on a worktree of the base branch; and the execution log holds no `Base branch dev server` line | subprocess | recorded server events + execution log |
+| T-KC7 | `the plan phase ran after the baseline` | The execution log's `Baseline green on …` line is no later than the first planning agent start the recorder logged | subprocess | execution log + recorded agent starts |
+| T-KC8 | `no park comment was posted on issue {int}` | No comment the workflow posted on the issue is headed `ADW Parked` | subprocess | recorded comments (mock forge) |
+| T-KC9 | `the command the step-definition generator was started with tells the step definitions to drive the devices named by {string} and {string}` | From the throwaway CLI's run log, takes the one `/generate_step_definitions` run and its runner mode, and requires the worktree's `.adw/scenarios.md` to have a `## Scenario Run Contract`. Asserts that a line of the instructions that run's slash command gives that mode names both variables, as code, and the devices | phase-import | recorded CLI run + the prompt the generator was started with |
+| T-KC10 | `the command the step-definition generator was started with tells the step definitions never to create, boot, shut down or delete a device` | As T-KC9; a line says never to create, boot, shut down or delete a device | phase-import | recorded CLI run + the prompt the generator was started with |
+| T-KC11 | `the command the step-definition generator was started with tells the step definitions to write each screenshot under {string} or {string} in {string}` | The two directories are the platforms of the application profile ADW resolves for the workflow. As T-KC9, a line about screenshots names the variable and both directories, as code | phase-import | recorded CLI run + application profile + the prompt the generator was started with |
+| T-KC12 | `ADW reads exactly these test cases from the JUnit report at {string}:` | Reads the report at W-KC3's path with ADW's `readJUnitReport` (the unit-test phase's parser) and asserts exactly the table's cases (class, name, status) | phase-import | JUnit report (run artefact) |
+| T-KC13 | `the {string} command exited with code {int}` | Asserts W-KC3's recorded exit code | phase-import | exit code |
+| T-KC14 | `the scenario proof notes that no step definition file was found in {string}` | The scenario proof file the phase wrote notes `No step definition files found in <directory>` | phase-import | returned scenario proof (proof file artefact) |
+| T-KC15 | `the scenario test phase started no dev server` | The workflow's `execution.log` shows the scenario test phase started and says nothing of starting the dev server | phase-import | execution log artefact |
+| T-KC16 | `the Gradle wrapper ran the task {string} from the worktree's root once for each of these cucumber tag filters:` | From the stand-in's call log, one run per row's tag filter, each running the task from the worktree's root | phase-import | recorded stand-in calls |
+| T-KC17 | `each of those runs was given {string} holding the scenario proof's report path for its tag, and {string} holding the scenario proof's artifacts directory` | Per recorded run, the first variable holds the returned proof's report path for its tag and the second the proof's `artifactsDir` | phase-import | recorded stand-in calls + returned scenario proof |
+| T-KC18 | `the scenario proof gives {string} exactly these images, by their path in {string}:` | The returned proof's per-issue images of the scenario are exactly the table's paths, relative to `ADW_PROOF_DIR` | phase-import | returned scenario proof |
+
+This section also reuses already-registered phrases, so they need no new rows:
+
+- `the ADW codebase is checked out` (G18)
+- `a fixture framework copied from the ADW framework under test` (G-WP9)
+- `the framework content hash is computed for the fixture framework` (W-HC1)
+- `the recorded hashes are all different` (T-HC3)
+- `a target repository initialised by an older framework version` (G-WP3)
+- `the target repository's default branch has this {string}:` (G-WP5)
+- `the framework upgrade regenerates the target repository's ADW configuration` (W-WP1)
+- `the upgrade commits the regenerated configuration` (T-WP1)
+- `the regen commit holds no {string}` (T-WP8)
+- `the upgrade installed nothing in {string}` (T-WP9)
+- `the workflow's scenario test phase runs` (W-WP3)
+- `the workflow's step-definition phase runs` (W-WP4)
+- `the step-definition generator was started once, for issue {int}` (T-WP16)
+- `the step-definition generator was started in the mode for the scenario runner that {string} describes` (T-WP18)
+- `the scenario proof records the tag {string} as passed` (T-WP19)
+- `the scenario proof ran no tag` (T-S11)
+- `the scenario proof records no blocker failures` (T-PY3)
+- `the ADW TypeScript type-check passes` (T22)

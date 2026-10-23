@@ -16,7 +16,7 @@ import { commentsOn } from '../../regression/step_definitions/feature-929-workfl
 import { ADW_DIRECTORY, COMMANDS_MD, SCENARIOS_MD } from '../../regression/step_definitions/feature-992-adw-files.ts';
 import { PROJECT_MD, assertProjectMdFile, projectMd } from '../../regression/step_definitions/feature-991-project-md.ts';
 import { requireWorkflow } from './feature-988-phase.steps.ts';
-import { isHeaded } from './feature-929-comments.ts';
+import { isHeaded } from '../../regression/step_definitions/feature-929-comments.ts';
 import { stackFrom } from './feature-1043-stack.ts';
 
 const LABELLING_OPERATIONS: ReadonlySet<string> = new Set(['applyLabel', 'addLabel']);

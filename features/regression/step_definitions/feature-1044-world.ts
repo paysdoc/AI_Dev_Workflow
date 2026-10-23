@@ -1,5 +1,5 @@
 /**
- * What the feature-1044 scenarios share, and the hooks that bring up the worlds of the earlier features whose steps they reuse:
+ * What the @kotlincm-descriptors scenarios share, and the hooks that bring up the worlds of the earlier features whose steps they reuse:
  * the framework hash (feature-537), the upgrade (feature-931), the scenario test phase (feature-992) and the baseline of a real
  * orchestrator process (feature-990). A scenario of the last kind says so in its steps ("a workflow of the ... orchestrator"),
  * and only that kind starts the subprocess harness. A hook that an earlier feature keys on its own tag does not run for these
@@ -53,14 +53,16 @@ function runsAnOrchestrator(pickle: Pickle): boolean {
   return pickle.steps.some(step => ORCHESTRATOR_WORKFLOW.test(step.text));
 }
 
-Before({ tags: '@adw-1044' }, async function (this: RegressionWorld, { pickle }: ITestCaseHookParameter) {
+const OWN_SCENARIOS = '@kotlincm-descriptors';
+
+Before({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld, { pickle }: ITestCaseHookParameter) {
   beginScenario();
   resetState992();
   resetState();
   if (runsAnOrchestrator(pickle)) await setUpWorld990(this);
 });
 
-After({ tags: '@adw-1044' }, async function (this: RegressionWorld, { pickle }: ITestCaseHookParameter) {
+After({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld, { pickle }: ITestCaseHookParameter) {
   if (runsAnOrchestrator(pickle)) await tearDownWorld990(this);
   await endScenario();
   disposeToolchain();
