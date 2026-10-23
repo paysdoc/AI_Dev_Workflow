@@ -1,4 +1,4 @@
-@adw-1044 @adw-g0m1dk-feat-adw-init-preser
+@adw-1044 @adw-g0m1dk-feat-adw-init-preser @promotion-suggested-2026-10-23
 Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin and Gradle descriptors it writes for it let a bootstrap issue through the baseline and the scenario phase, run each scenario tag through the ":scenarios" module, and give the scenario proof each platform's screenshot
 
   A bootstrap issue is the first issue of a repository that holds no application yet.

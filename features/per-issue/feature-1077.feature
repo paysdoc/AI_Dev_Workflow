@@ -1,4 +1,4 @@
-@adw-1077 @adw-9skpoc-feat-retire-the-plan
+@adw-1077 @adw-9skpoc-feat-retire-the-plan @promotion-suggested-2026-10-23
 Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" through the repository's tracked ".gitignore", and the plan phase commits nothing and posts no "Committing Plan" comment
 
   Worktree setup is what ADW does to each worktree it creates for a workflow, before the first phase runs.
