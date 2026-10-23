@@ -1,40 +1,20 @@
 /**
- * The full adwSdlc scenario of feature-1077.feature runs a real orchestrator process but carries no
- * @regression, so the regression hooks give it neither the mock infrastructure nor the subprocess
- * harness. The hooks here do what the `@regression` and `@regression and (@subprocess or @webhook)`
- * hooks do, for that scenario alone: the others of the feature are `@plan-worktree-only`, which has
- * its own hooks. The two Thens read the worktree the run left and the .gitignore its branch committed.
+ * The Thens of the full adwSdlc scenario of feature-1077.feature, which read the worktree the run left
+ * and the .gitignore its branch committed. The scenario carries `@subprocess`, so the
+ * `@regression and (@subprocess or @webhook)` hooks give it the mock infrastructure and the subprocess
+ * harness these steps read the workspace from.
  */
 
-import { After, Before, Then } from '@cucumber/cucumber';
+import { Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
-import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../test/mocks/test-harness.ts';
-import { runCleanup } from '../../regression/support/cleanup.ts';
 import { realGit } from '../../regression/support/fixtureWorktree.ts';
-import { createSubprocessHarness, requireHarness } from '../../regression/support/subprocessHarness.ts';
+import { requireHarness } from '../../regression/support/subprocessHarness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-
-const OWN_SCENARIO = '@adw-1077 and not @regression and not @plan-worktree-only';
-
-Before({ tags: OWN_SCENARIO }, async function (this: RegressionWorld) {
-  this.mockContext = await setupMockInfrastructure();
-  this.subprocess = createSubprocessHarness(this);
-});
-
-After({ tags: OWN_SCENARIO }, async function (this: RegressionWorld) {
-  await runCleanup(this);
-  await teardownMockInfrastructure();
-  this.mockContext = null;
-  this.subprocess = null;
-  this.lastExitCode = -1;
-  this.lastOutput = '';
-  this.harnessEnv = {};
-});
 
 function workspaceOfRun(world: RegressionWorld): string {
   const { workspacePath } = requireHarness(world);

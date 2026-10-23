@@ -1,5 +1,5 @@
 /**
- * Worktree-setup steps for the per-issue worktree-setup scenarios of feature-1077.feature. Worktree
+ * Worktree-setup steps for the worktree-setup scenarios of feature-1077.feature. Worktree
  * setup here is what initializeWorkflow does to a new worktree on the --target-repo path: the copy of
  * the framework's Claude assets, then the ignore of specs/. The framework checkout is a fixture handed
  * to copyClaudeAssetsToWorktree as its `frameworkRepoRoot`, so these scenarios depend neither on the

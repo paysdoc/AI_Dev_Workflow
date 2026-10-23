@@ -1,4 +1,4 @@
-@adw-1077 @adw-9skpoc-feat-retire-the-plan @promotion-suggested-2026-10-23
+@regression @specs-ignored-in-worktree
 Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" through the repository's tracked ".gitignore", and the plan phase commits nothing and posts no "Committing Plan" comment
 
   Worktree setup is what ADW does to each worktree it creates for a workflow, before the first phase runs.
@@ -6,7 +6,7 @@ Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" 
   Background:
     Given the ADW codebase is checked out
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario Outline: Worktree setup in a fresh worktree of <repository> adds "specs/" to the tracked ".gitignore", so git ignores every plan under "specs/" and ".gitignore" carries the entry as an uncommitted change
     Given a fresh worktree of <repository>, whose branch tracks a ".gitignore" that does not name "specs/"
     When worktree setup runs in the worktree
@@ -18,28 +18,28 @@ Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" 
       | the target repository "acme/widgets" |
       | the framework's own repository       |
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario: Worktree setup in a fresh worktree whose branch tracks no ".gitignore" writes one that has git ignore every plan under "specs/", for the next commit to add
     Given a fresh worktree of the target repository "acme/widgets", whose branch tracks no ".gitignore"
     When worktree setup runs in the worktree
     Then git ignores "specs/issue-4242-adw-a1b2c3-sdlc_planner-plan.md" in the worktree by the entry "specs/" of ".gitignore"
     And git lists ".gitignore" among the worktree's untracked files that are not ignored
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario: Worktree setup run a second time in the same worktree leaves ".gitignore" as the first run left it, so "specs/" is named only once
     Given a fresh worktree of the target repository "acme/widgets", whose branch tracks a ".gitignore" that does not name "specs/"
     And worktree setup has run in the worktree
     When worktree setup runs in the worktree again
     Then the worktree's ".gitignore" is as the first run of worktree setup left it
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario: Worktree setup in a later worktree, whose branch already tracks the ".gitignore" an earlier worktree setup wrote, leaves ".gitignore" as the branch has it, and git still ignores every plan under "specs/"
     Given a fresh worktree of the target repository "acme/widgets", whose branch tracks the ".gitignore" an earlier worktree setup wrote
     When worktree setup runs in the worktree
     Then the worktree has no uncommitted change to ".gitignore"
     And git ignores "specs/issue-4242-adw-a1b2c3-sdlc_planner-plan.md" in the worktree by the entry "specs/" of ".gitignore"
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario: In a worktree where git does not ignore "specs/", the plan phase adds no commit to the branch, and the plan and every other change stay uncommitted in the worktree
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -62,7 +62,7 @@ Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" 
       | README.md     |
       | src/widget.ts |
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan @plan-worktree-only
+  @plan-worktree-only
   Scenario: A planner that changes files under ".claude/" and ".adw/" no longer fails the plan phase, which adds no commit and leaves those changes uncommitted in the worktree
     Given a worktree for a workflow on issue 4242 in the target repository "acme/widgets"
     And the worktree's branch tracks these files:
@@ -82,7 +82,7 @@ Feature: The plan stays in the worktree: worktree setup has git ignore "specs/" 
       | .claude/commands/scenario_writer.md |
       | .adw/commands.md                    |
 
-  @adw-1077 @adw-9skpoc-feat-retire-the-plan
+  @subprocess
   Scenario: A full adwSdlc run against the fixture repository posts the plan's path and summary but no "Committing Plan" comment, adds no commit touching "specs/" to its branch, and leaves the plan in the worktree, ignored through the ".gitignore" its branch commits
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 100 exists in the mock issue tracker
