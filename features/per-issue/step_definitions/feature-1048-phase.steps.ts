@@ -15,7 +15,7 @@ import { TrappedExit } from '../../regression/step_definitions/feature-992-exit.
 import { runScenarioTestPhase } from '../../regression/step_definitions/feature-992-phase.steps.ts';
 import { requireWorkflow } from '../../regression/step_definitions/feature-992-world.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { assertDirectiveSays, requireParkCommentOn } from './feature-989-comments.ts';
+import { assertDirectiveSays, requireParkCommentOn } from '../../regression/step_definitions/feature-989-comments.ts';
 import { attemptScenarioTestPhase } from './feature-1045-phase.steps.ts';
 import { requireAttempt } from './feature-1045-world.ts';
 import {
