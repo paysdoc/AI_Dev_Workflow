@@ -14,9 +14,10 @@ vi.mock('../../agents', async (importOriginal) => {
 });
 
 import { executeBuildPhase } from '../buildPhase';
+import { BUILD_COMPLETE_MARKER } from '../progressGate';
 import { runBuildAgent, runCommitAgent } from '../../agents';
 import { AgentStateManager } from '../../core/agentState';
-import { AGENTS_STATE_DIR } from '../../core/config';
+import { AGENTS_STATE_DIR, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS } from '../../core/config';
 import type { RecoveryState } from '../../types/workflowTypes';
 import type { WorkflowConfig } from '../workflowInit';
 
@@ -163,5 +164,113 @@ describe('executeBuildPhase — a plan lost with the worktree', () => {
     expect(mockRunBuildAgent).toHaveBeenCalledTimes(1);
     expect(commentOnIssue.mock.calls.map(([, body]) => String(body)).join('\n')).not.toContain(PARK_HEADING);
     expect(AgentStateManager.readTopLevelState(adwId)).toBeNull();
+  });
+});
+
+function recordingConfig(gitContext: Record<string, unknown> = {}): { config: WorkflowConfig; comments: () => string } {
+  const commentOnIssue = vi.fn();
+  const repoContext = { issueTracker: { commentOnIssue, moveToStatus: vi.fn().mockResolvedValue(true) } } as unknown as WorkflowConfig['repoContext'];
+  const stubGitContext = { getHeadTreeHash: () => 'tree-a', hasUncommittedChanges: () => false, commandEnv: () => ({}), ...gitContext };
+  const config = makeConfig({ repoContext, gitContext: stubGitContext as unknown as WorkflowConfig['gitContext'] });
+  return { config, comments: () => commentOnIssue.mock.calls.map(([, body]) => String(body)).join('\n') };
+}
+
+function newTreeOnEveryRead(): () => string {
+  let reads = 0;
+  return () => `tree-${reads++}`;
+}
+
+function stoppedAtTokenLimit(output: string) {
+  return { success: true, tokenLimitExceeded: true, output };
+}
+
+describe('executeBuildPhase — a stopped agent that reported completion', () => {
+  beforeEach(() => {
+    mockRunBuildAgent.mockReset();
+  });
+
+  it('ends the build without another context when a run stopped at the token limit reports completion', async () => {
+    mockRunBuildAgent.mockResolvedValueOnce(stoppedAtTokenLimit(`Every plan step is committed and every validation command passes.\n${BUILD_COMPLETE_MARKER}\n`));
+    const { config, comments } = recordingConfig();
+
+    await executeBuildPhase(config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(1);
+    expect(comments()).not.toContain('Token Limit Recovery');
+    expect(comments()).toContain('Build Completed');
+  });
+
+  it('ends the build at the run that reports completion, although a tree that keeps changing would have run on to the backstop', async () => {
+    mockRunBuildAgent
+      .mockResolvedValueOnce(stoppedAtTokenLimit('Committed the last plan step.'))
+      .mockResolvedValueOnce(stoppedAtTokenLimit(`Every step is done and validations pass.\n${BUILD_COMPLETE_MARKER}\nSplitting the callbacks into helpers…`));
+    const { config, comments } = recordingConfig({ getHeadTreeHash: newTreeOnEveryRead(), hasUncommittedChanges: () => true });
+
+    await executeBuildPhase(config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(2);
+    expect(mockRunBuildAgent.mock.calls[1][2]).toContain('## Completion Check');
+    expect(mockRunCommitAgent).toHaveBeenCalledTimes(2);
+    expect(comments().match(/Token Limit Recovery/g)).toHaveLength(1);
+  });
+
+  it('ends the build at once when a compaction stops the run that reports completion', async () => {
+    mockRunBuildAgent.mockResolvedValueOnce({ success: true, compactionDetected: true, output: `All steps done.\n${BUILD_COMPLETE_MARKER}` });
+    const { config, comments } = recordingConfig();
+
+    await executeBuildPhase(config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(1);
+    expect(comments()).not.toContain('Context Compaction Recovery');
+    expect(comments()).toContain('Build Completed');
+  });
+
+  it('does not abort a finished build as no_progress when the runs that stopped only verified', async () => {
+    const isLastRunOfTheBatch = () => mockRunBuildAgent.mock.calls.length === MAX_CONTEXT_RESETS;
+    mockRunBuildAgent.mockImplementation(async () => stoppedAtTokenLimit(isLastRunOfTheBatch() ? `Verified.\n${BUILD_COMPLETE_MARKER}` : 'Verified the plan.'));
+
+    await executeBuildPhase(recordingConfig().config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(MAX_CONTEXT_RESETS);
+  });
+
+  it('still restarts the agent when a stopped run only mentions the marker in a sentence', async () => {
+    mockRunBuildAgent
+      .mockResolvedValueOnce(stoppedAtTokenLimit(`I will print ${BUILD_COMPLETE_MARKER} once every step is done.`))
+      .mockResolvedValueOnce({ success: true, output: 'done' });
+
+    await executeBuildPhase(recordingConfig().config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it('still restarts the agent, with the completion check in its prompt, when a stopped run does not report completion', async () => {
+    mockRunBuildAgent
+      .mockResolvedValueOnce(stoppedAtTokenLimit('partial'))
+      .mockResolvedValueOnce({ success: true, output: 'done' });
+
+    await executeBuildPhase(recordingConfig().config);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(2);
+    expect(mockRunBuildAgent.mock.calls[1][2]).toContain('## Completion Check');
+  });
+});
+
+describe('executeBuildPhase — progress gate on incomplete builds', () => {
+  beforeEach(() => {
+    mockRunBuildAgent.mockReset();
+    mockRunBuildAgent.mockResolvedValue(stoppedAtTokenLimit('Still working.'));
+  });
+
+  it('aborts as no_progress once the batch ends on a tree the build has already seen', async () => {
+    await expect(executeBuildPhase(recordingConfig().config)).rejects.toThrow(/no progress/i);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(MAX_CONTEXT_RESETS);
+  });
+
+  it('aborts at the checkpoint backstop when every batch ends on a new tree', async () => {
+    await expect(executeBuildPhase(recordingConfig({ getHeadTreeHash: newTreeOnEveryRead() }).config)).rejects.toThrow(/checkpoint backstop/i);
+
+    expect(mockRunBuildAgent).toHaveBeenCalledTimes(MAX_CONTEXT_RESETS * (MAX_PROGRESS_CHECKPOINTS + 1));
   });
 });

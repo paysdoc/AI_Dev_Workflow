@@ -52,6 +52,7 @@
     - adws/phases/workflowRepoIdentity.ts
     - adws/phases/__tests__/workflowRepoIdentity.test.ts
   - Conditions:
+    - When working on the `complete` decision of `evaluateProgressGate` (`completionReported`), or post-completion edits being counted as progress
     - When working on workflow initialization, completion, upgrade gating, orchestrator locking, progress gating, branch name resolution, auth pause, depaudit setup, Gherkin freeze, or phase comment helpers in `adws/phases/`
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
@@ -269,6 +270,7 @@
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
+    - When a build never ends after the plan is done, or working on the `BUILD_COMPLETE` completion signal (`reportsBuildComplete`, the continuation prompt's `## Completion Check` and `## Scope` sections, a stopped agent that reported completion)
     - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
     - When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume
   - Decisions:
