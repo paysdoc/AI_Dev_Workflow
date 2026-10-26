@@ -9,6 +9,7 @@ import type { PerIssueImage, ScenarioPlatformCoverage, TagProofResult } from './
 export const NO_PER_ISSUE_SCENARIOS = 'no per-issue scenarios';
 export const NO_SCENARIO_OPENED_A_PAGE = 'no scenario opened a page';
 export const NO_SCENARIO_OPENED_A_SCREEN = 'no scenario opened a screen';
+export const PASSED_ON_EXIT_CODE_ONLY = "passed based on the exit code only; the repository's scenario runner writes no JUnit report to `ADW_JUNIT_REPORT_PATH`";
 
 const SOME_PLATFORMS_ONLY = 'On some platforms only';
 

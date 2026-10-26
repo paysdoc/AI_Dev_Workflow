@@ -43,15 +43,18 @@ export interface TagProofResult {
   /** True when the tag was not run because no scenario in the feature files carries it. */
   skipped: boolean;
   /**
-   * Optional explanation when scenario outcome and process exit code disagree —
+   * Optional explanation when the outcome cannot be taken at face value —
    * e.g. JUnit report is clean but the subprocess exited non-zero due to
-   * post-suite noise (D1 write failures, unhandled rejections in shutdown hooks).
+   * post-suite noise (D1 write failures, unhandled rejections in shutdown hooks),
+   * or the run left no report and its exit code alone passed it.
    */
   warning?: string;
   /** Structured tally from the JUnit report (when report was present and parsed). */
   counts?: { total: number; passed: number; failed: number };
   /** Per-case results from the JUnit report (when report was present and parsed). */
   cases?: TestCaseResult[];
+  /** True when the run left no JUnit report: its exit code alone decided `passed`, and it has no `counts` or `cases`. */
+  reportMissing?: boolean;
 }
 
 export interface ScenarioProofResult {
@@ -80,7 +83,7 @@ export interface UploadedArtifact {
 
 export type TagProofResultLike = Pick<
   TagProofResult,
-  'resolvedTag' | 'severity' | 'passed' | 'skipped' | 'counts'
+  'resolvedTag' | 'severity' | 'passed' | 'skipped' | 'counts' | 'reportMissing'
 >;
 
 export interface ProofCommentInput {

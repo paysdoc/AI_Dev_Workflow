@@ -940,6 +940,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── workflowPark.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
+│   │   ├── worktreeSetupSpecsIgnore.test.ts
 │   │   └── worktreeSetupTrackedAssets.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── applicationTypeGate.ts  # Resolves the application type at init; a missing or unknown type parks the workflow (missing_application_type); requireApplicationProfile
@@ -1137,6 +1138,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── featureScenarioIndex.lookup.test.ts
 │   │   ├── featureScenarioIndex.test.ts
 │   │   ├── imagePlatform.test.ts
+│   │   ├── prProofPublisher.noReport.test.ts
 │   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts

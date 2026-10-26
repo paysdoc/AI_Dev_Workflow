@@ -9,7 +9,7 @@ import { EvidenceKind, type ApplicationProfile, type Platform } from '../core/ap
 import type { TestCaseResult, TestReport } from '../core/testReportParser';
 import { hasScenarioTagged, scenariosForTestCase, type FeatureScenarioIndex } from './featureScenarioIndex';
 import { platformOfImage, scenarioPlatformCoverage } from './imagePlatform';
-import { renderProofDocument, type ProofEvidence } from './proofDocument';
+import { PASSED_ON_EXIT_CODE_ONLY, renderProofDocument, type ProofEvidence } from './proofDocument';
 import type { PerIssueImage, ProofArtifact, TagProofResult } from './types';
 
 export enum ScenarioTagRole {
@@ -83,7 +83,7 @@ function truncate(output: string): string {
   return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
 }
 
-type TagOutcome = Pick<TagProofResult, 'passed' | 'skipped' | 'warning' | 'counts' | 'cases'>;
+type TagOutcome = Pick<TagProofResult, 'passed' | 'skipped' | 'warning' | 'counts' | 'cases' | 'reportMissing'>;
 
 function cleanReportWarning(run: TagRun, report: TestReport): string | undefined {
   if (run.exitCode === 0) return undefined;
@@ -113,9 +113,15 @@ function emptyReportOutcome(tag: FixedScenarioTag, index: FeatureScenarioIndex):
   return { passed: false, skipped: false, warning: `${carrying} scenario(s) in the feature files carry ${tag.tag}, but the run reported none` };
 }
 
+// Nothing but the exit code vouches for a run that left no report. A pass says so; a failure is no false green.
+function missingReportOutcome(run: TagRun): TagOutcome {
+  const passed = run.exitCode === 0;
+  return { passed, skipped: false, reportMissing: true, warning: passed ? PASSED_ON_EXIT_CODE_ONLY : undefined };
+}
+
 function outcomeOfRun(tag: FixedScenarioTag, run: TagRun, index: FeatureScenarioIndex): TagOutcome {
   const { report } = run;
-  if (report === null) return { passed: run.exitCode === 0, skipped: false };
+  if (report === null) return missingReportOutcome(run);
   if (report.total === 0) return emptyReportOutcome(tag, index);
   return reportedOutcome(run, report);
 }

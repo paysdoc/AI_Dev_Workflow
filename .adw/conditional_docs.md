@@ -970,6 +970,7 @@
     - When working on the proof assembler (`assembleScenarioProof`), fixed scenario tags (`@regression`, `@adw-{issueNumber}`), feature-file scenario indexing, or per-issue scenario image selection
     - When working on image platform attribution (`platformOfImage`, `scenarioPlatformCoverage`, `imagePlatform.ts`), per-scenario platform coverage ("On some platforms only"), or unattributed images left out of the proof for a profile with platforms (`mobile:kotlincm`)
     - When working on `scenario_proof.md` rendering ("no per-issue scenarios", "no scenario opened a page", "no scenario opened a screen") or `runScenarioProof`
+    - When a PR proof comment reads `no report`, `Counts unavailable`, or "passed based on the exit code only", or shows `0 passed, 0 failed` for a tag run that wrote no JUnit report (`reportMissing`, `PASSED_ON_EXIT_CODE_ONLY`, `ADW_JUNIT_REPORT_PATH`)
     - When working on proof artifact harvesting, R2 proof upload (`uploadProofArtifacts`, `setProofUploaderForTesting`), PR proof publishing, screenshots in review comments, stack coherence reporting, or the `adws/proof/` module
   - Decisions:
     - 0014
