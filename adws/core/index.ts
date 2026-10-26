@@ -42,6 +42,7 @@ export {
   setLogAdwId,
   getLogAdwId,
   resetLogAdwId,
+  setLogFile,
   ensureLogsDirectory,
   parseTargetRepoArgs,
   execWithRetry,

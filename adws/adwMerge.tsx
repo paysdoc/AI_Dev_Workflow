@@ -5,6 +5,7 @@
  * Does NOT use initializeWorkflow() — reads state directly, no worktree setup at startup.
  */
 
+import * as path from 'path';
 import { runWithRawOrchestratorLifecycle } from './phases/orchestratorLock';
 import {
   parseTargetRepoArgs,
@@ -12,6 +13,7 @@ import {
   buildLaunchBoundary,
   AgentStateManager,
   log,
+  setLogFile,
   ensureLogsDirectory,
   ensureTargetRepoWorkspace,
 } from './core';
@@ -20,6 +22,7 @@ const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
+import { buildMergeBlockedComment, buildMergeFailureCause } from './forge/mergeBlockedComment';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
 import { Platform, type PullRequestSummary, type RepoIdentifier } from '@paysdoc/devplatform';
@@ -57,16 +60,13 @@ export interface MergeDeps {
   readonly notifyBlockedTransition: (args: Parameters<typeof notifyBlockedTransition>[0]) => Promise<void>;
 }
 
-function buildMergeBlockedComment(cause: string, adwId: string): string {
-  return [
-    '## ADW Merge Blocked',
-    '',
-    `**Cause:** ${cause}`,
-    '',
-    '**Remedy:** Resolve the issue above, then comment `## Retry` on this issue. ADW will reset to `awaiting_merge` and re-attempt the merge on the next cron tick.',
-    '',
-    `**ADW ID:** \`${adwId}\``,
-  ].join('\n');
+export const MERGE_LOG_FILE = 'merge.log';
+
+/** Every later `log()` line of this run is appended to the file whose path it returns. */
+export function startMergeLog(adwId: string): string {
+  const mergeLogPath = path.join(ensureLogsDirectory(adwId), MERGE_LOG_FILE);
+  setLogFile(mergeLogPath);
+  return mergeLogPath;
 }
 
 /**
@@ -196,15 +196,15 @@ export async function executeMerge(
   // merge_failed escalates to the human-recoverable merge_blocked instead of terminal
   // discarded. Anti-loop intent preserved: merge_blocked recovers only via explicit
   // ## Retry, never automatically. pr_closed remains discarded.
-  const lastError = mergeOutcome.error ?? '';
-  log(`adwMerge: merge failed after retries: ${lastError}`, 'error');
+  log(
+    `adwMerge: merge failed after ${mergeOutcome.mergeAttempts} merge attempt(s), conflict resolution ` +
+      `${mergeOutcome.conflictResolutionRan ? 'ran' : 'did not run'}, local merge check ${mergeOutcome.localMergeCheck}: ${mergeOutcome.error ?? ''}`,
+    'error',
+  );
   deps.writeTopLevelState(adwId, { workflowStage: 'merge_blocked' });
-
-  const causeLines = [`Automated merge of PR #${prNumber} failed after multiple conflict-resolution attempts.`];
-  if (lastError) causeLines.push(`Last error: ${lastError.substring(0, 500)}`);
   deps.commentOnIssue(
     issueNumber,
-    buildMergeBlockedComment(causeLines.join(' '), adwId),
+    buildMergeBlockedComment(buildMergeFailureCause(prNumber, baseBranch, mergeOutcome), adwId),
   );
   return { outcome: 'abandoned', reason: 'merge_failed' };
 }
@@ -246,6 +246,9 @@ async function main(): Promise<void> {
     console.error('adwMerge: adw-id is required as the second positional argument');
     process.exit(1);
   }
+
+  startMergeLog(adwId);
+  log(`adwMerge: run started for issue #${issueNumber}`, 'info');
 
   const boundary = buildLaunchBoundary(targetRepo);
   const { gitContext } = boundary;
