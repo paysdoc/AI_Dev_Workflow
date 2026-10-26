@@ -887,6 +887,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── lostPlanGate.test.ts  # planCreatedByEarlierRun truth table; parkIfPlanLost parks a resumed workflow as worktree_lost or returns
+│   │   ├── orchestratorLock.claim.test.ts  # claimIssueSpawnLock, and the lifecycle under a lock this process already holds
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
@@ -896,6 +897,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── preExistingRegressionGate.helpers.ts  # Shared helpers for the pre-existing regression gate tests
 │   │   ├── preExistingRegressionGate.test.ts
 │   │   ├── prReviewCompletion.test.ts
+│   │   ├── prReviewPhase.helpers.ts  # Shared helpers for the PR-review-phase tests
+│   │   ├── prReviewPhase.spawnLock.test.ts  # initializePRReviewWorkflow takes the issue's spawn lock before it records itself as the owner
 │   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts

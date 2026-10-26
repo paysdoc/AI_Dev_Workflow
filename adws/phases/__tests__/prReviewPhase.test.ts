@@ -6,9 +6,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFileSync, rmSync } from 'fs';
+import { rmSync } from 'fs';
 import { join } from 'path';
-import { Platform } from '@paysdoc/devplatform';
 
 // Pins the start token so the assertions are exact on every platform, as workflowInit.test.ts does.
 vi.mock('../../core/processLiveness', async (importOriginal) => ({
@@ -57,71 +56,24 @@ import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import { getDefaultProjectConfig, loadProjectConfig, type ProjectConfig } from '../../core/projectConfig';
 import { getProcessStartTime } from '../../core/processLiveness';
 import { acquireIssueSpawnLock, readSpawnLockRecord } from '../../triggers/spawnGate';
-import { ExitSignal } from './applicationTypeGate.helpers';
 import { AgentStateManager } from '../../core/agentState';
 import { resetLogAdwId } from '../../core/logger';
 import { AGENTS_STATE_DIR, LOGS_DIR, GRACE_PERIOD_MS } from '../../core/config';
 import { resolveIssueWorkflowStage } from '../../triggers/cronStageResolver';
 import { evaluateIssue } from '../../triggers/cronIssueFilter';
 import { makeIssue, OLD_DATE } from '../../triggers/__tests__/cronIssueFilterFixtures';
-import type { LaunchBoundary } from '../../core';
+import { ISSUE_NUMBER, PR_NUMBER, TARGET_BRANCH, WORKTREE_PATH, PR_REVIEW_SCRIPT, BOUNDARY, boundaryFor, seedFinishedSdlcRun } from './prReviewPhase.helpers';
 
+// Distinct from the other PR review suites' run ids: files run in parallel and share the agents state directory.
 const ADW_ID = 'prreview-owner-unit';
-const BRANCH = 'bugfix-issue-9600-pr-review-owner';
-const ISSUE_NUMBER = 9600;
-const PR_NUMBER = 96;
 const TEN_MINUTES_MS = 10 * 60_000;
-const FINISHED_RUN = { pid: 2147483646, pidStartedAt: 'finished-sdlc-run', lastSeenAt: '2026-01-01T00:00:00.000Z' } as const;
 const ISSUE_COMMENTS = [{ body: `**ADW ID:** \`${ADW_ID}\`` }];
-const TARGET_BRANCH = 'trunk';
-const WORKTREE_PATH = '/tmp/adw-pr-review-owner-unit';
-const PR_REVIEW_SCRIPT = 'adws/adwPrReview.tsx';
-const SDLC_SCRIPT = 'adws/adwSdlc.tsx';
-
-function boundaryFor(linkedIssueNumber: number | undefined): LaunchBoundary {
-  return {
-    repoId: { owner: 'acme', repo: 'widget', platform: Platform.GitHub },
-    providers: {
-      codeHost: {
-        fetchPullRequest: () => ({
-          number: PR_NUMBER,
-          title: 'Tidy the retry budget',
-          body: '',
-          state: 'OPEN',
-          sourceBranch: BRANCH,
-          targetBranch: TARGET_BRANCH,
-          url: '',
-          linkedIssueNumber,
-        }),
-        fetchReviewComments: () => [],
-        getAuthenticatedUser: () => 'adw-bot',
-      },
-    },
-    gitContext: { owner: 'acme', repo: 'widget', ensureWorktree: () => WORKTREE_PATH },
-  } as unknown as LaunchBoundary;
-}
-
-const BOUNDARY = boundaryFor(ISSUE_NUMBER);
-
-/** What the SDLC run leaves for the PR review to find: awaiting_merge, its own dead owner, and one recorded phase. */
-function seedFinishedSdlcRun(): void {
-  AgentStateManager.writeTopLevelState(ADW_ID, {
-    adwId: ADW_ID,
-    issueNumber: ISSUE_NUMBER,
-    workflowStage: 'awaiting_merge',
-    orchestratorScript: SDLC_SCRIPT,
-    branchName: BRANCH,
-    ...FINISHED_RUN,
-    // A recorded phase is what lets init run with no unaddressed comments instead of exiting.
-    phases: { stepDef: { status: 'completed', startedAt: FINISHED_RUN.lastSeenAt, completedAt: FINISHED_RUN.lastSeenAt } },
-  });
-}
 
 beforeEach(() => {
   vi.mocked(getProcessStartTime).mockReset();
   vi.mocked(acquireIssueSpawnLock).mockReset().mockReturnValue(true);
   vi.mocked(readSpawnLockRecord).mockReset().mockReturnValue(null);
-  seedFinishedSdlcRun();
+  seedFinishedSdlcRun(ADW_ID);
 });
 
 afterEach(() => {
@@ -187,60 +139,6 @@ describe('initializePRReviewWorkflow records the PR review as the issue\'s owner
 
     expect(resolution.ownerDead).toBe(false);
     expect(result).toEqual({ eligible: false, reason: 'active' });
-  });
-});
-
-describe('initializePRReviewWorkflow: the spawn lock is taken before the review records itself as the owner', () => {
-  const executionLogPath = join(AGENTS_STATE_DIR, ADW_ID, 'pr-review-orchestrator', 'execution.log');
-  let exit: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    exit = vi.spyOn(process, 'exit').mockImplementation((code) => {
-      throw new ExitSignal(code);
-    });
-  });
-
-  afterEach(() => exit.mockRestore());
-
-  it('takes the issue\'s spawn lock under the boundary\'s repository before it records itself as the owner', async () => {
-    const writeTopLevelState = vi.spyOn(AgentStateManager, 'writeTopLevelState');
-    try {
-      await initializePRReviewWorkflow(PR_NUMBER, ADW_ID, BOUNDARY);
-
-      expect(acquireIssueSpawnLock).toHaveBeenCalledWith(BOUNDARY.repoId, ISSUE_NUMBER, process.pid);
-      expect(vi.mocked(acquireIssueSpawnLock).mock.invocationCallOrder[0]).toBeLessThan(writeTopLevelState.mock.invocationCallOrder[0]);
-    } finally {
-      writeTopLevelState.mockRestore();
-    }
-  });
-
-  it('locks a PR that links no issue as issue 0, the number the base configuration carries and the lifecycle locks', async () => {
-    const boundary = boundaryFor(undefined);
-
-    const config = await initializePRReviewWorkflow(PR_NUMBER, ADW_ID, boundary);
-
-    expect(acquireIssueSpawnLock).toHaveBeenCalledWith(boundary.repoId, 0, process.pid);
-    expect(config.base.issueNumber).toBe(0);
-  });
-
-  it('a PR review that loses the spawn lock exits 0 and leaves the finished run\'s owner in the state', async () => {
-    vi.mocked(acquireIssueSpawnLock).mockReturnValue(false);
-    vi.mocked(readSpawnLockRecord).mockReturnValue({ pid: 4242, pidStartedAt: 'holder-start' });
-
-    await expect(initializePRReviewWorkflow(PR_NUMBER, ADW_ID, BOUNDARY)).rejects.toThrow('process.exit(0)');
-
-    expect(exit).toHaveBeenCalledWith(0);
-    expect(acquireIssueSpawnLock).toHaveBeenCalledTimes(2);
-    expect(AgentStateManager.readTopLevelState(ADW_ID)).toMatchObject({ ...FINISHED_RUN, orchestratorScript: SDLC_SCRIPT });
-    expect(readFileSync(executionLogPath, 'utf-8')).toContain('Spawn lock for issue #9600 is held by pid 4242; exiting without running a phase');
-  });
-
-  it('a PR review that takes the lock of a phase_timeout workflow counts one resume', async () => {
-    AgentStateManager.writeTopLevelState(ADW_ID, { workflowStage: 'phase_timeout', resumeAttempts: 1 });
-
-    await initializePRReviewWorkflow(PR_NUMBER, ADW_ID, BOUNDARY);
-
-    expect(AgentStateManager.readTopLevelState(ADW_ID)?.resumeAttempts).toBe(2);
   });
 });
 
