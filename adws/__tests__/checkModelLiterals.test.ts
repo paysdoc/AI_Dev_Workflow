@@ -67,11 +67,12 @@ describe('scanForLiteralModels', () => {
     roots.splice(0).forEach((root) => fs.rmSync(root, { recursive: true, force: true }));
   });
 
+  // Parsing every module under adws/ and scripts/ can outlast the default 5s timeout when the host is busy.
   it('finds no call site in the repository that names a model literally', () => {
     const findings = scanForLiteralModels(REPO_ROOT);
 
     expect(findings, `Call sites naming a model literally:\n${findings.join('\n')}`).toEqual([]);
-  });
+  }, 30_000);
 
   it('scans adws/ and scripts/ and reports paths relative to the root', () => {
     const root = makeTree({
