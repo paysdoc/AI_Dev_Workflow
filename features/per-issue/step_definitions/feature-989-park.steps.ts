@@ -15,7 +15,7 @@ import { FixLoopStall } from '../../../adws/core/staticCheckFixLoop.ts';
 import { isActionableComment, isCancelComment, isRetryComment } from '../../../adws/core/workflowCommentParsing.ts';
 import { ParkReason, buildParkComment, type ParkEvidence, type ParkedCheck } from '../../../adws/forge/parkComment.ts';
 
-import { assertDirectiveSays, directiveMeaning } from './feature-989-comments.ts';
+import { assertDirectiveSays, directiveMeaning } from '../../regression/step_definitions/feature-989-comments.ts';
 
 const ADW_ID = 'bdd989-park-comment';
 

@@ -1,4 +1,4 @@
-@adw-1044 @adw-g0m1dk-feat-adw-init-preser @promotion-suggested-2026-10-23
+@regression @kotlincm-descriptors
 Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin and Gradle descriptors it writes for it let a bootstrap issue through the baseline and the scenario phase, run each scenario tag through the ":scenarios" module, and give the scenario proof each platform's screenshot
 
   A bootstrap issue is the first issue of a repository that holds no application yet.
@@ -6,7 +6,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
   Background:
     Given the ADW codebase is checked out
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: Editing the "/adw_init" command below its frontmatter changes the framework content hash, so every target repository is upgraded and "adw_init" writes its ".adw/" again
     Given a fixture framework copied from the ADW framework under test
     When the framework content hash is computed for the fixture framework
@@ -14,7 +13,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the framework content hash is computed for the fixture framework
     Then the recorded hashes are all different
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: The framework upgrade of a repository whose owner set "mobile:kotlincm" and its device sources by hand in ".adw/project.md" runs the "/adw_init" agent in a worktree that holds them, commits an ".adw/project.md" in which each of the four device-source sections keeps the value the owner set, installs no Playwright project, and ADW reads "mobile:kotlincm" from the regen commit
     Given a target repository initialised by an older framework version
     And the target repository's default branch has this ".adw/project.md":
@@ -51,7 +49,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the regen commit holds no "features/package.json"
     And the upgrade installed nothing in "features/"
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: The framework upgrade of a repository whose owner set "mobile:kotlincm" by hand in ".adw/project.md", and none of its device sources, commits an ".adw/project.md" in which each of the four device-source sections holds its default
     Given a target repository initialised by an older framework version
     And the target repository's default branch has this ".adw/project.md":
@@ -71,7 +68,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
       | ## iOS Device Type        | com.apple.CoreSimulator.SimDeviceType.iPhone-16 |
       | ## iOS Runtime            | com.apple.CoreSimulator.SimRuntime.iOS-26-0     |
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: The bootstrap issue of a "mobile:kotlincm" repository is not parked by the baseline: on a base branch with the ".adw/" "adw_init" writes and no manifest or Gradle wrapper yet, the Gradle build check passes, no dev server is started, and the plan phase runs
     Given a target repository whose default branch "dev" holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm", and no manifest and no Gradle wrapper yet
     And a workflow of the "adwSdlc" orchestrator for issue 104401 in that repository
@@ -82,7 +78,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the plan phase ran after the baseline
     And no park comment was posted on issue 104401
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the step-definition phase starts the generator in the mode for the scenario runner that ".adw/scenarios.md" describes, and, because that ".adw/scenarios.md" has a "## Scenario Run Contract", the command the generator is started with tells the step definitions which devices to drive, never to create, boot, shut down or delete one, and where each platform's screenshots go
     Given a workflow for issue 104406 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     When the workflow's step-definition phase runs
@@ -92,7 +87,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the command the step-definition generator was started with tells the step definitions never to create, boot, shut down or delete a device
     And the command the step-definition generator was started with tells the step definitions to write each screenshot under "android/" or "ios/" in "ADW_PROOF_DIR"
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the "## Run Tests" command gathers the JUnit reports under each module's "build/test-results/" into the one report ADW reads at "ADW_UNIT_TEST_REPORT_PATH", leaves out those of the ":scenarios" module, and exits with the Gradle wrapper's exit code
     Given a workflow for issue 104405 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     And the worktree's Gradle wrapper is a stand-in that, run for the task "test", writes the JUnit report of each of these test classes under its module's "build/test-results/" directory, and exits with code 1:
@@ -107,7 +101,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
       | com.example.ClockTest    | clockFormatsTheTime      | failed |
     And the "## Run Tests" command exited with code 1
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the scenario proof looks for step definitions under "scenarios/src/test/kotlin", and while the bootstrap issue has written none it runs no tag and records no blocker failure
     Given a workflow for issue 104402 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     And the worktree holds a feature tagged "@adw-104402" in the scenario directory ".adw/scenarios.md" names, and no step definition file
@@ -117,7 +110,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the scenario proof records no blocker failures
     And the scenario test phase started no dev server
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the scenario proof runs the per-issue and the regression scenarios through the Gradle wrapper's ":scenarios:test" task from the worktree's root, filtered to each tag, with ADW's report path for the tag and its artifacts directory as "ADW_PROOF_DIR", and starts no dev server
     Given a workflow for issue 104403 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     And the worktree holds a feature tagged "@adw-104403" in the scenario directory ".adw/scenarios.md" names, and steps for it in the file "scenarios/src/test/kotlin/com/example/steps/HomeScreenSteps.kt"
@@ -133,7 +125,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the scenario proof records the tag "@regression" as passed
     And the scenario test phase started no dev server
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, a run that saves each platform's screenshot under "android/" or "ios/" in "ADW_PROOF_DIR" and reports the scenario under one title on both platforms, attaching the screenshot by its path from the JUnit report's directory, gives the per-issue scenario both screenshots as its images
     Given a workflow for issue 104404 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     And the worktree holds a feature tagged "@adw-104404" in the scenario directory ".adw/scenarios.md" names, whose one scenario is "The home screen greets the user", and steps for it in the file "scenarios/src/test/kotlin/com/example/steps/HomeScreenSteps.kt"
@@ -148,6 +139,5 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
       | android/home-screen.png |
       | ios/home-screen.png     |
 
-  @adw-1044 @adw-g0m1dk-feat-adw-init-preser
   Scenario: The ADW TypeScript type-check passes once "adw_init" writes the descriptors of "mobile:kotlincm"
     Then the ADW TypeScript type-check passes

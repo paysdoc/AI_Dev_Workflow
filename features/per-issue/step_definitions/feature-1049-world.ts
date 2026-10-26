@@ -19,8 +19,8 @@ import { disposeToolchain } from '../../regression/step_definitions/feature-992-
 import { registerDirectory, resetState as resetState992 } from '../../regression/step_definitions/feature-992-world.ts';
 import { resetStandInDeviceHost, type StandInDeviceCommand } from '../../regression/support/standInDevices.ts';
 import { resetParkScenario } from './feature-989-park.steps.ts';
-import { scratchPaths } from './feature-990-scripts.ts';
-import { resetState as resetState990, s as state990 } from './feature-990-world.ts';
+import { scratchPaths } from '../../regression/step_definitions/feature-990-scripts.ts';
+import { resetState as resetState990, s as state990 } from '../../regression/step_definitions/feature-990-world.ts';
 import { resetState as resetState991 } from './feature-991-world.ts';
 import { resetState as resetState1045 } from './feature-1045-world.ts';
 import { resetState as resetState1047 } from './feature-1047-world.ts';
