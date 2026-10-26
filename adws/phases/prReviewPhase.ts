@@ -12,6 +12,7 @@ import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus } from '@paysdoc/devplatform';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
+import { claimIssueSpawnLock, MERGE_POLL_LOCK_WAIT } from './orchestratorLock';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 
 export interface PRReviewWorkflowConfig {
@@ -50,6 +51,14 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   log(`Found ${unaddressedComments.length} unaddressed review comment(s)`, 'info');
   const logsDir = ensureLogsDirectory(resolvedAdwId);
   const issueNumber = pr.linkedIssueNumber ?? null;
+  // Before the review records itself as the owner, so one that loses the lock leaves the holder's state alone.
+  // A PR that links no issue is locked as issue 0, the number the base configuration carries.
+  const lockedIssueNumber = issueNumber ?? 0;
+  const claim = { repoId: boundary.repoId, issueNumber: lockedIssueNumber, adwId: resolvedAdwId, orchestratorName: OrchestratorId.PrReview };
+  if (!await claimIssueSpawnLock(claim, MERGE_POLL_LOCK_WAIT)) {
+    log(`Issue #${lockedIssueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, OrchestratorId.PrReview);
   // The issue's adwId is reused, so its state still records the finished run's owner: record this run, or the cron reads it as dead.
   // The script is recorded too, so that a park inside init resumes this PR review on `## Retry`, not the issue's previous orchestrator.

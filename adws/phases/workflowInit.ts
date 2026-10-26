@@ -44,6 +44,7 @@ import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchId
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeAssetsToWorktree, ignoreSpecsInWorktree } from './worktreeSetup';
 import { recordStartupFailure } from './startupFailureLog';
+import { claimIssueSpawnLock } from './orchestratorLock';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
 import { runApplicationTypeGate, buildApplicationTypeGateDeps } from './applicationTypeGate';
@@ -166,6 +167,13 @@ async function initializeWorkflowSteps(
     throw new Error(
       'GitHub App is configured but GITHUB_PAT is not set. GITHUB_PAT is required for PR approval when using a GitHub App. Set GITHUB_PAT in your .env file.',
     );
+  }
+
+  // Before anything this run fetches or writes: a launch that loses the lock leaves the holder's state, worktree and
+  // resume budget alone, and the trigger's next poll finds the issue held.
+  if (!await claimIssueSpawnLock({ repoId: boundary.repoId, issueNumber, adwId, orchestratorName })) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
   }
 
   // Setup target repo workspace if targeting an external repository. This runs BEFORE

@@ -33,6 +33,7 @@ import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { evaluateCandidate, type CandidateDecision } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
+import { createLaunchLedger } from './cronLaunchLedger';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
@@ -57,6 +58,7 @@ import type { CronIssue } from './cronIssueFilter';
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
 const processedSpawns = new Set<number>();
+const launchLedger = createLaunchLedger();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
 
@@ -294,6 +296,17 @@ export function evaluateCandidateForTick(
   }
 }
 
+function spawnTakeOver(issueNumber: number, adwId: string, targetRepoArgs: string[]): number | undefined {
+  const state = AgentStateManager.readTopLevelState(adwId);
+  if (!state) {
+    // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
+    return spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issueNumber), adwId, ...targetRepoArgs]);
+  }
+  const { script, args } = resolveResumeSpawn(state);
+  log(`Issue #${issueNumber}: resume routing → ${script}`, 'info');
+  return spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+}
+
 /** Spawns the orchestrator for the existing adwId directly, skipping classification. */
 function takeOverExistingAdwId(
   issueNumber: number,
@@ -303,19 +316,17 @@ function takeOverExistingAdwId(
 ): void {
   const { adwId, derivedStage } = decision;
   log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}`, 'success');
+  let launchedPid: number | undefined;
   try {
-    const state = AgentStateManager.readTopLevelState(adwId);
-    if (!state) {
-      // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
-      spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issueNumber), adwId, ...targetRepoArgs]);
-      return;
-    }
-    const { script, args } = resolveResumeSpawn(state);
-    log(`Issue #${issueNumber}: resume routing → ${script}`, 'info');
-    spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+    launchedPid = spawnTakeOver(issueNumber, adwId, targetRepoArgs);
   } finally {
+    // The orchestrator takes this lock as its first startup step. Until it has, the ledger is all that tells the next
+    // poll a launch is under way; a launch the ledger misses loses the lock at that step and exits before it writes
+    // any state or spends a resume.
     releaseIssueSpawnLock(repoInfo, issueNumber);
   }
+  // After the release: reading the child's start time must not lengthen the cron's hold on the lock.
+  launchLedger.record(issueNumber, launchedPid);
 }
 
 /**
@@ -492,6 +503,11 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
         { detached: true, stdio: 'ignore', cwd: REPO_ROOT },
       );
       child.unref();
+      continue;
+    }
+
+    if (launchLedger.isStarting(issue.number)) {
+      log(`Issue #${issue.number}: the orchestrator this cron launched for it is still starting up, deferring`);
       continue;
     }
 
