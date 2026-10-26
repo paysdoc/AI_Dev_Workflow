@@ -170,8 +170,8 @@ function recoverStartingStage(
   state: AgentState,
   releaseLock: () => void,
 ): CandidateDecision {
-  // A live owner that does not hold the lock has not taken its lifecycle lock yet, which comes right
-  // after initializeWorkflow: a slow startup, not a split brain. Never kill it or reset its worktree.
+  // The lock is claimed before an owner is recorded, so a live owner that does not hold it is not a startup
+  // in flight, but it may still be running: never kill it or reset its worktree on the lock's absence alone.
   if (isRecordedOwnerLive(state, d.isProcessLive)) {
     releaseLock();
     return { kind: 'defer_live_holder', holderPid: state.pid ?? 0 };
@@ -261,7 +261,8 @@ function decideHoldingLock(
       releaseLock();
       return { kind: 'escalate_human_gated', adwId };
     }
-    d.writeTopLevelState(adwId, { resumeAttempts: attempts + 1 });
+    // The orchestrator this decision launches counts the resume once it holds the issue's lock, so a launch
+    // that loses the lock spends none of the budget.
     return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 

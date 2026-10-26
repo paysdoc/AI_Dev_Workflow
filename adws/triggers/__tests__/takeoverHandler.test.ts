@@ -465,7 +465,7 @@ describe('lock handoff semantics', () => {
 });
 
 describe('take_over_adwId from phase_timeout', () => {
-  it('healthy probe → returns take_over_adwId and increments resumeAttempts (first resume)', () => {
+  it('healthy probe → returns take_over_adwId and leaves the resume count to the orchestrator it launches', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
       deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
@@ -476,10 +476,10 @@ describe('take_over_adwId from phase_timeout', () => {
     expect(decision.kind).toBe('take_over_adwId');
     expect(decision.adwId).toBe(ADW_ID);
     expect(decision.derivedStage).toBe('awaiting_merge');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 1 });
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
   });
 
-  it('returns take_over_adwId and increments resumeAttempts from 2 to 3 (one below cap)', () => {
+  it('returns take_over_adwId one below the cap without writing the count', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', resumeAttempts: 2 })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
@@ -487,7 +487,7 @@ describe('take_over_adwId from phase_timeout', () => {
     const decision = evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision.kind).toBe('take_over_adwId');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 3 });
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
   });
 
   it('healthy probe → resetWorktree NOT called (uncommitted work preserved)', () => {
@@ -992,15 +992,14 @@ describe('a spawn lock this very process left behind', () => {
     expect(deps.acquireIssueSpawnLock).toHaveBeenCalledTimes(2);
   });
 
-  it('is reclaimed for a phase_timeout workflow within the resume cap, which counts the resume once', () => {
+  it('is reclaimed for a phase_timeout workflow within the resume cap, and counts nothing itself', () => {
     const deps = depsHoldingOwnLock(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' }));
 
     const decision = evaluateCandidate({ issueNumber: 117, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
-    expect(deps.writeTopLevelState).toHaveBeenCalledOnce();
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 1 });
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
   });
 
   it('is reclaimed for a *_running workflow whose recorded owner is dead', () => {

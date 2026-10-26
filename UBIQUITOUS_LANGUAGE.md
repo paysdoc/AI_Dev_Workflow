@@ -37,6 +37,7 @@
 | **Build** | The Phase where code changes are implemented based on a Plan; the `/implement` or `/implement-tdd` command executes within it | Implementation phase, development phase, coding phase |
 | **TDD Mode** | An automatic Build variant activated when BDD Scenarios tagged with the Issue's number exist, using `/implement-tdd` with red-green-refactor | Test-first mode |
 | **Patch** | A targeted code fix applied by the Patch Agent to resolve Blockers found during Review | Hotfix, quick fix |
+| **Behavioural Equivalence Step** | A Plan step, required when an Issue ports, rewrites, migrates, re-bundles or restructures existing code whose behaviour must stay the same, that runs the old and new implementations on the same inputs and diffs what they produce; the command that runs the comparison is one of the Plan's validation commands | Fuzz run, parity check |
 
 ## Testing and quality
 

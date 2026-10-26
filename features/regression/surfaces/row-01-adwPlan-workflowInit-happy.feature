@@ -1,6 +1,7 @@
 @regression @surface @subprocess
 Feature: adwPlan — workflowInit — happy path
 
+  @adw-1105
   Scenario: workflow init records the starting stage and posts the workflow-started comment
     Given an issue 1001 exists in the mock issue tracker
     When the workflow is initialised with config "adwPlan-surface-01"

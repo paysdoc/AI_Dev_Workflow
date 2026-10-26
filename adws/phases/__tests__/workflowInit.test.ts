@@ -61,6 +61,14 @@ vi.mock('../../core/processLiveness', async (importOriginal) => ({
   getProcessStartTime: vi.fn(),
 }));
 
+// A real lock file would be taken under the Vitest worker's pid and refuse the next test that initialises the same issue.
+vi.mock('../../triggers/spawnGate', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../triggers/spawnGate')>()),
+  acquireIssueSpawnLock: vi.fn(),
+  readSpawnLockRecord: vi.fn(),
+  releaseIssueSpawnLock: vi.fn(),
+}));
+
 vi.mock('../branchIdentityFallback', () => ({
   findExistingBranchForIssue: vi.fn().mockReturnValue(null),
   recoverAdwIdForBranch: vi.fn().mockReturnValue(null),
@@ -146,6 +154,7 @@ import { AgentStateManager } from '../../core/agentState';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../core/config';
 import { getLogAdwId, resetLogAdwId } from '../../core/logger';
 import { getProcessStartTime } from '../../core/processLiveness';
+import { acquireIssueSpawnLock, readSpawnLockRecord } from '../../triggers/spawnGate';
 import { accessSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { runGenerateBranchNameAgent } from '../../agents';
@@ -161,6 +170,7 @@ import { getDefaultProjectConfig, loadProjectConfig, type ProjectConfig } from '
 import { runApplicationTypeGate, buildApplicationTypeGateDeps } from '../applicationTypeGate';
 import { copyClaudeAssetsToWorktree, ignoreSpecsInWorktree } from '../worktreeSetup';
 import { Platform } from '@paysdoc/devplatform';
+import { ExitSignal } from './applicationTypeGate.helpers';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 const mockCopyClaudeAssets = vi.mocked(copyClaudeAssetsToWorktree);
@@ -241,6 +251,9 @@ beforeEach(() => {
   mockGitCtx.findWorktreeForIssue.mockReturnValue(null);
   mockGitCtx.ensureWorktree.mockReturnValue(FAKE_WORKTREE_PATH);
   mockBuildLaunchBoundary.mockReturnValue(makeFakeBoundary('test-owner', 'test-repo'));
+  // Re-armed here because the tests run initializeWorkflow twice for one issue in one process, and a refusal one test set must not reach the next.
+  vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+  vi.mocked(readSpawnLockRecord).mockReturnValue(null);
 });
 
 describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
@@ -616,5 +629,134 @@ describe('initializeWorkflow: the top-level starting state records its owner', (
     const config = await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
 
     expect(AgentStateManager.readState(config.orchestratorStatePath)?.pid).toBe(process.pid);
+  });
+});
+
+describe('initializeWorkflow: the spawn lock is taken before the run writes any state', () => {
+  const adwId = `${BASE_ADW_ID}-lock`;
+  const executionLogOf = (id: string) => join(AGENTS_STATE_DIR, id, 'orchestrator', 'execution.log');
+  const topLevelStatePath = AgentStateManager.getTopLevelStatePath(adwId);
+  const startInit = () => initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+  const holdsTheLock = (holderPid: number) => {
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(false);
+    vi.mocked(readSpawnLockRecord).mockReturnValue({ pid: holderPid, pidStartedAt: 'holder-start' });
+  };
+  let exit: ReturnType<typeof vi.spyOn>;
+
+  // The trapped exit throws inside initializeWorkflow's try, so its catch also records a startup failure.
+  // Production's process.exit never returns, so the assertions name the refusal line, not the log's length.
+  beforeEach(() => {
+    resetLogAdwId();
+    mockAgent.mockResolvedValue({ ...baseAgentResult, branchName: 'feature-issue-9000-lock' });
+    exit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new ExitSignal(code);
+    });
+  });
+
+  afterEach(() => {
+    exit.mockRestore();
+    cleanupAdwId(adwId);
+    rmSync(join(LOGS_DIR, adwId), { recursive: true, force: true });
+    resetLogAdwId();
+  });
+
+  it('takes the lock under the launch boundary\'s repository before it fetches the issue', async () => {
+    await startInit();
+
+    expect(acquireIssueSpawnLock).toHaveBeenCalledWith(expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }), ISSUE_NUMBER, process.pid);
+    expect(vi.mocked(acquireIssueSpawnLock).mock.invocationCallOrder[0]).toBeLessThan(mockFetchIssue.mock.invocationCallOrder[0]);
+  });
+
+  it('takes no lock when the pre-flight check fails', async () => {
+    vi.mocked(accessSync).mockImplementationOnce(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    await expect(startInit()).rejects.toThrow('Pre-flight check failed');
+
+    expect(acquireIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('two launches for one issue: only the holder\'s pid, start time and stage reach the top-level state, and the loser writes nothing to it', async () => {
+    vi.mocked(getProcessStartTime).mockReturnValue('holder-start');
+    await startInit();
+    AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'build_running' });
+    const holderState = readFileSync(topLevelStatePath, 'utf-8');
+
+    holdsTheLock(process.pid);
+    vi.mocked(getProcessStartTime).mockReturnValue('loser-start');
+    const writeTopLevelState = vi.spyOn(AgentStateManager, 'writeTopLevelState');
+    const writeState = vi.spyOn(AgentStateManager, 'writeState');
+    try {
+      await expect(startInit()).rejects.toThrow('process.exit(0)');
+
+      expect(exit).toHaveBeenCalledWith(0);
+      expect(writeTopLevelState).not.toHaveBeenCalled();
+      expect(writeState).not.toHaveBeenCalled();
+    } finally {
+      writeTopLevelState.mockRestore();
+      writeState.mockRestore();
+    }
+    expect(readFileSync(topLevelStatePath, 'utf-8')).toBe(holderState);
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.pid).toBe(process.pid);
+    expect(state?.pidStartedAt).toBe('holder-start');
+    expect(state?.workflowStage).toBe('build_running');
+  });
+
+  it('a launch that loses the lock exits 0 before it fetches the issue or touches a worktree, and says why in its execution log', async () => {
+    AgentStateManager.writeTopLevelState(adwId, { adwId, issueNumber: ISSUE_NUMBER, workflowStage: 'build_running', pid: 27828, pidStartedAt: 'holder-start' });
+    holdsTheLock(27828);
+
+    await expect(startInit()).rejects.toThrow('process.exit(0)');
+
+    expect(exit).toHaveBeenCalledWith(0);
+    expect(mockFetchIssue).not.toHaveBeenCalled();
+    expect(mockGitCtx.ensureWorktree).not.toHaveBeenCalled();
+    expect(mockGitCtx.fetchAndResetToRemote).not.toHaveBeenCalled();
+    expect(mockGitCtx.mergeLatestFromDefaultBranch).not.toHaveBeenCalled();
+    expect(readFileSync(executionLogOf(adwId), 'utf-8')).toContain('Spawn lock for issue #9000 is held by pid 27828; exiting without running a phase');
+  });
+
+  it('a launch with no adwId yet that loses the lock exits 0 and has no execution log to write the refusal to', async () => {
+    holdsTheLock(27828);
+    const initializeState = vi.spyOn(AgentStateManager, 'initializeState');
+    try {
+      await expect(initializeWorkflow(ISSUE_NUMBER, null, 'orchestrator', { issueType: '/feature' })).rejects.toThrow('process.exit(0)');
+
+      expect(exit).toHaveBeenCalledWith(0);
+      expect(initializeState).not.toHaveBeenCalled();
+      expect(mockFetchIssue).not.toHaveBeenCalled();
+    } finally {
+      initializeState.mockRestore();
+    }
+  });
+
+  it('a launch that loses the lock of a phase_timeout workflow leaves resumeAttempts as it found it', async () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      issueNumber: ISSUE_NUMBER,
+      workflowStage: 'phase_timeout',
+      resumeAttempts: 1,
+      pid: 27828,
+      pidStartedAt: 'holder-start',
+    });
+    holdsTheLock(27828);
+
+    await expect(startInit()).rejects.toThrow('process.exit(0)');
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.workflowStage).toBe('phase_timeout');
+    expect(state?.resumeAttempts).toBe(1);
+  });
+
+  it('the launch that takes the lock of a phase_timeout workflow counts one resume', async () => {
+    AgentStateManager.writeTopLevelState(adwId, { adwId, issueNumber: ISSUE_NUMBER, workflowStage: 'phase_timeout', resumeAttempts: 1 });
+
+    await startInit();
+
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state?.resumeAttempts).toBe(2);
+    expect(state?.workflowStage).toBe('starting');
   });
 });

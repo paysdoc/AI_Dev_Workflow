@@ -57,6 +57,7 @@
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
     - When an orchestrator dies during startup or is refused the spawn lock and the reason must appear in its `execution.log` (`recordStartupFailure`, `startupFailureLog.ts`)
+    - When working on `claimIssueSpawnLock` / the spawn lock being taken first in `initializeWorkflow` and `initializePRReviewWorkflow`, a launch that loses the lock clobbering the holder's top-level state or `resumeAttempts`, or the duplicate-launch hand-off race from the cron
   - Decisions:
     - 0002
     - 0011
@@ -565,6 +566,7 @@
     - .claude/commands/scenario_writer.md
     - .claude/commands/test.md
     - .claude/commands/tools.md
+    - adws/__tests__/planningCommandsPrompt.test.ts
     - .claude/skills/**
     - .claude/hooks/**
     - adws/__tests__/adwInitPrompt.test.ts
@@ -577,6 +579,7 @@
     - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
     - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the descriptor-mode device note in `generate_step_definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
     - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
+    - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
   - Decisions:
     - 0005
     - 0014

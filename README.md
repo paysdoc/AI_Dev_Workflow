@@ -42,6 +42,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states. A build agent that is stopped by the token limit or a compaction after printing the `BUILD_COMPLETE` line (the continuation prompt's completion check) ends the build phase through the gate's `complete` decision instead of being restarted, so edits made after completion never count as progress.
+- **Behavioural equivalence step in plans** — when an issue ports, rewrites, migrates, re-bundles or restructures existing code whose behaviour must stay the same, `/feature`, `/bug` and `/chore` (`## Behavioural Equivalence`) require the plan to keep a copy of the old implementation the tests can run, compare old and new on the same inputs (odd inputs such as `null`/`undefined` options, empty collections and boundary values included) and list that comparison under `## Validation Commands`, so the build's completion check depends on it. A byte-for-byte check of a build artefact against the build's own output, or the existing tests still passing, does not count; a plan that cannot compare, or whose issue is meant to change behaviour, says why in `## Notes`. Target repositories get the commands through worktree setup's copy of `.claude/commands/` (`copyClaudeAssetsToWorktree`), not through an upgrade.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
@@ -901,6 +902,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── lostPlanGate.test.ts  # planCreatedByEarlierRun truth table; parkIfPlanLost parks a resumed workflow as worktree_lost or returns
+│   │   ├── orchestratorLock.claim.test.ts  # claimIssueSpawnLock, and the lifecycle under a lock this process already holds
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
@@ -914,6 +916,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── preExistingRegressionGate.test.ts
 │   │   ├── prPhase.skipPush.test.ts
 │   │   ├── prReviewCompletion.test.ts
+│   │   ├── prReviewPhase.helpers.ts  # Shared helpers for the PR-review-phase tests
+│   │   ├── prReviewPhase.spawnLock.test.ts  # initializePRReviewWorkflow takes the issue's spawn lock before it records itself as the owner
 │   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
@@ -980,7 +984,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init) — propagateSecret takes a CodeHost (defaulting to config.repoContext?.codeHost) and calls setSecret; no repoContext means the secret is recorded skipped with a warning, not a construction attempt (#796)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── lostPlanGate.ts  # Parks a resumed workflow whose plan went with its removed worktree (worktree_lost); planCreatedByEarlierRun, parkIfPlanLost
-│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
+│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper); claimIssueSpawnLock takes it before init writes any state and counts a phase_timeout resume
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
@@ -1049,6 +1053,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
+│   │   ├── cronLaunchLedger.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.issueLock.test.ts
@@ -1104,6 +1109,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
+│   ├── cronLaunchLedger.ts  # The takeover launches this cron process made, by issue, so the next poll does not launch a second orchestrator while the first is still starting up and has not yet taken the spawn lock
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in ADW-managed (.adw-marked) target repo worktrees; leaves a worktree alone while a live process (such as adwMerge) holds its issue's spawn lock
 │   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running and no live holder of the issue's spawn lock, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep

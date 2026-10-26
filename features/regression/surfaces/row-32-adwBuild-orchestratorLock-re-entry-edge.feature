@@ -1,6 +1,7 @@
 @regression @surface
 Feature: adwBuild — orchestratorLock — re-entry (edge: concurrent execution detected)
 
+  @adw-1105
   Scenario: build orchestrator's lifecycle does not run the workflow while another live process holds the spawn-gate lock, and leaves that process holding it
     Given an issue 1032 exists in the mock issue tracker
     And the worktree for adwId "surface-32" is initialised at branch "surface-32"

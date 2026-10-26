@@ -24,8 +24,10 @@ import { readAuthGate } from '../core/authGate';
  * even if the caller's process.cwd() drifts (e.g. trigger launched from a
  * subdirectory). assertCwdIsRepoRoot() at trigger startup is the primary guard;
  * this is belt-and-braces.
+ *
+ * Returns the child's pid, which is undefined when the spawn failed.
  */
-export function spawnDetached(command: string, args: string[]): void {
+export function spawnDetached(command: string, args: string[]): number | undefined {
   const resolvedArgs = args.map((arg) => {
     // Match orchestrator script paths like `adws/adwSdlc.tsx` or `adws/triggers/foo.ts`.
     if (/^adws\/.*\.tsx?$/.test(arg) && !path.isAbsolute(arg)) {
@@ -40,6 +42,7 @@ export function spawnDetached(command: string, args: string[]): void {
     cwd: REPO_ROOT,
   });
   child.unref();
+  return child.pid;
 }
 
 export interface LabelRouting {

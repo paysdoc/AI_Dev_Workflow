@@ -17,7 +17,7 @@ The coordination kernel manages the runtime lifecycle of ADW orchestrator proces
 
 - `isProcessLive` returns `false` — never throws — on Windows or when start-time cannot be read; callers must not rely on an exception to detect unsupported platforms.
 - `findHungOrchestrators` never throws and never mutates state; all recovery actions belong to the caller.
-- `initializeWorkflow` records `pid`, `pidStartedAt` (always written, so a resumed run never pairs a new pid with a previous start time) and a fresh `lastSeenAt` in the top-level state at `starting`. This makes the hung sweep, the auth-gate SIGTERM and the worktree probe's `liveOwner` see real owners; the fresh `lastSeenAt` stops the sweep killing a resumed run before its first heartbeat.
+- `initializeWorkflow` takes the spawn lock first (`claimIssueSpawnLock`), so only the lock holder records `pid`, `pidStartedAt` (always written, so a resumed run never pairs a new pid with a previous start time) and a fresh `lastSeenAt` in the top-level state at `starting`. This makes the hung sweep, the auth-gate SIGTERM and the worktree probe's `liveOwner` see real owners; the fresh `lastSeenAt` stops the sweep killing a resumed run before its first heartbeat.
 - An owner that was never recorded cannot be confirmed live (`isRecordedOwnerLive` returns false).
 - An entry is reported as hung only when all three conditions hold simultaneously: `workflowStage` ends in `_running`, the PID+start-time tuple is live, and `lastSeenAt` age strictly exceeds `staleThresholdMs`.
 - Context-compaction resets in `retryWithResolution` do not increment `retryCount`; they increment `contextResetCount` and throw once `maxContextResets` is exceeded.

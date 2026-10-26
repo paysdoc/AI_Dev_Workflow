@@ -26,15 +26,19 @@ const mockReadLockRecord = vi.mocked(readSpawnLockRecord);
 const mockStart = vi.mocked(startHeartbeat);
 const mockStop = vi.mocked(stopHeartbeat);
 const mockAppendLog = vi.spyOn(AgentStateManager, 'appendLog');
+const mockInitializeState = vi.spyOn(AgentStateManager, 'initializeState');
+const mockReadTopLevelState = vi.spyOn(AgentStateManager, 'readTopLevelState');
+const mockWriteTopLevelState = vi.spyOn(AgentStateManager, 'writeTopLevelState');
 
 const FAKE_HANDLE = { adwId: 'test-adw-id', timer: null as unknown as ReturnType<typeof setInterval> };
 const FAKE_REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
+const ORCHESTRATOR_STATE_PATH = '/tmp/agents/test-adw-id/sdlc-orchestrator';
 
 const fakeConfig = {
   issueNumber: 42,
   adwId: 'test-adw-id',
   targetRepo: { owner: 'acme', repo: 'widgets' },
-  orchestratorStatePath: '/tmp/agents/test-adw-id/sdlc-orchestrator',
+  orchestratorStatePath: ORCHESTRATOR_STATE_PATH,
 } as unknown as WorkflowConfig;
 
 beforeEach(() => {
@@ -43,6 +47,9 @@ beforeEach(() => {
   mockStart.mockReturnValue(FAKE_HANDLE);
   mockReadLockRecord.mockReturnValue(null);
   mockAppendLog.mockImplementation(() => {});
+  mockInitializeState.mockReturnValue(ORCHESTRATOR_STATE_PATH);
+  mockReadTopLevelState.mockReturnValue(null);
+  mockWriteTopLevelState.mockImplementation(() => {});
 });
 
 describe('runWithOrchestratorLifecycle', () => {
