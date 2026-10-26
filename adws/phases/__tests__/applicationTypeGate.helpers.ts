@@ -2,6 +2,7 @@ import { vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { EvidenceKind, RunnerMode, type ApplicationProfile } from '../../core/applicationType';
 import { AgentStateManager } from '../../core/agentState';
 import { AGENTS_STATE_DIR } from '../../core/config';
 import { getDefaultProjectConfig, type ProjectConfig } from '../../core/projectConfig';
@@ -13,6 +14,14 @@ export class ExitSignal extends Error {
     super(`process.exit(${String(code)})`);
   }
 }
+
+/** The profile of a type that the shipped mapping does not know, for a test that reaches a third type through the table alone. */
+export const FAKE: ApplicationProfile = {
+  runnerMode: RunnerMode.Descriptor,
+  evidenceKinds: [EvidenceKind.PerIssueImages],
+  platforms: [],
+  reviewGuidanceSection: 'Desktop applications',
+};
 
 export const DEFAULT_BRANCH = 'trunk';
 export const ISSUE_NUMBER = 991;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { existsSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { applyManifest } from '../manifestInterpreter.ts';
 import { gitOut, makeTempRepo, makeTempWorktree, useTempDirCleanup, writeManifest } from './fixtures/manifestHarness.ts';
@@ -182,5 +182,51 @@ describe('applyManifest — the error response', () => {
 
     expect(applyManifest(path, makeTempWorktree(), "/feature '7'").response).toEqual({ kind: 'error' });
     expect(applyManifest(path, makeTempWorktree(), "/implement '7'").response).toBeUndefined();
+  });
+});
+
+describe('applyManifest — edits that append', () => {
+  function documentingManifest(edit: Record<string, unknown>): string {
+    return manifestFile({ jsonlPath: 'top.json', edits: [], byCommand: { '/document': { jsonlPath: 'doc.json', edits: [edit] } } });
+  }
+
+  it('adds the contents to the end of the file each time the command runs, creating a file that is absent, so an agent that runs again changes the worktree again', () => {
+    const worktree = makeTempWorktree();
+    const manifest = documentingManifest({ path: 'app_docs/page.md', contents: 'written\n', append: true });
+
+    const first = applyManifest(manifest, worktree, "/document '7'");
+    const second = applyManifest(manifest, worktree, "/document '7'");
+
+    expect(readFileSync(join(worktree, 'app_docs/page.md'), 'utf-8')).toBe('written\nwritten\n');
+    expect(first.editsApplied).toEqual(second.editsApplied);
+  });
+
+  it.each([
+    ['an edit without append', {}],
+    ['an edit whose append is false', { append: false }],
+  ])('still replaces the whole file for %s', (_label, extra) => {
+    const worktree = makeTempWorktree();
+    const manifest = documentingManifest({ path: 'app_docs/page.md', contents: 'written\n', ...extra });
+
+    applyManifest(manifest, worktree, "/document '7'");
+    applyManifest(manifest, worktree, "/document '7'");
+
+    expect(readFileSync(join(worktree, 'app_docs/page.md'), 'utf-8')).toBe('written\n');
+  });
+
+  it('throws a manifestInterpreter: schema error when append is not a boolean', () => {
+    const manifest = documentingManifest({ path: 'app_docs/page.md', contents: 'written\n', append: 'yes' });
+
+    expect(() => applyManifest(manifest, makeTempWorktree(), "/document '7'")).toThrow(/^manifestInterpreter:.*schema validation failed/);
+  });
+
+  it('appends at the top level too', () => {
+    const worktree = makeTempWorktree();
+    const manifest = manifestFile({ jsonlPath: 'top.json', edits: [{ path: 'notes.md', contents: 'line\n', append: true }] });
+
+    applyManifest(manifest, worktree, 'ping');
+    applyManifest(manifest, worktree, 'ping');
+
+    expect(readFileSync(join(worktree, 'notes.md'), 'utf-8')).toBe('line\nline\n');
   });
 });

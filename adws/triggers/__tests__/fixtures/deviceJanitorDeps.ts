@@ -21,6 +21,8 @@ export interface JanitorWorldOptions {
   readonly states: Readonly<Record<string, Partial<AgentState>>>;
   /** The ADW IDs whose orchestrators are alive. */
   readonly live: readonly string[];
+  /** The issues whose spawn lock a live process holds, as `owner/repo#number`. */
+  readonly lockedIssues: readonly string[];
   /** The age of a worktree by its path; one that is not here is gone. */
   readonly worktreeAges: Readonly<Record<string, number>>;
 }
@@ -32,6 +34,8 @@ export interface JanitorWorld {
   readonly lines: string[];
   /** The ADW IDs whose orchestrators were asked after, in the order asked. Each question is also among the host's events, as `orchestrator of <adwId>?`. */
   readonly asked: string[];
+  /** The issues whose spawn lock was asked after, as `owner/repo#number`, in the order asked. */
+  readonly lockChecks: string[];
 }
 
 /** The state a workflow records at init that the janitor reads: the repository and the branch. */
@@ -50,10 +54,11 @@ export const agentStateOf = (adwId: string, recorded: Partial<AgentState>): Agen
 });
 
 export function janitorWorld(options: Partial<JanitorWorldOptions> = {}): JanitorWorld {
-  const { script = {}, states = {}, live = [], worktreeAges = {} } = options;
+  const { script = {}, states = {}, live = [], lockedIssues = [], worktreeAges = {} } = options;
   const host = leftoverDevicesHost(script);
   const lines: string[] = [];
   const asked: string[] = [];
+  const lockChecks: string[] = [];
 
   const deps: DeviceJanitorDeps = {
     devices: host.deps,
@@ -63,10 +68,15 @@ export function janitorWorld(options: Partial<JanitorWorldOptions> = {}): Janito
       host.events.push(`orchestrator of ${adwId}?`);
       return live.includes(adwId);
     },
+    isIssueLockHeldByLiveProcess: (owner, repo, issueNumber) => {
+      const issue = `${owner}/${repo}#${issueNumber}`;
+      lockChecks.push(issue);
+      return lockedIssues.includes(issue);
+    },
     getWorktreeAgeMs: worktreePath => worktreeAges[worktreePath] ?? Infinity,
     log: (message, level = 'info') => {
       lines.push(`${level} ${message}`);
     },
   };
-  return { host, deps, lines, asked };
+  return { host, deps, lines, asked, lockChecks };
 }

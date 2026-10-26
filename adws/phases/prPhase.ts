@@ -18,12 +18,14 @@ import { requireWorkflowGitContext, workflowLaunchContext } from './workflowRepo
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoContext } = config;
   const phaseStartTime = Date.now();
+  const currentBranch = ctx.branchName || branchName || '';
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
   // Safety net: commit any uncommitted changes before PR creation
-  if (requireWorkflowGitContext(config).hasUncommittedChanges(worktreePath)) {
+  const hadUncommittedChanges = requireWorkflowGitContext(config).hasUncommittedChanges(worktreePath);
+  if (hadUncommittedChanges) {
     log('Uncommitted changes detected, committing before PR creation...', 'info');
     await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, config.gitContext?.commandEnv(), workflowLaunchContext(config));
     log('Pre-PR commit completed', 'success');
@@ -36,7 +38,6 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     log('Creating Pull Request...', 'info');
 
     const planFile = getPlanFilePath(issueNumber, worktreePath);
-    const currentBranch = ctx.branchName || branchName || '';
 
     const repoOwner = repoContext?.repoId.owner ?? '';
     const repoName = repoContext?.repoId.repo ?? '';
@@ -92,6 +93,8 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     }
   } else {
     log('Skipping PR creation (already completed)', 'info');
+    // Only creating the pull request pushes the commit above, and the merge orchestrator resets its worktree to the remote branch, which would discard it.
+    if (hadUncommittedChanges) requireWorkflowGitContext(config).pushBranch(currentBranch, worktreePath);
   }
 
   const phaseCostRecords = createPhaseCostRecords({

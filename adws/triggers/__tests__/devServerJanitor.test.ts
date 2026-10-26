@@ -12,10 +12,10 @@ import {
   DEFAULT_DEPS,
   type JanitorDeps,
 } from '../devServerJanitor';
+import { OLD, makeDeps } from './fixtures/devServerJanitorDeps';
 import type { AgentState } from '../../types/agentTypes';
 
 const YOUNG = JANITOR_GRACE_PERIOD_MS / 2;    // 15 min — within grace period
-const OLD   = JANITOR_GRACE_PERIOD_MS * 2;    // 60 min — outside grace period
 
 describe('extractIssueNumberFromDirName', () => {
   it('extracts the issue number from a real feature branch name', () => {
@@ -156,24 +156,6 @@ describe('shouldCleanWorktree', () => {
     expect(shouldCleanWorktree(false, false, JANITOR_GRACE_PERIOD_MS + 1, JANITOR_GRACE_PERIOD_MS)).toBe(true);
   });
 });
-
-function makeDeps(overrides: Partial<JanitorDeps> = {}): JanitorDeps {
-  return {
-    readdirTargetRepos: vi.fn().mockReturnValue([]),
-    isGitRepo: vi.fn().mockReturnValue(true),
-    hasAdwMarker: vi.fn().mockReturnValue(true),
-    listWorktrees: vi.fn().mockReturnValue([]),
-    readTopLevelState: vi.fn().mockReturnValue(null),
-    readTopLevelStateRaw: vi.fn().mockReturnValue(null),
-    listAdwStateDirs: vi.fn().mockReturnValue([]),
-    isAgentProcessRunning: vi.fn().mockReturnValue(false),
-    getWorktreeAgeMs: vi.fn().mockReturnValue(OLD),
-    hasProcessesInDirectory: vi.fn().mockReturnValue(true),
-    killProcessesInDirectory: vi.fn(),
-    log: vi.fn(),
-    ...overrides,
-  };
-}
 
 describe('discoverTargetRepoWorktrees', () => {
   it('returns empty array when TARGET_REPOS_DIR is empty', () => {

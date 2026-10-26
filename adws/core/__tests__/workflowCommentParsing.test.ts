@@ -5,10 +5,14 @@ import {
   RETRY_COMMENT_PATTERN,
   ADW_SIGNATURE,
   parseWorkflowStageFromComment,
+  extractLatestAdwId,
   extractPlanPathFromComment,
   detectRecoveryState,
 } from '../workflowCommentParsing';
-import { formatWorkflowComment } from '../../forge/workflowCommentsIssue';
+import { getNextStage, shouldExecuteStage } from '../orchestratorLib';
+import { buildParkComment, ParkReason } from '../../forge/parkComment';
+import { formatWorkflowComment, type WorkflowContext } from '../../forge/workflowCommentsIssue';
+import type { WorkflowStage } from '../../types/workflowTypes';
 import type { IssueComment } from '@paysdoc/devplatform';
 
 describe('isRetryComment', () => {
@@ -138,5 +142,72 @@ describe('detectRecoveryState — a run that posted the retired "Committing Plan
     expect(state.lastCompletedStage).toBe('plan_created');
     expect(state.canResume).toBe(true);
     expect(state.planPath).toBe(CURRENT_PLAN_PATH);
+  });
+});
+
+describe('detectRecoveryState — a workflow that adwMerge parked for post_merge_bdd_red and a human brought back with ## Retry', () => {
+  const PARKED_ID = 'a6cot9-feat-adwmerge-re-run';
+  // The comment parser reads a branch name only under the aliased prefixes: feat, bug, chore, review and test.
+  const PARKED_BRANCH = 'feat-issue-1101-post-merge-rerun';
+  const PARKED_PLAN_PATH = `specs/issue-1101-adw-${PARKED_ID}-sdlc_planner-post-merge-rerun.md`;
+  const PARKED_PR_URL = 'https://github.com/acme/widgets/pull/157';
+  const context: WorkflowContext = { issueNumber: 1101, adwId: PARKED_ID, branchName: PARKED_BRANCH, planPath: PARKED_PLAN_PATH, prUrl: PARKED_PR_URL, issueType: '/feature' };
+
+  const LIFECYCLE: readonly WorkflowStage[] = [
+    'starting', 'classified', 'branch_created', 'plan_building', 'plan_created', 'plan_validating',
+    'plan_aligning', 'build_running', 'build_completed', 'pr_creating', 'pr_created',
+  ];
+  const at = (minute: number): string => new Date(Date.UTC(2026, 9, 26, 10, minute)).toISOString();
+
+  const lifecycle = LIFECYCLE.map((stage, minute) => issueComment(formatWorkflowComment(stage, context), at(minute)));
+  const park = buildParkComment(PARKED_ID, {
+    reason: ParkReason.PostMergeBddRed,
+    prNumber: 157,
+    baseBranch: 'trunk',
+    mergedCommits: ['1a2b3c4 Raise the order limit'],
+    conflictedFiles: [],
+    failures: [{ title: '@adw-1101 Orders: Orders over the limit are refused', detail: 'expected status 422, got 201' }],
+  });
+  const parked = [...lifecycle, issueComment(park, at(LIFECYCLE.length))];
+  const retried = [...parked, issueComment('## Retry', at(LIFECYCLE.length + 1))];
+  const resuming = formatWorkflowComment('resuming', { ...context, resumeFrom: getNextStage('pr_created') });
+  const resumed = [...retried, issueComment(resuming, at(LIFECYCLE.length + 2))];
+
+  it('reads the park comment as no lifecycle stage, so that it moves the recovery point nowhere', () => {
+    expect(parseWorkflowStageFromComment(park)).toBeNull();
+  });
+
+  it('keeps pr_created as the recovery point, with the same adwId, branch, plan and pull request, once ## Retry and the resuming comment follow the park', () => {
+    expect(detectRecoveryState(resumed)).toEqual({
+      lastCompletedStage: 'pr_created',
+      adwId: PARKED_ID,
+      branchName: PARKED_BRANCH,
+      planPath: PARKED_PLAN_PATH,
+      prUrl: PARKED_PR_URL,
+      canResume: true,
+    });
+  });
+
+  it('is the recovery state of the run before the park, whichever of the park, ## Retry and the resuming comment have been posted', () => {
+    const beforeThePark = detectRecoveryState(lifecycle);
+
+    expect(detectRecoveryState(parked)).toEqual(beforeThePark);
+    expect(detectRecoveryState(retried)).toEqual(beforeThePark);
+    expect(detectRecoveryState(resumed)).toEqual(beforeThePark);
+  });
+
+  it('finds the adwId that ## Retry acts on in the park comment, which carries it', () => {
+    expect(extractLatestAdwId(retried)).toBe(PARKED_ID);
+  });
+
+  it.each(['plan_created', 'plan_validating', 'plan_aligning', 'build_completed', 'pr_created'] as const)(
+    'skips the %s stage on the resumed run, so that it plans, aligns, builds and opens a pull request no second time',
+    (stage) => {
+      expect(shouldExecuteStage(stage, detectRecoveryState(resumed))).toBe(false);
+    },
+  );
+
+  it('still runs what follows the pull request', () => {
+    expect(shouldExecuteStage('completed', detectRecoveryState(resumed))).toBe(true);
   });
 });

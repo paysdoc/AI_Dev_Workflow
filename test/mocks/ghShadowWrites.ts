@@ -214,7 +214,8 @@ const prCreate: GhHandler = (args, context) => {
   const pullRequest: GhPullRequest = {
     number, title, body, state: 'OPEN', headRefName: head, baseRefName: base, url, mergedAt: null, updatedAt: now(), labels, reviewDecision: '', reviews: [], comments: [],
   };
-  const request: GhRequest = { method: 'POST', path: `/repos/${call.repository}/pulls`, body: { title, head, base, body } };
+  // The number travels with the request, so that the mock the log is replayed against keeps the pull request under the number its comments name.
+  const request: GhRequest = { method: 'POST', path: `/repos/${call.repository}/pulls`, body: { title, head, base, body, number } };
   return wrote(context, request, `${url}\n`, mine ? withPullRequest(state, pullRequest) : undefined);
 };
 

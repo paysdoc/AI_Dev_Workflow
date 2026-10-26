@@ -3,10 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   APPLICATION_TYPE_PROFILES,
-  EvidenceKind,
-  RunnerMode,
   describeApplicationProfile,
-  type ApplicationProfile,
   type ApplicationProfiles,
   type ApplicationType,
 } from '../../core/applicationType';
@@ -18,20 +15,13 @@ import {
   type ApplicationTypeGateConfig,
   type ApplicationTypeGateDeps,
 } from '../applicationTypeGate';
-import { DEFAULT_BRANCH, configDeclaring, makeConfig, useApplicationTypeGateSandbox } from './applicationTypeGate.helpers';
+import { DEFAULT_BRANCH, FAKE, configDeclaring, makeConfig, useApplicationTypeGateSandbox } from './applicationTypeGate.helpers';
 
 class Parked extends Error {
   constructor(readonly config: ApplicationTypeGateConfig, readonly evidence: ParkEvidence) {
     super(`parked for ${evidence.reason}`);
   }
 }
-
-const FAKE: ApplicationProfile = {
-  runnerMode: RunnerMode.Descriptor,
-  evidenceKinds: [EvidenceKind.PerIssueImages],
-  platforms: [],
-  reviewGuidanceSection: 'Desktop applications',
-};
 
 const sandbox = useApplicationTypeGateSandbox();
 

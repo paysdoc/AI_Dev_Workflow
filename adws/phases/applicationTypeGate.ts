@@ -69,13 +69,26 @@ export function runApplicationTypeGate(
   return deps.park(config, second.evidence);
 }
 
+export type DeclaredApplicationType =
+  | { readonly kind: 'known'; readonly profile: ApplicationProfile }
+  | { readonly kind: 'unknown'; readonly declared: string | null };
+
+/** For callers that must never park and have to say what was declared: the profile, or the declared value that did not resolve (null when none was). */
+export function readDeclaredApplicationType(
+  projectConfig: Pick<ProjectConfig, 'applicationType'>,
+  profiles: ApplicationProfiles = APPLICATION_TYPE_PROFILES,
+): DeclaredApplicationType {
+  const resolution = resolveApplicationType(projectConfig.applicationType, profiles);
+  return resolution.kind === 'known' ? resolution : { kind: 'unknown', declared: resolution.evidence.found };
+}
+
 /** For callers that must never park, such as the upgrade that re-runs `adw_init`: the profile the declared type resolves to, or null where `runApplicationTypeGate` would park. */
 export function declaredApplicationProfile(
   projectConfig: Pick<ProjectConfig, 'applicationType'>,
   profiles: ApplicationProfiles = APPLICATION_TYPE_PROFILES,
 ): ApplicationProfile | null {
-  const resolution = resolveApplicationType(projectConfig.applicationType, profiles);
-  return resolution.kind === 'known' ? resolution.profile : null;
+  const declared = readDeclaredApplicationType(projectConfig, profiles);
+  return declared.kind === 'known' ? declared.profile : null;
 }
 
 export function buildApplicationTypeGateDeps(gitContext: Pick<GitContext, 'mergeLatestFromDefaultBranch'>): ApplicationTypeGateDeps {

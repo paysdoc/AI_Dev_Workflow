@@ -319,14 +319,21 @@ bunx tsx adws/adwMerge.tsx <issueNumber> <adw-id> [--target-repo owner/repo]
 1. Reads the top-level state file for the given ADW ID
 2. Looks up the PR by branch via GitHub CLI
 3. If already merged: writes `completed` to state, posts comment, exits
-4. If closed (not merged): writes `abandoned` to state, exits
-5. If open: resolves merge conflicts if any, then merges the PR
-6. On success: writes `completed` and posts completion comment
-7. On failure: posts failure comment, writes `abandoned`
+4. If closed (not merged): writes `discarded` to state, exits
+5. If open: syncs a worktree to the PR branch and runs the merge loop (`mergeWithConflictResolution`, at most `MAX_AUTO_MERGE_ATTEMPTS` attempts). Each attempt starts with the local merge check, a fresh fetch and a dry-run merge of `origin/<base>`. A branch that does not hold the fetched tip then gets the base merged in: a plain merge, or `/resolve_conflict` when the check found conflicts. A branch that already holds the tip is merged without a re-run, as before
+6. Pushes the branch. When base commits came in that no run has covered yet, installs what they may have added and re-runs `@regression` and `@adw-{issue}` through the scenario test phase on the merged code (`rerunScenariosOnMergedBranch`). No fix loop runs
+7. Asks the forge to merge. After a re-run it does so only when both suites are green and the base has not moved on during the run. A base that moved on, or a merge call the forge refuses while the base holds commits the branch lacks, sends the loop back to step 5, and the new commits are brought in and tested again
+8. On success: writes `completed` and posts completion comment
+9. If the merge cannot be completed: posts failure comment, writes `merge_blocked` (`## Retry` returns the workflow to `awaiting_merge`)
+10. If a re-run is red: merges nothing, starts no fix agent, writes `human_gated` with `parkReason: post_merge_bdd_red` and posts one park comment. It lists the merged-in base commits, the files that conflicted and each failing scenario with its error, says that the branch passed on its own and fails combined with the base branch, and gives the remedy: fix by hand and push, or comment `## Retry`. A push alone wakes nothing, so a fix pushed by hand needs `## Retry` as well. `## Retry` re-arms the workflow to `phase_timeout` under the same ADW ID: the resumed `adwSdlc` run skips plan, scenario authoring, alignment, build and PR creation, re-runs install, unit tests, the scenario fix loop, review and document, and ends at `awaiting_merge`, where `adwMerge` runs again. `## Continue` waives nothing for this park
 
 **Notes:**
 - Does NOT use `initializeWorkflow()` — reads state directly, no worktree setup
 - Spawned by the cron trigger when it detects an `awaiting_merge` issue
+- The re-run reads `.adw/` from the merged worktree. A repository with no scenarios configured, or with an `N/A` run-by-tag command, has nothing to re-run and is merged as before. A dev server that does not start, a failed install, a missing `## Application Type`, or any error in the re-run makes it red. A device that does not boot parks the workflow as `device_boot_failed` instead
+- A base that cannot be fetched is not merged in and no suite is re-run; the merge is asked for as before
+- The run's output, the re-run's included, is in `logs/<adwId>/merge.log`; the re-run's proof is written to `agents/<adwId>/scenario-test/`
+- Holds the issue's spawn lock for its whole run; the dev-server and device janitors leave the worktree processes and the devices of an issue alone while a live process other than themselves holds its lock
 
 #### adwSdlc.tsx - Complete SDLC
 Full Software Development Life Cycle automation.

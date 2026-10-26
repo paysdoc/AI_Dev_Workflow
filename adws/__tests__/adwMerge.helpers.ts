@@ -50,6 +50,7 @@ export function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-42-abc'),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/test-adw-id'),
     mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue(makeMergeOutcome()),
+    rerunScenarios: vi.fn<MergeDeps['rerunScenarios']>().mockResolvedValue({ kind: 'green' }),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
