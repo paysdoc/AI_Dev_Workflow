@@ -637,6 +637,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── issueRecord.test.ts
 │   │   ├── launchGitContext.test.ts
 │   │   ├── localRepoIdentity.test.ts
+│   │   ├── logger.test.ts
 │   │   ├── modelRouting.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
@@ -727,7 +728,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── jsonParser.ts
 │   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND assembles the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity via forgeProviders(), in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are assembled lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── localRepoIdentity.ts  # Host-neutral origin-remote reader (readLocalRepoIdentity) replacing the GitHub-only readLocalRepoInfo (#844)
-│   ├── logger.ts       # Structured logging utilities
+│   ├── logger.ts       # Structured logging utilities; `setLogFile` also appends every line, uncoloured, to a file (used by adwMerge's run log)
 │   ├── markdownSections.ts  # Pure: the ## sections of an .adw/ file (parseMarkdownSections, sectionValue, stripHtmlComments)
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -794,6 +795,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions; readers injected via required NotifierDeps, built by buildNotifierDeps(ctx, repoId) (consumed by adws/core/forgeWiring.ts's adwGitHubForgeDeps, #823; formerly adws/providers/repoContext.ts)
 │   ├── issueLinkMarker.ts  # Canonical issue-link marker contract for PR bodies (bodyLinksIssue, closing-keyword conventions)
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Closes"/"Implements #N" body scan; fetchLinkedPRs(codeHost) now reads via the CodeHost.listPullRequests() port method instead of a repoInfo-based free function
+│   ├── mergeBlockedComment.ts  # Pure builders for the `merge_blocked` issue comment (buildMergeBlockedComment) and its cause text (buildMergeFailureCause: merge attempts, conflict resolution, local merge check against the base branch)
 │   ├── parkComment.ts  # Pure builder for the park comment (ParkReason, ParkEvidence, buildParkComment) posted when a workflow stops for a person
 │   ├── prCommentDetector.ts  # buildUnaddressedCommentReads/hasUnaddressedComments — the pr-review unaddressed-comment read wired to a launch boundary's codeHost/gitContext; shared by prReviewPhase.ts and trigger_cron.ts
 │   ├── proofCommentFormatter.ts  # Pure functions transforming structured scenario-proof data into rich markdown for GitHub issue comments — no side effects, no I/O
@@ -1007,6 +1009,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
+│   │   │   ├── autoMergeHandlerHarness.ts  # Shared recording git exec and GitContext fakes for the auto-merge handler tests
 │   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
@@ -1169,7 +1172,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── checkModelLiterals.ts  # Model-literal guard: fails when a call site under `adws/` or `scripts/` outside `core/modelRouting.ts` names a model literally (`bun run lint:model-literals`)
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
-├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff). Exported buildDefaultDeps(boundary) sources findPRByBranch/issueHasLabel/fetchPRApprovalState/commentOnIssue from the launch boundary's providers — no repoInfo parameter, no ad-hoc GitHub construction (#796)
+├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff). Exported buildDefaultDeps(boundary) sources findPRByBranch/issueHasLabel/fetchPRApprovalState/commentOnIssue from the launch boundary's providers — no repoInfo parameter, no ad-hoc GitHub construction (#796). Each run appends its log lines to `logs/{adwId}/merge.log` (`startMergeLog`)
 ├── adwUpgrade.tsx         # Framework upgrade orchestrator — regenerates .adw/ when hash drifts; opened as winner of upgradeClaim; exempt from initializeWorkflow(). main() builds one buildLaunchBoundary() and exported buildDefaultUpgradeDeps(providers, gitCtx) sources every forge dep (labels, comments, PR create/merge, board move) from it — the ad-hoc createGitHubCodeHost(repoId) construction and the six direct GitContext forge-semantic calls are gone (#796)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx

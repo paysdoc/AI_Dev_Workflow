@@ -1,6 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
+import { executeMerge, startMergeLog, MERGE_LOG_FILE, type MergeDeps, type MergeRunResult } from '../adwMerge';
+import { LOGS_DIR, log, resetLogFile } from '../core';
 import type { AgentState } from '../types/agentTypes';
+import type { MergeOutcome } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import { Platform } from '@paysdoc/devplatform';
 
@@ -34,6 +38,10 @@ function makePR(overrides: {
   };
 }
 
+function makeMergeOutcome(overrides: Partial<MergeOutcome> = {}): MergeOutcome {
+  return { success: true, mergeAttempts: 1, conflictResolutionRan: false, localMergeCheck: 'clean', ...overrides };
+}
+
 function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
   return {
     readTopLevelState: vi.fn().mockReturnValue(makeState()),
@@ -44,7 +52,7 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     fetchPRApprovalState: vi.fn().mockReturnValue(true),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-42-abc'),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/test-adw-id'),
-    mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({ success: true }),
+    mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue(makeMergeOutcome()),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
@@ -241,10 +249,10 @@ describe('executeMerge — successful merge', () => {
 describe('executeMerge — failed merge', () => {
   it('writes merge_blocked and comments on issue when merge fails', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue(makeMergeOutcome({
         success: false,
         error: 'Conflict detected and could not be resolved',
-      }),
+      })),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
@@ -264,16 +272,76 @@ describe('executeMerge — failed merge', () => {
 
   it('includes last error in the issue failure comment', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue(makeMergeOutcome({
         success: false,
         error: 'merge conflict in file.txt',
-      }),
+      })),
     });
 
     await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
 
     const commentArg = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
     expect(commentArg).toContain('merge conflict in file.txt');
+  });
+
+  async function blockedComment(outcome: MergeOutcome): Promise<string> {
+    const deps = makeDeps({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue(outcome),
+    });
+    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    return (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+  }
+
+  it('states the real number of merge attempts and that resolution did not run after stale refusals the local merge check did not back', async () => {
+    const comment = await blockedComment(makeMergeOutcome({
+      success: false,
+      error: 'GraphQL: Base branch was modified',
+      mergeAttempts: 5,
+      conflictResolutionRan: false,
+      localMergeCheck: 'clean',
+    }));
+
+    expect(comment).toContain('Merge Blocked');
+    expect(comment).toContain('## Retry');
+    expect(comment).toContain('Merge attempts: 5');
+    expect(comment).toContain('Conflict resolution: did not run');
+    expect(comment).toContain('Local merge check: clean against `origin/main`');
+    expect(comment).toContain('Last error: GraphQL: Base branch was modified');
+    expect(comment).not.toContain('multiple conflict-resolution attempts');
+  });
+
+  it('states that resolution ran and that the local merge check found conflicts', async () => {
+    const comment = await blockedComment(makeMergeOutcome({
+      success: false,
+      error: 'merge conflict in file.txt',
+      mergeAttempts: 2,
+      conflictResolutionRan: true,
+      localMergeCheck: 'conflicts',
+    }));
+
+    expect(comment).toContain('Merge attempts: 2');
+    expect(comment).toContain('Conflict resolution: ran');
+    expect(comment).toContain('Local merge check: found conflicts with `origin/main`');
+  });
+
+  it('says the local merge check could not run, and leaves out the last error when there is none', async () => {
+    const comment = await blockedComment(makeMergeOutcome({
+      success: false,
+      mergeAttempts: 0,
+      conflictResolutionRan: false,
+      localMergeCheck: 'unavailable',
+    }));
+
+    expect(comment).toContain('Merge attempts: 0');
+    expect(comment).toContain('could not run');
+    expect(comment).not.toContain('Last error:');
+  });
+
+  it('cuts the last error to 500 characters', async () => {
+    const comment = await blockedComment(makeMergeOutcome({ success: false, error: `${'x'.repeat(500)}TAIL` }));
+
+    expect(comment).toContain(`Last error: ${'x'.repeat(500)}`);
+    expect(comment).not.toContain('TAIL');
   });
 });
 
@@ -484,5 +552,43 @@ describe('executeMerge — hitl × approved gate matrix', () => {
     expect(deferLog).toContain('7');
 
     logSpy.mockRestore();
+  });
+});
+
+describe('startMergeLog', () => {
+  const adwId = `merge-log-test-${process.pid}`;
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetLogFile();
+    fs.rmSync(path.join(LOGS_DIR, adwId), { recursive: true, force: true });
+    consoleSpy.mockRestore();
+  });
+
+  it('points the log at logs/<adwId>/merge.log, so every later line of the run lands there', () => {
+    const mergeLogPath = startMergeLog(adwId);
+
+    log('Auto-merge attempt 1/3 for PR #7');
+
+    expect(mergeLogPath).toBe(path.join(LOGS_DIR, adwId, MERGE_LOG_FILE));
+    expect(fs.readFileSync(mergeLogPath, 'utf-8')).toContain('Auto-merge attempt 1/3 for PR #7');
+  });
+
+  it('appends to the log of an earlier run of the same workflow', () => {
+    startMergeLog(adwId);
+    log('first run');
+    resetLogFile();
+
+    const mergeLogPath = startMergeLog(adwId);
+    log('second run');
+
+    const lines = fs.readFileSync(mergeLogPath, 'utf-8').trimEnd().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('first run');
+    expect(lines[1]).toContain('second run');
   });
 });
