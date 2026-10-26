@@ -1,52 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleRetryDirective, decideRetryAction, type RetryAction, type RetryHandlerDeps } from '../retryHandler';
+import { handleRetryDirective, decideRetryAction, type RetryAction } from '../retryHandler';
 import { log } from '../../core/logger';
-import type { AgentState } from '../../types/agentTypes';
-import type { PausedWorkflow } from '../../core/pauseQueue';
+import { ADW_COMMENT, makeDeps, makePauseQueueEntry, makeState } from './fixtures/retryHandlerDeps';
 
 vi.mock('../../core/logger', () => ({ log: vi.fn() }));
-
-function makeState(overrides: Partial<AgentState> = {}): AgentState {
-  return {
-    adwId: 'test-adw-id',
-    issueNumber: 42,
-    agentName: 'sdlc-orchestrator',
-    execution: { status: 'completed', startedAt: '2024-01-01T00:00:00Z' },
-    workflowStage: 'merge_blocked',
-    ...overrides,
-  };
-}
-
-function makeDeps(state: AgentState | null = makeState(), overrides: Partial<RetryHandlerDeps> = {}): RetryHandlerDeps {
-  return {
-    readTopLevelState: vi.fn().mockReturnValue(state),
-    writeTopLevelState: vi.fn(),
-    findPauseQueueEntry: vi.fn().mockReturnValue(null),
-    removeFromPauseQueue: vi.fn(),
-    acquireIssueSpawnLock: vi.fn().mockReturnValue(true),
-    releaseIssueSpawnLock: vi.fn(),
-    spawnDetached: vi.fn(),
-    postStageComment: vi.fn(),
-    targetRepoArgs: ['--target-repo', 'acme/widgets'],
-    ...overrides,
-  };
-}
-
-function makePauseQueueEntry(overrides: Partial<PausedWorkflow> = {}): PausedWorkflow {
-  return {
-    adwId: 'test-adw-id',
-    issueNumber: 42,
-    orchestratorScript: 'adws/adwChore.tsx',
-    pausedAtPhase: 'build',
-    pauseReason: 'rate_limited',
-    pausedAt: '2026-01-01T00:00:00Z',
-    worktreePath: '/tmp/adw-fixture-worktree',
-    branchName: 'feature-issue-42-test-adw-id',
-    ...overrides,
-  };
-}
-
-const ADW_COMMENT = { body: '**ADW ID:** `test-adw-id`' };
 
 describe('handleRetryDirective', () => {
   it('resets merge_blocked → awaiting_merge and clears retry counter, returns true', () => {
@@ -168,44 +125,6 @@ describe('handleRetryDirective', () => {
     handleRetryDirective(42, [ADW_COMMENT], deps);
 
     expect(log).toHaveBeenCalledWith(expect.stringContaining('worktree_lost → phase_timeout'), 'success');
-  });
-
-  it('re-arms a human_gated park for post_merge_bdd_red to phase_timeout with resumeAttempts:0 under the same adwId, and resumes nothing itself', () => {
-    const deps = makeDeps(makeState({ workflowStage: 'human_gated', parkReason: 'post_merge_bdd_red', resumeAttempts: 2 }));
-
-    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
-
-    expect(result).toBe(true);
-    expect(deps.writeTopLevelState).toHaveBeenCalledOnce();
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', {
-      workflowStage: 'phase_timeout',
-      resumeAttempts: 0,
-    });
-    expect(deps.acquireIssueSpawnLock).not.toHaveBeenCalled();
-    expect(deps.spawnDetached).not.toHaveBeenCalled();
-    expect(deps.postStageComment).not.toHaveBeenCalled();
-  });
-
-  it('names the park reason that the state records in its log line', () => {
-    vi.mocked(log).mockClear();
-    const deps = makeDeps(makeState({ workflowStage: 'human_gated', parkReason: 'post_merge_bdd_red' }));
-
-    handleRetryDirective(42, [ADW_COMMENT], deps);
-
-    const messages = vi.mocked(log).mock.calls.map((call) => String(call[0]));
-    expect(messages).toContainEqual(expect.stringMatching(/human_gated → phase_timeout.*post_merge_bdd_red/));
-  });
-
-  it('adds no park reason to its log line when the state records none', () => {
-    vi.mocked(log).mockClear();
-    const deps = makeDeps(makeState({ workflowStage: 'review_failed' }));
-
-    handleRetryDirective(42, [ADW_COMMENT], deps);
-
-    const messages = vi.mocked(log).mock.calls.map((call) => String(call[0]));
-    expect(messages.filter((message) => message.includes('re-armed'))).toEqual([
-      'Retry #42: re-armed adwId=test-adw-id review_failed → phase_timeout, cleared resume counter',
-    ]);
   });
 
   it('does not write and returns false when workflowStage is review_passed', () => {

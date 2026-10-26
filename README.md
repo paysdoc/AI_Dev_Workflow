@@ -1029,11 +1029,13 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
 │   │   │   ├── autoMergeHandlerHarness.ts  # Shared recording git exec and GitContext fakes for the auto-merge handler tests; makeScriptedRepository answers the git reads and writes of the merge loop from a model of the repository, so that HEAD moves when the base branch is merged in
+│   │   │   ├── devServerJanitorDeps.ts  # Shared dependency fakes for the dev-server janitor tests
 │   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
 │   │   │   ├── promotionSweepDefaultsHarness.ts  # Shared fakes and constants for the promotion-sweep defaults tests
-│   │   │   └── promotionSweepHarness.ts  # Shared dependency harness and feature fixtures for the promotion-sweep tests
+│   │   │   ├── promotionSweepHarness.ts  # Shared dependency harness and feature fixtures for the promotion-sweep tests
+│   │   │   └── retryHandlerDeps.ts  # Shared dependency fakes for the retry handler tests
 │   │   ├── autoMergeHandler.postMerge.test.ts
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── baseIntegration.test.ts
@@ -1049,6 +1051,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
+│   │   ├── devServerJanitor.issueLock.test.ts
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── deviceJanitor.decisions.test.ts
 │   │   ├── deviceJanitor.failures.test.ts
@@ -1077,6 +1080,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── rateLimitProbe.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
+│   │   ├── retryHandler.parkReason.test.ts
 │   │   ├── retryHandler.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
