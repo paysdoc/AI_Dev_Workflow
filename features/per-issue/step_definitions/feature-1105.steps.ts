@@ -82,14 +82,23 @@ function lockHolder(issueNumber: number): { pid: number; pidStartedAt: string } 
   return holder;
 }
 
-/** The `bunx` shadow named each record after its own pid; a launch is `tsx <script> <issue> <adwId> …`. */
-function standInsFor(issueNumber: number): number[] {
+/** The `bunx` shadow named each record after its own pid. */
+function launchRecords(): { pid: number; file: string }[] {
   return readdirSync(world932.dir).flatMap((name) => {
-    const pid = LAUNCH_RECORD.exec(name)?.[1];
-    if (pid === undefined) return [];
-    const [, , issue] = readFileSync(join(world932.dir, name), 'utf-8').split('\0');
-    return issue === String(issueNumber) && !endedStandIns.has(Number(pid)) ? [Number(pid)] : [];
+    const match = LAUNCH_RECORD.exec(name);
+    return match ? [{ pid: Number(match[1]), file: join(world932.dir, name) }] : [];
   });
+}
+
+/** A launch is `tsx <script> <issue> <adwId> …`. */
+function launchedIssue(file: string): string | undefined {
+  return readFileSync(file, 'utf-8').split('\0')[2];
+}
+
+function standInsFor(issueNumber: number): number[] {
+  return launchRecords()
+    .filter(({ pid, file }) => !endedStandIns.has(pid) && launchedIssue(file) === String(issueNumber))
+    .map(({ pid }) => pid);
 }
 
 function isRunning(pid: number): boolean {
@@ -106,13 +115,16 @@ function endStandIn(pid: number): void {
   process.kill(pid, 'SIGKILL');
 }
 
+function endLiveStandIns(): void {
+  if (!existsSync(world932.dir)) return;
+  launchRecords()
+    .map(({ pid }) => pid)
+    .filter((pid) => !endedStandIns.has(pid) && isRunning(pid))
+    .forEach(endStandIn);
+}
+
 After({ tags: OWN_CRON_SCENARIO }, function () {
-  if (standInsAreAlive && existsSync(world932.dir)) {
-    for (const name of readdirSync(world932.dir)) {
-      const pid = LAUNCH_RECORD.exec(name)?.[1];
-      if (pid !== undefined && !endedStandIns.has(Number(pid)) && isRunning(Number(pid))) endStandIn(Number(pid));
-    }
-  }
+  if (standInsAreAlive) endLiveStandIns();
   standInsAreAlive = false;
   endedStandIns.clear();
 });
