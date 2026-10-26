@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateProgressGate, describeProgressGateAbort, type ProgressGateInput, type ProgressGateAbortBounds } from '../progressGate';
+import {
+  evaluateProgressGate,
+  describeProgressGateAbort,
+  reportsBuildComplete,
+  BUILD_COMPLETE_MARKER,
+  type ProgressGateInput,
+  type ProgressGateAbortBounds,
+} from '../progressGate';
 
 const SEED = 'seed-tree-hash-abc123';
 const NOVEL_A = 'novel-tree-hash-aaa';
@@ -11,6 +18,7 @@ function makeInput(overrides: Partial<ProgressGateInput>): ProgressGateInput {
     seen: new Set([SEED]),
     checkpointCount: 0,
     maxCheckpoints: 20,
+    completionReported: false,
     ...overrides,
   };
 }
@@ -96,6 +104,118 @@ describe('evaluateProgressGate', () => {
     const countBefore = input.checkpointCount;
     evaluateProgressGate(input);
     expect(input.checkpointCount).toBe(countBefore);
+  });
+});
+
+describe('evaluateProgressGate — completion reported', () => {
+  it('does not count a new tree hash after completion as progress', () => {
+    const afterCompletion = makeInput({
+      headTreeHash: 'polished-tree',
+      seen: new Set([SEED, 'complete-tree']),
+      checkpointCount: 1,
+      completionReported: true,
+    });
+
+    expect(evaluateProgressGate(afterCompletion)).toEqual({ kind: 'complete' });
+    expect(evaluateProgressGate({ ...afterCompletion, completionReported: false })).toEqual({ kind: 'continue' });
+  });
+
+  it('does not abort a completed build as no_progress when the tree hash was already seen', () => {
+    const result = evaluateProgressGate(makeInput({
+      headTreeHash: 'complete-tree',
+      seen: new Set([SEED, 'complete-tree']),
+      completionReported: true,
+    }));
+    expect(result).toEqual({ kind: 'complete' });
+  });
+
+  it('does not abort a completed build as no_progress when the tree equals the build-start seed', () => {
+    const result = evaluateProgressGate(makeInput({
+      headTreeHash: SEED,
+      seen: new Set([SEED]),
+      completionReported: true,
+    }));
+    expect(result).toEqual({ kind: 'complete' });
+  });
+
+  it('never aborts a completed build as a backstop, at the checkpoint ceiling', () => {
+    const result = evaluateProgressGate(makeInput({
+      headTreeHash: 'novel-at-ceiling',
+      checkpointCount: 20,
+      maxCheckpoints: 20,
+      completionReported: true,
+    }));
+    expect(result).toEqual({ kind: 'complete' });
+  });
+
+  it('leaves an incomplete build at the checkpoint ceiling a backstop abort', () => {
+    const result = evaluateProgressGate(makeInput({
+      headTreeHash: 'novel-at-ceiling',
+      checkpointCount: 20,
+      maxCheckpoints: 20,
+      completionReported: false,
+    }));
+    expect(result).toEqual({ kind: 'abort', reason: 'backstop' });
+  });
+
+  it('does not mutate the seen set when completion is reported', () => {
+    const seen = new Set([SEED, 'h1']);
+    const membersBefore = [...seen];
+
+    evaluateProgressGate(makeInput({ headTreeHash: 'novel-after-completion', seen, completionReported: true }));
+
+    expect(seen.size).toBe(membersBefore.length);
+    expect([...seen]).toEqual(membersBefore);
+  });
+});
+
+describe('reportsBuildComplete', () => {
+  it('is true when the marker is the last line of the output', () => {
+    expect(reportsBuildComplete(`Every plan step is committed.\n${BUILD_COMPLETE_MARKER}`)).toBe(true);
+  });
+
+  it('is true when the marker is the whole output', () => {
+    expect(reportsBuildComplete(BUILD_COMPLETE_MARKER)).toBe(true);
+  });
+
+  it('is true when the marker line is followed by more output (the agent kept going before it was stopped)', () => {
+    expect(reportsBuildComplete(`Done.\n${BUILD_COMPLETE_MARKER}\nSplitting the callbacks into helpers…`)).toBe(true);
+  });
+
+  it('is true when the marker line has surrounding spaces', () => {
+    expect(reportsBuildComplete(`Done.\n  ${BUILD_COMPLETE_MARKER}  \nMore.`)).toBe(true);
+  });
+
+  it('is true when the marker line ends in a carriage return', () => {
+    expect(reportsBuildComplete(`Done.\r\n${BUILD_COMPLETE_MARKER}\r\n`)).toBe(true);
+  });
+
+  it('is false for prose that mentions the marker inside a sentence', () => {
+    expect(reportsBuildComplete(`I will print ${BUILD_COMPLETE_MARKER} once every step is done.`)).toBe(false);
+  });
+
+  it('is false for the marker wrapped in backticks on a line of its own', () => {
+    expect(reportsBuildComplete(`Done.\n\`${BUILD_COMPLETE_MARKER}\``)).toBe(false);
+  });
+
+  it('is false for the marker wrapped in ** on a line of its own', () => {
+    expect(reportsBuildComplete(`Done.\n**${BUILD_COMPLETE_MARKER}**`)).toBe(false);
+  });
+
+  it.each([
+    `${BUILD_COMPLETE_MARKER}_SOON`,
+    `NOT_${BUILD_COMPLETE_MARKER}`,
+  ])('is false for the longer token %s on a line of its own', (token) => {
+    expect(reportsBuildComplete(`Done.\n${token}\n`)).toBe(false);
+  });
+
+  it('is false for an empty output', () => {
+    expect(reportsBuildComplete('')).toBe(false);
+  });
+
+  it('is false for a prose completion report without the marker', () => {
+    const report = 'Issue is implemented and validated… all 12 plan steps were already committed.';
+    expect(reportsBuildComplete(report)).toBe(false);
   });
 });
 

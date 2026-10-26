@@ -99,6 +99,9 @@ export class RegressionWorld extends World {
 
   depauditOutcome?: DepauditOutcome;
 
+  /** Set by a scenario that plays the Claude CLI itself: returns the script `pointClaudeCodeAtStub` points `CLAUDE_CODE_PATH` at in place of the generic stub. */
+  claudeCliStandIn?: () => string;
+
   /** Run last in, first out by the @regression After hook, each entry guarded, before the mock infrastructure is torn down. */
   cleanup: CleanupEntry[] = [];
 

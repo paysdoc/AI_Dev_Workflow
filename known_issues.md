@@ -12,7 +12,7 @@ This file documents production incidents and recurring failure patterns in the A
 
 1. **Backstop is per-orchestrator-incarnation** — `seenTreeHashes` and `checkpointCount` live in process memory inside `buildPhase.ts`. An orchestrator takeover (e.g., after a process crash, a rate-limit pause/resume, or a manual retry) starts a fresh incarnation with an empty `seenTreeHashes` and `checkpointCount = 0`. The backstop therefore restarts from zero on each takeover; a build that is making genuine progress but requires many takeovers could accumulate `MAX_PROGRESS_CHECKPOINTS` checkpoints per incarnation rather than across the full build lifetime.
 
-2. **Monotonic accumulator runs to the backstop** — A build that always produces a novel committed state at each batch boundary (e.g., monotonically appending or removing trivial content) is not detected by the novelty check (each hash is genuinely new). Such a build is only stopped once `checkpointCount` reaches `MAX_PROGRESS_CHECKPOINTS`, consuming the full restart budget before the backstop abort fires. There is no intra-checkpoint progress signal to catch this pattern earlier.
+2. **Monotonic accumulator runs to the backstop** — A build that always produces a novel committed state at each batch boundary (e.g., monotonically appending or removing trivial content) is not detected by the novelty check (each hash is genuinely new). Such a build is only stopped once `checkpointCount` reaches `MAX_PROGRESS_CHECKPOINTS`, consuming the full restart budget before the backstop abort fires. There is no intra-checkpoint progress signal to catch this pattern earlier. A build whose agent reports completion (the `BUILD_COMPLETE` line the continuation prompt asks for) now ends at once, so an agent that keeps editing past the end of the plan no longer runs to the backstop; the residual remains only for builds that never report completion.
 
 **Status:** `open` (accepted residuals — no fix planned at this time)
 
@@ -20,7 +20,7 @@ This file documents production incidents and recurring failure patterns in the A
 
 **Fix attempts:** 0
 
-**Linked issues:** #559
+**Linked issues:** #559, #1103
 
 **First seen:** 2026-06-09
 

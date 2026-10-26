@@ -11,7 +11,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import { evaluateProgressGate, describeProgressGateAbort } from './progressGate';
+import { evaluateProgressGate, describeProgressGateAbort, reportsBuildComplete, BUILD_COMPLETE_MARKER } from './progressGate';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -192,6 +192,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         : null;
 
       if (restartTrigger !== null) {
+        const completionReported = reportsBuildComplete(buildResult.output);
         perBatchResets++; contextResetCount++;
         log(`Build agent ${restartTrigger === 'token_limit' ? 'hit token limit' : 'context compacted'} (batch reset ${perBatchResets}/${MAX_CONTEXT_RESETS}, checkpoint ${checkpointCount})`, 'info');
 
@@ -209,32 +210,37 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         ctx.tokenContinuationNumber = contextResetCount;
         if (restartTrigger === 'token_limit') ctx.tokenUsage = buildResult.tokenUsage;
-        if (repoContext) {
+        if (repoContext && !completionReported) {
           postIssueStageComment(repoContext, issueNumber, restartTrigger === 'token_limit' ? 'token_limit_recovery' : 'compaction_recovery', ctx);
         }
 
-        if (perBatchResets < MAX_CONTEXT_RESETS) {
+        if (!completionReported && perBatchResets < MAX_CONTEXT_RESETS) {
           currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger, defaultBranch, checkpointCount > 0);
           continue;
         }
 
-        // Batch boundary: commit if dirty, then evaluate the progress gate
+        // Batch boundary, or a stopped agent that reported completion: commit if dirty, then evaluate the progress gate
         if (gitCtx.hasUncommittedChanges(worktreePath)) {
           await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), workflowLaunchContext(config));
         }
         const headTreeHash = gitCtx.getHeadTreeHash(worktreePath);
-        const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
+        const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS, completionReported });
 
         if (decision.kind === 'abort') {
           const bounds = { maxContextResets: MAX_CONTEXT_RESETS, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS };
           throw new Error(describeProgressGateAbort(decision.reason, bounds));
         }
 
-        seenTreeHashes.add(headTreeHash);
-        checkpointCount++;
-        perBatchResets = 0;
-        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger, defaultBranch, checkpointCount > 0);
-        continue;
+        if (decision.kind === 'continue') {
+          seenTreeHashes.add(headTreeHash);
+          checkpointCount++;
+          perBatchResets = 0;
+          currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger, defaultBranch, checkpointCount > 0);
+          continue;
+        }
+
+        // complete: the stopped run is the build's finished run, so it takes the success path below
+        log(`Build agent reported ${BUILD_COMPLETE_MARKER} before it was stopped (${restartTrigger}); ending the build phase`, 'success');
       }
 
       if (!buildResult.success) {
