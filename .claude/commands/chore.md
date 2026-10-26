@@ -29,6 +29,25 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - Start your research by reading the `README.md` file. Also read `.adw/coding_guidelines.md` if present (or `guidelines/coding_guidelines.md` as a fallback).
 - `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `bunx tsx <script_name>`.
 
+## Behavioural Equivalence
+
+If the issue ports, rewrites, migrates, re-bundles or restructures existing code, and says or implies that what the code does stays the same, the plan must include a behavioural equivalence step. Examples: a library ported to another language or to a typed package, a build moved to another bundler, a module split, merged or moved, a dependency replaced by another. The plan's other tests check only what the plan names, so whatever else such a change breaks is found only by luck.
+
+The behavioural equivalence step is a task of its own in `## Step by Step Tasks`, before the last task. It does three things:
+
+1. Keeps a copy of the old implementation that the tests can run, for example the old code as the base branch has it (`git show origin/<base branch>:<path>`) or the previous released version, and says where that copy lives.
+2. Writes a comparison that runs the old and the new implementation on the same inputs and diffs what they produce. The comparison covers the public API, including odd inputs (`null` and `undefined` options, empty collections, boundary values), not just the happy path. When the input space is large, random or property-based inputs are fine; give them a fixed seed so that a difference can be reproduced.
+3. Lists the command that runs the comparison in `## Validation Commands`, so that the plan is complete only when the old and new implementations agree.
+
+These are not behavioural equivalence checks, because they do not compare the new code with the old:
+
+- a byte-for-byte check of a build artefact against the build's own output;
+- the existing tests still passing.
+
+If the old implementation cannot be run, or what the code does is meant to change, there is no behavioural equivalence step, and `## Notes` must say so and why, so that the gap is a conscious decision. If only part of what the code does is meant to change, the comparison covers the rest, and `## Notes` names the intended differences.
+
+An issue that restructures no existing code, such as one that adds new behaviour or fixes a bug in place, gets no behavioural equivalence step and needs no note about one.
+
 ## Relevant Files
 
 Read `.adw/project.md` from the current working directory to determine the relevant files for this project. Use the `## Relevant Files` section from that file.
@@ -70,6 +89,9 @@ IMPORTANT: Execute every step in order, top to bottom.
 Execute every command to validate the chore is complete with zero regressions.
 
 <list commands you'll use to validate with 100% confidence the chore is complete with zero regressions. every command must execute without errors so be specific about what you want to run to validate the chore is complete with zero regressions. Don't validate with curl commands. List these commands; do not execute them while planning.>
+
+<if the plan has a behavioural equivalence step, list the command that runs its comparison; see Behavioural Equivalence above>
+
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues
 - `bun run build` - Build the application to verify no build errors
@@ -77,6 +99,7 @@ Read `.adw/commands.md` from the current working directory for the project-speci
 
 ## Notes
 - If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback), strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of accomplishing the chore.
+<if the issue ports, rewrites, migrates, re-bundles or restructures existing code and the plan has no behavioural equivalence step, say why; see Behavioural Equivalence above>
 <optionally list any additional notes or context that are relevant to the chore that will be helpful to the developer>
 ```
 
