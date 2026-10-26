@@ -513,6 +513,10 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
 │   ├── adwInitPrompt.mobile.test.ts
 │   ├── adwInitPrompt.test.ts
+│   ├── adwMerge.failedMerge.test.ts
+│   ├── adwMerge.gates.test.ts
+│   ├── adwMerge.helpers.ts  # Shared helpers for the adwMerge tests
+│   ├── adwMerge.startMergeLog.test.ts
 │   ├── adwMerge.test.ts
 │   ├── adwPlanBuildReview.test.ts
 │   ├── adwPlanBuildTest.test.ts

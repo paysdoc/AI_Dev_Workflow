@@ -60,9 +60,9 @@ Feature: When GitHub refuses to merge a pull request whose branch the local merg
     And a commit that conflicts with the branch "feature-issue-110006" lands on "dev" on origin between ADW's push and its first call to merge pull request 110006
     And the "/resolve_conflict" agent resolves the conflicts with a merge commit
     And GitHub answers the calls to merge pull request 110006 in this order:
-      | merge call | GitHub answers                                               |
-      | 1          | GraphQL: Pull Request has merge conflicts (mergePullRequest) |
-      | 2          | merged                                                       |
+      | merge call | GitHub answers                                                                        |
+      | 1          | GraphQL: Base branch was modified. Review and try the merge again. (mergePullRequest) |
+      | 2          | merged                                                                                |
     When the merge orchestrator runs the workflow "merge1100-moved"
     Then the state file for adwId "merge1100-moved" records workflowStage "completed"
     And the "/resolve_conflict" agent ran once

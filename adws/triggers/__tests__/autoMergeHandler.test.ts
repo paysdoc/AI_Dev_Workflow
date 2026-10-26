@@ -29,6 +29,7 @@ const SPEC_PATH = '';
 const MAX_ATTEMPTS = 3;
 
 const NOT_MERGEABLE = 'Pull request acme/widgets#7 is not mergeable: the merge commit cannot be cleanly created.';
+const BASE_MODIFIED = 'GraphQL: Base branch was modified. Review and try the merge again. (mergePullRequest)';
 
 const mockedMergePullRequest = vi.fn<(prNumber: number) => ForgeActionResult>();
 const fakeCodeHost: Pick<CodeHost, 'mergePullRequest'> = { mergePullRequest: mockedMergePullRequest };
@@ -130,8 +131,6 @@ describe('mergeWithConflictResolution', () => {
   });
 
   describe('when the local merge check is clean but GitHub refuses the merge', () => {
-    const BASE_MODIFIED = 'GraphQL: Base branch was modified. Review and try the merge again. (mergePullRequest)';
-
     it.each([BASE_MODIFIED, 'Pull Request has merge conflicts', NOT_MERGEABLE])(
       'treats "%s" as stale: retries after 3 s and 6 s and never runs /resolve_conflict',
       async (staleError) => {
@@ -215,7 +214,7 @@ describe('mergeWithConflictResolution', () => {
     mockedMergePullRequest
       .mockImplementationOnce(() => {
         conflicting = true;
-        return { success: false, error: 'Pull Request has merge conflicts' };
+        return { success: false, error: BASE_MODIFIED };
       })
       .mockReturnValueOnce({ success: true });
     mockedAgent.mockImplementation(async () => {

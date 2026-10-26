@@ -203,7 +203,10 @@ export async function mergeWithConflictResolution(
     localMergeCheck = checkLocalMerge(baseBranch, worktreePath, ctx);
     const hasConflicts = localMergeCheck === 'conflicts';
     conflictResolutionRan = conflictResolutionRan || hasConflicts;
-    if (hasConflicts && !(await resolveConflictsForAttempt(attempt, adwId, specPath, baseBranch, logsDir, worktreePath, ctx))) continue;
+    if (hasConflicts) {
+      const resolved = await resolveConflictsForAttempt(attempt, adwId, specPath, baseBranch, logsDir, worktreePath, ctx);
+      if (!resolved) continue;
+    }
 
     if (!pushBranchChanges(headBranch, worktreePath, ctx)) {
       log(`Push failed on attempt ${attempt}, retrying`, 'warn');

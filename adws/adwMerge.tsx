@@ -28,7 +28,6 @@ import type { AgentState } from './types/agentTypes';
 import { Platform, type PullRequestSummary, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from './core/launchGitContext';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
-export { buildMergeFailureCause } from './forge/mergeBlockedComment';
 
 export interface MergeRunResult {
   readonly outcome: 'completed' | 'abandoned';
