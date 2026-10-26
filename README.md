@@ -1295,6 +1295,9 @@ test/                   # Integration test infrastructure
 ├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
+docs/                   # Design records
+├── adr/                # Architecture decision records, one per design decision (index in README.md)
+└── prd/                # Product requirement documents
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
@@ -1310,7 +1313,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
-│   ├── plan-commit/    # One regression scenario proving the plan phase leaves the plan in the worktree and no commit on the branch touches `specs/`
+│   ├── plan-commit/    # Regression scenarios covering the plan staying in the worktree: the plan phase adds no commit and no commit on the branch touches `specs/` (#930); worktree setup has git ignore `specs/` through the tracked `.gitignore`, once, leaving a `.gitignore` the branch already carries as it is; the plan phase leaves every other change uncommitted, even under `.claude/` and `.adw/`; and a full adwSdlc run posts no "Committing Plan" comment (#1077)
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
