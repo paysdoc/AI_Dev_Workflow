@@ -56,6 +56,7 @@
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
     - When an orchestrator dies during startup or is refused the spawn lock and the reason must appear in its `execution.log` (`recordStartupFailure`, `startupFailureLog.ts`)
+    - When working on `claimIssueSpawnLock` / the spawn lock being taken first in `initializeWorkflow` and `initializePRReviewWorkflow`, a launch that loses the lock clobbering the holder's top-level state or `resumeAttempts`, or the duplicate-launch hand-off race from the cron
   - Decisions:
     - 0002
     - 0011
