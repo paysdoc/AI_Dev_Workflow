@@ -1,5 +1,5 @@
 /**
- * Git fixtures for feature-930.feature and the per-issue scenarios of feature-1077.feature that share
+ * Git fixtures for feature-930.feature and the scenarios of feature-1077.feature that share
  * its steps: real temporary repositories and a real GitContext, so the scenarios assert on what git
  * recorded rather than on what a mock was called with.
  */

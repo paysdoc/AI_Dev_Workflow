@@ -242,7 +242,8 @@ describe('the adws/ tree', () => {
   // .claude/commands/ is left to `bun run lint:branch-names` in CI: a pipeline worktree's prompt files are
   // copies from the runner clone, which can lag the branch, so a unit test over them would fail every
   // pipeline run until the fix has been promoted.
+  // Parsing every module under adws/ can outlast the default 5s timeout when the host is busy.
   it('names no branch to act on', () => {
     expect(scanFiles(REPO_ROOT, collectFiles(REPO_ROOT, ['adws']))).toEqual([]);
-  });
+  }, 30_000);
 });

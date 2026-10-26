@@ -217,6 +217,8 @@ describe('every consumer reads the mapping, never the type', () => {
   const MAY_NAME_THE_TYPE = ['core/projectConfig.ts', 'phases/applicationTypeGate.ts'];
   const SKIPPED_DIRECTORIES = new Set(['__tests__', 'node_modules']);
   const TYPE_NAME = 'applicationType';
+  // Parsing every module under adws/ can outlast the default 5s timeout when the host is busy.
+  const WALK_TIMEOUT_MS = 30_000;
 
   function sourceFilesUnder(directory: string): string[] {
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -251,9 +253,9 @@ describe('every consumer reads the mapping, never the type', () => {
       offenders,
       `adws/${offenders.join(', adws/')} name applicationType: read the mapping instead (requireApplicationProfile, or resolveApplicationType where the type is declared)`,
     ).toEqual([]);
-  });
+  }, WALK_TIMEOUT_MS);
 
   it('finds the name in both of those modules, so that the walk does not pass by finding nothing', () => {
     expect(sourcesNamingTheType()).toEqual([...MAY_NAME_THE_TYPE].sort());
-  });
+  }, WALK_TIMEOUT_MS);
 });

@@ -20,7 +20,7 @@ import {
   deviceNamed,
   requireStandInHost,
 } from './feature-1048-devices.ts';
-import { baseScenarioRuns, type ScenarioRun } from './feature-990-read.ts';
+import { baseScenarioRuns, type ScenarioRun } from '../../regression/step_definitions/feature-990-read.ts';
 import { requireAtPark } from './feature-1049-world.ts';
 
 const BEFORE_THE_RUNS: readonly Step[] = ['create', 'boot', 'wait until ready'];

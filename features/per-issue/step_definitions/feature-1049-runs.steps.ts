@@ -14,8 +14,8 @@ import { ADW_DIRECTORY } from '../../regression/step_definitions/feature-992-adw
 import { commandMatches, describeCalls } from '../../regression/step_definitions/feature-992-calls.ts';
 import { recordedCalls } from '../../regression/step_definitions/feature-992-standins.ts';
 import { requireWorkflow } from '../../regression/step_definitions/feature-992-world.ts';
-import { baseScenarioRuns, isBaseWorktree, type ScenarioRun } from './feature-990-read.ts';
-import { BASE_BRANCH } from './feature-990-world.ts';
+import { baseScenarioRuns, isBaseWorktree, type ScenarioRun } from '../../regression/step_definitions/feature-990-read.ts';
+import { BASE_BRANCH } from '../../regression/step_definitions/feature-990-world.ts';
 import { bootedDevices } from './feature-1047-phase.steps.ts';
 import { assertDevicesAroundRuns } from './feature-1049-devices.steps.ts';
 

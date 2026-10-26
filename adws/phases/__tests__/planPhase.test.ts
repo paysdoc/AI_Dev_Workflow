@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace, MAX_CONTINUATION_OUTPUT_LENGTH } from '../planPhase';
+import { BUILD_COMPLETE_MARKER } from '../progressGate';
 import type { RecoveryState } from '../../types/workflowTypes';
 
 const PLAN = '## Plan\n\n1. Implement feature A\n2. Implement feature B';
@@ -193,6 +194,55 @@ describe('buildResumeInPlacePrompt', () => {
     const result = buildResumeInPlacePrompt(PLAN, 'dev');
     expect(result).toContain('<previous-agent-output');
     expect(result).not.toContain('undefined');
+  });
+});
+
+describe('buildContinuationPrompt — completion check and scope rule', () => {
+  const variants: ReadonlyArray<readonly [string, () => string]> = [
+    ['checkpoint-absent', () => buildContinuationPrompt(PLAN, OUTPUT)],
+    ['checkpoint-present', () => buildContinuationPrompt(PLAN, OUTPUT, 'token_limit', 'dev', true)],
+    ['resume-in-place', () => buildResumeInPlacePrompt(PLAN, 'dev')],
+  ];
+
+  describe.each(variants)('%s variant', (_name, build) => {
+    it("asks for a completion check that runs the plan's validation commands", () => {
+      const result = build();
+      expect(result).toContain('## Completion Check');
+      expect(result).toContain("run the plan's validation commands");
+    });
+
+    it('has the agent check every plan step against the git state before it changes anything', () => {
+      const result = build();
+      expect(result).toContain('before you change anything');
+      expect(result).toContain('check every step of the plan above against the git state');
+    });
+
+    it('has the agent make no further edits once the build is complete', () => {
+      expect(build()).toContain('Make no further edits');
+    });
+
+    it('shows the completion marker on a line of its own for the agent to end with', () => {
+      expect(build().split('\n')).toContain(BUILD_COMPLETE_MARKER);
+    });
+
+    it('puts work the plan does not call for out of scope', () => {
+      const result = build();
+      expect(result).toContain('## Scope');
+      expect(result).toContain('out of scope');
+      expect(result).toContain('refactors');
+      expect(result).toContain('extra hardening');
+      expect(result).toContain('stress tests');
+      expect(result).toContain('mutation tests');
+    });
+
+    it("says uncommitted edits outside the plan's steps are not work to continue", () => {
+      expect(build()).toContain("Uncommitted edits outside the plan's steps are not work to continue");
+    });
+
+    it('closes the prompt with the completion check, after the previous agent output', () => {
+      const result = build();
+      expect(result.indexOf('## Completion Check')).toBeGreaterThan(result.indexOf('</previous-agent-output>'));
+    });
   });
 });
 

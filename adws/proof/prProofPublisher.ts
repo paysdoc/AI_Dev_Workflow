@@ -7,8 +7,12 @@
 
 import { log } from '../core/logger';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
+import { PASSED_ON_EXIT_CODE_ONLY } from './proofDocument';
 import { isProofUploadConfigured, uploadProofArtifacts } from './proofUploader';
 import type { ProofCommentInput, PublishDeps, TagProofResultLike, UploadedArtifact } from './types';
+
+const NO_REPORT = 'no report';
+const COUNTS_UNAVAILABLE = '**Counts unavailable: no JUnit report at ADW_JUNIT_REPORT_PATH**';
 
 function formatImageEmbed(fileName: string, url: string): string {
   return `[![${fileName}](${url})](${url})\n${url}`;
@@ -29,11 +33,19 @@ function tagStatusEmoji(result: TagProofResultLike): string {
   return result.passed ? '✅ passed' : '❌ failed';
 }
 
+function leftNoReport(result: TagProofResultLike): boolean {
+  return !result.skipped && result.reportMissing === true;
+}
+
+function scenariosCell(result: TagProofResultLike): string {
+  if (leftNoReport(result)) return NO_REPORT;
+  if (result.skipped || !result.counts) return '-';
+  return `${result.counts.passed}/${result.counts.total}`;
+}
+
 function formatSummaryTable(tagResults: readonly TagProofResultLike[]): string {
   const rows = tagResults.map(r => {
-    const scenarios = r.skipped || !r.counts
-      ? '-'
-      : `${r.counts.passed}/${r.counts.total}`;
+    const scenarios = scenariosCell(r);
     const status = tagStatusEmoji(r);
     return `| \`${r.resolvedTag}\` | ${scenarios} | ${status} | ${r.severity} |`;
   });
@@ -55,6 +67,20 @@ function computeTotals(tagResults: readonly TagProofResultLike[]): { passedTotal
   return { passedTotal, failedTotal };
 }
 
+// A total that leaves out a suite is no total, so one run without a report withholds it.
+function formatTally(tagResults: readonly TagProofResultLike[]): string {
+  if (tagResults.some(leftNoReport)) return COUNTS_UNAVAILABLE;
+  const { passedTotal, failedTotal } = computeTotals(tagResults);
+  return `**${passedTotal} passed, ${failedTotal} failed**`;
+}
+
+// Only a pass is warned of: a failure is no false green, and a run that died before writing anything is not a runner that writes no report.
+function exitCodeOnlyWarnings(tagResults: readonly TagProofResultLike[]): string[] {
+  return tagResults
+    .filter(result => leftNoReport(result) && result.passed)
+    .map(result => `⚠️ **Warning:** \`${result.resolvedTag}\` ${PASSED_ON_EXIT_CODE_ONLY}`);
+}
+
 function hasBlockerFailure(tagResults: readonly TagProofResultLike[]): boolean {
   return tagResults.some(r => r.severity === 'blocker' && !r.passed && !r.skipped);
 }
@@ -70,13 +96,11 @@ export function formatPrProofComment(input: ProofCommentInput): string {
   const overallPassed = !hasBlockerFailure(tagResults);
   const statusLine = overallPassed ? '✅ All blocker suites passed' : '❌ One or more blocker suites failed';
 
-  const { passedTotal, failedTotal } = computeTotals(tagResults);
-  const tally = `**${passedTotal} passed, ${failedTotal} failed**`;
-
   const sections: string[] = [
     `## :camera: BDD Proof\n\n${statusLine}`,
-    tally,
+    formatTally(tagResults),
     formatSummaryTable(tagResults),
+    ...exitCodeOnlyWarnings(tagResults),
   ];
 
   if (uploaded.length > 0) {

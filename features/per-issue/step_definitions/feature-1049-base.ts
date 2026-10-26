@@ -17,7 +17,7 @@ import { realGit } from '../../regression/support/fixtureWorktree.ts';
 import type { Workflow929 } from '../../regression/step_definitions/feature-929-workflow.ts';
 import { registerDirectory } from '../../regression/step_definitions/feature-992-world.ts';
 import { writeFile } from '../../regression/step_definitions/feature-992-worktree.ts';
-import type { ScenarioOutcomes } from './feature-990-scripts.ts';
+import type { ScenarioOutcomes } from '../../regression/step_definitions/feature-990-scripts.ts';
 
 const REGRESSION_TAG = '@regression';
 const FEATURE_FILE = 'features/cart.feature';

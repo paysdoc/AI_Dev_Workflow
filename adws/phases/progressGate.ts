@@ -1,11 +1,12 @@
 /**
- * Pure state-novelty progress gate for the build phase. No I/O; does not mutate
- * its inputs. The caller performs git work (commit, tree-hash read) and updates
- * the `seen` set and counters based on the returned decision.
+ * Pure progress gate for the build phase: state novelty, and a reported completion. No I/O; does not
+ * mutate its inputs. The caller performs git work (commit, tree-hash read) and updates the `seen` set
+ * and counters based on the returned decision.
  */
 
 export type ProgressGateDecision =
   | { kind: 'continue' }
+  | { kind: 'complete' }
   | { kind: 'abort'; reason: 'no_progress' }
   | { kind: 'abort'; reason: 'backstop' };
 
@@ -16,15 +17,30 @@ export interface ProgressGateInput {
   checkpointCount: number;
   /** Hard backstop on checkpoints (MAX_PROGRESS_CHECKPOINTS). */
   maxCheckpoints: number;
+  /** The stopped agent run printed the completion marker line (see `reportsBuildComplete`). */
+  completionReported: boolean;
+}
+
+export const BUILD_COMPLETE_MARKER = 'BUILD_COMPLETE';
+
+/** Only a line that is exactly the marker counts: prose that mentions it, or the marker in backticks, is not a report. */
+export function reportsBuildComplete(output: string): boolean {
+  return output.split('\n').some(line => line.trim() === BUILD_COMPLETE_MARKER);
 }
 
 /**
- * Non-novel (returned to a prior state, or nothing committed → unchanged hash
+ * A reported completion decides first. After it a new tree is post-completion editing (not progress),
+ * an unchanged tree is a finished build (not a stuck one), and a completed build is never a backstop.
+ *
+ * Otherwise, non-novel (returned to a prior state, or nothing committed → unchanged hash
  *   still in `seen`, including the build-start seed) → abort: no_progress.
  */
 export function evaluateProgressGate(input: ProgressGateInput): ProgressGateDecision {
-  const { headTreeHash, seen, checkpointCount, maxCheckpoints } = input;
+  const { headTreeHash, seen, checkpointCount, maxCheckpoints, completionReported } = input;
 
+  if (completionReported) {
+    return { kind: 'complete' };
+  }
   if (seen.has(headTreeHash)) {
     return { kind: 'abort', reason: 'no_progress' };
   }

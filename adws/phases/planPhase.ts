@@ -18,6 +18,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { workflowLaunchContext } from './workflowRepoIdentity';
 import { parkIfPlanLost } from './lostPlanGate';
+import { BUILD_COMPLETE_MARKER } from './progressGate';
 import { BoardStatus } from '@paysdoc/devplatform';
 
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
@@ -142,6 +143,20 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
 
 export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 
+const COMPLETION_CHECK_INSTRUCTIONS = `## Completion Check
+
+Do this first, before you change anything: check every step of the plan above against the git state of this worktree, both the work already committed and any uncommitted edits.
+
+If every step is done, run the plan's validation commands. If they all pass, the build is complete. Make no further edits, and end your final message with this line, exactly as shown, on a line of its own:
+
+${BUILD_COMPLETE_MARKER}
+
+If a step is not done, or a validation command fails, do the first step that is not done, or fix what the failing command reports. Print that line only when every step is done and every validation command passes.
+
+## Scope
+
+Only the plan's steps are in scope. When every plan step is committed (or done in uncommitted edits), refactors, extra hardening, stress tests, fuzz runs, mutation tests and any other work the plan does not call for are out of scope: do not start them. Uncommitted edits outside the plan's steps are not work to continue. Do not extend them, and if one makes a validation command fail, revert it instead of repairing it.`;
+
 /**
  * @param baseBranch - base/default branch to diff committed work against; when
  *   omitted with checkpoint commits present, falls back to generic branch-history inspection.
@@ -177,7 +192,9 @@ the plan from where the previous agent left off. Do NOT re-do work that was alre
 
 <previous-agent-output>
 ${truncatedOutput}
-</previous-agent-output>`;
+</previous-agent-output>
+
+${COMPLETION_CHECK_INSTRUCTIONS}`;
   }
 
   const committedStateInstructions = baseBranch
@@ -204,7 +221,9 @@ Treat the union of the committed diff and the current working-tree changes as al
 
 <previous-agent-output note="secondary hint only — may be stale or truncated; the git state above is authoritative">
 ${truncatedOutput}
-</previous-agent-output>`;
+</previous-agent-output>
+
+${COMPLETION_CHECK_INSTRUCTIONS}`;
 }
 
 /**

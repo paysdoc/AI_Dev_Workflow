@@ -22,8 +22,8 @@ import { prepareWorkflow, requireAdwFiles } from '../../regression/step_definiti
 import { toolchain, withStandInsOnPath, writeStandIns } from '../../regression/step_definitions/feature-992-standins.ts';
 import { requireWorkflow } from '../../regression/step_definitions/feature-992-world.ts';
 import { lastStandInDeviceHost, standInDeviceHost, type StandInDeviceHost } from '../../regression/support/standInDevices.ts';
-import { DEVICE_VARIABLES, runnerCommand, writeScenarioRunner, type ScenarioOutcomes } from './feature-990-scripts.ts';
-import { BASE_BRANCH, requireScratch, s as state990 } from './feature-990-world.ts';
+import { DEVICE_VARIABLES, runnerCommand, writeScenarioRunner, type ScenarioOutcomes } from '../../regression/step_definitions/feature-990-scripts.ts';
+import { BASE_BRANCH, requireScratch, s as state990 } from '../../regression/step_definitions/feature-990-world.ts';
 import { commitBaseBranch, proofOnIssueBranch, useGitOfTheWorktree } from './feature-1049-base.ts';
 import { requireBaseBranch, requireRunner, s } from './feature-1049-world.ts';
 

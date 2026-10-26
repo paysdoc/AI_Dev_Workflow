@@ -40,7 +40,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Rot/reuse advisory PR comment** — on a `regression-promotion` PR, `executePromotionRotAdvisory` (`adws/phases/reviewPhase.ts`) runs the `promote-regression-vocabulary` skill's per-phrase reuse/rot analysis over the promoted scenario (`adws/agents/rotAnalysisAgent.ts`) and posts a single advisory, non-blocking PR comment; any failure degrades to a warning and never gates the merge.
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
-- **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
+- **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states. A build agent that is stopped by the token limit or a compaction after printing the `BUILD_COMPLETE` line (the continuation prompt's completion check) ends the build phase through the gate's `complete` decision instead of being restarted, so edits made after completion never count as progress.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
@@ -940,6 +940,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── workflowPark.test.ts
 │   │   ├── workflowRepoIdentity.test.ts
 │   │   ├── worktreeSetup.test.ts
+│   │   ├── worktreeSetupSpecsIgnore.test.ts
 │   │   └── worktreeSetupTrackedAssets.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── applicationTypeGate.ts  # Resolves the application type at init; a missing or unknown type parks the workflow (missing_application_type); requireApplicationProfile
@@ -965,7 +966,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── preExistingRegressionGate.ts  # Regression gate of the scenario fix loop: re-runs each failing @regression scenario on the base branch and parks the workflow when one fails there too; a waived baseline lets every failure through; for a profile with platforms it re-runs them on an emulator and a simulator created for the re-run and removed after it, and parks `device_boot_failed` when a device does not boot (createPreExistingRegressionGate)
-│   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
+│   ├── progressGate.ts  # Pure build gate: complete on a reported BUILD_COMPLETE, aborts on no_progress (same tree hash) or backstop exhaustion
 │   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
@@ -1137,6 +1138,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── featureScenarioIndex.lookup.test.ts
 │   │   ├── featureScenarioIndex.test.ts
 │   │   ├── imagePlatform.test.ts
+│   │   ├── prProofPublisher.noReport.test.ts
 │   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts
@@ -1295,6 +1297,9 @@ test/                   # Integration test infrastructure
 ├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
+docs/                   # Design records
+├── adr/                # Architecture decision records, one per design decision (index in README.md)
+└── prd/                # Product requirement documents
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
@@ -1308,9 +1313,10 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
+│   ├── mobile/         # Regression scenarios covering "mobile:kotlincm" repositories: the framework upgrade keeping a hand-set application type and device sources, a bootstrap issue's baseline passing with no Gradle build yet, the step-definition generator's device instructions, the "## Run Tests" command gathering each module's JUnit reports, and the scenario phase running each tag through the ":scenarios" Gradle module and giving the proof each platform's screenshots (#1044)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
-│   ├── plan-commit/    # One regression scenario proving the plan phase leaves the plan in the worktree and no commit on the branch touches `specs/`
+│   ├── plan-commit/    # Regression scenarios covering the plan staying in the worktree: the plan phase adds no commit and no commit on the branch touches `specs/` (#930); worktree setup has git ignore `specs/` through the tracked `.gitignore`, once, leaving a `.gitignore` the branch already carries as it is; the plan phase leaves every other change uncommitted, even under `.claude/` and `.adw/`; and a full adwSdlc run posts no "Committing Plan" comment (#1077)
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
