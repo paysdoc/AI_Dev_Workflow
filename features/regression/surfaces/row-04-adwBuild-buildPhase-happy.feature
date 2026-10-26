@@ -1,7 +1,7 @@
 @regression @surface
 Feature: adwBuild — buildPhase — happy path
 
-  @adw-1078
+  @adw-1078 @adw-1103
   Scenario: build orchestrator's build phase runs in-process over a committed plan, records build_completed and posts its build stage comments
     Given an issue 1004 exists in the mock issue tracker
     And the worktree for adwId "surface-04" is initialised at branch "surface-04"
