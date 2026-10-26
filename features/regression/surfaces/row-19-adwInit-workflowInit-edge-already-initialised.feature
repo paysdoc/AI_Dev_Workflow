@@ -1,6 +1,7 @@
 @regression @surface @subprocess
 Feature: adwPlan — workflowInit — edge: already initialised, for another repository
 
+  @adw-1105
   Scenario: adwPlan's workflow init for an adwId whose prior run recorded another repository fails closed, leaving the prior stage as it was and posting nothing
     Given an issue 1019 exists in the mock issue tracker
     And a prior run for adwId "surface-19" recorded workflowStage "build_completed" for the repository "acme/gadgets"

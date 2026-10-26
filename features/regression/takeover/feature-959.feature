@@ -359,6 +359,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
 
   # ── §2 A LIVE ORCHESTRATOR IS LEFT ALONE ──────────────────────────────────────────────────────
 
+  @adw-1105
   Scenario: A relaunched orchestrator that is alive and still starting up is left alone — not killed, not reset, not doubled, and not left facing a spawn lock the cron took
     Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
     And issue 9596 has an ADW workflow under adwId "live959-9596" that runs "adws/adwSdlc.tsx", whose last run stopped at "phase_timeout" half an hour ago
@@ -397,6 +398,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
       | starting      | 9598  | live959-9598 |
       | build_running | 9599  | live959-9599 |
 
+  @adw-1105
   Scenario: A PR review ten minutes into "pr_review_build_running", on a workflow whose state still records the finished SDLC run's dead pid, is left alone — not reset and not doubled
     Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
     And issue 9600 has an ADW workflow under adwId "prr959-9600" that runs "adws/adwSdlc.tsx", whose last run stopped at "awaiting_merge" half an hour ago
@@ -430,6 +432,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
 
   # ── §3 THE CRON'S OWN SPAWN LOCK ──────────────────────────────────────────────────────────────
 
+  @adw-1105
   Scenario Outline: A spawn lock the cron's own process left behind does not stop the cron from taking over a workflow stopped at <stage>
     Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
     And issue <issue> has an ADW workflow under adwId "<adwId>" that runs "adws/adwChore.tsx", whose last run stopped at "<stage>" half an hour ago
@@ -454,6 +457,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
 
   # ── §4 REPLAYING #935 ─────────────────────────────────────────────────────────────────────────
 
+  @adw-1105
   Scenario: Replaying #935 — the same cron, never restarted, relaunches a timed-out workflow; the relaunched orchestrator records "starting" as #935's did and dies with the cron's pid left on the spawn lock; the cron's next poll relaunches the workflow under the same adwId
     Given a launch boundary for the repository "adw-fixture/void-959" whose providers record every call
     And issue 9535 has an ADW workflow under adwId "replay959-9535" that runs "adws/adwSdlc.tsx", whose last run stopped at "phase_timeout" half an hour ago
@@ -467,6 +471,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
 
   # ── §5 NO SILENT DEATHS ───────────────────────────────────────────────────────────────────────
 
+  @adw-1105
   Scenario Outline: An orchestrator launched as the cron launches it, with its output discarded, that throws during startup writes the error into its own execution log and exits 1
     Given the Claude CLI that ADW is configured to run exists but is not executable
     When the orchestrator "<script>" is launched as the cron launches it, for issue <issue> under adwId "<adwId>" and the target repository "acme/widgets", with its output discarded
@@ -480,6 +485,7 @@ Feature: A workflow whose orchestrator died in starting or in any running stage 
       | adws/adwPlanBuild.tsx     | plan-build-orchestrator      | 9573  | silent959-pb    |
       | adws/adwPlanBuildTest.tsx | plan-build-test-orchestrator | 9574  | silent959-pbt   |
 
+  @adw-1105
   Scenario: Replaying #935's log — an execution log that already holds an earlier run's lines keeps them, and the startup error is written after them
     Given the Claude CLI that ADW is configured to run exists but is not executable
     And the execution log of the "sdlc-orchestrator" for adwId "silent959-9575" already ends with the line "Allocated port 57665 for dev server"
