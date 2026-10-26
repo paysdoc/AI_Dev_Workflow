@@ -5,6 +5,8 @@
  * at once, which `MergeDeps` has no place for, so the dependency that calls the loop is replaced and nothing else.
  */
 
+import { existsSync } from 'fs';
+
 import type { GitIdentity } from '@paysdoc/devplatform/git';
 
 import { buildDefaultDeps, executeMerge, type MergeDeps } from '../../../adws/adwMerge.tsx';
@@ -22,7 +24,8 @@ const BOT_IDENTITY: GitIdentity = {
 
 export async function runMergeOrchestrator(workflow: Workflow): Promise<void> {
   const { repo, forge } = workflow;
-  cloneWorkspace(repo);
+  // A workflow that is merged twice finds the workspace from the first run, with the worktree ADW added to it.
+  if (!existsSync(repo.workspacePath)) cloneWorkspace(repo);
 
   const boundary = buildLaunchBoundary(
     { owner: OWNER, repo: REPO, cloneUrl: repo.originPath },
@@ -36,10 +39,10 @@ export async function runMergeOrchestrator(workflow: Workflow): Promise<void> {
   );
   const deps: MergeDeps = {
     ...buildDefaultDeps(boundary),
-    mergeWithConflictResolution: (prNumber, headBranch, baseBranch, worktreePath, adwId, logsDir, specPath) =>
+    mergeWithConflictResolution: (prNumber, headBranch, baseBranch, worktreePath, adwId, logsDir, specPath, rerunScenarios) =>
       mergeWithConflictResolution(
         prNumber, forge.providers.codeHost, headBranch, baseBranch, worktreePath, adwId, logsDir, specPath,
-        boundary.gitContext, forge.recordWait,
+        boundary.gitContext, rerunScenarios, forge.recordWait,
       ),
   };
   await executeMerge(workflow.issueNumber, workflow.adwId, boundary.repoId, boundary.gitContext.basePath, deps);

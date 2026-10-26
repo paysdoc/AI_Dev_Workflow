@@ -38,7 +38,7 @@ export interface Forge {
   recordWait(ms: number): Promise<void>;
 }
 
-function strictPort<T extends object>(port: string, implemented: Partial<T>): T {
+export function strictPort<T extends object>(port: string, implemented: Partial<T>): T {
   return new Proxy(implemented, {
     get(target, property, receiver) {
       if (typeof property === 'symbol' || property in target) return Reflect.get(target, property, receiver);

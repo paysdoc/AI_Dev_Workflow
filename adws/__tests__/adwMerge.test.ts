@@ -159,6 +159,7 @@ describe('executeMerge — successful merge', () => {
       'test-adw-id',
       '/logs/test-adw-id',
       '',              // specPath (planFileExists returns false)
+      expect.any(Function),
     );
     expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed', mergeRetryCount: 0 });
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
@@ -183,6 +184,7 @@ describe('executeMerge — successful merge', () => {
       'test-adw-id',
       expect.any(String),
       'specs/issue-42-plan.md',
+      expect.any(Function),
     );
   });
 });
@@ -220,7 +222,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       expect.any(Number), 'feature-issue-530-top-level',
-      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
+      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(Function),
     );
   });
 
@@ -265,7 +267,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(deps.findOrchestratorStatePath).toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       expect.any(Number), 'feature-issue-42-abc',
-      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
+      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(Function),
     );
   });
 });

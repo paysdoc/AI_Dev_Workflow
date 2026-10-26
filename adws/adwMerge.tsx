@@ -22,7 +22,11 @@ const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
+import type { PostMergeScenarioRerun, PostMergeVerdict } from './core/postMergeVerdict';
 import { buildMergeBlockedComment, buildMergeFailureCause } from './forge/mergeBlockedComment';
+import { ParkReason } from './forge/parkComment';
+import { buildPostMergeRerunDeps, rerunScenariosOnMergedBranch, type PostMergeScenarioRun } from './phases/postMergeScenarioRerun';
+import { recordPark } from './phases/workflowPark';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
 import { Platform, type PullRequestSummary, type RepoIdentifier } from '@paysdoc/devplatform';
@@ -52,7 +56,9 @@ export interface MergeDeps {
     adwId: string,
     logsDir: string,
     specPath: string,
+    rerunScenarios: PostMergeScenarioRerun,
   ) => ReturnType<typeof mergeWithConflictResolution>;
+  readonly rerunScenarios: (run: PostMergeScenarioRun) => Promise<PostMergeVerdict>;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string) => void;
   readonly getPlanFilePath: typeof getPlanFilePath;
@@ -181,6 +187,7 @@ export async function executeMerge(
     adwId,
     logsDir,
     specPath,
+    () => deps.rerunScenarios({ issueNumber, adwId, worktreePath, logsDir }),
   );
 
   if (mergeOutcome.success) {
@@ -191,6 +198,13 @@ export async function executeMerge(
       `## ADW Workflow Completed\n\nPR #${prNumber} has been merged successfully.\n\n**ADW ID:** \`${adwId}\``,
     );
     return { outcome: 'completed', reason: 'merged' };
+  }
+
+  // The branch passed on its own and fails combined with the base branch: a person looks first, so no fix loop starts.
+  if (mergeOutcome.postMergeRed) {
+    log(`adwMerge: the scenarios failed on PR #${prNumber}'s branch merged with origin/${baseBranch} — the pull request is not merged`, 'warn');
+    recordPark(adwId, issueNumber, { reason: ParkReason.PostMergeBddRed, prNumber, baseBranch, ...mergeOutcome.postMergeRed }, deps);
+    return { outcome: 'abandoned', reason: 'post_merge_bdd_red' };
   }
 
   // merge_failed escalates to the human-recoverable merge_blocked instead of terminal
@@ -221,7 +235,8 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     fetchPRApprovalState: (prNumber) => providers.codeHost.isPullRequestApproved(prNumber),
     ensureWorktree: (branch, base) => gitCtx.ensureWorktree(branch, base),
     ensureLogsDirectory,
-    mergeWithConflictResolution: (pr, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, providers.codeHost, head, base, wt, id, logs, spec, gitCtx),
+    mergeWithConflictResolution: (pr, head, base, wt, id, logs, spec, rerun) => mergeWithConflictResolution(pr, providers.codeHost, head, base, wt, id, logs, spec, gitCtx, rerun),
+    rerunScenarios: (run) => rerunScenariosOnMergedBranch(run, buildPostMergeRerunDeps(providers.issueTracker)),
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
     commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
     getPlanFilePath,

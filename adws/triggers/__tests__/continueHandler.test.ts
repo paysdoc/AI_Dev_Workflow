@@ -20,7 +20,7 @@ vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 const NOW = new Date('2026-10-04T12:00:00.000Z');
 
 const WAIVABLE = [ParkReason.BaselineRed, ParkReason.BaseServerDown, ParkReason.PreExistingRegression];
-const NOT_WAIVABLE = [ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed, 'a_future_park'];
+const NOT_WAIVABLE = [ParkReason.FixLoopStalled, ParkReason.MissingApplicationType, ParkReason.DeviceBootFailed, ParkReason.PostMergeBddRed, 'a_future_park'];
 const NOT_PARKED_STAGES = [
   'phase_timeout', 'paused', 'paused_auth', 'awaiting_merge', 'merge_blocked',
   'review_failed', 'worktree_lost', 'build_running', 'completed', 'abandoned',
@@ -212,6 +212,26 @@ describe('handleContinueDirective — declines', () => {
     expect(level).toBe('warn');
     expect(message).toContain('#42');
     expect(message).toContain('test-adw-id');
+  });
+});
+
+describe('handleContinueDirective — a park for scenarios that fail on the branch merged with the base branch', () => {
+  const parked = (): AgentState => makeState({ parkReason: 'post_merge_bdd_red', resumeAttempts: 1 });
+
+  it('is not a baseline park, since the failure is the combination of the branch and the base branch, which only a fix clears', () => {
+    expect(decideContinueAction(parked())).toEqual({ kind: 'not_a_baseline_park' });
+    expect(WAIVABLE_PARK_REASONS.has('post_merge_bdd_red')).toBe(false);
+  });
+
+  it('records no waiver and leaves the park as it is, for ## Retry to re-arm', () => {
+    const deps = makeDeps(parked());
+
+    const result = handleContinueDirective(42, [ADW_COMMENT, CONTINUE_COMMENT], deps);
+
+    expect(result).toBe(false);
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('post_merge_bdd_red'), 'info');
   });
 });
 

@@ -136,7 +136,7 @@ describe('parkDirectives — what each directive does for each park', () => {
   it('gives each reason directives of its own', () => {
     const distinct = new Set(REASONS.map(reason => JSON.stringify(parkDirectives(SAMPLE[reason]))));
 
-    expect(distinct.size).toBe(6);
+    expect(distinct.size).toBe(7);
   });
 });
 

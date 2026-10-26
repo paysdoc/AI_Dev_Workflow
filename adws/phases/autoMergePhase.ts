@@ -13,6 +13,7 @@ import {
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
+import { buildPostMergeRerunDeps, rerunScenariosOnMergedBranch } from './postMergeScenarioRerun';
 import type { WorkflowConfig } from './workflowInit';
 
 /** Returns 0 if the URL is absent or unparseable. */
@@ -88,6 +89,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     logsDir,
     specPath,
     gitContext,
+    () => rerunScenariosOnMergedBranch({ issueNumber, adwId, worktreePath, logsDir }, buildPostMergeRerunDeps(repoContext.issueTracker)),
   );
 
   if (!mergeOutcome.success) {

@@ -13,9 +13,9 @@ import { dirname, join } from 'path';
 
 import { commitFileOnBranch, HARNESS_GIT_IDENTITY, realGit } from '../../regression/support/fixtureWorktree.ts';
 
-const SHARED_FILE = 'src/shared.ts';
+export const SHARED_FILE = 'src/shared.ts';
 
-function sharedContents(value: string): string {
+export function sharedContents(value: string): string {
   return `export const shared = '${value}';\n`;
 }
 
@@ -66,7 +66,7 @@ export function createRepoFixture(owner: string, repo: string, baseBranch: strin
 }
 
 /** The branch is off the base branch's first commits and has changed the shared constant; the maintainer is back on the base branch. */
-function pushFeatureBranch(fixture: RepoFixture, branch: string): void {
+export function pushFeatureBranch(fixture: RepoFixture, branch: string): void {
   const { maintainerPath, baseBranch } = fixture;
   realGit(maintainerPath, 'checkout', '-q', '-b', branch);
   commitFileOnBranch(maintainerPath, SHARED_FILE, sharedContents('feature'), 'Change the shared constant');

@@ -6,6 +6,8 @@
 export interface ManifestEdit {
   path: string;
   contents: string;
+  /** Adds the contents to the end of the file instead of replacing it, so that an agent that runs twice changes the worktree twice. */
+  append?: boolean;
 }
 
 export interface ManifestCommit {
@@ -65,7 +67,8 @@ function isStringArray(v: unknown): v is string[] {
 }
 
 function isManifestEdit(v: unknown): v is ManifestEdit {
-  return isRecord(v) && typeof v['path'] === 'string' && typeof v['contents'] === 'string';
+  if (!isRecord(v) || typeof v['path'] !== 'string' || typeof v['contents'] !== 'string') return false;
+  return !('append' in v) || typeof v['append'] === 'boolean';
 }
 
 function isManifestCommit(v: unknown): v is ManifestCommit {

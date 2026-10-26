@@ -14,6 +14,7 @@ vi.mock('../../core/localRepoIdentity', () => ({ readLocalRepoIdentity: vi.fn() 
 import { runClaudeAgentWithCommand } from '../../agents';
 import { readLocalRepoIdentity } from '../../core/localRepoIdentity';
 import { getModelForCommand, getEffortForCommand } from '../../core/modelRouting';
+import type { PostMergeVerdict } from '../../core/postMergeVerdict';
 import { resetFrameworkIdentityMemo } from '../../core/selfHostLaunch';
 import { mergeWithConflictResolution } from '../autoMergeHandler';
 import { makeSpyExec, makeGitContext } from './fixtures/autoMergeHandlerHarness';
@@ -35,14 +36,17 @@ const mockedMergePullRequest = vi.fn<(prNumber: number) => ForgeActionResult>();
 const fakeCodeHost: Pick<CodeHost, 'mergePullRequest'> = { mergePullRequest: mockedMergePullRequest };
 const mockedAgent = vi.mocked(runClaudeAgentWithCommand);
 const noWait = vi.fn<(ms: number) => Promise<void>>();
+const rerun = vi.fn<() => Promise<PostMergeVerdict>>();
 
 beforeEach(() => {
   mockedMergePullRequest.mockReset();
   mockedAgent.mockReset();
   noWait.mockReset();
+  rerun.mockReset();
   mockedMergePullRequest.mockReturnValue({ success: true });
   mockedAgent.mockResolvedValue({ success: true, output: '' });
   noWait.mockResolvedValue(undefined);
+  rerun.mockResolvedValue({ kind: 'green' });
   resetFrameworkIdentityMemo();
   vi.mocked(readLocalRepoIdentity).mockReturnValue({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 });
@@ -52,7 +56,7 @@ describe('mergeWithConflictResolution', () => {
     const { exec } = makeSpyExec('', true);
     const ctx = makeGitContext(exec);
 
-    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(mockedAgent).toHaveBeenCalledWith(
       '/resolve_conflict',
@@ -74,7 +78,7 @@ describe('mergeWithConflictResolution', () => {
   it("starts /resolve_conflict as self-host when the pull request is the framework repository's own", async () => {
     const ctx = makeGitContext(makeSpyExec('', true).exec, 'paysdoc', 'AI_Dev_Workflow');
 
-    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(mockedAgent.mock.calls[0]?.[12]).toEqual({ selfHost: true, adwId: ADW_ID, gitContext: ctx });
   });
@@ -86,20 +90,21 @@ describe('mergeWithConflictResolution', () => {
       .mockReturnValueOnce({ success: false, error: NOT_MERGEABLE })
       .mockReturnValueOnce({ success: true });
 
-    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(result.success).toBe(true);
     expect(mockedMergePullRequest).toHaveBeenCalledTimes(2);
     expect(noWait).toHaveBeenCalledTimes(1);
     expect(noWait).toHaveBeenCalledWith(3000);
     expect(mockedAgent).not.toHaveBeenCalled();
+    expect(rerun).not.toHaveBeenCalled();
   });
 
   it('remote-base-diverged-from-local-worktree: resolveConflictsViaAgent is invoked after sync reveals conflict', async () => {
     const { exec } = makeSpyExec('', true);
     const ctx = makeGitContext(exec);
 
-    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(result.success).toBe(true);
     expect(mockedAgent).toHaveBeenCalledWith(
@@ -124,10 +129,11 @@ describe('mergeWithConflictResolution', () => {
     const ctx = makeGitContext(exec);
     mockedAgent.mockResolvedValue({ success: false, output: 'Agent failed to resolve conflict' });
 
-    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(result).toMatchObject({ success: false, mergeAttempts: 0, conflictResolutionRan: true, localMergeCheck: 'conflicts' });
     expect(mockedAgent).toHaveBeenCalledTimes(MAX_ATTEMPTS);
+    expect(rerun).not.toHaveBeenCalled();
   });
 
   describe('when the local merge check is clean but GitHub refuses the merge', () => {
@@ -140,10 +146,11 @@ describe('mergeWithConflictResolution', () => {
           .mockReturnValueOnce({ success: false, error: staleError })
           .mockReturnValueOnce({ success: true });
 
-        const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+        const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
         expect(result).toMatchObject({ success: true, mergeAttempts: 3, conflictResolutionRan: false, localMergeCheck: 'clean' });
         expect(mockedAgent).not.toHaveBeenCalled();
+        expect(rerun).not.toHaveBeenCalled();
         expect(mockedMergePullRequest).toHaveBeenCalledTimes(3);
         expect(noWait.mock.calls).toEqual([[3000], [6000]]);
       },
@@ -153,7 +160,7 @@ describe('mergeWithConflictResolution', () => {
       const ctx = makeGitContext(makeSpyExec('').exec);
       mockedMergePullRequest.mockReturnValue({ success: false, error: BASE_MODIFIED });
 
-      const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+      const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
       expect(result).toEqual({
         success: false,
@@ -165,6 +172,7 @@ describe('mergeWithConflictResolution', () => {
       expect(mockedMergePullRequest).toHaveBeenCalledTimes(5);
       expect(noWait.mock.calls).toEqual([[3000], [6000], [12000], [24000]]);
       expect(mockedAgent).not.toHaveBeenCalled();
+      expect(rerun).not.toHaveBeenCalled();
     });
 
     it('re-checks the local merge against a fresh fetch of the base branch after every failed merge', async () => {
@@ -174,7 +182,7 @@ describe('mergeWithConflictResolution', () => {
         .mockReturnValueOnce({ success: false, error: BASE_MODIFIED })
         .mockReturnValueOnce({ success: true });
 
-      await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+      await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
       const baseFetches = calls.filter((c) => c.argv[1] === 'fetch' && c.argv[3] === BASE_BRANCH);
       const dryRunMerges = calls.filter((c) => c.argv[1] === 'merge' && c.argv.includes('--no-commit'));
@@ -191,7 +199,7 @@ describe('mergeWithConflictResolution', () => {
           .mockReturnValueOnce({ success: false, error: BASE_MODIFIED })
           .mockReturnValueOnce({ success: true });
 
-        const merging = mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
+        const merging = mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun);
 
         await vi.advanceTimersByTimeAsync(2_999);
         expect(mockedMergePullRequest).toHaveBeenCalledTimes(1);
@@ -222,13 +230,14 @@ describe('mergeWithConflictResolution', () => {
       return { success: true, output: '' };
     });
 
-    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(result).toMatchObject({ success: true, mergeAttempts: 2, conflictResolutionRan: true });
     expect(mockedAgent).toHaveBeenCalledTimes(1);
     expect(mockedAgent.mock.calls[0]?.[0]).toBe('/resolve_conflict');
     expect(mockedMergePullRequest).toHaveBeenCalledTimes(2);
     expect(noWait).not.toHaveBeenCalled();
+    expect(rerun).not.toHaveBeenCalled();
   });
 
   it('treats an unavailable local merge check as stale, not as a conflict, when the base branch cannot be fetched', async () => {
@@ -240,10 +249,11 @@ describe('mergeWithConflictResolution', () => {
     const ctx = makeGitContext(exec);
     mockedMergePullRequest.mockReturnValue({ success: false, error: 'Pull Request has merge conflicts' });
 
-    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    const result = await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(result).toMatchObject({ success: false, mergeAttempts: 5, conflictResolutionRan: false, localMergeCheck: 'unavailable' });
     expect(mockedAgent).not.toHaveBeenCalled();
+    expect(rerun).not.toHaveBeenCalled();
     expect(mockedMergePullRequest).toHaveBeenCalledTimes(5);
   });
 
@@ -251,7 +261,7 @@ describe('mergeWithConflictResolution', () => {
     const { exec, calls } = makeSpyExec('');
     const ctx = makeGitContext(exec);
 
-    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, noWait);
+    await mergeWithConflictResolution(7, fakeCodeHost, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx, rerun, noWait);
 
     expect(calls[0].argv).toEqual(['git', 'fetch', 'origin', HEAD_BRANCH]);
     expect(calls[1].argv).toEqual(['git', 'reset', '--hard', `origin/${HEAD_BRANCH}`]);

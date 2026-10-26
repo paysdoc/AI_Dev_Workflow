@@ -174,6 +174,11 @@ function issueFrom(key: string, raw: unknown, repository: ForgeRepository, comme
   };
 }
 
+/** A REST response nests the branch as `ref`; the body of a create request, which the server stores as it was sent, is the name itself. */
+function branchNameOf(raw: unknown): string {
+  return typeof raw === 'string' ? raw : text(asRecord(raw)['ref']);
+}
+
 function pullRequestStateOf(record: Loose): GhPullRequest['state'] {
   const state = text(record['state']).toUpperCase();
   if (record['merged'] === true || state === 'MERGED') return 'MERGED';
@@ -189,8 +194,8 @@ function pullRequestFrom(key: string, raw: unknown, repository: ForgeRepository,
     title: text(record['title']),
     body: text(record['body']),
     state,
-    headRefName: firstText(record['headRefName'], asRecord(record['head'])['ref']),
-    baseRefName: firstText(record['baseRefName'], asRecord(record['base'])['ref']) || repository.defaultBranch,
+    headRefName: firstText(record['headRefName'], branchNameOf(record['head'])),
+    baseRefName: firstText(record['baseRefName'], branchNameOf(record['base'])) || repository.defaultBranch,
     url: firstText(record['url']) || pullRequestUrl(repository, number),
     mergedAt: state === 'MERGED' ? firstText(record['mergedAt'], record['merged_at']) || EPOCH : null,
     updatedAt: firstText(record['updatedAt'], record['updated_at'], record['mergedAt'], record['merged_at']) || EPOCH,

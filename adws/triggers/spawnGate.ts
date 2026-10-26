@@ -13,7 +13,7 @@ interface IssueSpawnLockRecord {
   readonly startedAt: string;
 }
 
-export function getSpawnLockFilePath(repoInfo: RepoIdentifier, issueNumber: number): string {
+export function getSpawnLockFilePath(repoInfo: Pick<RepoIdentifier, 'owner' | 'repo'>, issueNumber: number): string {
   const fragment = `${repoInfo.owner}_${repoInfo.repo}_issue-${issueNumber}.json`;
   return path.join(AGENTS_STATE_DIR, 'spawn_locks', fragment);
 }
@@ -85,8 +85,23 @@ export function releaseIssueSpawnLock(repoInfo: RepoIdentifier, issueNumber: num
   removeSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
 }
 
-export function readSpawnLockRecord(repoInfo: RepoIdentifier, issueNumber: number): { pid: number; pidStartedAt: string } | null {
+export function readSpawnLockRecord(repoInfo: Pick<RepoIdentifier, 'owner' | 'repo'>, issueNumber: number): { pid: number; pidStartedAt: string } | null {
   const record = readSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
   if (record === null) return null;
   return { pid: record.pid, pidStartedAt: record.pidStartedAt };
+}
+
+/**
+ * Whether another process holds the issue's lock and is still the process that took it: every orchestrator, the merge
+ * orchestrator included, holds it for its whole life. The caller's own pid does not count: the cron holds a lock briefly
+ * while it evaluates a candidate, and a lock it leaked must not shield an orphan forever.
+ */
+export function isIssueLockHeldByLiveProcess(
+  repoInfo: Pick<RepoIdentifier, 'owner' | 'repo'>,
+  issueNumber: number,
+  ownPid: number = process.pid,
+): boolean {
+  const holder = readSpawnLockRecord(repoInfo, issueNumber);
+  if (holder === null || holder.pid === ownPid || !holder.pidStartedAt) return false;
+  return isProcessLive(holder.pid, holder.pidStartedAt);
 }

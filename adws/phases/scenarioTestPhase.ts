@@ -35,10 +35,17 @@ import { requireApplicationProfile } from './applicationTypeGate';
 import { readDeclaredDevServer } from './declaredDevServer';
 import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
-import { parkWorkflow } from './workflowPark';
+import { parkWorkflow, type ParkConfig } from './workflowPark';
 
 const DEV_SERVER_LOG_FILE = 'dev-server.log';
 const EMULATOR_LOG_FILE = 'android-emulator.log';
+
+/** The fields the phase and its helpers read, so that a run without a `WorkflowConfig` can assemble them. */
+export type ScenarioTestPhaseConfig = Pick<
+  WorkflowConfig,
+  'adwId' | 'issueNumber' | 'orchestratorStatePath' | 'worktreePath' | 'applicationUrl' | 'logsDir' | 'projectConfig' | 'applicationProfile' | 'ctx'
+> &
+  Pick<ParkConfig, 'repoContext'>;
 
 export interface ScenarioTestPhaseDeps {
   readonly readDeclaredDevServer: typeof readDeclaredDevServer;
@@ -58,7 +65,7 @@ export interface ScenarioTestPhaseResult {
 const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices, park: parkWorkflow };
 
 interface PhaseRun {
-  readonly config: WorkflowConfig;
+  readonly config: ScenarioTestPhaseConfig;
   readonly startedAt: number;
   readonly modelUsage: ModelUsageMap;
 }
@@ -207,7 +214,7 @@ function deviceRequest({ config }: PhaseRun, deviceSource: DeviceSource): Device
  * dev server have been removed: no scenario ran, the problem is the host's, and the phase does not return.
  */
 export async function executeScenarioTestPhase(
-  config: WorkflowConfig,
+  config: ScenarioTestPhaseConfig,
   deps: Partial<ScenarioTestPhaseDeps> = {},
 ): Promise<ScenarioTestPhaseResult> {
   const lifecycle: ScenarioTestPhaseDeps = { ...DEFAULT_DEPS, ...deps };

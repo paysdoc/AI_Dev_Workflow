@@ -1,0 +1,85 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"Post-merge smoke stub: the prompt opened with no command this manifest answers.\\n\"}]\n" }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The implementation plan for issue 110110 was written.\\n\"}]\n" },
+        { "path": "specs/issue-110110-adw-post-merge-smoke-110110-sdlc_planner-orders.md", "contents": "# Implementation Plan: orders\n\n## Steps\n1. Add src/orders.ts\n2. Refuse the orders over the limit\n" }
+      ]
+    },
+    "/scenario_writer": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": "features/feature-110110.feature", "contents": "@adw-110110\nFeature: Orders\n\n  @adw-110110\n  Scenario: Orders over the limit are refused\n    Given an order over the limit\n    When it is placed\n    Then it is refused\n" }
+      ]
+    },
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n" }
+      ]
+    },
+    "/implement-tdd": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The plan was implemented.\\n\"}]\n" },
+        { "path": "src/orders.ts", "contents": "export const ORDER_LIMIT = 10;\n\nexport function isOverTheLimit(quantity: number): boolean {\n  return quantity > ORDER_LIMIT;\n}\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/resolve_failed_scenario": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The scenario was fixed.\\n\"}]\n" },
+        { "path": "fixes/orders-over-the-limit-are-refused.txt", "contents": "Orders over the limit are refused again.\n" }
+      ]
+    },
+    "/validate_scenario_fidelity": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"aligned\\\":true,\\\"mismatches\\\":[],\\\"summary\\\":\\\"The scenarios still describe the issue.\\\"}\"}]\n" }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n" }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"Documentation written.\\napp_docs/feature-post-merge-smoke-110110-orders.md\\n\"}]\n" },
+        { "path": "app_docs/feature-post-merge-smoke-110110-orders.md", "contents": "# Feature: orders\n\nThe document phase wrote this page.\n", "append": true }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"title\\\": \\\"feat: #110110 - Issue 110110\\\", \\\"body\\\": \\\"Closes #110110\\\\nImplements #110110\\\\n\\\\nADW tracking ID: post-merge-smoke-110110\\\"}\"}]\n" }
+      ]
+    }
+  }
+}

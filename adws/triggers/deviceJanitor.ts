@@ -1,7 +1,8 @@
 /**
  * Removes the emulators and simulators that dead workflows left behind. A device named for an ADW ID is removed when that
  * ADW ID's orchestrator is not running and its worktree is outside the dev-server janitor's grace period; a device of a live
- * workflow, of a worktree inside the grace period, or not named for an ADW ID is never touched.
+ * workflow, of a worktree inside the grace period, or not named for an ADW ID is never touched. An orchestrator is running when
+ * its pid is live or when a live process holds the lock of its issue.
  */
 
 import * as path from 'path';
@@ -26,6 +27,8 @@ export interface DeviceJanitorDeps {
   devices: Partial<DeviceInventoryDeps>;
   readTopLevelState: (adwId: string) => AgentState | null;
   isAgentProcessRunning: (adwId: string) => boolean;
+  /** Whether a process other than the janitor's holds the issue's spawn lock and is still the process that took it. */
+  isIssueLockHeldByLiveProcess: (owner: string, repo: string, issueNumber: number) => boolean;
   getWorktreeAgeMs: (worktreePath: string) => number;
   log: (message: string, level?: LogLevel) => void;
 }
@@ -75,10 +78,20 @@ function describeWorktree(worktreePath: string | null, ageMs: number): string {
   return `its worktree ${worktreePath} is ${minutes(ageMs)} minutes old, past the ${minutes(JANITOR_GRACE_PERIOD_MS)}-minute grace period`;
 }
 
+/**
+ * The merge orchestrator holds its issue's spawn lock for its whole life, and re-runs the scenarios on the merged branch
+ * after the orchestrator that the state names has exited, so the lock says that the devices of the workflow are wanted.
+ */
+function holdsLiveIssueLock(state: AgentState | null, deps: DeviceJanitorDeps): boolean {
+  if (!state?.repoIdentity || typeof state.issueNumber !== 'number') return false;
+  return deps.isIssueLockHeldByLiveProcess(state.repoIdentity.owner, state.repoIdentity.repo, state.issueNumber);
+}
+
 /** Why the devices of an ADW ID are to be removed; null when they are to be left alone. */
 function reapReason(adwId: string, deps: DeviceJanitorDeps, targetReposDir: string): string | null {
-  const orchestratorAlive = deps.isAgentProcessRunning(adwId);
-  const worktreePath = worktreePathOf(deps.readTopLevelState(adwId), targetReposDir);
+  const state = deps.readTopLevelState(adwId);
+  const orchestratorAlive = deps.isAgentProcessRunning(adwId) || holdsLiveIssueLock(state, deps);
+  const worktreePath = worktreePathOf(state, targetReposDir);
   // A worktree that cannot be read is very old, as the dev-server janitor reads one.
   const ageMs = worktreePath === null ? Infinity : deps.getWorktreeAgeMs(worktreePath);
   if (!shouldReapDevices(orchestratorAlive, ageMs, JANITOR_GRACE_PERIOD_MS)) return null;
@@ -139,6 +152,7 @@ const defaultDeps: DeviceJanitorDeps = {
   devices: {},
   readTopLevelState: AgentStateManager.readTopLevelState,
   isAgentProcessRunning,
+  isIssueLockHeldByLiveProcess: DEV_SERVER_JANITOR_DEPS.isIssueLockHeldByLiveProcess,
   getWorktreeAgeMs: DEV_SERVER_JANITOR_DEPS.getWorktreeAgeMs,
   log,
 };

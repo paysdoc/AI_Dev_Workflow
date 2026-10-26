@@ -15,6 +15,7 @@ import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, buildLaunchBoundary, type LogL
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
+import { isIssueLockHeldByLiveProcess } from './spawnGate';
 import { killProcessesInDirectory } from '@paysdoc/devplatform/git';
 import type { AgentState } from '../types/agentTypes';
 
@@ -24,6 +25,9 @@ export const JANITOR_GRACE_PERIOD_MS = 30 * 60 * 1000;
 export interface WorktreeCandidate {
   worktreePath: string;
   dirName: string;
+  /** The repository the worktree belongs to, which names its issues' spawn locks. */
+  owner: string;
+  repo: string;
 }
 
 export interface JanitorDeps {
@@ -38,6 +42,8 @@ export interface JanitorDeps {
   /** Read top-level workflow state for an adwId (alias for AgentStateManager.readTopLevelState). */
   readTopLevelStateRaw: (adwId: string) => AgentState | null;
   isAgentProcessRunning: (adwId: string) => boolean;
+  /** Whether a process other than the janitor's holds the issue's spawn lock and is still the process that took it. */
+  isIssueLockHeldByLiveProcess: (owner: string, repo: string, issueNumber: number) => boolean;
   getWorktreeAgeMs: (worktreePath: string) => number;
   hasProcessesInDirectory: (directoryPath: string) => boolean;
   /** Kill all processes holding files in the given directory (SIGTERM → SIGKILL). */
@@ -144,7 +150,7 @@ export function discoverTargetRepoWorktrees(deps: JanitorDeps, targetReposDir: s
     for (const repo of repos) {
       const repoPath = path.join(ownerPath, repo);
       const worktreePaths = discoverRepoWorktrees(owner, repo, repoPath, deps);
-      candidates.push(...worktreePaths.map(wtPath => ({ worktreePath: wtPath, dirName: path.basename(wtPath) })));
+      candidates.push(...worktreePaths.map(wtPath => ({ worktreePath: wtPath, dirName: path.basename(wtPath), owner, repo })));
     }
   }
 
@@ -208,6 +214,7 @@ const defaultDeps: JanitorDeps = {
   readTopLevelStateRaw: AgentStateManager.readTopLevelState,
   listAdwStateDirs: defaultListAdwStateDirs,
   isAgentProcessRunning,
+  isIssueLockHeldByLiveProcess: (owner, repo, issueNumber) => isIssueLockHeldByLiveProcess({ owner, repo }, issueNumber),
   getWorktreeAgeMs: defaultGetWorktreeAgeMs,
   hasProcessesInDirectory: defaultHasProcessesInDirectory,
   killProcessesInDirectory,
@@ -216,6 +223,42 @@ const defaultDeps: JanitorDeps = {
 
 /** Exported frozen so tests and step definitions can spread it and override only the network- and process-touching members. */
 export const DEFAULT_DEPS: JanitorDeps = Object.freeze(defaultDeps);
+
+interface WorkflowLiveness {
+  readonly isNonTerminal: boolean;
+  readonly orchestratorAlive: boolean;
+}
+
+/** What the freshest workflow recorded for the issue says of the processes in its worktree; a worktree no workflow is recorded for has neither. */
+function workflowLiveness(issueNumber: number | null, deps: JanitorDeps): WorkflowLiveness {
+  const adwId = issueNumber === null ? null : findActiveAdwIdForIssue(issueNumber, deps);
+  if (adwId === null) return { isNonTerminal: false, orchestratorAlive: false };
+
+  const stage = deps.readTopLevelState(adwId)?.workflowStage;
+  return { isNonTerminal: stage ? isActiveStage(stage) : false, orchestratorAlive: deps.isAgentProcessRunning(adwId) };
+}
+
+/**
+ * Every orchestrator, the merge orchestrator included, holds its issue's spawn lock for its whole life. The merge orchestrator
+ * runs its dev server and scenarios in a worktree whose stage is awaiting_merge, which is no active stage, so the lock is what
+ * says that the processes in the worktree are wanted. It is decided before the stage, the liveness and the age are read.
+ */
+function sweepWorktree({ worktreePath, dirName, owner, repo }: WorktreeCandidate, deps: JanitorDeps): void {
+  if (!deps.hasProcessesInDirectory(worktreePath)) return;
+
+  const issueNumber = extractIssueNumberFromDirName(dirName);
+  if (issueNumber !== null && deps.isIssueLockHeldByLiveProcess(owner, repo, issueNumber)) {
+    deps.log(`Janitor: leaving ${worktreePath} alone — a running orchestrator holds the spawn lock of issue #${issueNumber}`, 'info');
+    return;
+  }
+
+  const { isNonTerminal, orchestratorAlive } = workflowLiveness(issueNumber, deps);
+  const ageMs = deps.getWorktreeAgeMs(worktreePath);
+  if (!shouldCleanWorktree(isNonTerminal, orchestratorAlive, ageMs, JANITOR_GRACE_PERIOD_MS)) return;
+
+  deps.log(`Janitor: cleaning orphaned processes in ${worktreePath}`, 'info');
+  deps.killProcessesInDirectory(worktreePath);
+}
 
 export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS, targetReposDir: string = TARGET_REPOS_DIR): Promise<void> {
   const candidates = discoverTargetRepoWorktrees(deps, targetReposDir);
@@ -226,36 +269,11 @@ export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS, targetRep
 
   deps.log(`Janitor: scanning ${candidates.length} worktree(s)`, 'info');
 
-  for (const { worktreePath, dirName } of candidates) {
+  for (const candidate of candidates) {
     try {
-      if (!deps.hasProcessesInDirectory(worktreePath)) {
-        continue;
-      }
-
-      const issueNumber = extractIssueNumberFromDirName(dirName);
-      const adwId = issueNumber !== null ? findActiveAdwIdForIssue(issueNumber, deps) : null;
-
-      let isNonTerminal = false;
-      let orchestratorAlive = false;
-
-      if (adwId !== null) {
-        const state = deps.readTopLevelState(adwId);
-        if (state?.workflowStage) {
-          isNonTerminal = isActiveStage(state.workflowStage);
-        }
-        orchestratorAlive = deps.isAgentProcessRunning(adwId);
-      }
-
-      const ageMs = deps.getWorktreeAgeMs(worktreePath);
-
-      if (!shouldCleanWorktree(isNonTerminal, orchestratorAlive, ageMs, JANITOR_GRACE_PERIOD_MS)) {
-        continue;
-      }
-
-      deps.log(`Janitor: cleaning orphaned processes in ${worktreePath}`, 'info');
-      deps.killProcessesInDirectory(worktreePath);
+      sweepWorktree(candidate, deps);
     } catch (err) {
-      deps.log(`Janitor: error processing ${worktreePath}: ${err}`, 'warn');
+      deps.log(`Janitor: error processing ${candidate.worktreePath}: ${err}`, 'warn');
     }
   }
 }

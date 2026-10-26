@@ -1,7 +1,9 @@
 /**
  * Five recovery paths, decided by decideRetryAction:
  *   merge_blocked  → awaiting_merge  (clears mergeRetryCount)
- *   human_gated    → phase_timeout   (re-arms resumeAttempts to 0)
+ *   human_gated    → phase_timeout   (re-arms resumeAttempts to 0; whatever the park reason, so a park for
+ *                                      post_merge_bdd_red resumes the same adwId, and the resumed run
+ *                                      re-runs the scenario fix loop and the review)
  *   review_failed  → phase_timeout   (re-arms resumeAttempts to 0; review re-runs)
  *   worktree_lost  → phase_timeout   (re-arms resumeAttempts to 0; the resumed run parks
  *                                      again while the plan is still missing)
@@ -121,6 +123,8 @@ function logRetryNoop(issueNumber: number, adwId: string, stage: string | undefi
   log(`Retry #${issueNumber}: adwId=${adwId} not human-gated (stage=${stage ?? 'none'}), ignoring`);
 }
 
+const parkReasonOf = (state: AgentState): string => (state.parkReason ? ` (park reason: ${state.parkReason})` : '');
+
 /** Returns true only when a reset, re-arm, or resume was performed. */
 export function handleRetryDirective(
   issueNumber: number,
@@ -149,7 +153,7 @@ export function handleRetryDirective(
 
     case 'rearm_phase_timeout':
       deps.writeTopLevelState(adwId, { workflowStage: 'phase_timeout', resumeAttempts: 0 });
-      log(`Retry #${issueNumber}: re-armed adwId=${adwId} ${action.from} → phase_timeout, cleared resume counter`, 'success');
+      log(`Retry #${issueNumber}: re-armed adwId=${adwId} ${action.from} → phase_timeout, cleared resume counter${parkReasonOf(state)}`, 'success');
       return true;
 
     case 'resume_paused':
