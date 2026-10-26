@@ -5,6 +5,16 @@
  * because the environment ADW hands a program is ADW's own and carries nothing of the harness.
  */
 
+/** What the scenario command leaves at `ADW_JUNIT_REPORT_PATH`. */
+export enum ScenarioReport {
+  /** A report with one case for each scenario that carries the tag. */
+  Cases = 'cases',
+  /** No file. */
+  None = 'none',
+  /** A report that holds no case. */
+  Empty = 'empty',
+}
+
 export interface ToolConfig {
   /** The file every run of `npm`, `npx` or the scenario command appends one JSON line to. */
   readonly callsFile: string;
@@ -16,6 +26,8 @@ export interface ToolConfig {
   readonly playwrightExitCode: number;
   /** What the scenario command exits with, whatever its report says. */
   readonly scenarioExitCode: number;
+  /** What the scenario command leaves at the report path ADW gives it. */
+  readonly scenarioReport: ScenarioReport;
   /** The path `npx playwright test` asks the dev server for, before and after it holds. */
   readonly probePath: string;
   readonly holdMs: number;
@@ -107,6 +119,13 @@ function scenariosTagged(tag) {
   return names.length > 0 ? names : ['A scenario tagged @' + tag];
 }
 
+function saveReport(reportPath, cases, failures) {
+  var report = '<?xml version="1.0" encoding="UTF-8"?>\\n<testsuites tests="' + cases.length + '" failures="' + failures + '">' +
+    '<testsuite name="stand-in" tests="' + cases.length + '" failures="' + failures + '">' + cases.join('') + '</testsuite></testsuites>\\n';
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, report);
+}
+
 function writeReport(reportPath, proofDir, tag, failing) {
   var cases = scenariosTagged(tag).map(function (name, index) {
     var failure = failing && index === 0 ? '<failure message="the stand-in was told to fail this scenario"/>' : '';
@@ -119,11 +138,7 @@ function writeReport(reportPath, proofDir, tag, failing) {
     }
     return '<testcase name="' + xml(name) + '" classname="stand-in.feature" time="0.01">' + failure + attachment + '</testcase>';
   });
-  var failures = failing ? 1 : 0;
-  var report = '<?xml version="1.0" encoding="UTF-8"?>\\n<testsuites tests="' + cases.length + '" failures="' + failures + '">' +
-    '<testsuite name="stand-in" tests="' + cases.length + '" failures="' + failures + '">' + cases.join('') + '</testsuite></testsuites>\\n';
-  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
-  fs.writeFileSync(reportPath, report);
+  saveReport(reportPath, cases, failing ? 1 : 0);
 }
 
 function writeLockfile() {
@@ -201,9 +216,14 @@ function npx() {
   process.exit(0);
 }
 
+function leaveReport(reportPath) {
+  if (CONFIG.scenarioReport === '${ScenarioReport.Cases}') writeReport(reportPath, process.env.ADW_PROOF_DIR, args[0], CONFIG.failingTags.indexOf(args[0]) !== -1);
+  if (CONFIG.scenarioReport === '${ScenarioReport.Empty}') saveReport(reportPath, [], 0);
+}
+
 function scenarioCommand() {
   record({ tag: args[0] });
-  writeReport(process.env.ADW_JUNIT_REPORT_PATH, process.env.ADW_PROOF_DIR, args[0], CONFIG.failingTags.indexOf(args[0]) !== -1);
+  leaveReport(process.env.ADW_JUNIT_REPORT_PATH);
   process.exit(CONFIG.scenarioExitCode);
 }
 

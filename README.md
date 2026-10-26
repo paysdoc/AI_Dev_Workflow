@@ -1138,6 +1138,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── featureScenarioIndex.lookup.test.ts
 │   │   ├── featureScenarioIndex.test.ts
 │   │   ├── imagePlatform.test.ts
+│   │   ├── prProofPublisher.noReport.test.ts
 │   │   ├── prProofPublisher.publish.test.ts
 │   │   ├── prProofPublisher.test.ts
 │   │   ├── proofArtifactHarvester.test.ts
