@@ -1,6 +1,7 @@
 /**
- * Contract: call acquireOrchestratorLock immediately after initializeWorkflow returns.
- * Call releaseOrchestratorLock in a finally block on normal exit.
+ * initializeWorkflow and initializePRReviewWorkflow take the issue's spawn lock (claimIssueSpawnLock) before they write
+ * any state, and exit 0 when it is refused. runWithOrchestratorLifecycle then runs under that lock, takes it itself only
+ * for a config that came through neither, and releases it in a finally block on normal exit.
  *
  * Abnormal-exit handlers (handleWorkflowError, handleWorkflowDiscarded,
  * handleRateLimitPause) call process.exit synchronously — the finally block
@@ -16,6 +17,9 @@ import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { startHeartbeat, stopHeartbeat } from '../core/heartbeat';
 import { AgentStateManager } from '../core/agentState';
 import { HEARTBEAT_TICK_INTERVAL_MS } from '../core/config';
+import { log } from '../core/logger';
+import { getProcessStartTime } from '../core/processLiveness';
+import type { AgentIdentifier } from '../types/agentTypes';
 
 export function acquireOrchestratorLock(config: WorkflowConfig): boolean {
   return acquireIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber, process.pid);
@@ -52,6 +56,56 @@ async function retryAcquire(repoId: RepoIdentifier, issueNumber: number, wait: L
   return false;
 }
 
+export interface SpawnLockClaim {
+  readonly repoId: RepoIdentifier;
+  readonly issueNumber: number;
+  /** Null only for a manual launch that has not resolved its adwId yet; its refusal reaches the console alone, and it counts no resume. */
+  readonly adwId: string | null;
+  readonly orchestratorName: AgentIdentifier;
+}
+
+function spawnLockRefusal(issueNumber: number, holderPid?: number): string {
+  return `Spawn lock for issue #${issueNumber} is held by pid ${holderPid ?? 'unknown'}; exiting without running a phase`;
+}
+
+function recordSpawnLockRefusal({ repoId, issueNumber, adwId, orchestratorName }: SpawnLockClaim): void {
+  const message = spawnLockRefusal(issueNumber, readSpawnLockRecord(repoId, issueNumber)?.pid);
+  if (adwId === null) {
+    log(message, 'warn');
+    return;
+  }
+  AgentStateManager.appendLog(AgentStateManager.initializeState(adwId, orchestratorName), message);
+}
+
+// Only the launch that holds the lock resumes the workflow, so this is where a resume is counted, once.
+function countResumeAttempt(adwId: string): void {
+  const state = AgentStateManager.readTopLevelState(adwId);
+  if (state?.workflowStage !== 'phase_timeout') return;
+  AgentStateManager.writeTopLevelState(adwId, { resumeAttempts: (state.resumeAttempts ?? 0) + 1 });
+}
+
+/** True only for the record acquireIssueSpawnLock writes for this process, so a reused pid does not count. */
+function holdsIssueSpawnLock(repoId: RepoIdentifier, issueNumber: number): boolean {
+  const record = readSpawnLockRecord(repoId, issueNumber);
+  return record?.pid === process.pid && record.pidStartedAt === (getProcessStartTime(process.pid) ?? '');
+}
+
+/**
+ * Takes the issue's spawn lock under this process, retrying per `wait` (default: no retry), and counts the resume when
+ * it holds the lock of a workflow stopped at phase_timeout. Called before the launch writes any state, so a launch
+ * refused here has written only the refusal to its execution log: the holder's pid, stage and resume budget stay as they were.
+ */
+export async function claimIssueSpawnLock(claim: SpawnLockClaim, wait: LockWait = SINGLE_ATTEMPT): Promise<boolean> {
+  const { repoId, issueNumber, adwId } = claim;
+  const acquired = acquireIssueSpawnLock(repoId, issueNumber, process.pid) || await retryAcquire(repoId, issueNumber, wait);
+  if (!acquired) {
+    recordSpawnLockRefusal(claim);
+    return false;
+  }
+  if (adwId !== null) countResumeAttempt(adwId);
+  return true;
+}
+
 /**
  * Runs fn wrapped in the full orchestrator lifecycle:
  * lock-acquire → heartbeat-start → fn → heartbeat-stop → lock-release.
@@ -59,6 +113,7 @@ async function retryAcquire(repoId: RepoIdentifier, issueNumber: number, wait: L
  * Returns false if the lock was not acquired (caller should log a warning and process.exit(0));
  * the refusal is also written to the orchestrator's execution log, naming the holder.
  * A refused lock is retried per `wait` (default: no retry) before the refusal is logged.
+ * A lock this process already holds, as both initialisers leave it, counts as acquired.
  * Returns true on normal completion (phases ran, lock released).
  *
  * NOTE: if fn calls process.exit() internally (via handleWorkflowError), the finally block
@@ -70,13 +125,12 @@ export async function runWithOrchestratorLifecycle(
   wait: LockWait = SINGLE_ATTEMPT,
 ): Promise<boolean> {
   const repoId = resolveWorkflowRepoId(config);
-  const acquired = acquireIssueSpawnLock(repoId, config.issueNumber, process.pid) || await retryAcquire(repoId, config.issueNumber, wait);
+  const acquired = holdsIssueSpawnLock(repoId, config.issueNumber)
+    || acquireIssueSpawnLock(repoId, config.issueNumber, process.pid)
+    || await retryAcquire(repoId, config.issueNumber, wait);
   if (!acquired) {
     const holder = readSpawnLockRecord(repoId, config.issueNumber);
-    AgentStateManager.appendLog(
-      config.orchestratorStatePath,
-      `Spawn lock for issue #${config.issueNumber} is held by pid ${holder?.pid ?? 'unknown'}; exiting without running a phase`,
-    );
+    AgentStateManager.appendLog(config.orchestratorStatePath, spawnLockRefusal(config.issueNumber, holder?.pid));
     return false;
   }
   const heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);

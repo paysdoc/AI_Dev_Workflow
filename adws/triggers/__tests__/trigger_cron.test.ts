@@ -584,6 +584,69 @@ describe('checkAndTrigger — the takeover decision for each candidate', () => {
   });
 });
 
+describe('checkAndTrigger — a take-over the cron launched a moment ago', () => {
+  const BOUNDARY = {
+    repoId: { owner: 'test-owner', repo: 'test-repo' },
+    providers: { issueTracker: { listIssues: () => [] }, codeHost: {} },
+  } as unknown as LaunchBoundary;
+  const takeOver = (issueNumber: number): CandidateDecision => ({ kind: 'take_over_adwId', adwId: `adw-${issueNumber}`, derivedStage: 'phase_timeout' });
+
+  function pollCandidates(...issueNumbers: number[]): void {
+    vi.mocked(filterEligibleIssues).mockReturnValueOnce({
+      eligible: issueNumbers.map((issueNumber) => ({
+        issue: { number: issueNumber, body: '', comments: [], createdAt: '', updatedAt: '', labels: [] },
+        action: 'spawn' as const,
+        adwId: `adw-${issueNumber}`,
+      })),
+      filteredAnnotations: [],
+      overlapDeferrals: [],
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(spawnDetached).mockReset();
+    vi.mocked(evaluateCandidate).mockReset();
+    vi.mocked(checkIssueEligibility).mockResolvedValue({ eligible: true });
+  });
+
+  it('is left alone on the next poll while the orchestrator it launched is still running, so the issue is neither evaluated nor launched twice', async () => {
+    vi.mocked(evaluateCandidate).mockReturnValue(takeOver(9611));
+    vi.mocked(spawnDetached).mockReturnValue(process.pid);
+
+    pollCandidates(9611);
+    await checkAndTrigger(BOUNDARY);
+    pollCandidates(9611);
+    await checkAndTrigger(BOUNDARY);
+
+    expect(spawnDetached).toHaveBeenCalledTimes(1);
+    expect(evaluateCandidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('is taken over again on the next poll when the launch left no process to wait for', async () => {
+    vi.mocked(evaluateCandidate).mockReturnValue(takeOver(9612));
+
+    pollCandidates(9612);
+    await checkAndTrigger(BOUNDARY);
+    pollCandidates(9612);
+    await checkAndTrigger(BOUNDARY);
+
+    expect(spawnDetached).toHaveBeenCalledTimes(2);
+  });
+
+  it('defers only the issue it launched for, and still takes over the other candidates of that poll', async () => {
+    vi.mocked(evaluateCandidate).mockImplementation(({ issueNumber }) => takeOver(issueNumber));
+    vi.mocked(spawnDetached).mockReturnValue(process.pid);
+
+    pollCandidates(9613);
+    await checkAndTrigger(BOUNDARY);
+    pollCandidates(9613, 9614);
+    await checkAndTrigger(BOUNDARY);
+
+    expect(spawnDetached).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(spawnDetached).mock.calls[1][1]).toContain('9614');
+  });
+});
+
 describe('checkAndTrigger — the ## Continue directive scan', () => {
   const ADW_COMMENT = '**ADW ID:** `adw-parked`';
 

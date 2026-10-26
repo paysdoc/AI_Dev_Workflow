@@ -1,6 +1,7 @@
 @regression @surface
 Feature: adwBuild — buildPhase — edge: missing lock (acquired and released)
 
+  @adw-1105
   Scenario: build orchestrator's lifecycle holds the spawn-gate lock for the issue while it runs and releases it afterwards
     Given an issue 1005 exists in the mock issue tracker
     And no spawn lock exists for issue 1005

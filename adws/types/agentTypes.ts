@@ -249,9 +249,9 @@ export interface AgentState {
    */
   mergeRetryCount?: number;
   /**
-   * Resume-attempt counter for the bounded resume cap. Incremented on each automatic
-   * resume of a `resumable` stage (`phase_timeout`); escalates to `human_gated` at
-   * `MAX_RESUME_ATTEMPTS`; cleared (re-armed) on `## Retry`.
+   * Resume-attempt counter for the bounded resume cap. Incremented by the launch that takes
+   * the issue's spawn lock when it resumes a `phase_timeout` workflow; the takeover handler
+   * escalates to `human_gated` at `MAX_RESUME_ATTEMPTS`; cleared (re-armed) on `## Retry`.
    */
   resumeAttempts?: number;
   /** A `ParkReason` value: the park the workflow waits in. Absent once a run starts, since a starting run is no longer parked. */

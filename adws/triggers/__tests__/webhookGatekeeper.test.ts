@@ -36,7 +36,7 @@ vi.mock('../../core/agentState', () => ({
   AgentStateManager: { readTopLevelState: vi.fn(() => null) },
 }));
 
-import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
+import { classifyAndSpawnWorkflow, closeAbandonedDependents, spawnDetached } from '../webhookGatekeeper';
 import { parseDependencies } from '../issueDependencies';
 import { classifyIssueForTrigger } from '../../core/issueClassifier';
 import { Platform } from '@paysdoc/devplatform';
@@ -193,5 +193,21 @@ describe('closeAbandonedDependents — tracker routing', () => {
     } as unknown as Pick<IssueTracker, 'listIssues' | 'closeIssue'>;
 
     await expect(closeAbandonedDependents(7, tracker)).resolves.not.toThrow();
+  });
+});
+
+describe('spawnDetached', () => {
+  beforeEach(() => {
+    spawnMock.mockClear();
+  });
+
+  it('returns the pid of the process it spawned, so a caller can tell later whether the launch is still running', () => {
+    spawnMock.mockReturnValueOnce({ pid: 31634, unref: () => {} } as never);
+
+    expect(spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', '148'])).toBe(31634);
+  });
+
+  it('returns undefined when the spawn gave the process no pid', () => {
+    expect(spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', '148'])).toBeUndefined();
   });
 });

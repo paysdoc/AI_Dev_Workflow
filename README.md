@@ -894,6 +894,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── lostPlanGate.test.ts  # planCreatedByEarlierRun truth table; parkIfPlanLost parks a resumed workflow as worktree_lost or returns
+│   │   ├── orchestratorLock.claim.test.ts  # claimIssueSpawnLock, and the lifecycle under a lock this process already holds
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── planPhaseCommit.test.ts
@@ -903,6 +904,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── preExistingRegressionGate.helpers.ts  # Shared helpers for the pre-existing regression gate tests
 │   │   ├── preExistingRegressionGate.test.ts
 │   │   ├── prReviewCompletion.test.ts
+│   │   ├── prReviewPhase.helpers.ts  # Shared helpers for the PR-review-phase tests
+│   │   ├── prReviewPhase.spawnLock.test.ts  # initializePRReviewWorkflow takes the issue's spawn lock before it records itself as the owner
 │   │   ├── prReviewPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── promotionRotAdvisory.test.ts
@@ -968,7 +971,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init) — propagateSecret takes a CodeHost (defaulting to config.repoContext?.codeHost) and calls setSecret; no repoContext means the secret is recorded skipped with a warning, not a construction attempt (#796)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── lostPlanGate.ts  # Parks a resumed workflow whose plan went with its removed worktree (worktree_lost); planCreatedByEarlierRun, parkIfPlanLost
-│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
+│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper); claimIssueSpawnLock takes it before init writes any state and counts a phase_timeout resume
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
@@ -1032,6 +1035,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── strandedStartingRecovery.test.ts
 │   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
+│   │   ├── cronLaunchLedger.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
@@ -1083,6 +1087,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
+│   ├── cronLaunchLedger.ts  # The takeover launches this cron process made, by issue, so the next poll does not launch a second orchestrator while the first is still starting up and has not yet taken the spawn lock
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in ADW-managed (.adw-marked) target repo worktrees
 │   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
