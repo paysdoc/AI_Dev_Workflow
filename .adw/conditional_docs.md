@@ -276,7 +276,7 @@
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
-    - When a build never ends after the plan is done, or working on the `BUILD_COMPLETE` completion signal (`reportsBuildComplete`, the continuation prompt's `## Completion Check` and `## Scope` sections, a stopped agent that reported completion)
+    - When a build never ends after the plan is done, or working on the `BUILD_COMPLETE` completion signal (`reportsBuildComplete`, the continuation prompt's `## Completion Check`, `## Scope` and `## Verification` sections, the prompt scope blocks pinned by `buildPromptsScope.test.ts`, a stopped agent that reported completion)
     - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
     - When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume
   - Decisions:
@@ -284,6 +284,7 @@
     - 0024
     - 0047
     - 0056
+    - 0066
 
 - app_docs/feature-9gjajh-worktree-and-vcs.md
   - Owns:
@@ -961,6 +962,7 @@
     - When working on `planAgent.ts`, `alignmentAgent.ts`, `buildAgent.ts`, or `installAgent.ts`
   - Decisions:
     - 0024
+    - 0066
 
 - app_docs/feature-9gjajh-pr-and-document-agents.md
   - Owns:

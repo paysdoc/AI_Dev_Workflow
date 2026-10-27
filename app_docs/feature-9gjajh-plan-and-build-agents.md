@@ -38,3 +38,4 @@ All four agents delegate configuration (model selection, effort level) to `getMo
 ## Decisions
 
 - [ADR-0024](../docs/adr/0024-tdd-in-build-phase-single-pass-alignment.md) — TDD in the build phase and single-pass plan-scenario alignment
+- [ADR-0066](../docs/adr/0066-build-agents-implement-the-plan-and-nothing-else.md) — Build agents implement the plan and nothing else: no refactor phase, bounded verification, declared gaps only
