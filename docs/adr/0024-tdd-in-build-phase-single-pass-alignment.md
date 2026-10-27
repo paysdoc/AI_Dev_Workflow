@@ -20,7 +20,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-09-29"
 supersedes: []
-superseded-by: ["0031"]
+superseded-by: ["0031", "0066"]
 ---
 
 # TDD in the build phase and single-pass plan-scenario alignment
@@ -72,4 +72,5 @@ No CI gate enforces this decision.
 ## More Information
 
 * **Part that no longer holds:** dropping the step-definition phase. [ADR-0031](0031-active-test-phase-passive-review-judge.md) wired `executeStepDefPhase` back in between build and unit test. The build agent may still write step definitions in its loop.
+* **Part that no longer holds:** the refactor step of the loop. [ADR-0066](0066-build-agents-implement-the-plan-and-nothing-else.md) makes the loop red-green only, removes `refactoring.md` from the skill (four reference files remain) and bounds what the build agent may verify.
 * `date` is 2026-03-25: issues #303 to #308 were filed and the first slices merged that day. The PRD file was committed on 2026-03-26 (ea29d31d), in the commit that renamed the command from `/implement_tdd` to `/implement-tdd`.
