@@ -1,12 +1,12 @@
 ---
 name: implement-tdd
-description: Autonomous TDD build agent. Implements a plan using red-green-refactor with BDD scenarios as RED tests. Use when the build agent should drive implementation through existing .feature files tagged with the issue number.
+description: Autonomous TDD build agent. Implements a plan using red-green with BDD scenarios as RED tests. Use when the build agent should drive implementation through existing .feature files tagged with the issue number.
 target: true
 ---
 
 # Implement with TDD
 
-Follow the `Instructions` to implement the `Plan` using a red-green-refactor loop, then `Report` the completed work.
+Follow the `Instructions` to implement the `Plan` using a red-green loop, then `Report` the completed work.
 
 ## Instructions
 
@@ -14,7 +14,13 @@ Follow the `Instructions` to implement the `Plan` using a red-green-refactor loo
 
 Read the plan provided as input. The plan describes the work to implement — follow its tasks and relevant files exactly. Only read the files listed in the plan's `## Relevant Files` section. Trust the plan.
 
-### 2. Identify RED Tests
+### 2. Scope
+
+Your task is the plan's steps, or the one failure you were handed, and nothing else. Code beyond it is allowed only when a plan step or an `@adw-{N}` scenario cannot pass without it. List every such addition under a `## Beyond the plan` heading, each with the step or scenario it unblocked; write "none" when there is nothing to list. Refactoring, hardening, extra tests, performance work and cleanup of code you did not write never qualify and are out of scope, whatever a coding guideline says about them.
+
+Coding guidelines bind the lines you add or change. A pre-existing line that breaks a guideline stays as it is unless the plan names it.
+
+### 3. Identify RED Tests
 
 Read `.adw/scenarios.md` to find the scenario directory and the command for running scenarios by tag. Read `.adw/commands.md` for the `## Run Scenarios by Tag` command if present.
 
@@ -24,7 +30,7 @@ Read any existing step definition files to understand what infrastructure is alr
 
 If no `.feature` files tagged `@adw-{issueNumber}` exist, proceed with the plan implementation directly — the TDD loop applies only when BDD scenarios exist.
 
-### 3. Red-Green-Refactor Loop
+### 4. Red-Green Loop
 
 **Vertical slicing only.** Do NOT write all step definitions first and then all implementation. Work one scenario at a time.
 
@@ -51,28 +57,22 @@ For each scenario, in order:
 - Run the scenario to verify it passes: the test must be GREEN before moving on
 - Do not add code beyond what this scenario requires
 
-**REFACTOR — Clean up**
-- Once GREEN, look for duplication, shallow modules, and other candidates (see [refactoring.md](refactoring.md))
-- Run the scenario after each refactor step to stay GREEN
-- Never refactor while RED
-
 Repeat for every scenario tagged with `@adw-{issueNumber}`.
 
 If a scenario cannot be made to pass and the plan does not address it, add a `// TODO: scenario <name> could not be made to pass — <reason>` comment near the relevant step definition and move on.
 
-### 4. Unit Tests (Conditional)
+### 5. Unit Tests (Conditional)
 
 Read `.github/adw.yml`. Unit tests are disabled only when it sets `unitTests` to `false` on an uncommented line; a missing file, a missing or commented-out key, or `unitTests: true` means enabled.
 - If unit tests are **disabled**: skip unit tests entirely — only BDD scenarios drive the TDD loop.
-- If unit tests are **enabled**: integrate unit tests as a first-class part of the red-green-refactor loop for each scenario.
+- If unit tests are **enabled**: integrate unit tests as a first-class part of the red-green loop for each scenario.
 
-**When unit tests are enabled — red-green-refactor per scenario:**
+**When unit tests are enabled — red-green per scenario:**
 
 | phase    | activity                                          |
 | -------- | ------------------------------------------------- |
 | RED      | Write step definition + unit test                 |
 | GREEN    | Implement code to pass both scenario and unit test |
-| REFACTOR | Clean up while keeping both green                 |
 
 **When unit tests are disabled:**
 
@@ -80,21 +80,18 @@ Read `.github/adw.yml`. Unit tests are disabled only when it sets `unitTests` to
 | -------- | ------------------------------------- |
 | RED      | Write step definition                 |
 | GREEN    | Implement code to pass scenario       |
-| REFACTOR | Clean up while keeping scenario green |
 
 **RED phase (when enabled):** Write the step definition AND a unit test alongside it, before implementation code (test-first). The unit test targets the specific function/module introduced for this scenario's vertical slice. Do NOT write all unit tests first then all implementation — unit tests are written as part of the vertical slice for each scenario, following the same principle as step definitions. Follow [tests.md](tests.md) for guidance on writing good unit tests. Follow [mocking.md](mocking.md) for guidance on mocking in unit tests.
 
 **GREEN phase (when enabled):** The GREEN phase verifies that both the BDD scenario and unit tests pass. Implementation is considered GREEN only when both pass.
 
-**REFACTOR phase (when enabled):** Clean up while keeping both the BDD scenario and unit test green.
-
 **BDD scenarios are the independent proof layer** — they were written by a separate agent and verify behavior independently. Unit tests provide finer-grained coverage but are written by the same agent as the implementation, so they carry accommodation risk. They supplement, not replace, BDD scenarios.
 
-### 5. Verification Frequency
+### 6. Verification
 
-Use your judgement about when to run verification. You do not need to run tests after every single line of code. Verify at natural boundaries: after completing a step definition block, after writing enough implementation to plausibly pass a scenario, or when the plan task structure suggests a checkpoint.
+Run the `@adw-{N}` scenario you are working on, the plan's validation commands, the static checks of `.adw/commands.md` once at the end, and the full test suite once at the end. Unless a plan step names the command, do not start background processes, do not poll with `sleep`, do not re-run a suite that is already green, and do not run stress, fuzz, mutation or benchmark runs. The unit-test, scenario and review phases run every suite again after you.
 
-### 6. Test Harness Awareness
+### 7. Test Harness Awareness
 
 Do NOT classify any scenario as "ungeneratable." The following mock infrastructure is available for step definitions that need runtime support:
 
@@ -106,14 +103,14 @@ Do NOT classify any scenario as "ungeneratable." The following mock infrastructu
 
 If the target repo does not have these paths, use whatever test infrastructure is available in that repo. The key principle: runtime-dependent scenarios are implementable — they just require appropriate mock setup in step definitions.
 
-### 7. Design Guidance
+### 8. Design Guidance
 
 - See [interface-design.md](interface-design.md) for designing testable interfaces
 - See [deep-modules.md](deep-modules.md) for hiding complexity behind small interfaces
 - See [mocking.md](mocking.md) for when and how to mock at system boundaries
 - See [tests.md](tests.md) for good vs. bad test examples
 
-### 8. Hermetic Test Mode (Definition of Done)
+### 9. Hermetic Test Mode (Definition of Done)
 
 For apps exercised by UI/browser BDD scenarios, creating and maintaining the app's **hermetic test mode** is part of "done" — not an afterthought left to the resolve loop:
 
@@ -130,6 +127,12 @@ $ARGUMENTS
 
 ## Report
 
+- If every step of the plan is done and the plan's validation commands pass, the first line of your final message is this line, exactly, on a line of its own, and nothing else is on that line:
+
+  BUILD_COMPLETE
+
+- Otherwise the first line of your final message is `## Not done`, followed by each step not done and why, and the line above appears nowhere in your message.
+- Then `## Beyond the plan` (see Scope), as a list or the word "none". Append the same `## Beyond the plan` section to the end of the plan file in the worktree (the `## Plan` input names it under `## Metadata`; it is the file the reviewer reads as `specFile`), so the reviewer finds it there.
 - Summarize the work completed in a concise bullet point list
 - For each scenario: note whether RED→GREEN succeeded or if issues were flagged
 - Report the files and total lines changed with `git diff --stat`

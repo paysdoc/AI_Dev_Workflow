@@ -33,6 +33,12 @@ Fix a specific failing test using the provided failure details.
      - skip, delete or weaken a failing test or its assertion
    - ADW checks the diff of every static-check fix round. A round that adds a suppression comment or touches one of those files is rejected and reverted, and the run stops for a human
 
+## Scope
+
+Your task is the plan's steps, or the one failure you were handed, and nothing else. Code beyond it is allowed only when a plan step or an `@adw-{N}` scenario cannot pass without it. List every such addition under a `## Beyond the plan` heading, each with the step or scenario it unblocked; write "none" when there is nothing to list. Refactoring, hardening, extra tests, performance work and cleanup of code you did not write never qualify and are out of scope, whatever a coding guideline says about them.
+
+Coding guidelines bind the lines you add or change. A pre-existing line that breaks a guideline stays as it is unless the plan names it.
+
 5. **Validate the Fix**
    - Re-run the same `execution_command` to confirm the test now passes
    - Do NOT run other tests or the full test suite

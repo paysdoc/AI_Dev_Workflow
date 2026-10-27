@@ -155,7 +155,15 @@ If a step is not done, or a validation command fails, do the first step that is 
 
 ## Scope
 
-Only the plan's steps are in scope. When every plan step is committed (or done in uncommitted edits), refactors, extra hardening, stress tests, fuzz runs, mutation tests and any other work the plan does not call for are out of scope: do not start them. Uncommitted edits outside the plan's steps are not work to continue. Do not extend them, and if one makes a validation command fail, revert it instead of repairing it.`;
+Your task is the plan's steps, or the one failure you were handed, and nothing else. Code beyond it is allowed only when a plan step or an \`@adw-{N}\` scenario cannot pass without it. List every such addition under a \`## Beyond the plan\` heading, each with the step or scenario it unblocked; write "none" when there is nothing to list. Refactoring, hardening, extra tests, performance work and cleanup of code you did not write never qualify and are out of scope, whatever a coding guideline says about them.
+
+Coding guidelines bind the lines you add or change. A pre-existing line that breaks a guideline stays as it is unless the plan names it.
+
+Uncommitted edits outside the plan's steps are not work to continue. Do not extend them, and if one makes a validation command fail, revert it instead of repairing it.
+
+## Verification
+
+Run the \`@adw-{N}\` scenario you are working on, the plan's validation commands, the static checks of \`.adw/commands.md\` once at the end, and the full test suite once at the end. Unless a plan step names the command, do not start background processes, do not poll with \`sleep\`, do not re-run a suite that is already green, and do not run stress, fuzz, mutation or benchmark runs. The unit-test, scenario and review phases run every suite again after you.`;
 
 /**
  * @param baseBranch - base/default branch to diff committed work against; when

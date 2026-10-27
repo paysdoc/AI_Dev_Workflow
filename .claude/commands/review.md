@@ -33,6 +33,7 @@ perIssueImages: $6 — a JSON array of the absolute paths of the per-issue scena
 
 - Check every requirement and acceptance criterion of the issue against the diff. A requirement the diff does not meet is a `blocker` that names the requirement and what is missing.
 - A change the issue does not ask for and its implementation does not need (a behaviour change, a feature, a removal, a rewrite of unrelated code) is a `blocker` that names the change and says to take it out. An incidental change that alters no behaviour is at most `skippable`.
+- The spec file may end with a `## Beyond the plan` section the builder wrote: changes beyond the plan's steps, each with the step or scenario it says needed it. Judge each listed item on that claim: if the named step or scenario could not pass without the change, it is not a finding; if it could, the change is a `blocker` as above. A change beyond the plan that the section does not list is judged as above with no allowance for the omission.
 
 ## Step 3: Suppressions and Weakened Checks
 
