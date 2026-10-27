@@ -1,4 +1,4 @@
-@adw-1104 @adw-01sigg-planner-add-a-behavi
+@adw-1104 @adw-01sigg-planner-add-a-behavi @promotion-suggested-2026-10-27
 Feature: The planner of an issue in a target repository, such as a port that must not change behaviour, runs the framework checkout's current planning command for the issue's type, from the copies of "/feature", "/bug" and "/chore" that worktree setup puts in the worktree, even when the repository's branch tracks an older copy, and the ADW codebase's planning command tells the planner of such a port to add a behavioural equivalence step whose comparison of the old and new implementations is a validation command, without forcing the step on an issue that changes behaviour
 
   The framework checkout is the ADW checkout whose ".claude/commands/" worktree setup copies into a target repository's worktree.
