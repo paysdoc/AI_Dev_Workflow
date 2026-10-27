@@ -7,7 +7,7 @@
  */
 
 import { mkdtempSync, cpSync, writeFileSync, existsSync, rmSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { join, resolve, dirname, delimiter } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -190,6 +190,23 @@ export async function teardownMockInfrastructure(): Promise<void> {
 
   delete process.env['MOCK_SERVER_PORT'];
   isSetUp = false;
+}
+
+/**
+ * The git-mock turns `push`, `fetch`, `clone`, `pull` and `ls-remote` into no-ops, so an in-process run whose fetches and pushes
+ * must reach a fixture's real `origin` takes it off `PATH` for that run, while the mock server and the Claude CLI stub stay.
+ */
+export async function withRealGit<T>(run: () => Promise<T>): Promise<T> {
+  const mockDir = gitMockTempDir;
+  const originalPath = process.env['PATH'];
+  if (mockDir === null || originalPath === undefined) return run();
+
+  process.env['PATH'] = originalPath.split(delimiter).filter((entry) => entry !== mockDir).join(delimiter);
+  try {
+    return await run();
+  } finally {
+    process.env['PATH'] = originalPath;
+  }
 }
 
 /** Use between scenarios when keeping the server running for performance. */

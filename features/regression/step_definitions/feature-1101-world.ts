@@ -1,9 +1,10 @@
 /**
  * What the in-process feature-1101 scenarios share. A scenario names one workflow awaiting the merge of one pull request; the
  * Givens then describe `origin`, the scenario runner, the agent and GitHub's answers, and adwMerge runs for real over a real
- * git repository (feature-1101-run.ts). The cron scenario and the subprocess scenario have steps of their own and no state here.
+ * git repository (feature-1100-run.ts). The cron scenario and the subprocess scenario have steps of their own and no state here.
  *
- * The mock infrastructure is not set up: its git wrapper would turn every fetch and push of the merge run into a no-op. What
+ * The `@regression` hooks set up the mock infrastructure. Its git wrapper would turn every fetch and push of the merge run into a
+ * no-op, so the merge run takes it off `PATH` (feature-1100-run.ts) and its fetches and pushes reach the fixture's `origin`. What
  * the Thens read from "the mock GitHub API" is the mock server's request log, which the forge stand-in writes to in process.
  */
 
@@ -13,8 +14,6 @@ import { rmSync } from 'fs';
 import { join } from 'path';
 
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
-import { applyState, getRecordedRequests, resetMockServer } from '../../../test/mocks/github-api-server.ts';
-import type { MockContext } from '../../../test/mocks/types.ts';
 import { runCleanup } from '../../regression/support/cleanup.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { Forge } from './feature-1100-forge.ts';
@@ -63,29 +62,14 @@ export function claimAdwId(world: RegressionWorld, adwId: string): void {
   world.cleanup.push(remove);
 }
 
-function requestLogOnly(): MockContext {
-  return {
-    serverUrl: '',
-    port: 0,
-    gitLogPath: '',
-    getRecordedRequests,
-    setState: async (state) => applyState(state),
-    teardown: async () => resetMockServer(),
-  };
-}
+const IN_PROCESS_SCENARIOS = '@post-merge-scenario-rerun and not @subprocess and not @dead-orchestrator-takeover';
 
-const IN_PROCESS_SCENARIOS = '@adw-1101 and not @regression and not @subprocess and not @dead-orchestrator-takeover';
-
-Before({ tags: IN_PROCESS_SCENARIOS }, function (this: RegressionWorld) {
+Before({ tags: IN_PROCESS_SCENARIOS }, function () {
   s.workflow = null;
-  resetMockServer();
-  this.mockContext = requestLogOnly();
 });
 
 After({ tags: IN_PROCESS_SCENARIOS }, async function (this: RegressionWorld) {
   await runCleanup(this);
-  resetMockServer();
-  this.mockContext = null;
   this.claudeCliStandIn = undefined;
   s.workflow = null;
 });

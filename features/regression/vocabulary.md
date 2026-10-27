@@ -1081,7 +1081,8 @@ and the checkout's repository, and remove each adwId's state and log directories
 these phrases must carry that tag. Issue numbers must be distinct across the run, because launches,
 locks and the cron's `processedSpawns` are keyed by issue. An adwId uses only lowercase letters, digits
 and hyphens. The repository the boundary names must not exist (`adw-fixture/void-959`); the startup
-rows' target is the fictional `acme/widgets`.
+rows' target is the fictional `acme/widgets`. The cron row of `features/regression/merge/feature-1101.feature`
+reuses the cron phrases with G-PM11 and W-PM3.
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|
@@ -1374,3 +1375,130 @@ This section also reuses already-registered phrases, so they need no new rows:
 - `the scenario proof ran no tag` (T-S11)
 - `the scenario proof records no blocker failures` (T-PY3)
 - `the ADW TypeScript type-check passes` (T22)
+
+---
+
+## Given/When/Then — adwMerge Re-Runs the Suites on the Branch Merged With the Base (@post-merge-scenario-rerun)
+
+These phrases prove what adwMerge does before it merges a pull request whose branch does not hold the tip
+of the base branch. It merges the base branch in, pushes the result, and re-runs `@regression` and the
+issue's own `@adw-<issue>` scenarios on it, and it merges only once both pass. When either fails it parks
+the workflow as `human_gated` for the park reason `post_merge_bdd_red`, without merging it or starting a
+fix agent, and posts one "ADW Parked" comment that says what was merged in, which file conflicted, what
+failed and how to go on. A human's `## Retry` then resumes that park under the same adwId. A branch that
+already holds the tip of the base branch, and a repository with no scenarios configured, are merged as
+before and re-run nothing. There are three kinds of row:
+
+1. The in-process rows (phase-import) run the real `executeMerge` of the merge orchestrator through the
+   production launch boundary, over a throwaway git fixture under `os.tmpdir()`: a bare `origin`, a
+   maintainer clone through which every commit on `origin` is made, and the workspace that ADW clones. A
+   forge stand-in plays GitHub: its code host knows only the one open pull request and answers each merge
+   call as the scenario scripts it, its issue tracker records each comment, and both mirror every merge
+   call and every comment as a request to the mock server's request log, in process. The repository's
+   run-by-tag command calls a `/bin/sh` stand-in scenario runner, which records each run with the commit
+   it ran on and reports the scenarios that the scenario describes. Recovery runs the production
+   `handleRetryDirective`; the resumed SDLC run is stood in for by its effects on `origin` and in the
+   state file.
+2. The cron row (phase-import) reuses the G-DT, W-DT and T-DT phrases of the Dead-Orchestrator Takeover
+   section with G-PM11 and W-PM3, and carries `@dead-orchestrator-takeover`: the cron leaves a workflow
+   parked for `post_merge_bdd_red` alone until a human comments `## Retry`, and its next poll re-arms the
+   workflow and relaunches the SDLC orchestrator under the same adwId.
+3. The `@subprocess` row runs the real SDLC orchestrator, the real merge orchestrator and the cron probe
+   as child processes through the hermetic subprocess harness (see "Smoke processes"), against the
+   `acme/widgets` workspace. The Claude CLI stub's manifest writes the workflow's build, the scenario fix
+   and the issue's feature file; a stand-in scenario runner in the workspace fails the issue's scenario on
+   a checkout that holds the build and a commit landed on `main`, until the scenario fix agent's fix is in
+   it.
+
+Under the `@regression` hooks the git-mock leads `PATH` and turns `push`, `fetch`, `clone`, `pull` and
+`ls-remote` into no-ops. W-PM1 is the only step that runs ADW's own git in process, and it takes the
+git-mock off `PATH` for the run (`withRealGit` in `test/mocks/test-harness.ts`), so the merge run's
+fetches and pushes reach the fixture's `origin`. Every other git call in these steps goes to
+`REAL_GIT_PATH`. The `@subprocess` row keeps the git-mock and lands a commit by moving the workspace's
+`origin/` ref along with it (`commitOnDefaultBranch`).
+
+Every assertion targets a runtime artefact: the top-level state file `agents/<adwId>/state.json`; the
+branches on the fixture's `origin` and the workspace's git objects; the stand-in runner's run log; the
+comments the forge stand-in recorded and the requests it mirrored into the mock server's request log; the
+requests the mock server recorded from the processes; the agent output files under `logs/<adwId>/`; the
+orchestrator's execution log `agents/<adwId>/<orchestrator>/execution.log`; the cron's recorded launches;
+and the exit code. No step reads, greps or parses a source file, satisfying the Rot-Detection Rubric.
+G-PM13 reads the loaded stub manifest, a test fixture and an input to the system under test, only to
+check that it names what the stand-in keys on.
+
+The definitions live in `feature-1101-given.steps.ts` (G-PM1–G-PM10), `feature-1101-when.steps.ts`
+(W-PM1, W-PM2), `feature-1101-then.steps.ts` (T-PM1–T-PM6), `feature-1101-comment.steps.ts`
+(T-PM7–T-PM13), `feature-1101-cron.steps.ts` (G-PM11, W-PM3) and `feature-1101-subprocess.steps.ts`
+(G-PM12, G-PM13, W-PM4, W-PM5, T-PM14–T-PM16), with their helpers in `feature-1101-world.ts`,
+`feature-1101-repo.ts`, `feature-1101-forge.ts`, `feature-1101-standin.ts` and `feature-1101-content.ts`,
+and in feature-1100's merge-run helpers `feature-1100-run.ts`, `feature-1100-agent.ts`,
+`feature-1100-forge.ts`, `feature-1100-repo.ts` and `feature-1100-world.ts`. The hooks in
+`feature-1101-world.ts` are keyed on `@post-merge-scenario-rerun and not @subprocess and not
+@dead-orchestrator-takeover`: they reset the workflow the steps share and the World's Claude CLI
+stand-in. The `@subprocess` row needs no hook of its own, because the `@regression and (@subprocess or
+@webhook)` hooks give it the mock server and the subprocess harness, and the cron row runs under the
+`@dead-orchestrator-takeover` hooks. A scenario that uses these phrases must carry
+`@post-merge-scenario-rerun`. An in-process row's adwId must match `rerun1101-<lowercase words>`, because
+the steps delete that adwId's `agents/` and `logs/` directories. Issue numbers must be distinct across the
+run, because launches, locks and the cron's `processedSpawns` are keyed by issue.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-PM1 | `the workflow {string} for issue {int} is at {string} with pull request {int} open from the branch {string} into {string}` | Claims the made-up adwId, deleting its `agents/` and `logs/` directories before the scenario and again after it. Builds the throwaway git fixture: a bare `origin` and a maintainer clone on the base branch, and the path the workspace is cloned to by W-PM1. Builds the forge stand-in: its code host knows only that one open pull request and answers each merge call as scripted; its issue tracker records each comment; both mirror every merge call (`PUT …/pulls/N/merge`) and every comment (`POST …/issues/N/comments`) into the mock server's request log; any other port of the stand-in throws, naming the call. Writes the top-level state at the stage, with the issue and the branch | phase-import | input to the system under test (git fixture, top-level state, forge stand-in) |
+| G-PM2 | `{string} on origin holds these commits that the branch {string} does not:` | First pushes the branch off the base branch as it is then, unless an earlier step already did; the branch changes the shared constant in `src/shared.ts` and adds a file of its own. Then lands one commit per table row on the base branch through the maintainer clone and pushes it to `origin`: a `conflicts with the branch in` value of `no file` adds `docs/<slug>.md`, and a path changes the line of the shared constant in that file. Records each sha for the stand-in runner. Also used after W-PM2 to move the base branch on once more | phase-import | git artefacts on `origin` (SUT input) |
+| G-PM3 | `the branch {string} on origin already holds the tip of {string}` | Pushes the branch off the base branch as it is then, unless an earlier step already did, and asserts that `git rev-list` of the branch on `origin` holds the base branch's tip | phase-import | git artefact (branch on `origin`) |
+| G-PM4 | `the {string} agent, if it is run, resolves the conflict in {string} with a merge commit` | Accepts only the agent `/resolve_conflict` and the file `src/shared.ts`. Points `CLAUDE_CODE_PATH` at the Claude CLI stub, which the cleanup restores, and writes the stub's manifest marker into `TARGET_REPOS_DIR`, above every worktree ADW adds. When ADW runs the agent, the stub writes the resolved file and commits everything as `Resolve the conflicts with the base branch (stand-in agent)`, which concludes the merge | phase-import | stub behaviour (scripted conflict agent) |
+| G-PM5 | `the repository runs its scenarios by tag with a stand-in that records each run` | Installs the `/bin/sh` scenario runner outside the worktree, under the fixture's root; the run-by-tag command `sh "<stand-in>/run-by-tag.sh" {tag}` calls it. Each run appends `@<tag> <HEAD sha>` to the runner's run log, copies a JUnit report to `ADW_JUNIT_REPORT_PATH` and exits 0 for a passing report and 1 for a failing one. The runner uses the real git | phase-import | stub behaviour (stand-in scenario runner) |
+| G-PM6 | `the branch {string} holds these scenarios, which pass on the branch alone and end as follows on the branch merged with {string}:` | Takes `tag`, `scenario` and `result` rows, where the result is `passes` or `fails with "<error>"`. Writes a passing JUnit report for each tag. For a tag with a failing scenario it also writes the report of the table's results and the fix file `fixes/<slug>.txt` that puts the scenario right. The runner reports the table's results only on a checkout that holds every commit landed on the base branch and lacks the fix, and a passing report everywhere else. Commits three things to the branch on `origin`: the `cli` ADW configuration, whose `## Run Scenarios by Tag` in `.adw/commands.md` and `.adw/scenarios.md` names the stand-in; a step-definition file; and `features/orders.feature`. Must come after G-PM5 | phase-import | git artefact + stand-in behaviour |
+| G-PM7 | `the commit {string}, which conflicts with the branch in {string}, lands on {string} on origin as adwMerge first asks GitHub to merge pull request {int}` | Pushes the branch first if no earlier step has. Arms the forge stand-in to land the commit on the base branch on `origin`, changing the line of the shared constant in the file, at its first merge call and before GitHub answers, and to record the sha for the stand-in runner | phase-import | git artefact on `origin` (SUT input) |
+| G-PM8 | `the repository has no scenarios configured` | Pushes the branch first if no earlier step has. Commits to the branch on `origin` an ADW configuration with no `## Run Scenarios by Tag` and no `.adw/scenarios.md`, so there is no suite to re-run | phase-import | git artefact (SUT input) |
+| G-PM9 | `GitHub merges pull request {int} when asked` | Scripts the forge stand-in to answer every merge call, up to ten, as merged. Fails unless the pull request is the workflow's | phase-import | forge stand-in behaviour (SUT input) |
+| G-PM10 | `GitHub refuses the first call to merge pull request {int} with {string} and merges it when asked again` | Scripts the forge stand-in to answer the first merge call as refused with the error and each later one, up to ten, as merged. Fails unless the pull request is the workflow's | phase-import | forge stand-in behaviour (SUT input) |
+| G-PM11 | `the top-level state of workflow {string} records the park reason {string}` | Requires the workflow that G-DT4 seeded, then writes `parkReason` into its top-level state `agents/<adwId>/state.json` through `AgentStateManager.writeTopLevelState` | phase-import | state file artefact (SUT input) |
+| G-PM12 | `the target repository's workspace runs its scenarios by tag with a stand-in that records each run` | Installs G-PM5's runner under the subprocess harness's root. Through `commitOnDefaultBranch`, commits to the workspace's default branch the fenced `## Run Scenarios by Tag` blocks of `.adw/commands.md` and `.adw/scenarios.md` naming it, and a step-definition file. Fails without the subprocess harness, for the reason W1 does | subprocess | git artefact in the workspace (SUT input) |
+| G-PM13 | `the stand-in fails the scenario {string} with the error {string} on any checkout that holds both the workflow's build and the commit {string} from {string}, until the scenario fix agent's fix is in it` | Accepts only `main`. Checks that the loaded stub manifest names `src/orders.ts`, the fix file, the scenario and `@adw-<seeded issue>`: the manifest is a test fixture and an input to the system under test. Describes to the stand-in runner a passing `@regression` scenario `Orders are accepted` and the issue's scenario, which fails on a checkout that holds `src/orders.ts` and the landed commit until the fix is in it. Commits `features/orders.feature` with the `@regression` scenario to the workspace's default branch | subprocess | stand-in behaviour (SUT input) |
+| W-PM1 | `adwMerge runs for the workflow {string}` | Records the branch's tip on `origin`, from which the comment's commit list is counted. Clones the workspace from `origin` unless an earlier run has. Builds the production launch boundary over it with the forge stand-in's providers. Runs the real `executeMerge` with the production `buildDefaultDeps`; only the dependency that calls the merge loop is replaced, so that the loop gets the stand-in code host and a wait that records and returns at once. ADW's git calls, its worktree and its state file are the real ones, and the run takes the git-mock off `PATH` (`withRealGit`). Times out at 180 s | phase-import | git artefacts + state file + recorded requests |
+| W-PM2 | `{string} resumes the workflow {string}, whose resumed run pushes a fix for the scenario {string} to the branch {string} and ends at {string}` | Runs the production `handleRetryDirective` on the comments the forge stand-in recorded for the issue plus the directive. Its dependencies read and write the real top-level state and throw on any spawn, lock or comment. Asserts that the workflow was re-armed to `phase_timeout`. Then stands in for the resumed SDLC run by its effects: it commits the scenario's fix file to the branch on `origin` and writes the end stage into the top-level state | phase-import | state file + git artefact |
+| W-PM3 | `a human comments {string} on issue {int} in the recording tracker` | Appends a comment by `a-human` to the issue in feature-932's recording tracker fixture, which the next cron poll reads | phase-import | recording tracker fixture (SUT input) |
+| W-PM4 | `the commit {string} lands on {string} in the target repository's workspace` | Accepts only `main`. Commits `docs/<slug>.md` to the workspace's default branch through `commitOnDefaultBranch`, which moves `refs/remotes/origin/main` along with it because the git-mock turns `fetch` into a no-op, and records the sha for the stand-in runner | subprocess | git artefact in the workspace |
+| W-PM5 | `a human comments {string} on issue {int} in the mock issue tracker` | Appends a comment by the user `a-human` to the issue in the mock server's state, which the `gh` shadow serves the cron | mock-query | mock server state (SUT input) |
+| T-PM1 | `the state file for adwId {string} records the park reason {string}` | Reads `parkReason` from the top-level state `agents/<adwId>/state.json` and asserts it equals the reason | phase-import | state file artefact |
+| T-PM2 | `the branch {string} on origin holds the tip of {string}` | On `origin`, asserts that `git rev-list` of the branch contains the sha `git rev-parse` prints for the base branch. Fails unless the step names the workflow's own branches | phase-import | git artefact (branch on `origin`) |
+| T-PM3 | `the scenario runner ran {string} and {string} once each, on the commit that the branch {string} holds on origin` | From the stand-in runner's run log: each tag ran exactly once, its last run was on the branch's tip on `origin`, and no other run is logged | phase-import | stand-in run log + git artefact |
+| T-PM4 | `the scenario runner ran {string} and {string} twice each, the second time on the commit that the branch {string} holds on origin` | As T-PM3, with each tag run exactly twice | phase-import | stand-in run log + git artefact |
+| T-PM5 | `the scenario runner was not run` | Asserts that the stand-in runner's run log is empty | phase-import | stand-in run log |
+| T-PM6 | `adwMerge started no agent to fix the failing scenario` | Asserts that `logs/<adwId>/` holds no `resolve-e2e-<tag>.jsonl`, the output file the scenario fix agent leaves for each tag it is started for | phase-import | agent output artefacts |
+| T-PM7 | `the {string} comment on issue {int} lists, in {string} form, exactly these commits merged in from {string}:` | Accepts only the form `git log --oneline`. In the one comment of that name the forge stand-in recorded for the issue, takes the bullets after the paragraph `These commits came in from…`, and asserts that they equal what `git log --oneline --no-merges <branch tip before the run>..origin/<base branch>` prints in the workspace and that their subjects equal the table's | phase-import | recorded comment + git artefact |
+| T-PM8 | `the {string} comment on issue {int} names no conflicted file` | In the one comment of that name, asserts that it says `No file conflicted` and has no `These files conflicted` paragraph | phase-import | recorded comment |
+| T-PM9 | `the {string} comment on issue {int} names {string} as the only file that conflicted` | In the one comment of that name, asserts that the bullets after the paragraph `These files conflicted` are exactly the one file | phase-import | recorded comment |
+| T-PM10 | `the {string} comment on issue {int} names the failing scenario {string} with its error {string}` | Reads the failures listed after the paragraph `What failed on the branch merged with…`, each a title in a code span with its error quoted beneath it. Asserts that the title of one ends with the scenario and that its error is exactly the error | phase-import | recorded comment |
+| T-PM11 | `the {string} comment on issue {int} says that the branch passed on its own and fails combined with {string}` | In the one comment of that name, asserts the sentence `The branch passed on its own and fails combined with` the base branch as code | phase-import | recorded comment |
+| T-PM12 | `the {string} comment on issue {int} tells the reader to fix the branch by hand and push, or to comment {string}` | In the one comment of that name, asserts the sentence `Fix by hand and push, or comment` the directive as code | phase-import | recorded comment |
+| T-PM13 | `the {string} comment on issue {int} says that either way ADW re-runs the scenarios, attempts fixes, re-reviews and merges` | In the one comment of that name, asserts the sentence `Either way ADW re-runs the scenarios, attempts fixes, re-reviews and merges.` | phase-import | recorded comment |
+| T-PM14 | `the mock GitHub API recorded exactly {int} PR creation for issue {int}` | Counts the recorded `POST` requests to a `/pulls` URL whose body names the issue, and asserts the count equals the expected one | mock-query | recorded requests |
+| T-PM15 | `the scenario fix agent was started once` | For the one adwId the harness claimed: the SDLC orchestrator's `agents/<adwId>/<orchestrator>/execution.log` has exactly one `Resolving failed scenario:` line, and `logs/<adwId>/` holds exactly one `resolve-e2e-<tag>.jsonl` | subprocess | log stream + agent output artefacts |
+| T-PM16 | `the stand-in last ran the scenarios on a checkout that holds the workflow's build, the commit {string} from {string} and the scenario fix agent's fix` | Accepts only `main`. Takes the last run of each tag in the stand-in runner's run log and asserts that its commit holds `src/orders.ts` and the fix file (`git cat-file -e`) and descends from the commit that W-PM4 landed (`git merge-base --is-ancestor`) | subprocess | stand-in run log + git artefacts |
+
+This section also reuses already-registered phrases, so they need no new rows:
+
+- `the ADW codebase is checked out` (G18)
+- `the claude-cli-stub is loaded with manifest {string}` (G3)
+- `an issue {int} exists in the mock issue tracker` (G4)
+- `the {string} orchestrator is invoked with adwId {string} and issue {int}` (W1)
+- `the cron probe runs once` (W10)
+- `the state file for adwId {string} records workflowStage {string}` (T1)
+- `the mock GitHub API recorded a comment containing the text {string}` (T3)
+- `the orchestrator subprocess exited {int}` (T5)
+- `the mock harness recorded zero PR-merge calls` (T7)
+- `the ADW TypeScript type-check passes` (T22)
+- `the mock GitHub API recorded a merge of PR {int}` (T-SP1)
+- `the mock GitHub API recorded exactly {int} comment(s) on issue {int} containing the text {string}` (T-PL1)
+- `the mock harness recorded zero comment posts on issue {int} containing the text {string}` (T-S6)
+- `a launch boundary for the repository {string} whose providers record every call` (G-DT1)
+- `issue {int} has an ADW workflow under adwId {string} that runs {string}, whose last run stopped at {string} half an hour ago` (G-DT4)
+- `the cron polls from that boundary, with its hung-orchestrator sweep due` (W-DT1)
+- `the same cron polls again from that boundary, with its hung-orchestrator sweep due` (W-DT2)
+- `the cron has launched {int} orchestrator(s) for issue {int}` (T-DT1)
+- `the cron launched no orchestrator for issue {int}` (T-DT2)
+- `every orchestrator the cron launched for issue {int} runs {string} under adwId {string}` (T-DT3)
+- `the worktree of workflow {string} was not reset` (T-DT5)

@@ -1328,7 +1328,7 @@ test/                   # Integration test infrastructure
 │   ├── stubArgs.ts             # Claude CLI stub argument parsing
 │   ├── stubMarker.ts           # Pure upward lookup of the stub's `.adw-stub-manifest.json` marker from a directory to the filesystem root
 │   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
-│   ├── test-harness.ts         # Test harness orchestrating all mocks
+│   ├── test-harness.ts         # Test harness orchestrating all mocks; `withRealGit` takes the git mock off `PATH` for one in-process run that must reach a fixture's real `origin`
 │   └── types.ts                # Mock type definitions
 ├── Dockerfile          # Generic Docker image for isolated @regression runs
 ├── docker-run.sh       # Helper script to run scenarios inside Docker
@@ -1351,6 +1351,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
+│   ├── merge/          # Regression scenarios covering adwMerge re-running `@regression` and the issue's scenarios on the branch merged with the base before it merges: merging once both pass, no re-run for a branch already on the base's tip or for a repository without scenarios, a second re-run after a conflict lands mid-merge, the `human_gated` park for `post_merge_bdd_red` and its "ADW Parked" comment, and `## Retry` resuming it under the same adwId (#1101)
 │   ├── mobile/         # Regression scenarios covering "mobile:kotlincm" repositories: the framework upgrade keeping a hand-set application type and device sources, a bootstrap issue's baseline passing with no Gradle build yet, the step-definition generator's device instructions, the "## Run Tests" command gathering each module's JUnit reports, and the scenario phase running each tag through the ":scenarios" Gradle module and giving the proof each platform's screenshots (#1044)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)

@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import { accessSync, constants, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'fs';
 import { dirname, join, delimiter, sep } from 'path';
 import { tmpdir } from 'os';
-import { setupMockInfrastructure, teardownMockInfrastructure } from '../test-harness.ts';
+import { setupMockInfrastructure, teardownMockInfrastructure, withRealGit } from '../test-harness.ts';
 import { startMockServer } from '../github-api-server.ts';
 import { readGitMockLog } from '../gitMockLog.ts';
 
@@ -126,5 +126,91 @@ describe('setupMockInfrastructure — git-mock invocation log', () => {
 
     expect(second.gitLogPath).not.toBe(first.gitLogPath);
     expect(readGitMockLog(second.gitLogPath)).toEqual([]);
+  });
+});
+
+describe('withRealGit — the git-mock off PATH for one run', () => {
+  function firstPathEntry(): string {
+    return (process.env['PATH'] ?? '').split(delimiter)[0] ?? '';
+  }
+
+  /** Made with the real git that setup recorded, so the git-mock leading PATH takes no part in making it. */
+  function createRepositoryWithOneCommit(): string {
+    const realGit = process.env['REAL_GIT_PATH'] ?? 'git';
+    const repo = mkdtempSync(join(tmpdir(), 'adw-real-git-repo-'));
+    execFileSync(realGit, ['init', '-q', '-b', 'main'], { cwd: repo, stdio: 'pipe' });
+    execFileSync(realGit, ['-c', 'user.name=ADW Test', '-c', 'user.email=test@adw.local', 'commit', '-q', '--allow-empty', '-m', 'one'], {
+      cwd: repo,
+      stdio: 'pipe',
+    });
+    return repo;
+  }
+
+  function lsRemote(repo: string): string {
+    return execFileSync('git', ['ls-remote', repo], { env: process.env, encoding: 'utf-8' });
+  }
+
+  it('lets a network subcommand inside the run reach the real git, where outside it the git-mock answers', async () => {
+    await setupMockInfrastructure();
+    const repo = createRepositoryWithOneCommit();
+
+    try {
+      expect(lsRemote(repo)).not.toContain('refs/heads/main');
+
+      const listedInside = await withRealGit(async () => lsRemote(repo));
+
+      expect(listedInside).toContain('refs/heads/main');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('puts PATH back after the run resolves, with the git-mock leading it again', async () => {
+    await setupMockInfrastructure();
+    const pathBefore = process.env['PATH'];
+    const mockDir = firstPathEntry();
+
+    await withRealGit(async () => 'done');
+
+    expect(process.env['PATH']).toBe(pathBefore);
+    expect(firstPathEntry()).toBe(mockDir);
+  });
+
+  it('puts PATH back after the run rejects, with the git-mock leading it again, and passes the rejection on', async () => {
+    await setupMockInfrastructure();
+    const pathBefore = process.env['PATH'];
+    const mockDir = firstPathEntry();
+
+    await expect(withRealGit(async () => { throw new Error('the run failed'); })).rejects.toThrow('the run failed');
+
+    expect(process.env['PATH']).toBe(pathBefore);
+    expect(firstPathEntry()).toBe(mockDir);
+  });
+
+  it('keeps every other PATH entry for the run, whatever its place, and drops each occurrence of the git-mock directory', async () => {
+    const outerPath = process.env['PATH'] ?? '';
+    await setupMockInfrastructure();
+    const mockDir = firstPathEntry();
+    const shadowDir = mkdtempSync(join(tmpdir(), 'adw-path-shadow-'));
+    process.env['PATH'] = [shadowDir, process.env['PATH'], mockDir].join(delimiter);
+
+    try {
+      const pathInside = await withRealGit(async () => process.env['PATH']);
+
+      expect(pathInside).toBe([shadowDir, outerPath].join(delimiter));
+    } finally {
+      rmSync(shadowDir, { recursive: true, force: true });
+    }
+  });
+
+  it('only runs the run, and returns what it returns, while the mock infrastructure is not set up', async () => {
+    await setupMockInfrastructure();
+    await teardownMockInfrastructure();
+    const pathBefore = process.env['PATH'];
+
+    const result = await withRealGit(async () => ({ pathInside: process.env['PATH'], answer: 42 }));
+
+    expect(result).toEqual({ pathInside: pathBefore, answer: 42 });
+    expect(process.env['PATH']).toBe(pathBefore);
   });
 });
