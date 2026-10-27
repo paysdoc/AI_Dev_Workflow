@@ -1121,6 +1121,49 @@ exit code W-DT4 records), T22, and the generic W16/T34 git/gh guard pair.
 
 ---
 
+## Given/When/Then — An Orchestrator That Loses an Issue's Spawn Lock (@spawn-lock-loser)
+
+These phrases pin what an orchestrator that loses an issue's spawn lock leaves behind, and how the cron
+relaunches a timed-out workflow whose relaunched orchestrator is still starting up or has died during
+startup. The `@subprocess` rows extend the subprocess pattern ("Smoke processes" above): the real SDLC
+orchestrator runs as a child process through the hermetic subprocess harness, against the `acme/widgets`
+workspace, either invoked directly (W1) or exactly as the cron launched it (W-SL1 replays the launch W10
+recorded), while G-PQ14's throwaway process holds the issue's spawn lock. The
+`@dead-orchestrator-takeover` rows are phase-import and run on that section's recording launch boundary
+and in-process polls (G-DT1, G-DT4, W-DT1, W-DT2); G-SL3 rewrites the `bunx` shadow those polls put on
+`PATH`, so every orchestrator the cron launches is a live stand-in process that records its argv and
+nothing else until W-SL2 or the cleanup ends it. Every assertion targets a runtime artefact: the
+top-level state file `agents/<adwId>/state.json` (its fields, its content and its modification time),
+the spawn-lock record under `agents/spawn_locks/`, the orchestrator's execution log
+`agents/<adwId>/<orchestrator>/execution.log`, the exit code, the recorded launches and the liveness of
+the stand-in processes. No step reads, greps or parses a source file, satisfying the Rot-Detection
+Rubric. The definitions live in `features/regression/step_definitions/feature-1105.steps.ts`. The
+`@regression` and `@regression and (@subprocess or @webhook)` hooks give the `@subprocess` rows the mock
+server and the subprocess harness, and the `@dead-orchestrator-takeover` hooks of `feature-959.steps.ts`
+give the cron rows their boundary, launch recorder and cleanup. The file's own `After` hook is keyed on
+`@spawn-lock-loser`, which a scenario that uses these phrases must carry, and only resets the file's
+state. G-SL3 puts ending its stand-ins on World's cleanup list rather than in that hook, because the
+`@regression` After hook runs the list before the `@dead-orchestrator-takeover` After hook removes the
+launch records, the only record of the stand-ins' pids.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-SL1 | `the top-level state for adwId {string} records the process holding the spawn lock for issue {int} as its orchestrator, at workflowStage {string}` | Reads the spawn-lock record for `acme/widgets#<issue>` (`readSpawnLockRecord`) and fails unless one exists, so G-PQ14 runs first. Claims the adwId and writes `agents/<adwId>/state.json` through `AgentStateManager.writeTopLevelState`: the adwId and the issue, the stage, `adws/adwSdlc.tsx` as `orchestratorScript`, the `acme/widgets` repository identity, the `pid` and `pidStartedAt` the lock records, and a `lastSeenAt` of now. Keeps the file's content and modification time for T-SL2 | subprocess | state file artefact + spawn-lock artefact (SUT input) |
+| G-SL2 | `the prior run for adwId {string} has used {int} resume attempt(s)` | Writes `resumeAttempts` into the adwId's top-level state through `AgentStateManager.writeTopLevelState`, which keeps every other field. Fails unless a prior run (G-SP2) was seeded for the adwId first | subprocess | state file artefact (SUT input) |
+| G-SL3 | `every orchestrator the cron launches stays alive, still starting up, without recording anything` | Rewrites the `bunx` shadow that W-DT1 and W-DT2 put on `PATH`: a launch still writes its argv to `launch-<pid>.args` in the launch recorder's directory, which T-DT1 and T-DT3 read, then `exec`s `sleep 300`, so the stand-in stays alive under the recorded pid and writes no state, log or spawn lock. Registers on World's cleanup list the ending (`SIGKILL`) of every stand-in still alive that W-SL2 has not ended | phase-import | recorded launches + process table (SUT input) |
+| W-SL1 | `the orchestrator the cron launched for issue {int} runs` | Takes the orchestrator launch for the issue that the subprocess harness's launch recorder holds from W10, and fails unless there is exactly one. Claims the issue, then runs that argv, `tsx <script> <issue> <adwId> …`, with the real `bunx` as a child process through the hermetic subprocess harness against the `acme/widgets` workspace, with a 120 s timeout, so the orchestrator classifies the issue itself. Records the exit code, which T5 reads, and the output, then replays the child's GitHub writes. Fails without the subprocess harness, as W1 does | subprocess | exit code + state file + execution log artefacts |
+| W-SL2 | `the orchestrator the cron launched for issue {int} exits, having recorded nothing` | Waits, bounded, until the launch recorder holds a launch for the issue whose G-SL3 stand-in has not been ended, kills each such stand-in (`SIGKILL`) and waits until each has exited. A pid is signalled only once, because a pid that has ended may belong to another process by then | phase-import | process table |
+| T-SL1 | `the execution log of the {string} for adwId {string} records that the spawn lock for issue {int} is held by the pid of the process holding it, exiting without running a phase` | Reads `agents/<adwId>/<orchestrator>/execution.log`, which the orchestrator wrote at runtime, and asserts it holds `Spawn lock for issue #<issue> is held by pid <pid>; exiting without running a phase`, where `<pid>` is the one the issue's spawn-lock record names. Fails naming the path when the log does not exist | subprocess | execution log artefact + spawn-lock artefact |
+| T-SL2 | `the orchestrator subprocess did not write the top-level state for adwId {string}` | Asserts `agents/<adwId>/state.json` still holds exactly the content G-SL1 kept and still has the modification time it kept, so no write reached the file, not even one that changed nothing. Fails unless G-SL1 seeded the adwId in the same scenario | subprocess | state file artefact |
+| T-SL3 | `the top-level state for adwId {string} records the pid and start time of the process holding the spawn lock for issue {int}` | Reads `agents/<adwId>/state.json` and asserts its `pid` and `pidStartedAt` equal the `pid` and `pidStartedAt` the issue's spawn-lock record holds | subprocess | state file artefact + spawn-lock artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G4, G5, G-PQ14 (as a Given and as a When; its holder and lock are
+released through World's cleanup list), G-CD2 (the adwIds are `throwaway1105-…`, made up for the
+scenario), G-SP2, W1, W10, T-SP4, T1, T5, T-RD11, G-DT1, G-DT4, W-DT1, W-DT2, T-DT1, T-DT3 and T22.
+
+---
+
 ## Given/When/Then — Review Comment Screenshots (@review-comment-screenshots)
 
 These phrases drive the review phase's comment on the issue and the screenshots of the proof run the
