@@ -1,4 +1,4 @@
-@adw-1105 @adw-yyx1pt-orchestrator-that-lo
+@adw-1105 @adw-yyx1pt-orchestrator-that-lo @promotion-suggested-2026-10-27
 Feature: An orchestrator that loses an issue's spawn lock leaves the top-level state as the lock holder recorded it and uses up none of the workflow's resume attempts, and the cron launches no second orchestrator for a timed-out workflow whose relaunched orchestrator is still starting up
 
   The spawn lock is the per-issue lock under agents/spawn_locks/ that the one orchestrator running an issue's workflow holds.
