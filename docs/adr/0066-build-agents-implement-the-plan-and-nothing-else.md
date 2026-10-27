@@ -47,7 +47,7 @@ Chosen: prompts only; delete the refactor step; allow declared gaps; identical p
 * **No refactor phase.** `implement-tdd` loses its REFACTOR step and `refactoring.md`; `deep-modules.md`, `interface-design.md`, `mocking.md` and `tests.md` stay as guidance for code the agent is writing. Cleanup belongs to the review loop, `/refactor` and the owner's own sessions; the interactive `tdd` skill is untouched.
 * **Bounded verification.** Allowed: the `@adw-{N}` tag run per scenario, the plan's validation commands, the static checks of `.adw/commands.md` once at the end, the full test suite once at the end. Not allowed unless a plan step names the command: background processes, sleep-polling, re-running a green suite, stress, fuzz, mutation testing, benchmarks.
 * **`BUILD_COMPLETE` is the first line of the report** in `/implement` and `implement-tdd`, before the diff stat, printed only when every step is done and the plan's validation commands pass. Otherwise the report ends with `## Not done` and no marker, so a killed context restarts and a clean exit still succeeds as before.
-* **One text, six places.** The same scope-and-verification block is pasted into `implement.md`, `implement-tdd/SKILL.md`, `patch.md`, `resolve_failed_scenario.md`, `resolve_failed_test.md` and the continuation prompt string in `adws/phases/planPhase.ts`. A unit test in the style of `adws/__tests__/planningCommandsPrompt.test.ts` pins the copies identical and pins the phrases. A file the agent must read first was rejected because it is one more instruction a build agent can skip; a skill because the same holds and it would travel to target repos for no gain.
+* **One text, five places.** The same scope block is pasted into `implement.md`, `implement-tdd/SKILL.md`, `resolve_failed_scenario.md`, `resolve_failed_test.md` and the continuation prompt string in `adws/phases/planPhase.ts`; the verification block goes into the two implement prompts and the continuation string, because the two fix-agent prompts already carry a stricter rule ("Do NOT run other tests or the full test suite"). `patch.md` is a planner, not an implementer: `adws/phases/reviewPatchHelpers.ts` hands its output to `runBuildAgent`, which runs `/implement`, so it is covered by the implement prompt and is not changed. A unit test in the style of `adws/__tests__/planningCommandsPrompt.test.ts` pins the copies identical and pins the phrases. A file the agent must read first was rejected because it is one more instruction a build agent can skip; a skill because the same holds and it would travel to target repos for no gain.
 * **The reviewer reads the declared list.** `review.md` judges each `## Beyond the plan` item on whether the named step needed it. Undeclared out-of-scope changes stay blockers as today.
 * **No pipeline guard.** A wall-clock cap or a touched-files check was rejected for now, because the owner does not want the builder curtailed when the plan has gaps. If the prompts alone do not hold, that is a new decision.
 
@@ -58,18 +58,18 @@ Chosen: prompts only; delete the refactor step; allow declared gaps; identical p
 * Good, because the build phase stops paying for suites the test phase runs again.
 * Bad, because nothing mechanical stops an agent that ignores the text; the evidence that prompts suffice is the absence of a repeat, and #1107's continuation rule was ignored within the hour.
 * Bad, because a guideline violation next to new code is left in place for `/refactor` or a human.
-* Bad, because the same paragraph in six files is a maintenance cost; the pinning test turns a missed copy into a red unit test rather than a silent drift.
+* Bad, because the same paragraph in five files is a maintenance cost; the pinning test turns a missed copy into a red unit test rather than a silent drift.
 
 ### Confirmation
 
-The pinning unit test, once written, is the check: it reads the six prompts from disk and fails when a copy differs or a required phrase is missing. No CI gate beyond `bun run test:unit` enforces it.
+The pinning unit test, once written, is the check: it reads the five prompts from disk and fails when a copy differs or a required phrase is missing. No CI gate beyond `bun run test:unit` enforces it.
 
 Checked against the code on 2026-10-27, before the prompts were changed:
 
 * `grep -rn BUILD_COMPLETE .claude adws --include='*.md' --include='*.ts'` matches only `adws/phases/progressGate.ts`, `buildPhase.ts` and `planPhase.ts`: neither implement prompt teaches the marker.
 * `.claude/skills/implement-tdd/SKILL.md` §3 has a **REFACTOR** step and §5 says "Use your judgement about when to run verification"; `refactoring.md` lists "Existing code the new code reveals as problematic".
 * `feature.md:139`, `bug.md:117`, `chore.md:101` say "If necessary, refactor existing code to meet the coding guidelines".
-* `adws/agents/commandAgent.ts` and `claudeAgent.ts` run the slash command inside the worktree; `adws/phases/worktreeSetup.ts` copies `target: false` assets there as gitignored run-only files. None of the six prompts is a `hashInputs` entry of `adw_init.md`, so the change does not bump `.adw-version`.
+* `adws/agents/commandAgent.ts` and `claudeAgent.ts` run the slash command inside the worktree; `adws/phases/worktreeSetup.ts` copies `target: false` assets there as gitignored run-only files. None of the five prompts is a `hashInputs` entry of `adw_init.md`, so the change does not bump `.adw-version`.
 
 ## Divergence
 
