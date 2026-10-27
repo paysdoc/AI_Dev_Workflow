@@ -1,4 +1,4 @@
-@adw-1101 @adw-a6cot9-feat-adwmerge-re-run
+@adw-1101 @adw-a6cot9-feat-adwmerge-re-run @promotion-suggested-2026-10-27
 Feature: Before adwMerge merges a pull request whose branch does not hold the tip of the base branch, it merges the base branch in, pushes, and re-runs "@regression" and the issue's scenarios on the result; it merges only once both pass, and otherwise parks the workflow as "human_gated" for "post_merge_bdd_red" with a comment saying why, from where "## Retry" resumes the same workflow
 
   The suites are "@regression" and "@adw-<issue>", re-run by the scenario proof runner in the workflow's worktree.

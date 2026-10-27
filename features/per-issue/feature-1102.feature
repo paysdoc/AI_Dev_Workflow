@@ -1,4 +1,4 @@
-@adw-1102 @adw-7l5bhw-bug-the-bdd-proof-co
+@adw-1102 @adw-7l5bhw-bug-the-bdd-proof-co @promotion-suggested-2026-10-27
 Feature: When the repository's scenario runner writes no JUnit report to "ADW_JUNIT_REPORT_PATH", the BDD Proof comment shows "no report" and says the counts are unavailable instead of "0 passed, 0 failed", it and the scenario proof warn that the tag passed on the exit code only, the pass/fail decision is unchanged, and a run with a report is shown as before
 
   The BDD Proof comment is the "## :camera: BDD Proof" comment that the proof publish phase posts on the pull request, with a tally line and a summary table of one row per suite.
