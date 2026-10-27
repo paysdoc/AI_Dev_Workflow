@@ -1,4 +1,4 @@
-@adw-1104 @adw-01sigg-planner-add-a-behavi @promotion-suggested-2026-10-27
+@regression @framework-planning-commands
 Feature: The planner of an issue in a target repository, such as a port that must not change behaviour, runs the framework checkout's current planning command for the issue's type, from the copies of "/feature", "/bug" and "/chore" that worktree setup puts in the worktree, even when the repository's branch tracks an older copy, and the ADW codebase's planning command tells the planner of such a port to add a behavioural equivalence step whose comparison of the old and new implementations is a validation command, without forcing the step on an issue that changes behaviour
 
   The framework checkout is the ADW checkout whose ".claude/commands/" worktree setup copies into a target repository's worktree.
@@ -6,7 +6,7 @@ Feature: The planner of an issue in a target repository, such as a port that mus
   Background:
     Given the ADW codebase is checked out
 
-  @adw-1104 @adw-01sigg-planner-add-a-behavi @surface
+  @surface
   Scenario Outline: The planner of a "<command>" issue that ports an existing module and says its behaviour stays the same runs the "<command>" planning command as the framework checkout has it, from the copy worktree setup put in the worktree, and is handed the issue's title and body
     Given an issue <issue> exists in the mock issue tracker
     And issue <issue> in the mock issue tracker is titled "Port decklib to a typed TypeScript package built with esbuild" and its body says "Port the hand-written JavaScript decklib v5.3 to TypeScript, module by module. Anything that uses the library should see no change."
@@ -25,7 +25,7 @@ Feature: The planner of an issue in a target repository, such as a port that mus
       | plan         | /feature | 110401 | surface-1104-01 | test/fixtures/jsonl/manifests/surface-plan-phase.json       |
       | chore        | /chore   | 110402 | surface-1104-02 | test/fixtures/jsonl/manifests/surface-chore-plan-phase.json |
 
-  @adw-1104 @adw-01sigg-planner-add-a-behavi @surface
+  @surface
   Scenario: The planner of a "/chore" issue in a target repository whose branch tracks an older copy of the "/chore" planning command still runs the "/chore" planning command as the framework checkout has it
     Given an issue 110403 exists in the mock issue tracker
     And issue 110403 in the mock issue tracker is titled "Port decklib to a typed TypeScript package built with esbuild" and its body says "Port the hand-written JavaScript decklib v5.3 to TypeScript, module by module. Anything that uses the library should see no change."
@@ -38,7 +38,7 @@ Feature: The planner of an issue in a target repository, such as a port that mus
     Then the "plan" phase run succeeded
     And the planner of the workflow for adwId "surface-1104-03" ran the "/chore" planning command as the framework checkout has it
 
-  @adw-1104 @adw-01sigg-planner-add-a-behavi @surface
+  @surface
   Scenario Outline: The "<command>" planning command that worktree setup copies from the ADW codebase tells the planner of an issue that ports an existing module and says its behaviour stays the same to add a behavioural equivalence step that compares the old and new implementations, and to make that comparison a validation command
     Given an issue <issue> exists in the mock issue tracker
     And issue <issue> in the mock issue tracker is titled "Port decklib to a typed TypeScript package built with esbuild" and its body says "Port the hand-written JavaScript decklib v5.3 to TypeScript, module by module. Anything that uses the library should see no change."
@@ -60,7 +60,7 @@ Feature: The planner of an issue in a target repository, such as a port that mus
       | plan         | /feature | 110404 | surface-1104-04 | test/fixtures/jsonl/manifests/surface-plan-phase.json       |
       | chore        | /chore   | 110405 | surface-1104-05 | test/fixtures/jsonl/manifests/surface-chore-plan-phase.json |
 
-  @adw-1104 @adw-01sigg-planner-add-a-behavi @surface
+  @surface
   Scenario: The "/feature" planning command that worktree setup copies from the ADW codebase does not force a behavioural equivalence step on the planner of an issue that changes what an existing module does, and tells it to say in "## Notes" why a restructure has no comparison
     Given an issue 110406 exists in the mock issue tracker
     And issue 110406 in the mock issue tracker is titled "Add a compact option to decklib's table" and its body says "Add a compact option to decklib's table that leaves out the separator lines between rows. Decks that set the option will render their tables differently."
@@ -74,6 +74,5 @@ Feature: The planner of an issue in a target repository, such as a port that mus
     And the "/feature" planning command the planner of the workflow for adwId "surface-1104-06" ran tells it that an issue that restructures no existing code, such as one that adds new behaviour, gets no behavioural equivalence step and needs no note about one
     And the "/feature" planning command the planner of the workflow for adwId "surface-1104-06" ran tells it that when the old implementation cannot be run, or what the code does is meant to change, the plan has no behavioural equivalence step and "## Notes" says so and why
 
-  @adw-1104 @adw-01sigg-planner-add-a-behavi
   Scenario: The ADW TypeScript type-check passes with the step definitions of these planner scenarios in place
     Then the ADW TypeScript type-check passes

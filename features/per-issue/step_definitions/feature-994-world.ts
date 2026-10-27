@@ -19,7 +19,7 @@ import type { AssembledProof } from '../../../adws/proof/proofAssembler.ts';
 import { deactivateStandInAgent } from './feature-994-agent.ts';
 import type { RepositoryType } from './feature-994-names.ts';
 import { disposeRunner, type CaseOutcome, type StandInRunner, type TagBehaviour } from './feature-994-runner.ts';
-import type { PromptReceived } from './feature-995-prompt.ts';
+import type { PromptReceived } from '../../regression/step_definitions/feature-995-prompt.ts';
 import type { ScreenshotStore } from '../../regression/step_definitions/feature-937-world.ts';
 
 /** A scenario the stand-in runner reports, as a table says it: where its feature file is, and how its run ends. */
