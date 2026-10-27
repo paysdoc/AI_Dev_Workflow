@@ -1,4 +1,4 @@
-@adw-1100 @adw-4tx10n-bug-adwmerge-treats
+@adw-1100 @adw-4tx10n-bug-adwmerge-treats @promotion-suggested-2026-10-27
 Feature: When GitHub refuses to merge a pull request whose branch the local merge check finds clean, adwMerge treats the refusal as stale and asks again after 3, 6, 12 and 24 seconds without running "/resolve_conflict"; a branch the check finds in conflict still goes through "/resolve_conflict"; the "ADW Merge Blocked" comment says what was tried; and adwMerge saves its output in "logs/<adwId>/merge.log"
 
   The local merge check is "git merge-tree --write-tree origin/<base> HEAD", run in the workflow's worktree after a fresh fetch of the base branch.
