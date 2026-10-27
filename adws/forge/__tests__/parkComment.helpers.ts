@@ -48,6 +48,17 @@ export const SAMPLE: Readonly<Record<ParkReason, ParkEvidence>> = {
     worktreePath: '/srv/adw/.worktrees/feature-issue-42-widget',
     planPath: 'specs/issue-42-adw-k3x9ab-feat-park-comment-sdlc_planner-widget.md',
   },
+  [ParkReason.PostMergeBddRed]: {
+    reason: ParkReason.PostMergeBddRed,
+    prNumber: 42,
+    baseBranch: 'trunk',
+    mergedCommits: ['a1b2c3d Add the changelog', 'e4f5a6b Raise the order limit'],
+    conflictedFiles: ['src/shared.ts'],
+    failures: [
+      { title: '@regression Orders: Orders are accepted', detail: 'expected 1 order, found 0' },
+      { title: '@adw-42 Orders: Orders over the limit are refused', detail: 'expected status 422, got 201' },
+    ],
+  },
 };
 
 export const REASONS = Object.values(ParkReason);
@@ -61,6 +72,12 @@ export function toolMissing(overrides: Partial<Extract<DeviceFailure, { kind: 't
     reason: ParkReason.DeviceBootFailed,
     failure: { kind: 'tool_missing', platform: Platform.Android, tool: HostTool.AvdManager, output: 'Error: spawn avdmanager ENOENT', ...overrides },
   };
+}
+
+export function postMergeRed(overrides: Partial<Extract<ParkEvidence, { reason: ParkReason.PostMergeBddRed }>> = {}): ParkEvidence {
+  const sample = SAMPLE[ParkReason.PostMergeBddRed];
+  if (sample.reason !== ParkReason.PostMergeBddRed) throw new Error('The sample for post_merge_bdd_red is not a post-merge red');
+  return { ...sample, ...overrides };
 }
 
 export function stalled(overrides: Partial<Extract<ParkEvidence, { reason: ParkReason.FixLoopStalled }>> = {}): ParkEvidence {

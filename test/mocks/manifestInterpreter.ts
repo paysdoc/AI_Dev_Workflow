@@ -1,8 +1,9 @@
 /**
- * Schema strategy: full-contents writes only. Each edit entry specifies a
+ * Schema strategy: full-contents writes. Each edit entry specifies a
  * `path` (relative to the worktree root) and `contents` (the complete new
  * file contents). The interpreter writes every edit atomically before the
- * stub begins streaming.
+ * stub begins streaming. An edit marked `append` adds its contents to the end
+ * of the file instead, for an agent that a run starts more than once.
  *
  * Per-command entries: `byCommand` is keyed on the slash command that opens the prompt, matched
  * exactly (`/implement-tdd` never selects `/implement`). A matching entry applies alone — its
@@ -26,7 +27,7 @@
  *   MOCK_WORKTREE_PATH  — absolute path to the target worktree (falls back to cwd)
  */
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { appendFileSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
 import { resolve, dirname, isAbsolute } from 'path';
 import { execSync, execFileSync } from 'child_process';
 import { isManifest, type Manifest, type ManifestCommandEntry, type ManifestCommit, type ManifestEdit, type ManifestResponse } from './manifestSchema.ts';
@@ -35,9 +36,10 @@ import { findRefusedPaths, ManifestRefusalError } from './manifestRefusalGuard.t
 export type { Manifest, ManifestCommandEntry, ManifestResponse } from './manifestSchema.ts';
 export { findRefusedPaths, ManifestRefusalError };
 
-function writeEdit(absolutePath: string, contents: string): void {
+function writeEdit(absolutePath: string, contents: string, append: boolean): void {
   mkdirSync(dirname(absolutePath), { recursive: true });
-  writeFileSync(absolutePath, contents, 'utf-8');
+  if (append) appendFileSync(absolutePath, contents, 'utf-8');
+  else writeFileSync(absolutePath, contents, 'utf-8');
 }
 
 const COMMIT_COMMAND = /^\/commit(\s|$)/;
@@ -124,7 +126,7 @@ function assertNoConflictingEdits(edits: readonly ManifestEdit[]): void {
 function writeEdits(edits: readonly ManifestEdit[], worktreePath: string): string[] {
   return edits.map((edit) => {
     const absolutePath = resolve(worktreePath, edit.path);
-    writeEdit(absolutePath, edit.contents);
+    writeEdit(absolutePath, edit.contents, edit.append === true);
     return absolutePath;
   });
 }

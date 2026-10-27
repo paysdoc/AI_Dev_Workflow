@@ -57,6 +57,7 @@
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
     - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
     - When an orchestrator dies during startup or is refused the spawn lock and the reason must appear in its `execution.log` (`recordStartupFailure`, `startupFailureLog.ts`)
+    - When working on `claimIssueSpawnLock` / the spawn lock being taken first in `initializeWorkflow` and `initializePRReviewWorkflow`, a launch that loses the lock clobbering the holder's top-level state or `resumeAttempts`, or the duplicate-launch hand-off race from the cron
   - Decisions:
     - 0002
     - 0011
@@ -109,6 +110,9 @@
     - adws/triggers/issueEligibility.ts
     - adws/triggers/issueOpenedRouter.ts
     - adws/triggers/autoMergeHandler.ts
+    - adws/triggers/baseIntegration.ts
+    - adws/core/postMergeVerdict.ts
+    - adws/phases/postMergeScenarioRerun.ts
     - adws/triggers/cancelHandler.ts
     - adws/triggers/retryHandler.ts
     - adws/triggers/perIssueScenarioSweep.ts
@@ -120,6 +124,8 @@
   - Conditions:
     - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
     - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`) or its persist orchestration (`perIssueSweepPersist.ts`) in `adws/triggers/`
+    - When a merge fails with a stale or misleading forge error ("not mergeable", "behind", "dirty"), or when working on the auto-merge loop's local merge check (`checkLocalMerge`), stale-mergeability retry (`STALE_MERGE_RETRY_DELAYS_MS`), `MergeOutcome`, the `## ADW Merge Blocked` comment (`mergeBlockedComment.ts`), or adwMerge's `merge.log`
+    - When adwMerge re-runs `@regression` and `@adw-{issue}` on the branch merged with the base (`bringBaseIn`, `baseMovedPast`, `rerunScenariosOnMergedBranch`, `postMergeVerdict`), parks `human_gated` / `post_merge_bdd_red`, or when `## Retry` must resume such a park in place, or the janitors must not sweep a live merge run (`isIssueLockHeldByLiveProcess`)
     - When working on region-overlap serialization/detection (`regionOverlap.ts`, `regionOverlapSignals.ts`) or resume-spawn resolution (`adws/core/resolveResumeSpawn.ts`)
   - Decisions:
     - 0008
@@ -270,7 +276,7 @@
   - Conditions:
     - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
     - When working on build continuation / resume-in-place (`buildContinuationPrompt`, `buildResumeInPlacePrompt`, `shouldResumeBuildInPlace`) from previously committed state
-    - When a build never ends after the plan is done, or working on the `BUILD_COMPLETE` completion signal (`reportsBuildComplete`, the continuation prompt's `## Completion Check` and `## Scope` sections, a stopped agent that reported completion)
+    - When a build never ends after the plan is done, or working on the `BUILD_COMPLETE` completion signal (`reportsBuildComplete`, the continuation prompt's `## Completion Check`, `## Scope` and `## Verification` sections, the prompt scope blocks pinned by `buildPromptsScope.test.ts`, a stopped agent that reported completion)
     - When working on the plan phase leaving the plan uncommitted in the worktree (`planPhaseCommit.test.ts`), or troubleshooting a plan that reached a commit
     - When a resumed workflow parks as `worktree_lost` because its plan went with a removed worktree (`parkIfPlanLost`, `planCreatedByEarlierRun`), or the planner must not run again on resume
   - Decisions:
@@ -278,6 +284,7 @@
     - 0024
     - 0047
     - 0056
+    - 0066
 
 - app_docs/feature-9gjajh-worktree-and-vcs.md
   - Owns:
@@ -560,6 +567,7 @@
     - .claude/commands/scenario_writer.md
     - .claude/commands/test.md
     - .claude/commands/tools.md
+    - adws/__tests__/planningCommandsPrompt.test.ts
     - .claude/skills/**
     - .claude/hooks/**
     - adws/__tests__/adwInitPrompt.test.ts
@@ -572,6 +580,7 @@
     - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
     - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the descriptor-mode device note in `generate_step_definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
     - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
+    - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
   - Decisions:
     - 0005
     - 0014
@@ -953,6 +962,7 @@
     - When working on `planAgent.ts`, `alignmentAgent.ts`, `buildAgent.ts`, or `installAgent.ts`
   - Decisions:
     - 0024
+    - 0066
 
 - app_docs/feature-9gjajh-pr-and-document-agents.md
   - Owns:

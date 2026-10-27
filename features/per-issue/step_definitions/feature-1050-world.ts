@@ -103,6 +103,7 @@ export function janitorDepsOver(devices: DeviceJanitorDeps['devices']): DeviceJa
     devices: { clock: steppingClock(), ...devices },
     readTopLevelState: stateOf,
     isAgentProcessRunning: adwId => s.workflows.get(adwId)?.alive ?? false,
+    isIssueLockHeldByLiveProcess: () => false,
     getWorktreeAgeMs: worktreeAgeOf,
     log: (message, level = 'info') => {
       s.lines.push({ level, message });

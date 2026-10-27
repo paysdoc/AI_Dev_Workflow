@@ -1,6 +1,7 @@
 @regression @surface @subprocess
 Feature: adwMerge — autoMergePhase — edge: PR not yet merged
 
+  @adw-1100 @adw-1101
   Scenario: merge orchestrator merges the still-open PR, records the workflow completed and posts the completion comment
     Given an issue 1011 exists in the mock issue tracker
     And a workflow for adwId "surface-11" is awaiting merge of PR 1011 from branch "surface-11"

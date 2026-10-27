@@ -1,6 +1,7 @@
 @regression @surface
 Feature: adwPlan — orchestratorLock — acquired and released (happy path)
 
+  @adw-1105
   Scenario: plan orchestrator's lifecycle holds the spawn-gate lock for the issue while it runs and releases it afterwards
     Given an issue 1031 exists in the mock issue tracker
     And no spawn lock exists for issue 1031

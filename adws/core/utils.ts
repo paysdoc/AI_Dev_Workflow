@@ -5,7 +5,7 @@ import { LOGS_DIR } from './environment';
 import { log } from './logger';
 
 export { generateAdwId, slugify } from './adwId';
-export { log, setLogAdwId, getLogAdwId, resetLogAdwId, type LogLevel } from './logger';
+export { log, setLogAdwId, getLogAdwId, resetLogAdwId, setLogFile, type LogLevel } from './logger';
 export { parseTargetRepoArgs } from './orchestratorCli';
 
 /**

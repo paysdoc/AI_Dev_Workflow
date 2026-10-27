@@ -19,7 +19,7 @@ vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
 
-import { acquireIssueSpawnLock, releaseIssueSpawnLock, getSpawnLockFilePath } from '../spawnGate';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock, getSpawnLockFilePath, isIssueLockHeldByLiveProcess } from '../spawnGate';
 import { getProcessStartTime, isProcessLive } from '../../core/processLiveness';
 
 const mockGetProcessStartTime = vi.mocked(getProcessStartTime);
@@ -162,5 +162,72 @@ describe('releaseIssueSpawnLock', () => {
 
   it('is a no-op when the lock file does not exist', () => {
     expect(() => releaseIssueSpawnLock(repoWidgets, 99)).not.toThrow();
+  });
+});
+
+describe('isIssueLockHeldByLiveProcess', () => {
+  const OWN_PID = 4242;
+
+  function writeLock(repo: RepoIdentifier, issueNumber: number, record: { pid: number; pidStartedAt: string }): void {
+    const lockPath = getSpawnLockFilePath(repo, issueNumber);
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    fs.writeFileSync(lockPath, JSON.stringify({ ...record, repoKey: `${repo.owner}/${repo.repo}`, issueNumber, startedAt: new Date().toISOString() }), 'utf-8');
+  }
+
+  it('is true when a process other than the caller holds the lock and is the process that took it', () => {
+    writeLock(repoWidgets, 42, { pid: 9999, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(true);
+    expect(mockIsProcessLive).toHaveBeenCalledWith(9999, 'boot-era-A');
+  });
+
+  it('is false when the caller holds the lock itself, since a lock it leaked must not shield an orphan forever', () => {
+    writeLock(repoWidgets, 42, { pid: OWN_PID, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(false);
+  });
+
+  it('is false when the holder is dead or its pid was reused by another process', () => {
+    writeLock(repoWidgets, 42, { pid: 9999, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(false);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(false);
+  });
+
+  it('is false when no lock exists', () => {
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(false);
+    expect(mockIsProcessLive).not.toHaveBeenCalled();
+  });
+
+  it('is false when the lock records no start time, since the holder cannot be told from a process that reused its pid', () => {
+    writeLock(repoWidgets, 42, { pid: 9999, pidStartedAt: '' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(false);
+  });
+
+  it('reads the lock of the repository and the issue it is asked about', () => {
+    writeLock(repoGadgets, 42, { pid: 9999, pidStartedAt: 'boot-era-A' });
+    writeLock(repoWidgets, 43, { pid: 9999, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42, OWN_PID)).toBe(false);
+    expect(isIssueLockHeldByLiveProcess(repoGadgets, 42, OWN_PID)).toBe(true);
+  });
+
+  it('takes the pid of the running process as the caller by default', () => {
+    writeLock(repoWidgets, 42, { pid: process.pid, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess(repoWidgets, 42)).toBe(false);
+  });
+
+  it('asks for a repository by its owner and name alone', () => {
+    writeLock(repoWidgets, 42, { pid: 9999, pidStartedAt: 'boot-era-A' });
+    mockIsProcessLive.mockReturnValue(true);
+
+    expect(isIssueLockHeldByLiveProcess({ owner: 'acme', repo: 'widgets' }, 42, OWN_PID)).toBe(true);
   });
 });

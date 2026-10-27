@@ -36,6 +36,12 @@ Fix a specific failing BDD scenario using the provided failure details.
 
    **Budget** — resolve attempts are capped by the workflow's max-retry budget. If hermeticity/green is not reached within the budget the workflow hard-fails. Do not stub the assertion itself or weaken test expectations to force a pass — the hard-fail will surface this as a failed workflow instead.
 
+## Scope
+
+Your task is the plan's steps, or the one failure you were handed, and nothing else. Code beyond it is allowed only when a plan step or an `@adw-{N}` scenario cannot pass without it. List every such addition under a `## Beyond the plan` heading, each with the step or scenario it unblocked; write "none" when there is nothing to list. Refactoring, hardening, extra tests, performance work and cleanup of code you did not write never qualify and are out of scope, whatever a coding guideline says about them.
+
+Coding guidelines bind the lines you add or change. A pre-existing line that breaks a guideline stays as it is unless the plan names it.
+
 5. **Validate the Fix**
    - Re-run the same scenario using the `testPath` to confirm it now passes
    - IMPORTANT: The scenario must complete successfully before considering it resolved

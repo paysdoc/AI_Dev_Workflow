@@ -8,12 +8,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { rmSync } from 'fs';
 import { join } from 'path';
-import { Platform } from '@paysdoc/devplatform';
 
 // Pins the start token so the assertions are exact on every platform, as workflowInit.test.ts does.
 vi.mock('../../core/processLiveness', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../core/processLiveness')>()),
   getProcessStartTime: vi.fn(),
+}));
+
+// A real lock file would be taken under the Vitest worker's pid and refuse the next test that reviews the same PR.
+vi.mock('../../triggers/spawnGate', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../triggers/spawnGate')>()),
+  acquireIssueSpawnLock: vi.fn(),
+  readSpawnLockRecord: vi.fn(),
+  releaseIssueSpawnLock: vi.fn(),
+}));
+
+// The merge poll's wait is 30 s of real sleeps; one retry with no pause is enough to see that a refused claim waits.
+vi.mock('../orchestratorLock', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../orchestratorLock')>()),
+  MERGE_POLL_LOCK_WAIT: { attempts: 2, retryMs: 0 },
 }));
 
 // With no RepoContext no PR comment is posted.
@@ -42,67 +55,25 @@ import { runApplicationTypeGate, buildApplicationTypeGateDeps } from '../applica
 import { APPLICATION_TYPE_PROFILES } from '../../core/applicationType';
 import { getDefaultProjectConfig, loadProjectConfig, type ProjectConfig } from '../../core/projectConfig';
 import { getProcessStartTime } from '../../core/processLiveness';
+import { acquireIssueSpawnLock, readSpawnLockRecord } from '../../triggers/spawnGate';
 import { AgentStateManager } from '../../core/agentState';
 import { resetLogAdwId } from '../../core/logger';
 import { AGENTS_STATE_DIR, LOGS_DIR, GRACE_PERIOD_MS } from '../../core/config';
 import { resolveIssueWorkflowStage } from '../../triggers/cronStageResolver';
 import { evaluateIssue } from '../../triggers/cronIssueFilter';
 import { makeIssue, OLD_DATE } from '../../triggers/__tests__/cronIssueFilterFixtures';
-import type { LaunchBoundary } from '../../core';
+import { ISSUE_NUMBER, PR_NUMBER, TARGET_BRANCH, WORKTREE_PATH, PR_REVIEW_SCRIPT, BOUNDARY, boundaryFor, seedFinishedSdlcRun } from './prReviewPhase.helpers';
 
+// Distinct from the other PR review suites' run ids: files run in parallel and share the agents state directory.
 const ADW_ID = 'prreview-owner-unit';
-const BRANCH = 'bugfix-issue-9600-pr-review-owner';
-const ISSUE_NUMBER = 9600;
-const PR_NUMBER = 96;
 const TEN_MINUTES_MS = 10 * 60_000;
-const FINISHED_RUN = { pid: 2147483646, pidStartedAt: 'finished-sdlc-run', lastSeenAt: '2026-01-01T00:00:00.000Z' } as const;
 const ISSUE_COMMENTS = [{ body: `**ADW ID:** \`${ADW_ID}\`` }];
-const TARGET_BRANCH = 'trunk';
-const WORKTREE_PATH = '/tmp/adw-pr-review-owner-unit';
-const PR_REVIEW_SCRIPT = 'adws/adwPrReview.tsx';
-
-function boundaryFor(linkedIssueNumber: number | undefined): LaunchBoundary {
-  return {
-    repoId: { owner: 'acme', repo: 'widget', platform: Platform.GitHub },
-    providers: {
-      codeHost: {
-        fetchPullRequest: () => ({
-          number: PR_NUMBER,
-          title: 'Tidy the retry budget',
-          body: '',
-          state: 'OPEN',
-          sourceBranch: BRANCH,
-          targetBranch: TARGET_BRANCH,
-          url: '',
-          linkedIssueNumber,
-        }),
-        fetchReviewComments: () => [],
-        getAuthenticatedUser: () => 'adw-bot',
-      },
-    },
-    gitContext: { owner: 'acme', repo: 'widget', ensureWorktree: () => WORKTREE_PATH },
-  } as unknown as LaunchBoundary;
-}
-
-const BOUNDARY = boundaryFor(ISSUE_NUMBER);
-
-/** What the SDLC run leaves for the PR review to find: awaiting_merge, its own dead owner, and one recorded phase. */
-function seedFinishedSdlcRun(): void {
-  AgentStateManager.writeTopLevelState(ADW_ID, {
-    adwId: ADW_ID,
-    issueNumber: ISSUE_NUMBER,
-    workflowStage: 'awaiting_merge',
-    orchestratorScript: 'adws/adwSdlc.tsx',
-    branchName: BRANCH,
-    ...FINISHED_RUN,
-    // A recorded phase is what lets init run with no unaddressed comments instead of exiting.
-    phases: { stepDef: { status: 'completed', startedAt: FINISHED_RUN.lastSeenAt, completedAt: FINISHED_RUN.lastSeenAt } },
-  });
-}
 
 beforeEach(() => {
   vi.mocked(getProcessStartTime).mockReset();
-  seedFinishedSdlcRun();
+  vi.mocked(acquireIssueSpawnLock).mockReset().mockReturnValue(true);
+  vi.mocked(readSpawnLockRecord).mockReset().mockReturnValue(null);
+  seedFinishedSdlcRun(ADW_ID);
 });
 
 afterEach(() => {

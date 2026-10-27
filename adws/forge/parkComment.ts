@@ -3,6 +3,10 @@ import type { DeviceFailure } from '../core/deviceLifecycle';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
 import { FixLoopStall } from '../core/staticCheckFixLoop';
 import type { WorkflowStage } from '../types/workflowTypes';
+import { inlineCode, onOneLine, quote } from './parkCommentFormat';
+import { describePostMergeRed, POST_MERGE_RED_REMEDY, type PostMergeRedFacts } from './postMergeRedComment';
+
+export { MAX_PARK_OUTPUT_CHARS } from './parkCommentFormat';
 
 export enum ParkReason {
   BaselineRed = 'baseline_red',
@@ -12,6 +16,7 @@ export enum ParkReason {
   BaseServerDown = 'base_server_down',
   DeviceBootFailed = 'device_boot_failed',
   WorktreeLost = 'worktree_lost',
+  PostMergeBddRed = 'post_merge_bdd_red',
 }
 
 /** The phases that read the plan by path, and so the ones that can find it gone. */
@@ -38,19 +43,13 @@ export type ParkEvidence =
   | { readonly reason: ParkReason.MissingApplicationType; readonly found: string | null }
   | { readonly reason: ParkReason.BaseServerDown; readonly baseBranch: string; readonly output: string }
   | { readonly reason: ParkReason.DeviceBootFailed; readonly failure: DeviceFailure }
-  | { readonly reason: ParkReason.WorktreeLost; readonly phase: PlanReadingPhase; readonly worktreePath: string; readonly planPath: string };
+  | { readonly reason: ParkReason.WorktreeLost; readonly phase: PlanReadingPhase; readonly worktreePath: string; readonly planPath: string }
+  | ({ readonly reason: ParkReason.PostMergeBddRed } & PostMergeRedFacts);
 
 export interface ParkDirectives {
   readonly retry: string;
   readonly continue: string;
 }
-
-/** Per quoted output, so that a comment with several failing checks stays far below the forge's comment size limit. */
-export const MAX_PARK_OUTPUT_CHARS = 2_000;
-
-const QUOTE_INDENT = '    ';
-const NO_OUTPUT = '(no output)';
-const CUT_MARKER = `… output cut after ${MAX_PARK_OUTPUT_CHARS} characters; the full output is in the run’s execution log`;
 
 export type ParkStage = Extract<WorkflowStage, 'human_gated' | 'worktree_lost'>;
 
@@ -63,6 +62,7 @@ const STAGES: Readonly<Record<ParkReason, ParkStage>> = {
   [ParkReason.BaseServerDown]: 'human_gated',
   [ParkReason.DeviceBootFailed]: 'human_gated',
   [ParkReason.WorktreeLost]: 'worktree_lost',
+  [ParkReason.PostMergeBddRed]: 'human_gated',
 };
 
 export function parkStage(reason: ParkReason): ParkStage {
@@ -77,6 +77,7 @@ const TITLES: Readonly<Record<ParkReason, string>> = {
   [ParkReason.BaseServerDown]: 'Dev Server Does Not Start on the Base Branch',
   [ParkReason.DeviceBootFailed]: 'A Device Did Not Boot',
   [ParkReason.WorktreeLost]: 'The Plan Was Lost with the Worktree',
+  [ParkReason.PostMergeBddRed]: 'Scenarios Fail on the Branch Merged with the Base Branch',
 };
 
 const BASELINE_DIRECTIVES: ParkDirectives = {
@@ -116,43 +117,20 @@ export function parkDirectives(evidence: ParkEvidence): ParkDirectives {
         continue:
           'waives nothing, because no phase after the plan can run without it: to start the issue over with a new plan, use `## Cancel`, which clears the workflow and re-queues the issue',
       };
+    case ParkReason.PostMergeBddRed: {
+      const base = inlineCode(evidence.baseBranch);
+      return {
+        retry:
+          'resumes the workflow under the same ADW ID: the scenarios run again on the branch as it is then, the scenario fix loop attempts fixes, ' +
+          `the review and the documentation run again, and the merge re-runs the scenarios if ${base} has moved on again`,
+        continue: `waives nothing for this park: the failure is this branch combined with ${base}, which only a fix clears, so use \`## Retry\``,
+      };
+    }
     default: {
       const unhandled: never = evidence;
       throw new Error(`Unhandled park reason: ${JSON.stringify(unhandled)}`);
     }
   }
-}
-
-function onOneLine(text: string): string {
-  return text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
-}
-
-/** The fence is one backtick longer than the longest run inside the text, so that no text can end the span early. */
-function inlineCode(text: string): string {
-  const flat = onOneLine(text);
-  const longestRun = Math.max(0, ...(flat.match(/`+/g) ?? []).map(run => run.length));
-  const fence = '`'.repeat(longestRun + 1);
-  const padding = flat.startsWith('`') || flat.endsWith('`') ? ' ' : '';
-  return `${fence}${padding}${flat}${padding}${fence}`;
-}
-
-function cutAt(text: string, limit: number): string {
-  const cut = text.slice(0, limit);
-  return /[\ud800-\udbff]$/.test(cut) ? cut.slice(0, -1) : cut;
-}
-
-function excerptOf(output: string): string {
-  const text = output.replace(/\r\n?/g, '\n').trimEnd();
-  if (text === '') return NO_OUTPUT;
-  return text.length <= MAX_PARK_OUTPUT_CHARS ? text : `${cutAt(text, MAX_PARK_OUTPUT_CHARS)}\n${CUT_MARKER}`;
-}
-
-/** Indented line by line, so that no quoted line can stand alone as a directive or as a heading. */
-function quote(output: string): string {
-  return excerptOf(output)
-    .split('\n')
-    .map(line => `${QUOTE_INDENT}${line}`.trimEnd())
-    .join('\n');
 }
 
 function describeCheck({ check, command, exitCode, output }: ParkedCheck): string {
@@ -213,6 +191,8 @@ function describeFailure(evidence: ParkEvidence): string {
       return describeDeviceFailure(evidence.failure);
     case ParkReason.WorktreeLost:
       return describeLostPlan(evidence);
+    case ParkReason.PostMergeBddRed:
+      return describePostMergeRed(evidence);
     default: {
       const unhandled: never = evidence;
       throw new Error(`Unhandled park reason: ${JSON.stringify(unhandled)}`);
@@ -243,6 +223,8 @@ function baseBranchNote(evidence: ParkEvidence): string | null {
     case ParkReason.PreExistingRegression:
     case ParkReason.BaseServerDown:
       return `This fails on the base branch ${inlineCode(evidence.baseBranch)}, so this issue did not cause it.`;
+    case ParkReason.PostMergeBddRed:
+      return `The branch passed on its own and fails combined with ${inlineCode(evidence.baseBranch)}.`;
     default:
       return null;
   }
@@ -250,6 +232,9 @@ function baseBranchNote(evidence: ParkEvidence): string | null {
 
 function describeParking(evidence: ParkEvidence): string {
   const parked = `The workflow is parked as \`${parkStage(evidence.reason)}\`.`;
+  if (evidence.reason === ParkReason.PostMergeBddRed) {
+    return `${parked} The full output of the scenario run is in the merge run’s \`merge.log\`. ${POST_MERGE_RED_REMEDY}`;
+  }
   const checkBased = evidence.reason === ParkReason.BaselineRed || evidence.reason === ParkReason.FixLoopStalled;
   return checkBased ? `${parked} The full output of each check is in the run’s execution log.` : parked;
 }
