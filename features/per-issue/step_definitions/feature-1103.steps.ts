@@ -221,10 +221,10 @@ Then(
     assertEveryPromptHolds(first, last, [
       '## Scope',
       'out of scope',
-      'refactors',
-      'extra hardening',
-      'stress tests',
-      'mutation tests',
+      'Refactoring',
+      'hardening',
+      'extra tests',
+      'stress, fuzz, mutation or benchmark runs',
       "Uncommitted edits outside the plan's steps are not work to continue",
     ]);
   },

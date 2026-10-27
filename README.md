@@ -481,7 +481,6 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   ├── deep-modules.md
 │   │   ├── interface-design.md
 │   │   ├── mocking.md
-│   │   ├── refactoring.md
 │   │   └── tests.md
 │   ├── tdd/
 │   │   ├── SKILL.md
@@ -525,6 +524,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwPlanBuildTest.test.ts
 │   ├── adwPlanBuildTestReview.test.ts
 │   ├── adwUpgrade.test.ts
+│   ├── buildPromptsScope.test.ts
 │   ├── checkBranchNames.test.ts
 │   ├── checkGitGhGuard.test.ts
 │   ├── checkLivingDocsIndex.test.ts
@@ -536,6 +536,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── generateStepDefinitionsPrompt.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
+│   ├── planningCommandsPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
 │   ├── reviewPrompt.test.ts

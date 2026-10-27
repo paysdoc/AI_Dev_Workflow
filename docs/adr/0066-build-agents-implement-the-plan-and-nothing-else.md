@@ -71,10 +71,6 @@ Checked against the code on 2026-10-27, before the prompts were changed:
 * `feature.md:139`, `bug.md:117`, `chore.md:101` say "If necessary, refactor existing code to meet the coding guidelines".
 * `adws/agents/commandAgent.ts` and `claudeAgent.ts` run the slash command inside the worktree; `adws/phases/worktreeSetup.ts` copies `target: false` assets there as gitignored run-only files. None of the six prompts is a `hashInputs` entry of `adw_init.md`, so the change does not bump `.adw-version`.
 
-## Divergence
-
-The prompts still carry the refactor step, the open-ended verification rule and the planner's refactor sentence, and neither implement prompt prints the marker; the checks above show it. The difference is deliberate: this record was written before the change, which one `adw:chore` issue carries. The decision takes effect in builds after that issue's PR is released and the pipeline host restarted.
-
 ## More Information
 
 * [ADR-0023](0023-context-exhaustion-is-a-reset.md) is unchanged: a context that runs out is still restarted on git state. This record changes what the restarted agent is told.

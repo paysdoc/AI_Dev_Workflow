@@ -229,10 +229,11 @@ describe('buildContinuationPrompt — completion check and scope rule', () => {
       const result = build();
       expect(result).toContain('## Scope');
       expect(result).toContain('out of scope');
-      expect(result).toContain('refactors');
-      expect(result).toContain('extra hardening');
-      expect(result).toContain('stress tests');
-      expect(result).toContain('mutation tests');
+      expect(result).toContain('Refactoring');
+      expect(result).toContain('hardening');
+      expect(result).toContain('extra tests');
+      expect(result).toContain('performance work');
+      expect(result).toContain('stress, fuzz, mutation or benchmark runs');
     });
 
     it("says uncommitted edits outside the plan's steps are not work to continue", () => {
