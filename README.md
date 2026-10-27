@@ -1360,6 +1360,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
 │   ├── review/         # Regression scenarios covering the review comment on the issue: it shows the screenshots of the proof run the review judged, each embedded from the URL its upload returned, on a passing and a failing review, and a screenshot never decides or blocks the review (#937)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)
+│   ├── spawn-lock/     # Regression scenarios covering an orchestrator that finds an issue's spawn lock held by another live process: it exits 0 without running a phase, logs the pid that holds the lock, and leaves the top-level state and the workflow's resume attempts as the holder recorded them; and the cron launching no second orchestrator for a timed-out workflow whose relaunched orchestrator is still starting up, relaunching it once that orchestrator has exited without spending a resume attempt on it (#1105)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; standInDevices.ts, the stand-in for the host's device tools (avdmanager, emulator, adb, xcrun simctl) that the real device lifecycle runs over in the scenarios that run the scenario test phase on a repository with platforms, and that answers like a host whose devices do not boot or whose tools are not installed when a scenario says so; gherkinTags.ts parses scenario tags for the harness
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
@@ -1381,7 +1382,6 @@ package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
 known_issues.md         # Production incidents, recurring failure patterns, and resolution status
-junit-report.xml        # Tracked JUnit report written by test runs
 README.md               # This file
 UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```
