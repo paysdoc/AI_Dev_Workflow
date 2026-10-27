@@ -1374,3 +1374,69 @@ This section also reuses already-registered phrases, so they need no new rows:
 - `the scenario proof ran no tag` (T-S11)
 - `the scenario proof records no blocker failures` (T-PY3)
 - `the ADW TypeScript type-check passes` (T22)
+
+---
+
+## Given/When/Then — The Planner Runs the Framework Checkout's Planning Commands (@framework-planning-commands)
+
+These phrases prove two things about the planner of an issue in a target repository: that it runs the
+planning command the framework checkout has for the issue's type, from the copy worktree setup put in
+the worktree, and what the planning commands ADW ships tell it. They drive two production entry points
+in-process (phase-import pattern): worktree setup, as `initializeWorkflow` runs it on a new worktree of
+the `--target-repo` path (the real `copyClaudeAssetsToWorktree`, then the real
+`ignoreSpecsInWorktree`), and the plan phase of the `plan` or `chore` orchestrator, through W-S1.
+
+Their inputs are fixtures under `os.tmpdir()`. The worktree is the fixture worktree G11 makes for
+`acme/widgets`. The framework checkout is either a throwaway git repository whose three planning
+commands each have text of their own (G-FP2), or the checked-out ADW codebase (G-FP3). The Claude CLI
+is a stand-in (`feature-1104-cli.ts`): for each run it records, outside the worktree, its working
+directory, its prompt, the slash command the prompt opens with, and the command file
+`<cwd>/.claude/commands/<name>.md` as it was when the run started. It then hands the run to the
+generic stub, so the manifest G3 named still answers.
+
+The command file a run recorded is the planning command that the Claude CLI expands the planner's
+prompt from: what ADW handed the planner. It is a run artefact, as the generator's command is for
+T-KC9–T-KC11. Every assertion targets a runtime artefact: the phase run's outcome, the planning
+commands worktree setup left in the worktree, and the stand-in's records of the planner's run (where
+it ran, the prompt ADW started it with, and the planning command it ran). A framework checkout's
+command file is read only as the input worktree setup copied: the expected value a recorded copy or
+run is compared with. No step asserts a property of a source file, satisfying the Rot-Detection
+Rubric.
+
+The definitions live in `features/regression/step_definitions/feature-1104.steps.ts` (G-FP1–G-FP4,
+W-FP1 and T-FP1–T-FP3) and `feature-1104-instructions.steps.ts` (T-FP4–T-FP9). Their helpers are
+`feature-1104-cli.ts`, `feature-1104-commands.ts` and `feature-995-prompt.ts`.
+
+The hooks are keyed on `@framework-planning-commands and @surface`, so a scenario that uses these
+phrases must carry both tags. `Before` resets this feature's state, installs the stand-in, puts its
+removal on the World's cleanup list, and names its script as `World.claudeCliStandIn`;
+`pointClaudeCodeAtStub` points `CLAUDE_CODE_PATH` at that script when the phase runs. The
+`@regression` hooks bring up the mock infrastructure and run the cleanup list. The type-check scenario
+carries no `@surface` and gets no stand-in.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-FP1 | `issue {int} in the mock issue tracker is titled {string} and its body says {string}` | Replaces the title and body of the issue G4 seeded in mock-server state, keeping its other fields, and keeps them for T-FP3. Fails when the mock issue tracker holds no such issue, so G4 must come first. The plan phase reads the issue when it runs, so the planner is handed this title and body | mock-query | mock server state (SUT input) |
+| G-FP2 | `a framework checkout whose planning commands {string}, {string} and {string} each have text of their own` | Makes a throwaway git repository under `os.tmpdir()` on `main`, whose `origin` is `https://github.com/acme/framework.git`, and commits `.claude/commands/<name>.md` for each named command: `target: false` frontmatter and a line that names the command, so no two texts are alike and a copy taken from the wrong file shows. Fails when the three commands are not three different ones. Puts the repository's removal on the World's cleanup list. It is the framework checkout W-FP1 copies from | phase-import | framework checkout fixture (SUT input) |
+| G-FP3 | `the framework checkout is the checked-out ADW codebase` | Names the ADW checkout the scenario runs in (`REPO_ROOT`) as the framework checkout W-FP1 copies from, so the planner runs the planning commands ADW ships. Its `origin`, when it can be read, names the ADW repository and never `acme/widgets`, so worktree setup treats the worktree as a target repository's | phase-import | framework checkout (SUT input) |
+| G-FP4 | `the branch of the worktree for adwId {string} tracks an older copy of the {string} planning command` | Commits on the branch of the worktree G11 registered for the adwId a `.claude/commands/<name>.md` whose text says it is an older copy of the command, as the branch of a target repository that once committed it would carry it, and keeps that text so T-FP2 can say when the planner ran it | phase-import | git artefact (commit on the worktree branch) |
+| W-FP1 | `worktree setup runs in the worktree for adwId {string} from that framework checkout` | Runs worktree setup as `initializeWorkflow` does on a new worktree of the `--target-repo` path: the real `copyClaudeAssetsToWorktree` in-process, with the worktree G11 registered for the adwId, a real `GitContext` for `acme/widgets` and the framework checkout G-FP2 or G-FP3 named as `frameworkRepoRoot`, then the real `ignoreSpecsInWorktree`. Fails when no framework checkout was named | phase-import | worktree + git artefacts |
+| T-FP1 | `the worktree for adwId {string} holds the planning commands {string}, {string} and {string} as the framework checkout has them` | Asserts that each named command's `.claude/commands/<name>.md` in the worktree G11 registered holds exactly the framework checkout's text of that command, the input W-FP1 copied. Fails naming each command whose copy differs or is missing | phase-import | worktree artefact (the planning commands worktree setup copied) |
+| T-FP2 | `the planner of the workflow for adwId {string} ran the {string} planning command as the framework checkout has it` | From the stand-in Claude CLI's run records, takes the one run whose prompt opens with a planning command (`/feature`, `/bug` or `/chore`) and asserts that it ran in the worktree G11 registered, opened with the named command, and found in its worktree, when it started, a command file equal to the framework checkout's text of that command. Fails listing the runs the stand-in served, or saying whose text the planner ran instead: another command's, the older copy G-FP4 committed, or none | phase-import | recorded CLI run (the stand-in's record of the planner's run) |
+| T-FP3 | `the planner of the workflow for adwId {string} was handed the number of issue {int}, its adwId and the issue's title and body` | From the same planner run, reads back the arguments of the prompt ADW started it with, which ADW single-quotes (`argumentsOf`), and asserts there are three: the issue number, the adwId, and an issue JSON whose `title` and `body` are those G-FP1 set | phase-import | recorded CLI run (the prompt ADW started the planner with) |
+| T-FP4 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it that the plan of an issue that ports, rewrites, migrates, re-bundles or restructures existing code, and says or implies that what the code does stays the same, must include a behavioural equivalence step as a task of its own under {string}` | From the planner run T-FP2 picks, which must have opened with the named command, takes the planning command the run was handed, as the stand-in recorded it when the run started, and that command's `## Behavioural Equivalence` section. Asserts the section holds `ports, rewrites, migrates, re-bundles or restructures`, `says or implies`, `stays the same`, `must include a behavioural equivalence step`, `task of its own` and the heading. Fails listing what it lacks, or when the command has no such section | phase-import | recorded CLI run (the planning command the planner was handed) |
+| T-FP5 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it that the behavioural equivalence step keeps a copy of the old implementation that the tests can run, and runs the old and the new implementation on the same inputs and diffs what they produce, across the public API and odd inputs such as null and undefined options, empty collections and boundary values` | As T-FP4. The section holds `copy of the old implementation`, `tests can run`, `same inputs`, `diffs what they produce`, `public API`, null and undefined each written in backticks, `empty collections` and `boundary values` | phase-import | recorded CLI run (the planning command the planner was handed) |
+| T-FP6 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it to list the command that runs the comparison under {string}` | As T-FP4. The section names the heading, and the section of the same heading in the command's Plan Format (the lines inside the fence under `## Plan Format`) holds a placeholder line in angle brackets that names the behavioural equivalence step | phase-import | recorded CLI run (the planning command the planner was handed) |
+| T-FP7 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it that a byte-for-byte check of a build artefact against the build's own output, and the existing tests still passing, are not behavioural equivalence checks` | As T-FP4. The section holds `not behavioural equivalence checks`, `byte-for-byte`, `build's own output` and `the existing tests still passing` | phase-import | recorded CLI run (the planning command the planner was handed) |
+| T-FP8 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it that an issue that restructures no existing code, such as one that adds new behaviour, gets no behavioural equivalence step and needs no note about one` | As T-FP4. The section holds `restructures no existing code`, `adds new behaviour`, `gets no behavioural equivalence step` and `needs no note about one` | phase-import | recorded CLI run (the planning command the planner was handed) |
+| T-FP9 | `the {string} planning command the planner of the workflow for adwId {string} ran tells it that when the old implementation cannot be run, or what the code does is meant to change, the plan has no behavioural equivalence step and {string} says so and why` | As T-FP4. The section holds `cannot be run`, `meant to change`, `there is no behavioural equivalence step`, the heading and `say so and why`, and, as T-FP6, the section of the heading in the Plan Format holds a placeholder line that names the step | phase-import | recorded CLI run (the planning command the planner was handed) |
+
+This section also reuses already-registered phrases, so they need no new rows:
+
+- `the ADW codebase is checked out` (G18, Background)
+- `the claude-cli-stub is loaded with manifest {string}` (G3)
+- `an issue {int} exists in the mock issue tracker` (G4)
+- `the worktree for adwId {string} is initialised at branch {string}` (G11)
+- `the {string} phase of the {string} orchestrator runs for adwId {string}` (W-S1, over its `plan`/`plan` and `chore`/`plan` pairs)
+- `the {string} phase run succeeded` (T-S1)
+- `the ADW TypeScript type-check passes` (T22)
