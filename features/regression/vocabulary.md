@@ -1374,3 +1374,60 @@ This section also reuses already-registered phrases, so they need no new rows:
 - `the scenario proof ran no tag` (T-S11)
 - `the scenario proof records no blocker failures` (T-PY3)
 - `the ADW TypeScript type-check passes` (T22)
+
+---
+
+## Given/When/Then — The Proof of a Tag Run Without a JUnit Report (@proof-without-junit-report)
+
+These phrases prove what the scenario proof and the BDD Proof comment say of a tag whose scenario
+runner wrote no JUnit report to `ADW_JUNIT_REPORT_PATH`: the tag passes or fails on its exit code as
+before, the comment's summary table shows `no report` for it and the comment says the counts are
+unavailable instead of `0 passed, 0 failed`, and both the comment and the tag's section of the
+scenario proof warn that it passed on the exit code only. A run whose report holds no test case has
+written a report, so its tag still fails as a blocker, and a run with a passing report is shown as
+before. Two real phases run in process (phase-import), over the throwaway workflow worktree of the
+`@web-playwright-project` rows (G-WP10):
+
+1. `executeScenarioTestPhase`, with the stand-in scenario command as the worktree's
+   `## Run Scenarios by Tag`. It records each run, then exits 0 or 1, and leaves no file, a report
+   with no test case, or a report in which every scenario passes at `$ADW_JUNIT_REPORT_PATH`.
+2. `executeProofPublishPhase`, over the scenario proof the test phase left on the workflow's context.
+   The workflow is bound to feature-796's recording launch boundary, whose code host records the
+   comment the phase posts.
+
+The `.adw/` files, the features and step files a row puts in the worktree, and the stand-in are
+inputs to the system under test. Every assertion targets a runtime artefact: the scenario proof the
+phase returned, the scenario proof file it wrote, and the pull-request comment the recording code
+host received. No step reads a source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-1102.steps.ts` (G-NR1–G-NR3, W-NR1, T-NR1–T-NR3, T-NR5, T-NR6),
+which reads the proof's sections and the comment's summary table through `feature-1102-lines.ts`, and
+in `feature-820.steps.ts` (T-NR4). The hooks are keyed on `@proof-without-junit-report`, so a scenario
+that uses these phrases must carry that tag. `Before` resets the shared workflow world and the
+`@web-playwright-project` state; `After` disposes of the stand-ins and removes the throwaway
+directories, `agents/<adwId>` and `logs/<adwId>`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-NR1 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 0, and writes no JUnit report` | As G-WP13: sets `## Run Scenarios by Tag` in the worktree's `.adw/commands.md` and `.adw/scenarios.md` to the stand-in scenario command. Each run records its tag, working directory and `ADW_` variables, leaves no file at `$ADW_JUNIT_REPORT_PATH`, and exits 0. The directory named must be `.adw/` | phase-import | workflow config + stub behaviour (SUT input) |
+| G-NR2 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 1, and writes no JUnit report` | As G-NR1, the stand-in exiting 1 | phase-import | workflow config + stub behaviour (SUT input) |
+| G-NR3 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 0, and writes a JUnit report with no test case` | As G-NR1, the stand-in writing a JUnit report that holds no test case at `$ADW_JUNIT_REPORT_PATH` | phase-import | workflow config + stub behaviour (SUT input) |
+| W-NR1 | `the workflow's proof publish phase runs for pull request {int}` | Points the workflow's `ctx.prUrl` at pull request N of the repository its recording launch boundary stands for, then runs the real `executeProofPublishPhase(config)` over the scenario proof W-WP3 left on `ctx.scenarioProof`. Fails unless the workflow is bound to the repository's code host and W-WP3 has run | phase-import | recording providers' call log (the posted comment) |
+| T-NR1 | `the scenario proof's section for the tag {string} has the warning {string}` | Reads the scenario proof file the phase wrote (the returned proof's `resultsFilePath`) and takes the tag's section, from its `## <tag> Scenarios` heading to the next heading of that level. Asserts one of the section's `**Warning:**` lines reads exactly the text, listing the section's warnings otherwise; fails when the proof has no section for the tag. (The proof file is an *artefact* the phase wrote, not a source file — permitted read.) | phase-import | scenario proof file artefact |
+| T-NR2 | `the scenario proof's section for the tag {string} has no warning` | As T-NR1; asserts the section has no `**Warning:**` line | phase-import | scenario proof file artefact |
+| T-NR3 | `the scenario proof does not contain {string}` | Asserts the scenario proof file the phase wrote does not contain the text, showing the file otherwise. (Artefact, not a source file — permitted read.) | phase-import | scenario proof file artefact |
+| T-NR4 | `the recorded comment on pull request {int} contains {string}` | Takes the first `commentOnPullRequest` call for pull request N from the recording providers' call log and asserts its body contains the text. Fails when the code host recorded no comment on N. Defined in `feature-820.steps.ts` | mock-query | recording providers' call log |
+| T-NR5 | `the recorded comment on pull request {int} does not contain {string}` | As T-NR4; asserts the body does not contain the text, showing the comment otherwise | mock-query | recording providers' call log |
+| T-NR6 | `the recorded comment on pull request {int} has exactly these rows in its summary table:` | As T-NR4, then reads the rows of the comment's summary table, under its header and its rule, in the order the comment lists them: each row's suite without its backticks, its scenarios cell, and its status without its emoji; the severity column is not compared. Asserts they are exactly the data table's `suite`, `scenarios` and `status` rows, in order | mock-query | recording providers' call log |
+
+This section also reuses already-registered phrases, so they need no new rows:
+
+- `the ADW codebase is checked out` (G18)
+- `a workflow for issue {int} whose worktree's {string} declares the application type {string}` (G-WP10)
+- `the worktree's {string} runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes` (G-WP13)
+- `the worktree holds a feature tagged {string} and steps for it in the step definition directory {string} names` (G-WP16)
+- `the workflow's scenario test phase runs` (W-WP3)
+- `the scenario proof records the tag {string} as passed` (T-WP19)
+- `the scenario proof records no blocker failures` (T-PY3)
+- `the scenario proof records a blocker failure for the tag {string}` (T-S12)
+- `the ADW TypeScript type-check passes` (T22)
