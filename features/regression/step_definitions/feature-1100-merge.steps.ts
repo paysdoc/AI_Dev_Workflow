@@ -10,11 +10,11 @@ import { rmSync } from 'fs';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { assertIsTheConflictAgent, installConflictAgent, type AgentBehaviour } from './feature-1100-agent.ts';
-import { createForge, type MergeAnswer } from './feature-1100-forge.ts';
-import { addBranchConflicting, addBranchMergingCleanly, createRepoFixture, landConflictingCommit } from './feature-1100-repo.ts';
-import { runMergeOrchestrator } from './feature-1100-run.ts';
-import { assertOnTheWorkflowsPullRequest, claimAdwId, OWNER, REPO, requireWorkflow, s } from './feature-1100-world.ts';
+import { assertIsTheConflictAgent, installConflictAgent, type AgentBehaviour } from '../../regression/step_definitions/feature-1100-agent.ts';
+import { createForge, type MergeAnswer } from '../../regression/step_definitions/feature-1100-forge.ts';
+import { addBranchConflicting, addBranchMergingCleanly, createRepoFixture, landConflictingCommit } from '../../regression/step_definitions/feature-1100-repo.ts';
+import { runMergeOrchestrator } from '../../regression/step_definitions/feature-1100-run.ts';
+import { assertOnTheWorkflowsPullRequest, claimAdwId, OWNER, REPO, requireWorkflow, s } from '../../regression/step_definitions/feature-1100-world.ts';
 
 const MERGED = 'merged';
 

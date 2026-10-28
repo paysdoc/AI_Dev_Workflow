@@ -7,10 +7,10 @@
 import { Then, type DataTable } from '@cucumber/cucumber';
 import assert from 'assert';
 
-import { AGENT_COMMIT_SUBJECT, assertIsTheConflictAgent, conflictAgentRuns } from './feature-1100-agent.ts';
-import { waitsBeforeEachMergeCall } from './feature-1100-forge.ts';
-import { originBranchHolds, originBranchTip } from './feature-1100-repo.ts';
-import { assertOnTheWorkflowsPullRequest, requireWorkflow, s } from './feature-1100-world.ts';
+import { AGENT_COMMIT_SUBJECT, assertIsTheConflictAgent, conflictAgentRuns } from '../../regression/step_definitions/feature-1100-agent.ts';
+import { waitsBeforeEachMergeCall } from '../../regression/step_definitions/feature-1100-forge.ts';
+import { originBranchHolds, originBranchTip } from '../../regression/step_definitions/feature-1100-repo.ts';
+import { assertOnTheWorkflowsPullRequest, requireWorkflow, s } from '../../regression/step_definitions/feature-1100-world.ts';
 
 const SECONDS = /^(\d+) seconds?$/;
 
