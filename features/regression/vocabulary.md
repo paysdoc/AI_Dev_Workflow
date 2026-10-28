@@ -1502,3 +1502,71 @@ This section also reuses already-registered phrases, so they need no new rows:
 - `the cron launched no orchestrator for issue {int}` (T-DT2)
 - `every orchestrator the cron launched for issue {int} runs {string} under adwId {string}` (T-DT3)
 - `the worktree of workflow {string} was not reset` (T-DT5)
+
+---
+
+## Given/When/Then — Stale Merge Refusals, Conflict Resolution and the Merge-Blocked Comment (@stale-merge-retry)
+
+These phrases drive adwMerge's merge loop, the auto-merge path that asks GitHub to merge a workflow's
+pull request. The in-process rows (phase-import pattern) call the real `executeMerge` over the
+production launch boundary (`buildLaunchBoundary`), whose real `GitContext` works in a workspace cloned
+from a bare `origin` the steps build under `os.tmpdir()`, so ADW's worktree, its fetches, merges and
+pushes and its top-level state file are the real ones. Only the forge is a stand-in: a code host and an
+issue tracker that implement just what a merge run calls and throw, naming the call, on anything else.
+It answers each merge call as the scenario scripted it and records, in order, every merge call, every
+wait ADW hands the merge loop's injected wait, which returns at once so that no scenario sleeps, and
+every comment. The `/resolve_conflict` agent is the Claude CLI stub, started as ADW starts the real
+agent, in the worktree, with the merge from the base branch begun; a manifest marker above every
+worktree programs it. Under the `@regression` hooks `PATH` leads with the git mock, which answers
+`fetch` and `push` without reaching `origin`, so W-MR1 puts a `git` that runs the real binary
+(`REAL_GIT_PATH`) ahead of it for the length of the run. The `@subprocess` row runs the merge
+orchestrator as a child process through the hermetic subprocess harness ("Smoke processes" above) and
+reads the `merge.log` the process wrote.
+
+Every assertion targets a runtime artefact: the top-level state file; the merge calls, waits and
+comments the stand-in forge recorded; the `resolve-conflict-<ms>.jsonl` output each run of the agent
+leaves in `logs/<adwId>/`; the branches and history of the bare `origin`; and, for the `@subprocess`
+row, the exit code, the requests the mock GitHub API recorded, the process's output and its merge log.
+No step reads, greps or parses a source file, satisfying the Rot-Detection Rubric. The definitions live
+in `features/regression/step_definitions/feature-1100-*.ts`. The in-process rows' `Before`/`After`
+hooks, in `feature-1100-world.ts`, are keyed on `@stale-merge-retry and not @subprocess` and reset the
+module-scoped workflow G-MR1 names, so a scenario that reuses these phrases must carry
+`@stale-merge-retry`. The `@subprocess` row needs no hook of its own: the
+`@regression and (@subprocess or @webhook)` hooks give it the mock server and the subprocess harness.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-MR1 | `the workflow {string} for issue {int} is awaiting the merge of pull request {int} from the branch {string} into {string}` | Claims the adwId, which must be one made up for these scenarios (`merge1100-` followed by lowercase words), removing its `agents/` and `logs/` directories now and again at cleanup. Builds under `os.tmpdir()` a bare `origin` holding the base branch with two commits (`src/shared.ts` and `README.md`), a maintainer clone through which every later commit on `origin` is made, and the target-repos directory the workspace is later cloned into, all removed at cleanup. Creates the stand-in forge with pull request N open from the head branch into the base branch, approved and unlabelled, and writes the adwId's top-level state at stage `awaiting_merge` with the issue and the head branch | phase-import | state file artefact + git artefact (bare `origin`) + stand-in forge (SUT input) |
+| G-MR2 | `the branch {string} merges cleanly into {string} on origin` | Pushes the head branch to `origin`, off the base branch, with a change to the one line of `src/shared.ts` that a base-branch commit can also change and a file of its own, then moves the base branch on with a commit that touches neither, so the branch is behind the base and still merges cleanly. Fails unless the branches are the ones G-MR1 named | phase-import | git artefact (bare `origin`) |
+| G-MR3 | `the branch {string} conflicts with {string} on origin` | Pushes the head branch as G-MR2 does, then moves the base branch on with a commit that changes the same line of `src/shared.ts` another way, so merging the two conflicts | phase-import | git artefact (bare `origin`) |
+| G-MR4 | `a commit that conflicts with the branch {string} lands on {string} on origin between ADW's push and its first call to merge pull request {int}` | Has the stand-in code host, when it is first asked to merge and before it answers, land on the base branch on `origin` a commit that changes `src/shared.ts` as the branch did not, and keeps that commit for T-MR7. Fails unless the branches and the pull request are the ones G-MR1 named | phase-import | git artefact (bare `origin`) + stand-in forge (SUT input) |
+| G-MR5 | `the {string} agent resolves the conflicts with a merge commit` | Points `CLAUDE_CODE_PATH` at the Claude CLI stub, restored at cleanup, and writes the stub's manifest marker (`.adw-stub-manifest.json`) into the target-repos directory, above every worktree ADW adds: the stub answers with the build agent's payload, writes the resolved `src/shared.ts` and commits everything under the subject `Resolve the conflicts with the base branch (stand-in agent)`, which concludes the merge ADW began. Only `/resolve_conflict` is accepted, since a merge starts no other agent | phase-import | stub behaviour (SUT input) |
+| G-MR6 | `the {string} agent fails to resolve the conflicts` | As G-MR5, but the stub answers with an error and changes nothing | phase-import | stub behaviour (SUT input) |
+| G-MR7 | `GitHub answers the calls to merge pull request {int} in this order:` | Scripts the stand-in code host's answer to each merge call from the table's `merge call` and `GitHub answers` columns: `merged` merges the pull request, and any other text refuses the call with that text as its error. The calls must be numbered from 1 without a gap, and a call beyond the last scripted one fails the run | phase-import | stand-in forge (SUT input) |
+| G-MR8 | `GitHub refuses every call to merge pull request {int} with {string}` | Has the stand-in code host refuse every merge call with the given error | phase-import | stand-in forge (SUT input) |
+| W-MR1 | `the merge orchestrator runs the workflow {string}` | Clones the workspace from `origin` into the target-repos directory, unless an earlier run of the workflow did, then calls the real `executeMerge` in-process for the workflow's issue and adwId, over the production launch boundary built for `acme/widgets` with the bare `origin` as its clone URL and the stand-in forge as its providers. The merge loop is the production `mergeWithConflictResolution` with the stand-in's code host and its recording wait. For the length of the run a `git` that runs `REAL_GIT_PATH` leads `PATH`, ahead of the `@regression` git mock, so ADW's fetches and pushes reach `origin`; outside those hooks `REAL_GIT_PATH` is unset and `PATH` is left alone. Fails unless the adwId is G-MR1's; times out after 180 s | phase-import | state file + git artefacts + stand-in forge records |
+| T-MR1 | `GitHub was asked {int} times to merge pull request {int}` | Counts the merge calls for pull request N in the stand-in forge's ordered record and asserts the count; fails giving the count | phase-import | stand-in forge (recorded merge calls) |
+| T-MR2 | `GitHub was never asked to merge pull request {int}` | As T-MR1, with a count of 0 | phase-import | stand-in forge (recorded merge calls) |
+| T-MR3 | `ADW waited before the later merge calls of pull request {int} as follows:` | Attributes each wait in the stand-in forge's ordered record to the merge call that follows it (a wait after the last call counts for a call that never came) and asserts the waits are exactly the table's rows, its `merge call` column against its `wait before it` column written as `<n> seconds`; fails listing every wait ADW made. Fails unless N is G-MR1's pull request | phase-import | stand-in forge (recorded waits and merge calls) |
+| T-MR4 | `the {string} agent was never run` | Counts the `resolve-conflict-<ms>.jsonl` outputs in `logs/<adwId>/`, one of which each run of the agent leaves, and asserts there are none. The outputs are what the runs wrote, artefacts; no source file is read. Only `/resolve_conflict` is accepted | phase-import | agent output artefacts (`logs/<adwId>/`) |
+| T-MR5 | `the {string} agent ran once` | As T-MR4, asserting exactly one | phase-import | agent output artefacts (`logs/<adwId>/`) |
+| T-MR6 | `the branch {string} on origin holds the merge commit the {string} agent made` | Reads the branch's tip in the bare `origin` (`git log -1 --format=%H%n%P%n%s <branch>`) and asserts it has two parents and the stub's subject `Resolve the conflicts with the base branch (stand-in agent)`: ADW pushed the agent's merge commit | phase-import | git artefact (bare `origin`) |
+| T-MR7 | `the branch {string} on origin holds the merge commit the {string} agent made, which merges in the commit that landed on {string}` | As T-MR6, then asserts that `git rev-list <branch>` in the bare `origin` lists the commit G-MR4 landed on the base branch | phase-import | git artefact (bare `origin`) |
+| T-MR8 | `issue {int} received exactly one {string} comment` | Counts the comments the stand-in issue tracker recorded on issue N whose body contains the heading, and asserts there is exactly one | phase-import | stand-in forge (recorded comments) |
+| T-MR9 | `the {string} comment on issue {int} says that there were {int} merge attempts` | Finds the one recorded comment on issue N that contains the name, failing unless there is exactly one, reads its `Merge attempts:` line, bulleted or not, and asserts the line's text is the number; fails quoting the line and the comment | phase-import | stand-in forge (recorded comments) |
+| T-MR10 | `the {string} comment on issue {int} says that conflict resolution ran` | As T-MR9, for the `Conflict resolution:` line, whose text must be `ran`. T-MR10 and T-MR11 share one definition, a regular expression | phase-import | stand-in forge (recorded comments) |
+| T-MR11 | `the {string} comment on issue {int} says that conflict resolution did not run` | As T-MR10, with the text `did not run` | phase-import | stand-in forge (recorded comments) |
+| T-MR12 | `the {string} comment on issue {int} says that the local merge check was clean against {string}` | As T-MR9, for the `Local merge check:` line, whose text must start with `clean against` and the base branch's remote-tracking name, `origin/<base>`, in code quotes | phase-import | stand-in forge (recorded comments) |
+| T-MR13 | `the {string} comment on issue {int} says that the local merge check found conflicts with {string}` | As T-MR9, for the `Local merge check:` line, whose whole text must be `found conflicts with` and `origin/<base>` in code quotes | phase-import | stand-in forge (recorded comments) |
+| T-MR14 | `the {string} comment on issue {int} quotes the last error {string}` | As T-MR9, for the `Last error:` line, whose whole text must be the error | phase-import | stand-in forge (recorded comments) |
+| T-MR15 | `the {string} comment on issue {int} does not contain {string}` | Finds the one comment as T-MR9 does and asserts its body does not contain the text; fails quoting the comment | phase-import | stand-in forge (recorded comments) |
+| T-MR16 | `the merge log {string} holds every line the orchestrator subprocess printed about PR #{int}` | Takes every line of the last process's output (`World.lastOutput`, colour codes stripped) that names `PR #N`, failing with the output's last 40 lines when there is none, and asserts each is a whole line of the log at the path, relative to the checkout the process ran in; fails listing the missing lines, or naming the log when the process left none. The log is what the process wrote, an artefact | subprocess | log artefact (`logs/<adwId>/merge.log`) + log stream |
+| T-MR17 | `the merge log {string} holds a timestamped {string} line for PR #{int}` | Asserts the log at the path holds a line with an ISO-8601 timestamp in square brackets, then the text, then `PR #N`; fails quoting the log | subprocess | log artefact (`logs/<adwId>/merge.log`) |
+
+This section also reuses seven already-registered phrases, so they need no new row: `the ADW codebase
+is checked out` (G18, Background), `the state file for adwId {string} records workflowStage {string}`
+(T1), `an issue {int} exists in the mock issue tracker` (G4), `a workflow for adwId {string} is awaiting
+merge of PR {int} from branch {string}` (G-SP1), `the {string} orchestrator is invoked with adwId
+{string} and issue {int}` (W1), `the orchestrator subprocess exited {int}` (T5) and `the mock GitHub API
+recorded a merge of PR {int}` (T-SP1). In the feature's Scenario Outlines the column `<relation>` expands
+to G-MR2 or G-MR3, `<agent runs>` to T-MR4 or T-MR5, and `<resolution>` to T-MR10 or T-MR11.

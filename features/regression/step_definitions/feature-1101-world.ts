@@ -16,8 +16,8 @@ import { join } from 'path';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import { runCleanup } from '../../regression/support/cleanup.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import type { Forge } from './feature-1100-forge.ts';
-import type { RepoFixture } from './feature-1100-repo.ts';
+import type { Forge } from '../../regression/step_definitions/feature-1100-forge.ts';
+import type { RepoFixture } from '../../regression/step_definitions/feature-1100-repo.ts';
 import type { ScenarioRow } from './feature-1101-standin.ts';
 
 export interface Workflow {

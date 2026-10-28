@@ -9,7 +9,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 
 import { realGit } from '../../regression/support/fixtureWorktree.ts';
-import { originBranchHolds, originBranchTip, pushFeatureBranch, sharedContents, type RepoFixture } from './feature-1100-repo.ts';
+import { originBranchHolds, originBranchTip, pushFeatureBranch, sharedContents, type RepoFixture } from '../../regression/step_definitions/feature-1100-repo.ts';
 import { slugOf } from './feature-1101-standin.ts';
 import type { Workflow } from './feature-1101-world.ts';
 
