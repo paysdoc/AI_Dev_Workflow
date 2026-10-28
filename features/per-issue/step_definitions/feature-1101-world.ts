@@ -17,8 +17,8 @@ import { applyState, getRecordedRequests, resetMockServer } from '../../../test/
 import type { MockContext } from '../../../test/mocks/types.ts';
 import { runCleanup } from '../../regression/support/cleanup.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import type { Forge } from './feature-1100-forge.ts';
-import type { RepoFixture } from './feature-1100-repo.ts';
+import type { Forge } from '../../regression/step_definitions/feature-1100-forge.ts';
+import type { RepoFixture } from '../../regression/step_definitions/feature-1100-repo.ts';
 import type { ScenarioRow } from './feature-1101-standin.ts';
 
 export interface Workflow {

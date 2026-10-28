@@ -10,7 +10,7 @@ import assert from 'assert';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { handleRetryDirective, type RetryHandlerDeps } from '../../../adws/triggers/retryHandler.ts';
-import { runMergeOrchestrator } from './feature-1100-run.ts';
+import { runMergeOrchestrator } from '../../regression/step_definitions/feature-1100-run.ts';
 import { branchTipOnOrigin, commitOnBranch } from './feature-1101-repo.ts';
 import { fixPathFor } from './feature-1101-standin.ts';
 import { assertNamesThe, requireWorkflow } from './feature-1101-world.ts';
