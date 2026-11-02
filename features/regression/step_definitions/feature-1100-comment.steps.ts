@@ -7,7 +7,7 @@
 import { Then } from '@cucumber/cucumber';
 import assert from 'assert';
 
-import { requireWorkflow } from './feature-1100-world.ts';
+import { requireWorkflow } from '../../regression/step_definitions/feature-1100-world.ts';
 
 function commentsOn(issueNumber: number, heading: string): string[] {
   return requireWorkflow().forge.comments
