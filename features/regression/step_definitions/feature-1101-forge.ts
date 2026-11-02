@@ -8,8 +8,8 @@
 import type { CodeHost, IssueTracker, PullRequestSummary } from '@paysdoc/devplatform';
 
 import { dispatchMockRequest } from '../../../test/mocks/github-api-server.ts';
-import { createForge, strictPort, type Forge, type MergeAnswer } from './feature-1100-forge.ts';
-import { OWNER, REPO } from './feature-1100-world.ts';
+import { createForge, strictPort, type Forge, type MergeAnswer } from '../../regression/step_definitions/feature-1100-forge.ts';
+import { OWNER, REPO } from '../../regression/step_definitions/feature-1100-world.ts';
 
 /** More merge calls than any scenario makes. */
 const CALLS_ANSWERED = 10;

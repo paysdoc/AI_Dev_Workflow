@@ -1,8 +1,8 @@
 /**
  * What the in-process feature-1100 scenarios share. A scenario names one workflow awaiting the merge of one pull request; the
  * steps then describe `origin`, the agent and GitHub's answers, and the merge orchestrator runs once, for real, over a real git
- * repository (see feature-1100-run.ts). The scenario that runs the orchestrator as a process is tagged `@subprocess` and has
- * its own hooks (feature-1100-log.steps.ts).
+ * repository (see feature-1100-run.ts). The scenario that runs the orchestrator as a process is tagged `@subprocess`; the
+ * `@regression and (@subprocess or @webhook)` hooks give it the mock server and the subprocess harness.
  */
 
 import { After, Before } from '@cucumber/cucumber';
@@ -66,7 +66,7 @@ export function claimAdwId(world: RegressionWorld, adwId: string): void {
   world.cleanup.push(remove);
 }
 
-const IN_PROCESS_SCENARIOS = '@adw-1100 and not @subprocess';
+const IN_PROCESS_SCENARIOS = '@stale-merge-retry and not @subprocess';
 
 Before({ tags: IN_PROCESS_SCENARIOS }, function () {
   resetState();

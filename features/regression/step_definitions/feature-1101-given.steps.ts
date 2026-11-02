@@ -10,9 +10,9 @@ import { rmSync } from 'fs';
 
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { assertIsTheConflictAgent, installConflictAgent } from './feature-1100-agent.ts';
-import { createRepoFixture, originBranchHolds, SHARED_FILE } from './feature-1100-repo.ts';
-import { OWNER, REPO } from './feature-1100-world.ts';
+import { assertIsTheConflictAgent, installConflictAgent } from '../../regression/step_definitions/feature-1100-agent.ts';
+import { createRepoFixture, originBranchHolds, SHARED_FILE } from '../../regression/step_definitions/feature-1100-repo.ts';
+import { OWNER, REPO } from '../../regression/step_definitions/feature-1100-world.ts';
 import { adwConfiguration, FEATURE_FILE, featureFile, stepDefinitionFiles } from './feature-1101-content.ts';
 import { createRecordingForge, mergedAnswers, refusedThenMergedAnswers } from './feature-1101-forge.ts';
 import { baseTipOnOrigin, commitOnBranch, ensureBranchPushed, landOnBase, NO_CONFLICT } from './feature-1101-repo.ts';
