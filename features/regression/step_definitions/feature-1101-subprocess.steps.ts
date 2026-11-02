@@ -1,8 +1,7 @@
 /**
- * The scenario of feature-1101.feature that runs the SDLC and merge orchestrators as processes carries `@subprocess` but no
- * `@regression`, so the regression hooks give it neither the mock infrastructure nor the subprocess harness nor a cleanup. The
- * hooks here do what those do, for that scenario alone; the `@regression` scenarios that carry `@adw-1101` get theirs from the
- * regression hooks.
+ * The scenario of feature-1101.feature that runs the SDLC and merge orchestrators as processes carries `@subprocess`, so the
+ * `@regression and (@subprocess or @webhook)` hooks give it the mock infrastructure and the subprocess harness these steps read
+ * the workspace from.
  *
  * The target repository's workspace is configured to run its scenarios through the stand-in of feature-1101-standin.ts. The
  * stand-in fails the issue's scenario on a checkout that holds the workflow's build and a commit landed on the default branch,
@@ -11,7 +10,7 @@
  * harness, so a commit "lands" on the default branch by moving the workspace's `origin/` ref along with it.
  */
 
-import { After, Before, Given, Then, When } from '@cucumber/cucumber';
+import { Given, Then, When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -19,12 +18,10 @@ import { join } from 'path';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import { OrchestratorId } from '../../../adws/core/index.ts';
 import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
-import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../test/mocks/test-harness.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
-import { runCleanup } from '../../regression/support/cleanup.ts';
 import { commitOnDefaultBranch, DEFAULT_BRANCH } from '../../regression/support/fixtureTargetRepo.ts';
 import { realGit } from '../../regression/support/fixtureWorktree.ts';
-import { createSubprocessHarness, ensureTargetWorkspace, requireHarness } from '../../regression/support/subprocessHarness.ts';
+import { ensureTargetWorkspace, requireHarness } from '../../regression/support/subprocessHarness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import { FEATURE_FILE, featureFile, stepDefinitionFiles } from './feature-1101-content.ts';
 import {
@@ -39,8 +36,6 @@ import {
   type ScenarioRow,
 } from './feature-1101-standin.ts';
 
-const OWN_SUBPROCESS_SCENARIO = '@adw-1101 and @subprocess and not @regression';
-
 /** What the manifest's build agent writes: the workflow's own work, which the failing scenario needs to see. */
 const BUILD_FILE = 'src/orders.ts';
 const REGRESSION_SCENARIO = 'Orders are accepted';
@@ -51,28 +46,6 @@ const HUMAN = 'a-human';
 /** One line of the orchestrator's execution log for each failed tag that the scenario fix phase hands to the fix agent. */
 const FIX_STARTED = 'Resolving failed scenario:';
 const FIX_AGENT_OUTPUT = /^resolve-e2e-.*\.jsonl$/;
-
-Before({ tags: OWN_SUBPROCESS_SCENARIO }, async function (this: RegressionWorld) {
-  this.mockContext = await setupMockInfrastructure();
-});
-
-// Declared after the hook above, which sets up the mock server, so the order is guaranteed by this file.
-Before({ tags: OWN_SUBPROCESS_SCENARIO }, function (this: RegressionWorld) {
-  this.subprocess = createSubprocessHarness(this);
-});
-
-After({ tags: OWN_SUBPROCESS_SCENARIO }, async function (this: RegressionWorld) {
-  await runCleanup(this);
-  await teardownMockInfrastructure();
-  this.mockContext = null;
-  this.subprocess = null;
-  this.lastExitCode = -1;
-  this.lastOutput = '';
-  this.seededIssues = new Set();
-  this.worktreePaths.clear();
-  this.harnessEnv = {};
-  this.cleanup = [];
-});
 
 function withRunByTag(markdown: string, command: string, file: string): string {
   assert.ok(RUN_BY_TAG_BLOCK.test(markdown), `Expected "${file}" of the fixture to hold a fenced "## Run Scenarios by Tag" block`);
