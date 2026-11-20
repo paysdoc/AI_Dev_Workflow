@@ -23,7 +23,7 @@ import type { RegressionWorld } from '../../regression/step_definitions/world.ts
 
 import { sectionOf, summaryRowsIn, warningsIn } from './feature-1102-lines.ts';
 
-const OWN_SCENARIOS = '@adw-1102';
+const OWN_SCENARIOS = '@proof-without-junit-report';
 
 Before({ tags: OWN_SCENARIOS }, function () {
   beginScenario();

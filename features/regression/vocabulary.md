@@ -1122,6 +1122,49 @@ exit code W-DT4 records), T22, and the generic W16/T34 git/gh guard pair.
 
 ---
 
+## Given/When/Then — An Orchestrator That Loses an Issue's Spawn Lock (@spawn-lock-loser)
+
+These phrases pin what an orchestrator that loses an issue's spawn lock leaves behind, and how the cron
+relaunches a timed-out workflow whose relaunched orchestrator is still starting up or has died during
+startup. The `@subprocess` rows extend the subprocess pattern ("Smoke processes" above): the real SDLC
+orchestrator runs as a child process through the hermetic subprocess harness, against the `acme/widgets`
+workspace, either invoked directly (W1) or exactly as the cron launched it (W-SL1 replays the launch W10
+recorded), while G-PQ14's throwaway process holds the issue's spawn lock. The
+`@dead-orchestrator-takeover` rows are phase-import and run on that section's recording launch boundary
+and in-process polls (G-DT1, G-DT4, W-DT1, W-DT2); G-SL3 rewrites the `bunx` shadow those polls put on
+`PATH`, so every orchestrator the cron launches is a live stand-in process that records its argv and
+nothing else until W-SL2 or the cleanup ends it. Every assertion targets a runtime artefact: the
+top-level state file `agents/<adwId>/state.json` (its fields, its content and its modification time),
+the spawn-lock record under `agents/spawn_locks/`, the orchestrator's execution log
+`agents/<adwId>/<orchestrator>/execution.log`, the exit code, the recorded launches and the liveness of
+the stand-in processes. No step reads, greps or parses a source file, satisfying the Rot-Detection
+Rubric. The definitions live in `features/regression/step_definitions/feature-1105.steps.ts`. The
+`@regression` and `@regression and (@subprocess or @webhook)` hooks give the `@subprocess` rows the mock
+server and the subprocess harness, and the `@dead-orchestrator-takeover` hooks of `feature-959.steps.ts`
+give the cron rows their boundary, launch recorder and cleanup. The file's own `After` hook is keyed on
+`@spawn-lock-loser`, which a scenario that uses these phrases must carry, and only resets the file's
+state. G-SL3 puts ending its stand-ins on World's cleanup list rather than in that hook, because the
+`@regression` After hook runs the list before the `@dead-orchestrator-takeover` After hook removes the
+launch records, the only record of the stand-ins' pids.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-SL1 | `the top-level state for adwId {string} records the process holding the spawn lock for issue {int} as its orchestrator, at workflowStage {string}` | Reads the spawn-lock record for `acme/widgets#<issue>` (`readSpawnLockRecord`) and fails unless one exists, so G-PQ14 runs first. Claims the adwId and writes `agents/<adwId>/state.json` through `AgentStateManager.writeTopLevelState`: the adwId and the issue, the stage, `adws/adwSdlc.tsx` as `orchestratorScript`, the `acme/widgets` repository identity, the `pid` and `pidStartedAt` the lock records, and a `lastSeenAt` of now. Keeps the file's content and modification time for T-SL2 | subprocess | state file artefact + spawn-lock artefact (SUT input) |
+| G-SL2 | `the prior run for adwId {string} has used {int} resume attempt(s)` | Writes `resumeAttempts` into the adwId's top-level state through `AgentStateManager.writeTopLevelState`, which keeps every other field. Fails unless a prior run (G-SP2) was seeded for the adwId first | subprocess | state file artefact (SUT input) |
+| G-SL3 | `every orchestrator the cron launches stays alive, still starting up, without recording anything` | Rewrites the `bunx` shadow that W-DT1 and W-DT2 put on `PATH`: a launch still writes its argv to `launch-<pid>.args` in the launch recorder's directory, which T-DT1 and T-DT3 read, then `exec`s `sleep 300`, so the stand-in stays alive under the recorded pid and writes no state, log or spawn lock. Registers on World's cleanup list the ending (`SIGKILL`) of every stand-in still alive that W-SL2 has not ended | phase-import | recorded launches + process table (SUT input) |
+| W-SL1 | `the orchestrator the cron launched for issue {int} runs` | Takes the orchestrator launch for the issue that the subprocess harness's launch recorder holds from W10, and fails unless there is exactly one. Claims the issue, then runs that argv, `tsx <script> <issue> <adwId> …`, with the real `bunx` as a child process through the hermetic subprocess harness against the `acme/widgets` workspace, with a 120 s timeout, so the orchestrator classifies the issue itself. Records the exit code, which T5 reads, and the output, then replays the child's GitHub writes. Fails without the subprocess harness, as W1 does | subprocess | exit code + state file + execution log artefacts |
+| W-SL2 | `the orchestrator the cron launched for issue {int} exits, having recorded nothing` | Waits, bounded, until the launch recorder holds a launch for the issue whose G-SL3 stand-in has not been ended, kills each such stand-in (`SIGKILL`) and waits until each has exited. A pid is signalled only once, because a pid that has ended may belong to another process by then | phase-import | process table |
+| T-SL1 | `the execution log of the {string} for adwId {string} records that the spawn lock for issue {int} is held by the pid of the process holding it, exiting without running a phase` | Reads `agents/<adwId>/<orchestrator>/execution.log`, which the orchestrator wrote at runtime, and asserts it holds `Spawn lock for issue #<issue> is held by pid <pid>; exiting without running a phase`, where `<pid>` is the one the issue's spawn-lock record names. Fails naming the path when the log does not exist | subprocess | execution log artefact + spawn-lock artefact |
+| T-SL2 | `the orchestrator subprocess did not write the top-level state for adwId {string}` | Asserts `agents/<adwId>/state.json` still holds exactly the content G-SL1 kept and still has the modification time it kept, so no write reached the file, not even one that changed nothing. Fails unless G-SL1 seeded the adwId in the same scenario | subprocess | state file artefact |
+| T-SL3 | `the top-level state for adwId {string} records the pid and start time of the process holding the spawn lock for issue {int}` | Reads `agents/<adwId>/state.json` and asserts its `pid` and `pidStartedAt` equal the `pid` and `pidStartedAt` the issue's spawn-lock record holds | subprocess | state file artefact + spawn-lock artefact |
+
+This section also reuses already-registered phrases, so they need no new rows: `the ADW codebase is
+checked out` (G18, Background), G4, G5, G-PQ14 (as a Given and as a When; its holder and lock are
+released through World's cleanup list), G-CD2 (the adwIds are `throwaway1105-…`, made up for the
+scenario), G-SP2, W1, W10, T-SP4, T1, T5, T-RD11, G-DT1, G-DT4, W-DT1, W-DT2, T-DT1, T-DT3 and T22.
+
+---
+
 ## Given/When/Then — Review Comment Screenshots (@review-comment-screenshots)
 
 These phrases drive the review phase's comment on the issue and the screenshots of the proof run the
@@ -1636,3 +1679,60 @@ merge of PR {int} from branch {string}` (G-SP1), `the {string} orchestrator is i
 {string} and issue {int}` (W1), `the orchestrator subprocess exited {int}` (T5) and `the mock GitHub API
 recorded a merge of PR {int}` (T-SP1). In the feature's Scenario Outlines the column `<relation>` expands
 to G-MR2 or G-MR3, `<agent runs>` to T-MR4 or T-MR5, and `<resolution>` to T-MR10 or T-MR11.
+
+---
+
+## Given/When/Then — The Proof of a Tag Run Without a JUnit Report (@proof-without-junit-report)
+
+These phrases prove what the scenario proof and the BDD Proof comment say of a tag whose scenario
+runner wrote no JUnit report to `ADW_JUNIT_REPORT_PATH`: the tag passes or fails on its exit code as
+before, the comment's summary table shows `no report` for it and the comment says the counts are
+unavailable instead of `0 passed, 0 failed`, and both the comment and the tag's section of the
+scenario proof warn that it passed on the exit code only. A run whose report holds no test case has
+written a report, so its tag still fails as a blocker, and a run with a passing report is shown as
+before. Two real phases run in process (phase-import), over the throwaway workflow worktree of the
+`@web-playwright-project` rows (G-WP10):
+
+1. `executeScenarioTestPhase`, with the stand-in scenario command as the worktree's
+   `## Run Scenarios by Tag`. It records each run, then exits 0 or 1, and leaves no file, a report
+   with no test case, or a report in which every scenario passes at `$ADW_JUNIT_REPORT_PATH`.
+2. `executeProofPublishPhase`, over the scenario proof the test phase left on the workflow's context.
+   The workflow is bound to feature-796's recording launch boundary, whose code host records the
+   comment the phase posts.
+
+The `.adw/` files, the features and step files a row puts in the worktree, and the stand-in are
+inputs to the system under test. Every assertion targets a runtime artefact: the scenario proof the
+phase returned, the scenario proof file it wrote, and the pull-request comment the recording code
+host received. No step reads a source file, satisfying the Rot-Detection Rubric.
+
+The definitions live in `feature-1102.steps.ts` (G-NR1–G-NR3, W-NR1, T-NR1–T-NR3, T-NR5, T-NR6),
+which reads the proof's sections and the comment's summary table through `feature-1102-lines.ts`, and
+in `feature-820.steps.ts` (T-NR4). The hooks are keyed on `@proof-without-junit-report`, so a scenario
+that uses these phrases must carry that tag. `Before` resets the shared workflow world and the
+`@web-playwright-project` state; `After` disposes of the stand-ins and removes the throwaway
+directories, `agents/<adwId>` and `logs/<adwId>`.
+
+| # | Phrase | Semantics | Pattern | Assertion target |
+|---|--------|-----------|---------|-----------------|
+| G-NR1 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 0, and writes no JUnit report` | As G-WP13: sets `## Run Scenarios by Tag` in the worktree's `.adw/commands.md` and `.adw/scenarios.md` to the stand-in scenario command. Each run records its tag, working directory and `ADW_` variables, leaves no file at `$ADW_JUNIT_REPORT_PATH`, and exits 0. The directory named must be `.adw/` | phase-import | workflow config + stub behaviour (SUT input) |
+| G-NR2 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 1, and writes no JUnit report` | As G-NR1, the stand-in exiting 1 | phase-import | workflow config + stub behaviour (SUT input) |
+| G-NR3 | `the worktree's {string} runs scenarios by tag with a stand-in that records each run, exits 0, and writes a JUnit report with no test case` | As G-NR1, the stand-in writing a JUnit report that holds no test case at `$ADW_JUNIT_REPORT_PATH` | phase-import | workflow config + stub behaviour (SUT input) |
+| W-NR1 | `the workflow's proof publish phase runs for pull request {int}` | Points the workflow's `ctx.prUrl` at pull request N of the repository its recording launch boundary stands for, then runs the real `executeProofPublishPhase(config)` over the scenario proof W-WP3 left on `ctx.scenarioProof`. Fails unless the workflow is bound to the repository's code host and W-WP3 has run | phase-import | recording providers' call log (the posted comment) |
+| T-NR1 | `the scenario proof's section for the tag {string} has the warning {string}` | Reads the scenario proof file the phase wrote (the returned proof's `resultsFilePath`) and takes the tag's section, from its `## <tag> Scenarios` heading to the next heading of that level. Asserts one of the section's `**Warning:**` lines reads exactly the text, listing the section's warnings otherwise; fails when the proof has no section for the tag. (The proof file is an *artefact* the phase wrote, not a source file — permitted read.) | phase-import | scenario proof file artefact |
+| T-NR2 | `the scenario proof's section for the tag {string} has no warning` | As T-NR1; asserts the section has no `**Warning:**` line | phase-import | scenario proof file artefact |
+| T-NR3 | `the scenario proof does not contain {string}` | Asserts the scenario proof file the phase wrote does not contain the text, showing the file otherwise. (Artefact, not a source file — permitted read.) | phase-import | scenario proof file artefact |
+| T-NR4 | `the recorded comment on pull request {int} contains {string}` | Takes the first `commentOnPullRequest` call for pull request N from the recording providers' call log and asserts its body contains the text. Fails when the code host recorded no comment on N. Defined in `feature-820.steps.ts` | mock-query | recording providers' call log |
+| T-NR5 | `the recorded comment on pull request {int} does not contain {string}` | As T-NR4; asserts the body does not contain the text, showing the comment otherwise | mock-query | recording providers' call log |
+| T-NR6 | `the recorded comment on pull request {int} has exactly these rows in its summary table:` | As T-NR4, then reads the rows of the comment's summary table, under its header and its rule, in the order the comment lists them: each row's suite without its backticks, its scenarios cell, and its status without its emoji; the severity column is not compared. Asserts they are exactly the data table's `suite`, `scenarios` and `status` rows, in order | mock-query | recording providers' call log |
+
+This section also reuses already-registered phrases, so they need no new rows:
+
+- `the ADW codebase is checked out` (G18)
+- `a workflow for issue {int} whose worktree's {string} declares the application type {string}` (G-WP10)
+- `the worktree's {string} runs scenarios by tag with a stand-in that records each run and writes a JUnit report in which every scenario passes` (G-WP13)
+- `the worktree holds a feature tagged {string} and steps for it in the step definition directory {string} names` (G-WP16)
+- `the workflow's scenario test phase runs` (W-WP3)
+- `the scenario proof records the tag {string} as passed` (T-WP19)
+- `the scenario proof records no blocker failures` (T-PY3)
+- `the scenario proof records a blocker failure for the tag {string}` (T-S12)
+- `the ADW TypeScript type-check passes` (T22)

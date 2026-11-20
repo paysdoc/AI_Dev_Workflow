@@ -1,14 +1,14 @@
 /**
- * The subprocess scenarios of feature-1105.feature carry `@subprocess` but no `@regression`, so the regression hooks
- * give them neither the mock infrastructure nor the subprocess harness. The hooks here do what those hooks do, for
- * those scenarios alone. The cron scenarios run under the `@dead-orchestrator-takeover` hooks, and the type-check
- * scenario needs none. The rest are the phrases no other file defines: the Givens that seed a workflow whose
- * orchestrator holds the issue's spawn lock, or that has used resume attempts, the Given and When that keep the
- * orchestrators the cron launches alive and end them, the When that runs the orchestrator the cron launched, and
- * the Thens that read what an orchestrator that lost the lock left.
+ * The phrases of feature-1105.feature that no other file defines: the Givens that seed a workflow whose orchestrator
+ * holds the issue's spawn lock, or that has used resume attempts, the Given and When that keep the orchestrators the
+ * cron launches alive and end them, the When that runs the orchestrator the cron launched, and the Thens that read what
+ * an orchestrator that lost the lock left. The `@regression` and `@regression and (@subprocess or @webhook)` hooks give
+ * the subprocess scenarios the mock infrastructure and the subprocess harness, the cron scenarios run under the
+ * `@dead-orchestrator-takeover` hooks, and the type-check scenario needs neither. The hook here, keyed on the feature's
+ * own `@spawn-lock-loser`, only resets this file's state.
  */
 
-import { After, Before, Given, Then, When } from '@cucumber/cucumber';
+import { After, Given, Then, When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -16,18 +16,15 @@ import { join } from 'path';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
 import { readSpawnLockRecord } from '../../../adws/triggers/spawnGate.ts';
-import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../test/mocks/test-harness.ts';
-import { runCleanup } from '../../regression/support/cleanup.ts';
 import { isOrchestratorLaunch } from '../../regression/support/harnessOrchestrators.ts';
 import { describeLaunches, recordedLaunches } from '../../regression/support/launchRecorder.ts';
 import { SURFACE_REPO } from '../../regression/support/mockForgeProviders.ts';
-import { claimAdwId, claimIssue, createSubprocessHarness, ensureTargetWorkspace, requireHarness } from '../../regression/support/subprocessHarness.ts';
+import { claimAdwId, claimIssue, ensureTargetWorkspace, requireHarness } from '../../regression/support/subprocessHarness.ts';
 import { findRealBunx, runThroughHarness } from '../../regression/support/subprocessRun.ts';
 import { LAUNCH_WAIT_MS, bunxBinDir, s as world932, waitFor } from '../../regression/step_definitions/feature-932-world.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
-const OWN_SUBPROCESS_SCENARIO = '@adw-1105 and @subprocess and not @regression';
-const OWN_CRON_SCENARIO = '@adw-1105 and @dead-orchestrator-takeover and not @regression';
+const OWN_SCENARIOS = '@spawn-lock-loser';
 const LAUNCHED_ORCHESTRATOR_TIMEOUT_MS = 120_000;
 /** Long enough for any scenario, short enough that a stand-in the cleanup missed ends on its own. */
 const STAND_IN_LIFETIME_SECONDS = 300;
@@ -42,31 +39,12 @@ interface FileSnapshot {
 /** The top-level state of each adwId, as the Given that seeded it left it. */
 const seededStates = new Map<string, FileSnapshot>();
 
-/** Set once the `bunx` shadow keeps the orchestrators alive, since only then is the pid of a launch record one of a live process. */
-let standInsAreAlive = false;
 /** Each stand-in is signalled once, while it is known to be alive: a pid that has ended may belong to another process by now. */
 const endedStandIns = new Set<number>();
 
-Before({ tags: OWN_SUBPROCESS_SCENARIO }, async function (this: RegressionWorld) {
-  this.mockContext = await setupMockInfrastructure();
-  this.subprocess = createSubprocessHarness(this);
+After({ tags: OWN_SCENARIOS }, function () {
   seededStates.clear();
-});
-
-After({ tags: OWN_SUBPROCESS_SCENARIO }, async function (this: RegressionWorld) {
-  await runCleanup(this);
-  await teardownMockInfrastructure();
-  this.mockContext = null;
-  this.subprocess = null;
-  this.lastExitCode = -1;
-  this.lastOutput = '';
-  this.seededIssues = new Set();
-  this.matchedLaunch = null;
-  this.worktreePaths.clear();
-  this.targetBranch = '';
-  this.harnessEnv = {};
-  this.cleanup = [];
-  seededStates.clear();
+  endedStandIns.clear();
 });
 
 function snapshotTopLevelState(adwId: string): FileSnapshot {
@@ -123,12 +101,6 @@ function endLiveStandIns(): void {
     .forEach(endStandIn);
 }
 
-After({ tags: OWN_CRON_SCENARIO }, function () {
-  if (standInsAreAlive) endLiveStandIns();
-  standInsAreAlive = false;
-  endedStandIns.clear();
-});
-
 Given(
   'the top-level state for adwId {string} records the process holding the spawn lock for issue {int} as its orchestrator, at workflowStage {string}',
   function (this: RegressionWorld, adwId: string, issueNumber: number, workflowStage: string) {
@@ -180,7 +152,7 @@ When(
   },
 );
 
-Given('every orchestrator the cron launches stays alive, still starting up, without recording anything', function () {
+Given('every orchestrator the cron launches stays alive, still starting up, without recording anything', function (this: RegressionWorld) {
   const shadow = join(bunxBinDir(), 'bunx');
   writeFileSync(shadow, [
     '#!/bin/sh',
@@ -189,7 +161,9 @@ Given('every orchestrator the cron launches stays alive, still starting up, with
     '',
   ].join('\n'));
   chmodSync(shadow, 0o755);
-  standInsAreAlive = true;
+  // Only from here on does a launch record name a live stand-in. The @regression After hook runs this list before
+  // the @dead-orchestrator-takeover After hook removes the launch records, which hold the only copy of the pids.
+  this.cleanup.push(endLiveStandIns);
 });
 
 When('the orchestrator the cron launched for issue {int} exits, having recorded nothing', async function (issueNumber: number) {
