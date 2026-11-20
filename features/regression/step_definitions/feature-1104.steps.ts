@@ -1,9 +1,9 @@
 /**
- * The in-process scenarios of feature-1104.feature carry `@surface` but no `@regression`, so the regression hooks give them neither
- * the mock infrastructure nor a cleanup. The hooks here do what the `@regression` hooks do, for those scenarios alone, and install
- * the stand-in Claude CLI (feature-1104-cli.ts). The rest are the phrases no other file defines: the framework checkout whose
- * planning commands worktree setup copies into the worktree, that copy, and the Thens that read the worktree and what the stand-in
- * recorded of the planner's run.
+ * The in-process scenarios of feature-1104.feature carry `@surface` and, through the feature, `@regression`, so the `@regression`
+ * hooks give them the mock infrastructure and run the World's cleanup list. The hooks here are keyed on the feature's
+ * `@framework-planning-commands` and on `@surface`, and install the stand-in Claude CLI (feature-1104-cli.ts) for those scenarios
+ * alone. The rest are the phrases no other file defines: the framework checkout whose planning commands worktree setup copies into
+ * the worktree, that copy, and the Thens that read the worktree and what the stand-in recorded of the planner's run.
  */
 
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
@@ -15,16 +15,14 @@ import { dirname, join } from 'path';
 import { REPO_ROOT } from '../../../adws/core/config.ts';
 import { copyClaudeAssetsToWorktree, ignoreSpecsInWorktree } from '../../../adws/phases/worktreeSetup.ts';
 import { getMockServerState } from '../../../test/mocks/github-api-server.ts';
-import { setupMockInfrastructure, teardownMockInfrastructure } from '../../../test/mocks/test-harness.ts';
 import { git, initRepo, newGitContext, writeRepoFile } from '../../regression/step_definitions/feature-930-fixtures.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { runCleanup } from '../../regression/support/cleanup.ts';
 import { commitFileOnBranch } from '../../regression/support/fixtureWorktree.ts';
 import { SURFACE_REPO } from '../../regression/support/mockForgeProviders.ts';
 import { readRuns, writeStandInCli, type InstalledStandIn, type StandInRun } from './feature-1104-cli.ts';
 import { argumentsOf } from './feature-995-prompt.ts';
 
-const OWN_SURFACE_SCENARIO = '@adw-1104 and @surface and not @regression';
+const OWN_SURFACE_SCENARIO = '@framework-planning-commands and @surface';
 
 const PLANNING_COMMANDS: readonly string[] = ['/feature', '/bug', '/chore'];
 
@@ -102,28 +100,16 @@ function olderCommandText(command: string): string {
   return withFrontmatter(`An older copy of the ${command} planning command, which the branch of the target repository tracks.`);
 }
 
-Before({ tags: OWN_SURFACE_SCENARIO }, async function (this: RegressionWorld) {
+Before({ tags: OWN_SURFACE_SCENARIO }, function (this: RegressionWorld) {
   resetState();
-  this.mockContext = await setupMockInfrastructure();
   const standIn = writeStandInCli();
   s.standIn = standIn;
   this.cleanup.push(() => rmSync(standIn.dir, { recursive: true, force: true }));
   this.claudeCliStandIn = () => standIn.scriptPath;
 });
 
-After({ tags: OWN_SURFACE_SCENARIO }, async function (this: RegressionWorld) {
-  await runCleanup(this);
-  await teardownMockInfrastructure();
-  this.mockContext = null;
-  this.lastExitCode = -1;
-  this.lastOutput = '';
-  this.seededIssues = new Set();
-  this.worktreePaths.clear();
-  this.targetBranch = '';
-  this.harnessEnv = {};
-  this.phaseOutcome = undefined;
+After({ tags: OWN_SURFACE_SCENARIO }, function (this: RegressionWorld) {
   this.claudeCliStandIn = undefined;
-  this.cleanup = [];
   resetState();
 });
 
