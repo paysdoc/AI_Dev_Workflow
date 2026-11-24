@@ -461,7 +461,15 @@ Docker execution is entirely optional — the test suite runs identically on the
 ├── skills/             # Claude Code skills
 │   ├── depaudit-triage/
 │   │   └── SKILL.md
+│   ├── domain-modeling/
+│   │   ├── ADR-FORMAT.md
+│   │   ├── GLOSSARY-FORMAT.md
+│   │   └── SKILL.md
 │   ├── grill-me/
+│   │   └── SKILL.md
+│   ├── grill-with-docs/
+│   │   └── SKILL.md
+│   ├── grilling/
 │   │   └── SKILL.md
 │   ├── improve-codebase-architecture/
 │   │   ├── REFERENCE.md
