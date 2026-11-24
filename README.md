@@ -461,7 +461,15 @@ Docker execution is entirely optional — the test suite runs identically on the
 ├── skills/             # Claude Code skills
 │   ├── depaudit-triage/
 │   │   └── SKILL.md
+│   ├── domain-modeling/
+│   │   ├── ADR-FORMAT.md
+│   │   ├── GLOSSARY-FORMAT.md
+│   │   └── SKILL.md
 │   ├── grill-me/
+│   │   └── SKILL.md
+│   ├── grill-with-docs/
+│   │   └── SKILL.md
+│   ├── grilling/
 │   │   └── SKILL.md
 │   ├── improve-codebase-architecture/
 │   │   ├── REFERENCE.md
@@ -1328,7 +1336,7 @@ test/                   # Integration test infrastructure
 │   ├── stubArgs.ts             # Claude CLI stub argument parsing
 │   ├── stubMarker.ts           # Pure upward lookup of the stub's `.adw-stub-manifest.json` marker from a directory to the filesystem root
 │   ├── stubResponse.ts         # Pure helpers: response-mode resolution, rate-limited line building
-│   ├── test-harness.ts         # Test harness orchestrating all mocks
+│   ├── test-harness.ts         # Test harness orchestrating all mocks; `withRealGit` takes the git mock off `PATH` for one in-process run that must reach a fixture's real `origin`
 │   └── types.ts                # Mock type definitions
 ├── Dockerfile          # Generic Docker image for isolated @regression runs
 ├── docker-run.sh       # Helper script to run scenarios inside Docker
@@ -1351,15 +1359,19 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── envelope/       # Regression scenarios covering the Claude CLI stream-json envelope conformance gate, its fixture updater and schema probe, and the Claude CLI stub's on-demand rate-limited response (#909)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
+│   ├── merge/          # Regression scenarios covering adwMerge's merge loop: a refusal GitHub gives while the local merge check finds the branch clean is treated as stale and the merge asked again after 3, 6, 12 and 24 seconds without "/resolve_conflict"; a branch in conflict, even one that a commit landing on the base branch after the push puts in conflict, goes through "/resolve_conflict" and its merge commit is pushed before GitHub is asked again; the "ADW Merge Blocked" comment says how many merge attempts there were, whether conflict resolution ran, what the local merge check found and the last error; and adwMerge saves its output in logs/<adwId>/merge.log; and regression scenarios covering adwMerge re-running `@regression` and the issue's scenarios on the branch merged with the base before it merges: merging once both pass, no re-run for a branch already on the base's tip or for a repository without scenarios, a second re-run after a conflict lands mid-merge, the `human_gated` park for `post_merge_bdd_red` and its "ADW Parked" comment, and `## Retry` resuming it under the same adwId (#1101)
 │   ├── mobile/         # Regression scenarios covering "mobile:kotlincm" repositories: the framework upgrade keeping a hand-set application type and device sources, a bootstrap issue's baseline passing with no Gradle build yet, the step-definition generator's device instructions, the "## Run Tests" command gathering each module's JUnit reports, and the scenario phase running each tag through the ":scenarios" Gradle module and giving the proof each platform's screenshots (#1044)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── plan-commit/    # Regression scenarios covering the plan staying in the worktree: the plan phase adds no commit and no commit on the branch touches `specs/` (#930); worktree setup has git ignore `specs/` through the tracked `.gitignore`, once, leaving a `.gitignore` the branch already carries as it is; the plan phase leaves every other change uncommitted, even under `.claude/` and `.adw/`; and a full adwSdlc run posts no "Committing Plan" comment (#1077)
+│   ├── planner/        # Regression scenarios covering the planner of an issue in a target repository: it runs the framework checkout's current "/feature", "/bug" or "/chore" planning command from the copy worktree setup puts in the worktree, even when the branch tracks an older copy, and is handed the issue's number, adwId, title and body; and the planning command ADW ships tells the planner of a port that must not change behaviour to add a behavioural equivalence step whose comparison is a validation command, without forcing one on an issue that changes behaviour (#1104)
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
+│   ├── proof/          # Regression scenarios covering the scenario proof and the BDD Proof comment of a tag whose scenario runner writes no JUnit report to ADW_JUNIT_REPORT_PATH: the tag still passes or fails on its exit code, the comment shows "no report" and says the counts are unavailable instead of "0 passed, 0 failed", the comment and the tag's proof section warn that it passed on the exit code only, a report with no test case still fails as a blocker, and a run with a report is shown as before (#1102)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
 │   ├── review/         # Regression scenarios covering the review comment on the issue: it shows the screenshots of the proof run the review judged, each embedded from the URL its upload returned, on a passing and a failing review, and a screenshot never decides or blocks the review (#937)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause, promotion threshold auto-ramp)
+│   ├── spawn-lock/     # Regression scenarios covering an orchestrator that finds an issue's spawn lock held by another live process: it exits 0 without running a phase, logs the pid that holds the lock, and leaves the top-level state and the workflow's resume attempts as the holder recorded them; and the cron launching no second orchestrator for a timed-out workflow whose relaunched orchestrator is still starting up, relaunching it once that orchestrator has exited without spending a resume attempt on it (#1105)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks and the in-process phase harness (phaseRun, phaseConfig, fixtureWorktree, claudeCliStub, mockForgeProviders, cleanup) that runs a single phase against stubs for the surface rows; launchRecorder.ts, the shared bunx PATH shadow that records each launch's argv; and the hermetic subprocess harness (subprocessHarness, subprocessRun, subprocessDrivers, harnessOrchestrators, forgeShadow, fixtureTargetRepo, webhookTarget, promotionFixtures, seededRecords) that runs the init, merge, patch, cron, cancel-directive and promotion-sweep rows as real child processes against stand-ins; standInDevices.ts, the stand-in for the host's device tools (avdmanager, emulator, adb, xcrun simctl) that the real device lifecycle runs over in the scenarios that run the scenario test phase on a repository with platforms, and that answers like a host whose devices do not boot or whose tools are not installed when a scenario says so; gherkinTags.ts parses scenario tags for the harness
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35, gap at row-28, covering every orchestrator phase)
@@ -1381,7 +1393,6 @@ package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
 known_issues.md         # Production incidents, recurring failure patterns, and resolution status
-junit-report.xml        # Tracked JUnit report written by test runs
 README.md               # This file
 UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```
