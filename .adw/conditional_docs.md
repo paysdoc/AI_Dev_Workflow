@@ -8,12 +8,16 @@
     - adws/core/__tests__/testReportParser.test.ts
     - adws/core/__tests__/testVerdict.test.ts
     - adws/core/__tests__/resolveVerdict.test.ts
+    - adws/core/__tests__/testReportParser*.test.ts
   - Conditions:
     - When working on JUnit XML parsing, test verdict derivation, or scenario proof pass/fail resolution
     - When working on `testReportParser.ts`, `testVerdict.ts`, or `resolveVerdict.ts`
     - When debugging why a test phase verdict is wrong, how JUnit reports are aggregated, or the missing-vs-unparseable report ambiguity
+    - When working on cucumber's bare `<failure/>` (undefined/pending scenarios), the `incomplete` flag on `TestCaseResult`/`TestReport`, or why a scenario with an undefined step fails the scenario proof and enters the fix loop now that no step-definition phase exists
+    - When building `TestCaseResult` or `TestReport` literals in tests (both need the `incomplete` field)
   - Decisions:
     - 0043
+    - 0067
 
 - app_docs/feature-9gjajh-hash-and-versioning.md
   - Owns:
