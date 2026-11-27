@@ -54,4 +54,3 @@ export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps 
 export { acquireOrchestratorLock, releaseOrchestratorLock, runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from './orchestratorLock';
 export { reportStackCoherence } from './stackCoherenceReporter';
 export { executeProofPublishPhase } from './proofPublishPhase';
-export { executePromotionRotAdvisory } from './promotionRotAdvisory';

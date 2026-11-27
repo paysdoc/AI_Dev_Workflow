@@ -45,7 +45,6 @@ const CADENCE_PINS: Readonly<Record<string, string>> = Object.fromEntries(
     'JANITOR_INTERVAL_CYCLES',
     'HUNG_DETECTOR_INTERVAL_CYCLES',
     'PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES',
-    'PROMOTION_SWEEP_INTERVAL_CYCLES',
     'DOCS_INDEX_SWEEP_INTERVAL_CYCLES',
   ].map((variable) => [variable, '1000000']),
 );

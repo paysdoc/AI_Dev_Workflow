@@ -26,11 +26,6 @@ import { uploadProofArtifacts } from '../proof/proofUploader';
 
 export type { ReviewIssue };
 
-// The promotion rot/reuse advisory (executePromotionRotAdvisory) lives in the
-// sibling promotionRotAdvisory.ts to keep this file under the 300-line
-// guideline; re-exported here since reviewPhase.ts is this feature's home.
-export { executePromotionRotAdvisory } from './promotionRotAdvisory';
-
 /** A code host that refuses the capability probe by name is a code host that cannot approve. */
 function canApprove(codeHost: CodeHost): boolean {
   try {

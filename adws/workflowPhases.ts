@@ -48,4 +48,3 @@ export {
 } from './phases';
 export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './phases/depauditSetup';
 export { executeProofPublishPhase } from './phases/proofPublishPhase';
-export { executePromotionRotAdvisory } from './phases/promotionRotAdvisory';

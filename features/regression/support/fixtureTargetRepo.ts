@@ -36,7 +36,7 @@ export function materialiseTargetWorkspace(owner: string, repo: string, targetRe
   return workspace;
 }
 
-/** The promotion sweep builds its worktree off `origin/<default>`, so a commit that does not move it is invisible to the sweep. */
+/** ADW builds its worktrees off `origin/<default>`, so a commit that does not move it is invisible to them. */
 function moveRemoteDefaultBranch(workspace: string): void {
   realGit(workspace, 'update-ref', `refs/remotes/origin/${DEFAULT_BRANCH}`, DEFAULT_BRANCH);
 }
@@ -44,13 +44,6 @@ function moveRemoteDefaultBranch(workspace: string): void {
 /** The workspace is on `main`: the file is committed there, and `origin/main` follows it. */
 export function commitOnDefaultBranch(workspace: string, relPath: string, contents: string, message: string): void {
   commitFileOnBranch(workspace, relPath, contents, message);
-  moveRemoteDefaultBranch(workspace);
-}
-
-/** A commit that deletes the file from `main`, with `origin/main` following it. */
-export function removeOnDefaultBranch(workspace: string, relPath: string, message: string): void {
-  realGit(workspace, 'rm', '-q', '--', relPath);
-  realGit(workspace, 'commit', '-q', '-m', message);
   moveRemoteDefaultBranch(workspace);
 }
 

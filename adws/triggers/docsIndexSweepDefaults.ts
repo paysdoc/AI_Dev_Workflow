@@ -1,7 +1,6 @@
 /**
- * Split out to keep `docsIndexSweep.ts`'s
- * orchestration logic under the file-length guideline, mirroring
- * `promotionSweepDefaults.ts`.
+ * Split out to keep `docsIndexSweep.ts`'s orchestration logic under the
+ * file-length guideline.
  *
  * `makeDocsIndexSweepDefaults(boundary, getBase)` closes every helper over
  * the single launch boundary passed in and a lazily-memoised `SweepBase`

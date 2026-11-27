@@ -27,7 +27,6 @@ import {
   executePRPhase,
   executeDocumentPhase,
   executeProofPublishPhase,
-  executePromotionRotAdvisory,
   handleWorkflowError,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
@@ -97,7 +96,6 @@ async function main(): Promise<void> {
 
       await runPhase(config, tracker, executePRPhase);
       await runPhase(config, tracker, executeProofPublishPhase);
-      await runPhase(config, tracker, executePromotionRotAdvisory);
 
       // Do NOT call completeWorkflow —
       // that overwrites the stage with 'completed'. adwMerge.tsx handles completion after merge.
