@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded
 date: 2026-07-08
 recorded: 2026-09-29
 provenance:
@@ -10,7 +10,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-10-01"
 supersedes: ["0040"]
-superseded-by: []
+superseded-by: ["0068"]
 ---
 
 # Promotion sweep files a human-gated issue for the normal pipeline
@@ -68,6 +68,7 @@ Unit tests cover the decider, the tag state, the reconcile link and the cron tic
 
 ## More Information
 
+* Superseded in whole by [ADR-0068](0068-promotion-by-nomination-and-human-decided-proposal.md): the scorer, the threshold ramp and the cron origination are removed.
 * The PRD and the generated issue body describe per-issue scenarios as "input-only, never executed". That wording is wrong; see the first divergence in [ADR-0037](0037-tiered-regression-suite-with-fixed-vocabulary.md).
 * README.md describes the filed issue as a relocation "for a human to execute". The issue carries `adw:feature`, which routes it to the pipeline ([ADR-0041](0041-label-based-classification.md)); the human's part is approving the PR.
 * Found on 2026-10-01, a defect with no ruling: the body of #923 has an HTML comment from the configuration file spliced into its `git mv` command. The regression directory value is read with its trailing comment attached.

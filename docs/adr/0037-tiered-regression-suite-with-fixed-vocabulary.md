@@ -22,7 +22,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-10-01"
 supersedes: []
-superseded-by: []
+superseded-by: ["0067", "0068"]
 ---
 
 # Tiered regression suite with a fixed vocabulary
@@ -74,5 +74,7 @@ Checked on 2026-09-29: `.adw/scenarios.md` declares the three sections; `RETENTI
 
 ## More Information
 
+* **Part that no longer holds:** the vocabulary binding every scenario, and the in-process execution patterns. [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) limits the vocabulary to the regression suite and scenarios to real boundaries.
+* **Part that no longer holds:** whole-file promotion and the sweep leaving target step definitions in place. [ADR-0068](0068-promotion-by-nomination-and-human-decided-proposal.md) promotes single scenarios after a decided proposal and extends the sweep.
 * `date` is 2026-04-25: issues #491 and #492 were filed and the surface matrix committed that day; the PRD file followed on 2026-04-26.
 * Promotion by tag edit was the first mechanism ([ADR-0040](0040-scenario-promotion-by-tag-edit.md)), replaced by ADR-0049. The test phase that runs both tags is in [ADR-0031](0031-active-test-phase-passive-review-judge.md).

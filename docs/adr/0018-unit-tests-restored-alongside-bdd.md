@@ -14,7 +14,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-09-29"
 supersedes: ["0014"]
-superseded-by: []
+superseded-by: ["0067"]
 ---
 
 # Unit tests restored alongside BDD scenarios
@@ -62,6 +62,7 @@ Checked against the code on 2026-09-29:
 
 ## More Information
 
+* **Part that no longer holds:** unit tests only supplementing scenarios. [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) makes unit tests the only proof of in-process behaviour and removes the unit test written for every scenario.
 * Supersedes, in part, [ADR-0014](0014-bdd-as-validation-contract-unit-tests-removed.md): only the removal of unit tests. BDD as the validation contract stands.
 * Unit tests inside the build agent's red-green-refactor loop are recorded in [ADR-0024](0024-tdd-in-build-phase-single-pass-alignment.md).
 * The switch that enables the unit-test phase moved from `.adw/project.md` to `.github/adw.yml`, default enabled, in [ADR-0043](0043-multi-language-test-seam.md). The `## Unit Tests` flag in `.adw/project.md` is still read by the `/feature` and `implement-tdd` prompts; the owner ruled on 2026-10-01 that this second switch is a bug (Divergence, item 3, in ADR-0043).

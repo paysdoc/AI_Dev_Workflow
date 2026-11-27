@@ -35,7 +35,7 @@
 |------|-----------|-----------------|
 | **Plan** | A structured implementation specification generated from an Issue, committed as `{adwId}_plan_spec.md` | Spec, design doc, blueprint |
 | **Build** | The Phase where code changes are implemented based on a Plan; the `/implement` or `/implement-tdd` command executes within it | Implementation phase, development phase, coding phase |
-| **TDD Mode** | An automatic Build variant activated when BDD Scenarios tagged with the Issue's number exist, using `/implement-tdd` with red-green-refactor | Test-first mode |
+| **TDD Mode** | An automatic Build variant activated when BDD Scenarios tagged with the Issue's number exist, using `/implement-tdd` with a red-green loop and no refactor step | Test-first mode |
 | **Patch** | A targeted code fix applied by the Patch Agent to resolve Blockers found during Review | Hotfix, quick fix |
 | **Behavioural Equivalence Step** | A Plan step, required when an Issue ports, rewrites, migrates, re-bundles or restructures existing code whose behaviour must stay the same, that runs the old and new implementations on the same inputs and diffs what they produce; the command that runs the comparison is one of the Plan's validation commands | Fuzz run, parity check |
 
@@ -45,6 +45,13 @@
 |------|-----------|-----------------|
 | **Scenario** | A BDD test written in Gherkin syntax (`.feature` file), tagged with `@adw-{issueNumber}` to link it to an Issue | Test case, spec, acceptance test |
 | **Step Definition** | The executable implementation of a Gherkin step (Given/When/Then) | Step implementation, glue code |
+| **Real Boundary** | A surface through which the target's behaviour is observed from outside its own process: its real runtime, a real browser, the built artifact or a real command-line invocation. Each target keeps a list of its Real Boundaries, which changes as the target does, and every Scenario names the one it drives. A Scenario may only prove behaviour observable through a Real Boundary; behaviour provable inside the test process belongs to unit tests alone | Integration point, seam |
+| **Per-Issue Scenario** | A Scenario written as acceptance evidence for one Issue. Its job ends when the Issue merges; unless it is Promoted it is deleted by the Per-Issue Sweep. An Issue with no behaviour at a Real Boundary has none | Issue scenario, feature scenario |
+| **Regression Suite** | The small, curated set of Scenarios that run on every workflow. Each guards a behaviour whose breakage would be expensive and that no other Regression Suite Scenario already guards | Regression tests, regression pack |
+| **Promotion** | Moving a single Per-Issue Scenario into the Regression Suite after a human approved its Promotion Proposal. It is the exception: the Scenario must earn it, and existing and passing is no argument | Graduation, auto-promotion |
+| **Nomination** | The Scenario Agent's claim that a Per-Issue Scenario it wrote guards a behaviour whose breakage would be expensive and that the Regression Suite does not yet guard. At most one per Issue; none is the default | Promotion candidate, suggestion |
+| **Promotion Proposal** | An Issue, not worked by ADW, that gathers a repository's open Nominations and argues for each why it qualifies and how it fits the existing Regression Suite. A human decides it; an unanswered one counts as declined | Promotion issue, promotion request |
+| **Per-Issue Sweep** | The periodic removal of Per-Issue Scenarios whose Issue has merged, together with the Step Definitions no remaining Scenario uses | Cleanup, scenario sweep |
 | **Scenario Proof** | The proof document the scenario test phase writes from the `@regression` and `@adw-{issueNumber}` runs, which the Review Agent reads | Scenario run, BDD proof |
 | **Plan Validation** | A multi-round process comparing Plan behaviors against Scenario coverage, using Validation and Resolution Agents to reconcile mismatches | Plan check, plan verification |
 | **Alignment** | A single-pass reconciliation of Plan and Scenarios that flags unresolvable conflicts as warnings rather than halting | Sync, reconciliation, validation (when single-pass is meant) |
@@ -163,7 +170,7 @@
 >
 > **Dev:** "So a `/feature` and a `/bug` both route to the SDLC Orchestrator?"
 >
-> **Domain expert:** "Yes. The SDLC Orchestrator runs the full pipeline: Install, Plan and Scenario in parallel, then Alignment, Build, Test, Review, Document. A `/chore` routes to Plan-Build only -- fewer Phases."
+> **Domain expert:** "Yes. The SDLC Orchestrator runs the full pipeline: Install, Plan and Scenario in parallel, then Alignment, Build, Test, Review, Document. A `/chore` runs a shorter pipeline with no Scenario Phase."
 >
 > **Dev:** "What's the difference between Plan Validation and Alignment?"
 >

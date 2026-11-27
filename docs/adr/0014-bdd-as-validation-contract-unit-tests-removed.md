@@ -18,7 +18,7 @@ provenance:
   - kind: contemporaneous
     source: specs/issue-202-adw-m8wft2-chore-remove-all-uni-sdlc_planner-remove-unit-tests.md
 supersedes: []
-superseded-by: ["0018"]
+superseded-by: ["0018", "0067"]
 ---
 
 # BDD scenarios as the validation contract, ADW unit tests removed
@@ -69,6 +69,7 @@ No CI gate enforces this decision; it is carried by the orchestrator scripts.
 
 ## More Information
 
+* **Part that no longer holds:** scenarios as the validation contract for every behaviour of an issue. [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) limits them to behaviour at a declared real boundary, one per acceptance criterion.
 * **Part that no longer holds:** the removal of ADW's unit tests and the claim that BDD makes them redundant. Replaced by [ADR-0018](0018-unit-tests-restored-alongside-bdd.md).
 * Later refinements that keep the contract but change its mechanics: `@crucial` was renamed `@regression` on 2026-03-16 (#194); the validate, resolve, re-validate loop became one alignment pass in [ADR-0024](0024-tdd-in-build-phase-single-pass-alignment.md); scenario execution moved out of review into the test phase in [ADR-0031](0031-active-test-phase-passive-review-judge.md); the per-repo unit-test flag moved to `.github/adw.yml` with default enabled in [ADR-0043](0043-multi-language-test-seam.md).
 * #169 needed a review round: the build agent updated the documents but did not delete the test files, and a reviewer caught it (`specs/issue-169-plan.md`).
