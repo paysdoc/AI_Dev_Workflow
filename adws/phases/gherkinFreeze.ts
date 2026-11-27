@@ -5,6 +5,7 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
+import { withoutBoundaryTags } from '../core/boundaryList';
 
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.worktrees']);
 
@@ -44,7 +45,8 @@ export function collectChangedFeaturePaths(
 
   for (const [relPath, snapshotContent] of snapshot) {
     const currentContent = current.get(relPath);
-    if (currentContent === undefined || currentContent !== snapshotContent) {
+    // Boundary tags are a claim the boundary-tag check verifies, not part of the frozen contract.
+    if (currentContent === undefined || withoutBoundaryTags(currentContent) !== withoutBoundaryTags(snapshotContent)) {
       changed.push(relPath);
     }
   }

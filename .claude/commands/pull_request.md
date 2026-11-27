@@ -27,6 +27,7 @@ repoName: $6, the name of the repository where the issue lives (may be empty for
   - ADW tracking ID
   - A checklist of what was done
   - A summary of key changes made
+  - When the diff changes the `## Real Boundaries` section of `.adw/scenarios.md`, a `## Real Boundaries changed` section that says whether the list was created and names every boundary added or removed, each with its entry's description. Leave the section out when the list did not change.
 - Do not link or name `plan_file`, or any other path under `specs/`, in the PR body: plan files exist only in the worktree and are never committed.
 - Extract issue number, type, and title from the issue JSON
 - Examples of PR titles:
@@ -41,6 +42,7 @@ repoName: $6, the name of the repository where the issue lives (may be empty for
 1. Run `git diff origin/<defaultBranch>...HEAD --stat` to see a summary of changed files
 2. Run `git log origin/<defaultBranch>..HEAD --oneline` to see the commits that will be included
 3. Run `git diff origin/<defaultBranch>...HEAD --name-only` to get a list of changed files
+4. Run `git diff origin/<defaultBranch>...HEAD -- .adw/scenarios.md` to see whether the `## Real Boundaries` list changed
 
 ## Report
 

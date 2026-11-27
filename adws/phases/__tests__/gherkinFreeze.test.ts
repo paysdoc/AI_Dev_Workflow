@@ -100,6 +100,44 @@ describe('collectChangedFeaturePaths', () => {
   });
 });
 
+describe('collectChangedFeaturePaths — boundary tags are no part of the frozen contract', () => {
+  const SCENARIO = ['Feature: Orders', '', '  @adw-1139', '  Scenario: Orders are listed', '    Given an order', '    Then it is listed', ''].join('\n');
+
+  function snapshotOf(content: string): { dir: string; snap: Map<string, string> } {
+    const dir = makeTmp();
+    writeFile(dir, 'features/orders.feature', content);
+    return { dir, snap: captureGherkinSnapshot(dir) };
+  }
+
+  it('collectChangedFeaturePaths does not report a file whose only change is a boundary tag added to an existing tag line', () => {
+    const { dir, snap } = snapshotOf(SCENARIO);
+    writeFile(dir, 'features/orders.feature', SCENARIO.replace('  @adw-1139', '  @adw-1139 @boundary-cli'));
+    expect(collectChangedFeaturePaths(snap, dir)).toEqual([]);
+  });
+
+  it('collectChangedFeaturePaths does not report a file whose only change is a new tag line holding a boundary tag', () => {
+    const { dir, snap } = snapshotOf(SCENARIO);
+    writeFile(dir, 'features/orders.feature', SCENARIO.replace('  @adw-1139', '  @boundary-cli\n  @adw-1139'));
+    expect(collectChangedFeaturePaths(snap, dir)).toEqual([]);
+  });
+
+  it('collectChangedFeaturePaths reports a file whose boundary tag changed together with a step', () => {
+    const { dir, snap } = snapshotOf(SCENARIO.replace('  @adw-1139', '  @adw-1139 @boundary-browser'));
+    writeFile(dir, 'features/orders.feature', SCENARIO.replace('  @adw-1139', '  @adw-1139 @boundary-cli').replace('Then it is listed', 'Then it is shown'));
+    expect(collectChangedFeaturePaths(snap, dir)).toEqual(['features/orders.feature']);
+  });
+
+  it.each([
+    ['@adw-N added', '  @adw-1139', '  @adw-1139 @adw-1140'],
+    ['@adw-N removed', '  @adw-1139', '  @smoke'],
+    ['another tag added beside a boundary tag', '  @adw-1139', '  @adw-1139 @boundary-cli @regression'],
+  ])('collectChangedFeaturePaths still reports a file whose @adw-N or any other non-boundary tag was added or removed: %s', (_case, from, to) => {
+    const { dir, snap } = snapshotOf(SCENARIO);
+    writeFile(dir, 'features/orders.feature', SCENARIO.replace(from, to));
+    expect(collectChangedFeaturePaths(snap, dir)).toEqual(['features/orders.feature']);
+  });
+});
+
 describe('restoreGherkinSnapshot', () => {
   it('restores modified file to snapshot content', () => {
     const dir = makeTmp();

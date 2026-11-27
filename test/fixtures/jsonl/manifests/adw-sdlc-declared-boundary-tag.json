@@ -1,0 +1,72 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"Boundary smoke stub: the prompt opened with no command this manifest answers.\\n\"}]\n" }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The implementation plan for issue 113902 was written.\\n\"}]\n" },
+        { "path": "specs/issue-113902-adw-boundary-smoke-113902-sdlc_planner-orders.md", "contents": "# Implementation Plan: orders\n\n## Steps\n1. Add src/orders.ts\n2. List the orders\n" }
+      ]
+    },
+    "/scenario_writer": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": "features/feature-113902.feature", "contents": "@adw-113902\nFeature: Orders\n\n  @adw-113902 @boundary-cli\n  Scenario: Orders are listed\n    Given an order\n    When the orders are listed\n    Then the order is in the list\n" }
+      ]
+    },
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n" }
+      ]
+    },
+    "/implement-tdd": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The plan was implemented.\\n\"}]\n" },
+        { "path": "src/orders.ts", "contents": "export function listOrders(orders: readonly string[]): readonly string[] {\n  return orders;\n}\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n" }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"Documentation written.\\napp_docs/feature-boundary-smoke-113902-orders.md\\n\"}]\n" },
+        { "path": "app_docs/feature-boundary-smoke-113902-orders.md", "contents": "# Feature: orders\n\nThe document phase wrote this page.\n" }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"title\\\": \\\"feat: #113902 - Issue 113902\\\", \\\"body\\\": \\\"Closes #113902\\\\nImplements #113902\\\\n\\\\nADW tracking ID: boundary-smoke-113902\\\"}\"}]\n" }
+      ]
+    }
+  }
+}

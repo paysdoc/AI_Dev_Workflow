@@ -33,3 +33,11 @@ cucumber-js
 
 ## Step Def Directory
 features/step_definitions
+
+## Real Boundaries
+<!-- Consumed by scenario_writer, the reviewer and the scenario test phase. One top-level entry per Real Boundary:
+     - `<name>` — <what the boundary is and how a scenario drives it>
+     with <name> in lowercase letters, digits and hyphens. Every scenario tagged @adw-{issue} carries the tag
+     @boundary-<name> of the boundary it drives; a missing tag, or one whose name is not listed here, fails the
+     scenario test phase. Absent section → the check is skipped. -->
+- `subprocess` — a real ADW process (an orchestrator, the workflow-init driver or a cron trigger) started as a child process through the hermetic subprocess harness

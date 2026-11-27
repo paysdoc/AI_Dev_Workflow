@@ -195,6 +195,18 @@ describe('review.md blocks a missing scenario only for behaviour at a Real Bound
   });
 });
 
+describe('review.md has the reviewer check that each scenario drives the boundary it is tagged with', () => {
+  it("Step 4 tells the reviewer to trace each scenario's step definitions into the support code, to the boundary its @boundary-<name> tag names", () => {
+    const step = section(SCENARIOS);
+
+    expect(step).toContain('`@boundary-<name>` tag');
+    expect(step).toContain('`## Real Boundaries` in `.adw/scenarios.md`');
+    expect(step).toMatch(/Trace the step definitions of each scenario into the support code they call/);
+    expect(step).toContain('`@boundary-subprocess`');
+    expect(step).toMatch(/does not drive its tagged boundary: a `blocker` that names the scenario, its tag and what the step code drives instead/);
+  });
+});
+
 describe('review.md quotes the lines of the scenario proof that it judges', () => {
   it.each([NO_PER_ISSUE_SCENARIOS, NO_SCENARIO_OPENED_A_PAGE])('quotes "%s" verbatim', (line) => {
     expect(prompt).toContain(`\`${line}\``);

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseBoundaryList } from '../core/boundaryList';
 
 /**
  * `scenario_writer.md` is a prompt, so only its text tells the scenario agent which behaviour a scenario may prove, how many
@@ -27,6 +28,8 @@ function section(heading: string): string {
 
 const LAYER_RULE = '## Layer Rule';
 const POLYMORPHISM = '## Polymorphism on `.adw/scenarios.md`';
+const BOUNDARY_LIST = '## Real Boundaries List and Boundary Tag';
+const READ_STEP = '### 1. Read configuration';
 const WRITE_STEP = '### 4. Write scenarios for this issue';
 const OUTPUT_STEP = '### 5. Output';
 
@@ -106,5 +109,54 @@ describe('scenario_writer.md never promotes or demotes @regression itself', () =
 
   it('tells the agent in step 4 never to add or remove @regression', () => {
     expect(section(WRITE_STEP)).toContain('Never add or remove `@regression`');
+  });
+});
+
+/** The lines of the first fenced block of a section. */
+function fencedBlockOf(text: string): string[] {
+  const sectionLines = text.split('\n');
+  const open = sectionLines.findIndex((line) => line.startsWith('```'));
+  const close = sectionLines.findIndex((line, index) => index > open && line.startsWith('```'));
+  expect(open, 'the section shows a fenced block').toBeGreaterThanOrEqual(0);
+  return sectionLines.slice(open + 1, close);
+}
+
+describe('scenario_writer.md keeps the Real Boundaries list and tags each scenario with its boundary', () => {
+  it('reads the ## Real Boundaries list in step 1', () => {
+    expect(section(READ_STEP)).toContain('`## Real Boundaries`');
+  });
+
+  it('creates the list when .adw/scenarios.md has none, even for an issue that gets no scenario', () => {
+    const rules = section(BOUNDARY_LIST);
+
+    expect(rules).toContain('has no `## Real Boundaries` section, create it');
+    expect(rules).toContain('create it even when you write no scenario');
+    expect(section(POLYMORPHISM)).toContain('`## Real Boundaries`');
+  });
+
+  it('adds the entry of a boundary the issue creates', () => {
+    expect(section(BOUNDARY_LIST)).toContain('When the issue itself creates a boundary, add its entry');
+  });
+
+  it('tags every created, modified or flagged scenario with @boundary-<name>', () => {
+    expect(section(BOUNDARY_LIST)).toContain('Tag every scenario you create, modify or flag with the `@boundary-<name>` tag');
+    expect(section(WRITE_STEP)).toMatch(/Tag every created, modified, or flagged scenario with `@adw-\$0` and with the `@boundary-<name>` tag/);
+  });
+
+  it('shows an entry format that parseBoundaryList reads as a declared boundary', () => {
+    const entries = fencedBlockOf(section(BOUNDARY_LIST)).filter((line) => line.startsWith('- '));
+    const list = parseBoundaryList(['## Real Boundaries', ...entries].join('\n'));
+
+    expect(entries).toHaveLength(1);
+    expect(list).toMatchObject({ kind: 'declared', malformedEntries: [] });
+    expect(list.kind === 'declared' ? list.boundaries : []).toHaveLength(1);
+  });
+
+  it('reports the boundary tags and the change to the list in its output', () => {
+    const output = outputStep();
+
+    expect(output).toContain('`@boundary-<name>` applied to:');
+    expect(output).toContain('### Real Boundaries list');
+    expect(output).toContain('created with its entries | added <name> | removed <name> | unchanged');
   });
 });
