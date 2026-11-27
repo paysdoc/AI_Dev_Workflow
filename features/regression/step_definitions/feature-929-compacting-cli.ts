@@ -95,7 +95,6 @@ var failingRun = command === '/test' && CONFIG.failingTestRuns.indexOf(run) !== 
 var DEFAULT_RESULTS = {
   '/test': JSON.stringify([{ test_name: 'app_tests', passed: !failingRun, execution_command: 'bun run test:unit', test_purpose: 'unit tests', testcase_count: 1 }]),
   '/review': JSON.stringify({ success: true, reviewSummary: 'No blockers.', reviewIssues: [], screenshots: [] }),
-  '/generate_step_definitions': JSON.stringify({ removedScenarios: [] }),
   '/document': 'app_docs/feature-929-compaction.md'
 };
 

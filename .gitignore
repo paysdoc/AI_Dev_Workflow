@@ -56,7 +56,6 @@ output.jsonl
 .claude/commands/feature.md
 .claude/commands/find_issue_dependencies.md
 .claude/commands/generate_branch_name.md
-.claude/commands/generate_step_definitions.md
 .claude/commands/implement.md
 .claude/commands/patch.md
 .claude/commands/pr_review.md

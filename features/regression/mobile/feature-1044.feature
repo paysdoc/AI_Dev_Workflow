@@ -78,15 +78,6 @@ Feature: "adw_init" is run again on a hand-set "mobile:kotlincm", and the Kotlin
     And the plan phase ran after the baseline
     And no park comment was posted on issue 104401
 
-  Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the step-definition phase starts the generator in the mode for the scenario runner that ".adw/scenarios.md" describes, and, because that ".adw/scenarios.md" has a "## Scenario Run Contract", the command the generator is started with tells the step definitions which devices to drive, never to create, boot, shut down or delete one, and where each platform's screenshots go
-    Given a workflow for issue 104406 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
-    When the workflow's step-definition phase runs
-    Then the step-definition generator was started once, for issue 104406
-    And the step-definition generator was started in the mode for the scenario runner that ".adw/scenarios.md" describes
-    And the command the step-definition generator was started with tells the step definitions to drive the devices named by "ADW_ANDROID_SERIAL" and "ADW_IOS_UDID"
-    And the command the step-definition generator was started with tells the step definitions never to create, boot, shut down or delete a device
-    And the command the step-definition generator was started with tells the step definitions to write each screenshot under "android/" or "ios/" in "ADW_PROOF_DIR"
-
   Scenario: In a "mobile:kotlincm" repository whose ".adw/" is what "adw_init" writes, the "## Run Tests" command gathers the JUnit reports under each module's "build/test-results/" into the one report ADW reads at "ADW_UNIT_TEST_REPORT_PATH", leaves out those of the ":scenarios" module, and exits with the Gradle wrapper's exit code
     Given a workflow for issue 104405 whose worktree holds the ".adw/" that "adw_init" writes for the application type "mobile:kotlincm"
     And the worktree's Gradle wrapper is a stand-in that, run for the task "test", writes the JUnit report of each of these test classes under its module's "build/test-results/" directory, and exits with code 1:

@@ -43,7 +43,6 @@ export function makePhases(diffVerdict: 'regression_possible' | 'safe', reviews:
     executeInstallPhase: vi.fn(async () => ZERO_COST),
     executePlanPhase: vi.fn(async () => ZERO_COST),
     executeBuildPhase: vi.fn(async () => ZERO_COST),
-    executeStepDefPhase: vi.fn(async () => ZERO_COST),
     executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
     runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: 0, devServer: nextStart() })),
     executeDiffEvaluationPhase: vi.fn(async () => ({ ...ZERO_COST, verdict: diffVerdict, reason: 'test' })),

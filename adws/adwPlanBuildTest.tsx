@@ -18,7 +18,6 @@ import {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   runScenarioTestFixLoop,
   recordFailedStartReview,
@@ -40,7 +39,6 @@ export interface PlanBuildTestPhases {
   readonly executeInstallPhase: typeof executeInstallPhase;
   readonly executePlanPhase: typeof executePlanPhase;
   readonly executeBuildPhase: typeof executeBuildPhase;
-  readonly executeStepDefPhase: typeof executeStepDefPhase;
   readonly executeUnitTestPhase: typeof executeUnitTestPhase;
   readonly runScenarioTestFixLoop: typeof runScenarioTestFixLoop;
   readonly executePRPhase: typeof executePRPhase;
@@ -52,7 +50,6 @@ const PLAN_BUILD_TEST_PHASES: PlanBuildTestPhases = {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   runScenarioTestFixLoop,
   executePRPhase,
@@ -68,7 +65,6 @@ async function runPlanBuildTestPhases(
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhase(config, tracker, phases.executePlanPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);
-  await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
   const { scenarioRetries, devServer } = await phases.runScenarioTestFixLoop(config, tracker);

@@ -315,13 +315,13 @@ Top-level `features/*.feature` files were removed in the BDD cutover (issue #493
 
 ### `.adw/scenarios.md` optional sections
 
-Three optional sections activate the regression-suite contract. When absent, the `scenario_writer` and `generate_step_definitions` prompts use their legacy free-form behaviour.
+Three optional sections activate the regression-suite contract. When absent, the `scenario_writer` prompt uses its legacy free-form behaviour.
 
 | Section | Effect when present |
 |---|---|
 | `## Per-Issue Scenario Directory` | `scenario_writer` routes per-issue output to `<value>/feature-{N}.feature` instead of the fallback directory. |
 | `## Regression Scenario Directory` | `scenario_writer` skips the `@regression` auto-promotion sweep (regression promotion becomes a deliberate human decision). |
-| `## Vocabulary Registry` | `generate_step_definitions` validates every step phrase against the registry file; fails loudly on unknown phrases. |
+| `## Vocabulary Registry` | Names the phrase registry of the regression suite. Per-issue scenarios are phrased freely (ADR-0067). |
 
 ### Scenario Promotion
 
@@ -402,7 +402,6 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── feature.md
 │   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
-│   ├── generate_step_definitions.md
 │   ├── implement.md
 │   ├── install.md
 │   ├── patch.md
@@ -467,6 +466,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   ├── deep-modules.md
 │   │   ├── interface-design.md
 │   │   ├── mocking.md
+│   │   ├── step-definitions.md
 │   │   └── tests.md
 │   ├── tdd/
 │   │   ├── SKILL.md
@@ -519,13 +519,14 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── depauditTriageSkill.test.ts
 │   ├── deployWorkersWorkflow.test.ts
 │   ├── envelopeConformanceWorkflow.test.ts
-│   ├── generateStepDefinitionsPrompt.test.ts
 │   ├── healthCheckChecks.test.ts
+│   ├── implementTddPrompt.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── planningCommandsPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
 │   ├── reviewPrompt.test.ts
+│   ├── scenarioWriterPrompt.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -564,7 +565,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── reviewPromptArgs.ts  # ReviewIssueKind and ReviewPromptContext — the typed arguments the review prompt receives (guidance section, issue kind, scenario image paths)
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── scenarioFidelityAgent.ts  # Compares frozen scenarios against issue body after resolve
-│   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
@@ -662,6 +662,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.attachments.test.ts
+│   │   ├── testReportParser.incomplete.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
@@ -921,7 +922,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestPhase.server.test.ts
 │   │   ├── startupFailureLog.test.ts
 │   │   ├── stackCoherenceReporter.test.ts
-│   │   ├── stepDefPhase.test.ts
 │   │   ├── staticCheckFixRound.failure.test.ts
 │   │   ├── staticCheckFixRound.fix.test.ts
 │   │   ├── staticCheckFixRound.helpers.ts  # Shared helpers for the fix-round tests
@@ -985,7 +985,6 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression under the declared dev server; runs none when it does not start; fails before running anything when a profile with platforms lacks a device-source section; for a profile with platforms it runs the scenarios on the workflow's own emulator and simulator, and parks `device_boot_failed` when a device does not boot in three attempts or a host tool is missing
 │   ├── sdlcReviewHandoff.ts  # SDLC review-failure handoff extracted from adwSdlc.tsx for BDD testability
 │   ├── startupFailureLog.ts  # recordStartupFailure — appends an orchestrator's startup error to its own execution log (never throws; caller rethrows)
-│   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── staticCheckFixRound.ts  # Builds the FixRoundPort: one fix-agent run per round over every failing check, committed and diffed (`fix`), pushed (`keep`), or reset to the remote branch and verified to be back at the round's base (`discard`)
 │   ├── staticCheckGate.ts  # Static-check gate: runs the checks, drives the fix loop on a red check, parks the workflow when it cannot go green
@@ -1140,6 +1139,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── proofAssembler.platforms.test.ts
 │   │   ├── proofAssembler.scenarios.test.ts
 │   │   ├── proofAssembler.test.ts
+│   │   ├── proofAssembler.undefinedSteps.test.ts
 │   │   └── proofUploader.test.ts
 │   ├── featureFileReader.ts    # Reads a per-issue `.feature` file for the proof assembler
 │   ├── featureScenarioIndex.ts # Indexes a feature file's scenarios so proof images can be matched to them
@@ -1309,12 +1309,12 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── labels/         # Regression scenarios covering ADW labels (#932): adw:none starting no run on any spawn path, conflicting classification labels, the label catalogue a repository's cron provisions at start, and routing a major-upgrade issue by its label
 │   ├── merge/          # Regression scenarios covering adwMerge's merge loop: a refusal GitHub gives while the local merge check finds the branch clean is treated as stale and the merge asked again after 3, 6, 12 and 24 seconds without "/resolve_conflict"; a branch in conflict, even one that a commit landing on the base branch after the push puts in conflict, goes through "/resolve_conflict" and its merge commit is pushed before GitHub is asked again; the "ADW Merge Blocked" comment says how many merge attempts there were, whether conflict resolution ran, what the local merge check found and the last error; and adwMerge saves its output in logs/<adwId>/merge.log; and regression scenarios covering adwMerge re-running `@regression` and the issue's scenarios on the branch merged with the base before it merges: merging once both pass, no re-run for a branch already on the base's tip or for a repository without scenarios, a second re-run after a conflict lands mid-merge, the `human_gated` park for `post_merge_bdd_red` and its "ADW Parked" comment, and `## Retry` resuming it under the same adwId (#1101)
-│   ├── mobile/         # Regression scenarios covering "mobile:kotlincm" repositories: the framework upgrade keeping a hand-set application type and device sources, a bootstrap issue's baseline passing with no Gradle build yet, the step-definition generator's device instructions, the "## Run Tests" command gathering each module's JUnit reports, and the scenario phase running each tag through the ":scenarios" Gradle module and giving the proof each platform's screenshots (#1044)
+│   ├── mobile/         # Regression scenarios covering "mobile:kotlincm" repositories: the framework upgrade keeping a hand-set application type and device sources, a bootstrap issue's baseline passing with no Gradle build yet, the "## Run Tests" command gathering each module's JUnit reports, and the scenario phase running each tag through the ":scenarios" Gradle module and giving the proof each platform's screenshots (#1044)
 │   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── pause-queue/    # Regression scenarios covering the rate-limit probe's verdict, its parity with the agents' rate-limit detector and a limited probe never counting toward eviction (#902), the pause queue's reset-time wait, decider, eviction (#910), ownership and remove-before-spawn resume (#911)
 │   ├── plan-commit/    # Regression scenarios covering the plan staying in the worktree: the plan phase adds no commit and no commit on the branch touches `specs/` (#930); worktree setup has git ignore `specs/` through the tracked `.gitignore`, once, leaving a `.gitignore` the branch already carries as it is; the plan phase leaves every other change uncommitted, even under `.claude/` and `.adw/`; and a full adwSdlc run posts no "Committing Plan" comment (#1077)
 │   ├── planner/        # Regression scenarios covering the planner of an issue in a target repository: it runs the framework checkout's current "/feature", "/bug" or "/chore" planning command from the copy worktree setup puts in the worktree, even when the branch tracks an older copy, and is handed the issue's number, adwId, title and body; and the planning command ADW ships tells the planner of a port that must not change behaviour to add a behavioural equivalence step whose comparison is a validation command, without forcing one on an issue that changes behaviour (#1104)
-│   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, the step-definition phase's runner mode, and a fresh web repository's real run (#992)
+│   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, and a fresh web repository's real run (#992)
 │   ├── proof/          # Regression scenarios covering the scenario proof and the BDD Proof comment of a tag whose scenario runner writes no JUnit report to ADW_JUNIT_REPORT_PATH: the tag still passes or fails on its exit code, the comment shows "no report" and says the counts are unavailable instead of "0 passed, 0 failed", the comment and the tag's proof section warn that it passed on the exit code only, a report with no test case still fails as a blocker, and a run with a report is shown as before (#1102)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)

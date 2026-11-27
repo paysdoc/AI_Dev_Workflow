@@ -1,9 +1,7 @@
 /**
- * Phase scenarios of feature-992. Each runs the real `executeScenarioTestPhase` or the real `executeStepDefPhase` over the
- * throwaway worktree of feature-929's workflow, whose ".adw/" the scenario's steps describe (the declared application type,
- * the dev server, the scenario command). The scenario test phase finds the stand-in `npm` and `npx` first on `PATH` (see
- * feature-992-standins.ts); the step-definition phase starts feature-929's throwaway CLI and the scenario reads the
- * arguments it was started with.
+ * Phase scenarios of feature-992. Each runs the real `executeScenarioTestPhase` over the throwaway worktree of feature-929's
+ * workflow, whose ".adw/" the scenario's steps describe (the declared application type, the dev server, the scenario command).
+ * The scenario test phase finds the stand-in `npm` and `npx` first on `PATH` (see feature-992-standins.ts).
  */
 
 import { Given, When, Then } from '@cucumber/cucumber';
@@ -15,11 +13,9 @@ import { allocateRandomPort, isPortAvailable } from '../../../adws/core/portAllo
 import { loadProjectConfig } from '../../../adws/core/projectConfig.ts';
 import { declaredApplicationProfile } from '../../../adws/phases/applicationTypeGate.ts';
 import { executeScenarioTestPhase } from '../../../adws/phases/scenarioTestPhase.ts';
-import { executeStepDefPhase } from '../../../adws/phases/stepDefPhase.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import { lastStandInDeviceHost, standInDeviceHost } from '../support/standInDevices.ts';
 
-import { installCompactingCli, readRuns, type RunRecord } from './feature-929-compacting-cli.ts';
 import { createWorkflow, type Workflow929 } from './feature-929-workflow.ts';
 import { s as workflowWorld } from './feature-988-world.ts';
 import { assertProjectMdFile } from './feature-991-project-md.ts';
@@ -53,7 +49,6 @@ import { requireProof, requireWorkflow, s } from './feature-992-world.ts';
 import { writeStandInScenario, writeWebProject } from './feature-992-worktree.ts';
 
 const TARGET_REPOSITORY = 'adw-fixture/void-992';
-const GENERATOR_COMMAND = '/generate_step_definitions';
 const PHASE_TIMEOUT_MS = 300_000;
 const STOP_POLLS = 40;
 const STOP_POLL_MS = 150;
@@ -242,46 +237,4 @@ Then('the scenario proof records the tag {string} as passed', function (this: Re
   const result = proof.tagResults.find(({ resolvedTag }) => resolvedTag === tag);
   assert.ok(result, `Expected the scenario proof to have run the tag "${tag}", but it ran: ${proof.tagResults.map(({ resolvedTag }) => resolvedTag).join(', ')}`);
   assert.ok(result.passed && !result.skipped, `Expected "${tag}" to pass, but it did not (exit code ${result.exitCode}). Output:\n${result.output}`);
-});
-
-When("the workflow's step-definition phase runs", { timeout: PHASE_TIMEOUT_MS }, async function () {
-  const workflow = requireWorkflow();
-  await prepareWorkflow(workflow);
-  workflowWorld.cli ??= installCompactingCli(workflowWorld.behaviour);
-  await executeStepDefPhase(workflow.config);
-});
-
-function generatorRuns(): RunRecord[] {
-  assert.ok(workflowWorld.cli, "Expected the workflow's step-definition phase to have run first");
-  return readRuns(workflowWorld.cli.runLogPath).filter(run => run.command === GENERATOR_COMMAND);
-}
-
-/** The agent's prompt is its slash command and its arguments, each in single quotes. */
-export function startedWith(run: RunRecord): string[] {
-  return [...run.prompt.matchAll(/'((?:[^']|'\\'')*)'/g)].map(match => match[1].replace(/'\\''/g, "'"));
-}
-
-export function onlyGeneratorRun(): RunRecord {
-  const runs = generatorRuns();
-  assert.strictEqual(runs.length, 1, `Expected the step-definition generator to have been started once, but it was started ${runs.length} times`);
-  return runs[0];
-}
-
-function assertStartedInMode(mode: RunnerMode): void {
-  const [, , startedMode] = startedWith(onlyGeneratorRun());
-  assert.strictEqual(startedMode, mode, `Expected the step-definition generator to be started in the mode "${mode}", but it was started with "${startedMode}"`);
-}
-
-Then('the step-definition generator was started once, for issue {int}', function (issueNumber: number) {
-  const [startedFor] = startedWith(onlyGeneratorRun());
-  assert.strictEqual(startedFor, String(issueNumber), `Expected the step-definition generator to be started for issue ${issueNumber}`);
-});
-
-Then("the step-definition generator was started in the mode for ADW's Playwright project", function () {
-  assertStartedInMode(RunnerMode.AdwPlaywright);
-});
-
-Then('the step-definition generator was started in the mode for the scenario runner that {string} describes', function (file: string) {
-  assertFile(file, SCENARIOS_MD);
-  assertStartedInMode(RunnerMode.Descriptor);
 });

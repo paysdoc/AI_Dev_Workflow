@@ -5,6 +5,11 @@ export interface TestCaseResult {
   name: string;
   classname?: string;
   status: 'passed' | 'failed' | 'skipped';
+  /**
+   * True when the case carries a bare `<failure/>`/`<error/>`, which is how cucumber reports an UNDEFINED or PENDING
+   * scenario. The case keeps `status: 'skipped'`, so unit-test counts and verdicts do not change.
+   */
+  incomplete: boolean;
   /** Message from `<failure message="…">` or text body; undefined for passed/skipped cases. */
   failureMessage?: string;
   /** Paths from the case's `[[ATTACHMENT|<path>]]` lines in `<system-out>`, as written: relative to the report's directory. */
@@ -16,6 +21,8 @@ export interface TestReport {
   passed: number;
   failed: number;
   skipped: number;
+  /** The `incomplete` cases, which `skipped` counts as well. */
+  incomplete: number;
   cases: TestCaseResult[];
 }
 
@@ -46,15 +53,20 @@ function isEmptyFailureMarker(marker: unknown): boolean {
   return false;
 }
 
-function classifyTestCase(tc: Record<string, unknown>): TestCaseResult['status'] {
+/** A `<failure>` or `<error>` child whose marker is bare. A genuine `<skipped/>` is not incomplete. */
+function isIncompleteCase(tc: Record<string, unknown>): boolean {
   const hasFailure = 'failure' in tc;
-  if (hasFailure || 'error' in tc) {
-    const marker = hasFailure ? tc['failure'] : tc['error'];
-    // Cucumber's junit formatter emits a bare <failure/> for PENDING/UNDEFINED
-    // scenarios (no exception payload). Restore parseCucumberSummary's
-    // "pending is not a failure" semantics: bare marker → skipped, not failed.
-    return isEmptyFailureMarker(marker) ? 'skipped' : 'failed';
-  }
+  if (!hasFailure && !('error' in tc)) return false;
+  return isEmptyFailureMarker(hasFailure ? tc['failure'] : tc['error']);
+}
+
+function classifyTestCase(tc: Record<string, unknown>): TestCaseResult['status'] {
+  // Cucumber's junit formatter emits a bare <failure/> for PENDING/UNDEFINED
+  // scenarios (no exception payload). Such a case is counted as skipped, which
+  // keeps parseCucumberSummary's "pending is not a failure" counts, but flagged
+  // as incomplete, so that a run the runner failed for it can still fail.
+  if (isIncompleteCase(tc)) return 'skipped';
+  if ('failure' in tc || 'error' in tc) return 'failed';
   if ('skipped' in tc) return 'skipped';
   return 'passed';
 }
@@ -97,6 +109,7 @@ function buildCase(tc: Record<string, unknown>): TestCaseResult {
     name: String(tc['@_name'] ?? ''),
     classname: tc['@_classname'] !== undefined ? String(tc['@_classname']) : undefined,
     status,
+    incomplete: isIncompleteCase(tc),
     failureMessage: status === 'failed' ? extractFailureMessage(tc) : undefined,
     attachments: extractAttachments(tc),
   };
@@ -135,9 +148,10 @@ export function parseJUnitXml(xml: string): TestReport | null {
   const total = cases.length;
   const failed = cases.filter(c => c.status === 'failed').length;
   const skipped = cases.filter(c => c.status === 'skipped').length;
+  const incomplete = cases.filter(c => c.incomplete).length;
   const passed = total - failed - skipped;
 
-  return { total, passed, failed, skipped, cases };
+  return { total, passed, failed, skipped, incomplete, cases };
 }
 
 export function readJUnitReport(filePath: string): TestReport | null {

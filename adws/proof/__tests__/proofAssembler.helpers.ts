@@ -30,14 +30,15 @@ export function attachment(relPath: string): string {
   return `artifacts/${relPath}`;
 }
 
-export function testCase(name: string, attachments: readonly string[] = [], status: TestCaseResult['status'] = 'passed'): TestCaseResult {
-  return { name, status, attachments: [...attachments] };
+export function testCase(name: string, attachments: readonly string[] = [], status: TestCaseResult['status'] = 'passed', incomplete = false): TestCaseResult {
+  return { name, status, incomplete, attachments: [...attachments] };
 }
 
 export function reportOf(...cases: TestCaseResult[]): TestReport {
   const failed = cases.filter(c => c.status === 'failed').length;
   const skipped = cases.filter(c => c.status === 'skipped').length;
-  return { total: cases.length, passed: cases.length - failed - skipped, failed, skipped, cases };
+  const incomplete = cases.filter(c => c.incomplete).length;
+  return { total: cases.length, passed: cases.length - failed - skipped, failed, skipped, incomplete, cases };
 }
 
 export function runOf(tag: FixedScenarioTag, report: TestReport | null, overrides: Partial<TagRun> = {}): TagRunRecord {

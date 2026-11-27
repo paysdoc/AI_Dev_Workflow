@@ -20,7 +20,6 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   executeScenarioTestPhase,
   runScenarioTestFixLoop,
@@ -46,7 +45,6 @@ export interface PlanBuildReviewPhases {
   readonly executeScenarioPhase: typeof executeScenarioPhase;
   readonly executeAlignmentPhase: typeof executeAlignmentPhase;
   readonly executeBuildPhase: typeof executeBuildPhase;
-  readonly executeStepDefPhase: typeof executeStepDefPhase;
   readonly executeUnitTestPhase: typeof executeUnitTestPhase;
   readonly runScenarioTestFixLoop: typeof runScenarioTestFixLoop;
   readonly executeScenarioTestPhase: typeof executeScenarioTestPhase;
@@ -62,7 +60,6 @@ const PLAN_BUILD_REVIEW_PHASES: PlanBuildReviewPhases = {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   runScenarioTestFixLoop,
   executeScenarioTestPhase,
@@ -81,7 +78,6 @@ async function runPlanBuildReviewPhases(
   await runPhasesParallel(config, tracker, [phases.executePlanPhase, phases.executeScenarioPhase]);
   await runPhase(config, tracker, phases.executeAlignmentPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);
-  await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
   const scenarios = await phases.runScenarioTestFixLoop(config, tracker);

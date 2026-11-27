@@ -86,12 +86,6 @@ export {
 } from './scenarioAgent';
 
 export {
-  runStepDefAgent,
-  type StepDefAgentResult,
-  type RemovedScenario,
-} from './stepDefAgent';
-
-export {
   runInstallAgent,
 } from './installAgent';
 

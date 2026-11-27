@@ -33,7 +33,6 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/extract_dependencies': 'haiku',
   '/adw_init': 'sonnet',
   '/scenario_writer': 'opus',
-  '/generate_step_definitions': 'sonnet',
   // no downgrade
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -72,7 +71,6 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/extract_dependencies': 'haiku',
   '/adw_init': 'haiku',
   '/scenario_writer': 'sonnet',
-  '/generate_step_definitions': 'sonnet',
   // no downgrade
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -120,7 +118,6 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/extract_dependencies': undefined,
   '/adw_init': 'medium',
   '/scenario_writer': 'max',
-  '/generate_step_definitions': 'max',
   // no downgrade
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'max',
@@ -158,7 +155,6 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/extract_dependencies': undefined,
   '/adw_init': undefined,
   '/scenario_writer': 'medium',
-  '/generate_step_definitions': 'low',
   // no downgrade
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',

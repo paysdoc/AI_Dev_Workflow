@@ -88,7 +88,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       new Promise<typeof BASE_RESULT>(res => { resolveHandler = res; })
     );
 
-    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl', 'sonnet');
+    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet');
 
     // Fire the watchdog (100ms mock timeout). Async variant: the gate check
     // (resolveGuardrailsDecision) awaits a microtask before spawn()/the
@@ -108,8 +108,8 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
     );
 
     const agentPromise = runClaudeAgentWithCommand(
-      '/feature', 'args', 'step-def-agent', '/tmp/out.jsonl',
-      'sonnet', undefined, undefined, undefined, undefined, undefined, 'step-def'
+      '/feature', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, 'build'
     );
 
     await vi.advanceTimersByTimeAsync(101);
@@ -119,8 +119,8 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
     try { await agentPromise; } catch (e) { err = e; }
     expect(err).toBeInstanceOf(AgentTimeoutError);
     const te = err as AgentTimeoutError;
-    expect(te.agentName).toBe('step-def-agent');
-    expect(te.phaseName).toBe('step-def');
+    expect(te.agentName).toBe('build-agent');
+    expect(te.phaseName).toBe('build');
     expect(te.timeoutMs).toBe(100);
   });
 
@@ -130,7 +130,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       new Promise<typeof BASE_RESULT>(res => { resolveHandler = res; })
     );
 
-    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl', 'sonnet');
+    const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'build-agent', '/tmp/out.jsonl', 'sonnet');
 
     await vi.advanceTimersByTimeAsync(101);
     expect(mockKillProcessGroup).toHaveBeenCalledWith(1234, 5_000);

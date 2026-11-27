@@ -37,12 +37,6 @@
         { "path": "src/orders.ts", "contents": "export const ORDER_LIMIT = 10;\n\nexport function isOverTheLimit(quantity: number): boolean {\n  return quantity > ORDER_LIMIT;\n}\n" }
       ]
     },
-    "/generate_step_definitions": {
-      "jsonlPath": ".adw-stub-payload.json",
-      "edits": [
-        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"removedScenarios\\\":[]}\"}]\n" }
-      ]
-    },
     "/test": {
       "jsonlPath": ".adw-stub-payload.json",
       "edits": [
