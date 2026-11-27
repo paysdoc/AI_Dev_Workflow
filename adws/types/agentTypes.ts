@@ -166,7 +166,6 @@ export type AgentIdentifier =
   | 'pr-agent'
   | 'document-agent'
   | 'scenario-agent'
-  | 'step-def-agent'
   | 'install-agent'
   | 'validation-agent'
   | 'resolution-agent'

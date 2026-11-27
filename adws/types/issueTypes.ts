@@ -40,7 +40,6 @@ export type SlashCommand =
   | '/extract_dependencies'
   | '/adw_init'
   | '/scenario_writer'
-  | '/generate_step_definitions'
   | '/validate_plan_scenarios'
   | '/resolve_plan_scenarios'
   | '/align_plan_scenarios'

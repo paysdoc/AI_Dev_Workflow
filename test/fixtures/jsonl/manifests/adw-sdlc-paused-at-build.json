@@ -47,12 +47,6 @@
       ],
       "response": { "kind": "rate-limited", "rateLimitType": "seven_day", "resetsAt": 4102444800 }
     },
-    "/generate_step_definitions": {
-      "jsonlPath": ".adw-stub-payload.json",
-      "edits": [
-        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
-      ]
-    },
     "/test": {
       "jsonlPath": ".adw-stub-payload.json",
       "edits": [

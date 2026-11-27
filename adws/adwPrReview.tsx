@@ -20,7 +20,6 @@ import {
   executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
-  executeStepDefPhase,
   executeBaselinePhase,
   executeInstallPhase,
   executeUnitTestPhase,
@@ -47,8 +46,6 @@ async function runPrReviewPhases(config: PRReviewWorkflowConfig, boundary: Launc
     const planResult = await runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config), 'pr_review_plan');
 
     await runPhase(config.base, tracker, _ => executePRReviewBuildPhase(config, planResult.planOutput), 'pr_review_build');
-
-    await runPhase(config.base, tracker, executeStepDefPhase, 'stepDef');
 
     await runPhase(config.base, tracker, executeUnitTestPhase);
 

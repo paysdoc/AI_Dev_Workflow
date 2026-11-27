@@ -20,7 +20,6 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   runScenarioTestFixLoop,
   runReviewRetryLoop,
@@ -61,7 +60,6 @@ async function main(): Promise<void> {
       await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
       await runPhase(config, tracker, executeAlignmentPhase);
       await runPhase(config, tracker, executeBuildPhase);
-      await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
       const unitTestResult = await runPhase(config, tracker, executeUnitTestPhase);
 
       const scenarios = await runScenarioTestFixLoop(config, tracker);

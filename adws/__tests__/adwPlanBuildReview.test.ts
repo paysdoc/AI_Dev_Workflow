@@ -87,7 +87,6 @@ function makePhases(verdicts: ReviewVerdict[], starts: DevServerStart[] = [NOT_S
     executeScenarioPhase: vi.fn(async () => ZERO_COST),
     executeAlignmentPhase: vi.fn(async () => ZERO_COST),
     executeBuildPhase: vi.fn(async () => ZERO_COST),
-    executeStepDefPhase: vi.fn(async () => ZERO_COST),
     executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
     runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: PROOF_PATH, scenarioRetries: SCENARIO_RETRIES, devServer: nextStart() })),
     executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: { resultsFilePath: RETEST_PROOF_PATH }, devServer: nextStart() })),
@@ -308,12 +307,11 @@ describe('executePlanBuildReview — green gates precede the review', () => {
     expect(firstCallOf(phases.runScenarioTestFixLoop)).toBeLessThan(firstCallOf(phases.executeReviewPhase));
   });
 
-  it('runs the step-definition phase, as the phase named stepDef, after the build and before the unit-test phase', async () => {
-    const { config, phases } = await runWithReviews(PASSED_REVIEW);
+  it('runs no step-definition phase: the unit-test phase follows the build', async () => {
+    const { phases } = await runWithReviews(PASSED_REVIEW);
 
-    expect(vi.mocked(runPhase)).toHaveBeenCalledWith(config, expect.anything(), phases.executeStepDefPhase, 'stepDef');
-    expect(firstCallOf(phases.executeBuildPhase)).toBeLessThan(firstCallOf(phases.executeStepDefPhase));
-    expect(firstCallOf(phases.executeStepDefPhase)).toBeLessThan(firstCallOf(phases.executeUnitTestPhase));
+    expect(vi.mocked(runPhase).mock.calls.map(call => call[3])).not.toContain('stepDef');
+    expect(firstCallOf(phases.executeBuildPhase)).toBeLessThan(firstCallOf(phases.executeUnitTestPhase));
   });
 
   it("hands the first review the proof the loop returned", async () => {

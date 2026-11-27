@@ -64,7 +64,7 @@ Before({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld, { pickle 
 
 After({ tags: OWN_SCENARIOS }, async function (this: RegressionWorld, { pickle }: ITestCaseHookParameter) {
   if (runsAnOrchestrator(pickle)) await tearDownWorld990(this);
-  await endScenario();
+  endScenario();
   disposeToolchain();
   resetState992();
   resetState();

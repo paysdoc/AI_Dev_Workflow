@@ -5,11 +5,11 @@ import type { TestCaseResult } from '../testReportParser';
 import type { ScenarioProofResult, TagProofResult } from '../../proof/types';
 
 function passedCase(name: string): TestCaseResult {
-  return { name, classname: 'Orders', status: 'passed', attachments: [] };
+  return { name, classname: 'Orders', status: 'passed', incomplete: false, attachments: [] };
 }
 
 function failedCase(name: string, failureMessage?: string): TestCaseResult {
-  return { name, classname: 'Orders', status: 'failed', failureMessage, attachments: [] };
+  return { name, classname: 'Orders', status: 'failed', incomplete: false, failureMessage, attachments: [] };
 }
 
 function tagResult(overrides: Partial<TagProofResult>): TagProofResult {
@@ -126,7 +126,7 @@ describe('failuresOfProof', () => {
 
   it('names a scenario by its name alone when the report gave no classname', () => {
     const proof = proofOf(
-      tagResult({ passed: false, exitCode: 1, cases: [{ name: 'Orders are accepted', status: 'failed', failureMessage: 'boom', attachments: [] }] }),
+      tagResult({ passed: false, exitCode: 1, cases: [{ name: 'Orders are accepted', status: 'failed', incomplete: false, failureMessage: 'boom', attachments: [] }] }),
     );
 
     expect(failuresOfProof(proof)).toEqual([{ title: '@regression Orders are accepted', detail: 'boom' }]);

@@ -28,6 +28,8 @@ Read all `.feature` files tagged with `@adw-{issueNumber}` (where `{issueNumber}
 
 Read any existing step definition files to understand what infrastructure is already in place. Step definitions may depend on test harness or mock infrastructure (see **Test Harness Awareness** below). Understand what runtime support is available before writing new step definitions.
 
+You write every step definition the issue's scenarios need; no other agent writes them, and a step left undefined fails the scenario test phase. Follow [step-definitions.md](step-definitions.md) for the runner the target uses.
+
 If no `.feature` files tagged `@adw-{issueNumber}` exist, proceed with the plan implementation directly: the scenario loop of Step 4 applies only when BDD scenarios exist, and the plan's unit tests (Step 5) are written either way.
 
 ### 4. Red-Green Loop
@@ -48,7 +50,7 @@ RIGHT (vertical):
 For each scenario, in order:
 
 **RED — Write or complete step definitions**
-- Write the step definitions needed for this scenario (or verify they already exist)
+- Write the step definitions needed for this scenario (or verify they already exist), following [step-definitions.md](step-definitions.md)
 - Run the scenario to verify it fails: the test must be RED before you implement
 - If the scenario already passes, skip to the next one
 
@@ -93,6 +95,7 @@ If the target repo does not have these paths, use whatever test infrastructure i
 - See [deep-modules.md](deep-modules.md) for hiding complexity behind small interfaces
 - See [mocking.md](mocking.md) for when and how to mock at system boundaries
 - See [tests.md](tests.md) for good vs. bad test examples
+- See [step-definitions.md](step-definitions.md) for writing steps for the target's scenario runner
 
 ### 9. Hermetic Test Mode (Definition of Done)
 

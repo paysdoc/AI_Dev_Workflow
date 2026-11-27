@@ -61,8 +61,8 @@ Before({ tags: OWN_SCENARIOS }, function () {
   resetState();
 });
 
-After({ tags: OWN_SCENARIOS }, async function () {
-  await endScenario();
+After({ tags: OWN_SCENARIOS }, function () {
+  endScenario();
   disposeToolchain();
   resetState();
 });
