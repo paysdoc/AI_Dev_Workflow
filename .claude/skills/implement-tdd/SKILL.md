@@ -28,7 +28,7 @@ Read all `.feature` files tagged with `@adw-{issueNumber}` (where `{issueNumber}
 
 Read any existing step definition files to understand what infrastructure is already in place. Step definitions may depend on test harness or mock infrastructure (see **Test Harness Awareness** below). Understand what runtime support is available before writing new step definitions.
 
-If no `.feature` files tagged `@adw-{issueNumber}` exist, proceed with the plan implementation directly — the TDD loop applies only when BDD scenarios exist.
+If no `.feature` files tagged `@adw-{issueNumber}` exist, proceed with the plan implementation directly: the scenario loop of Step 4 applies only when BDD scenarios exist, and the plan's unit tests (Step 5) are written either way.
 
 ### 4. Red-Green Loop
 
@@ -65,27 +65,11 @@ If a scenario cannot be made to pass and the plan does not address it, add a `//
 
 Read `.github/adw.yml`. Unit tests are disabled only when it sets `unitTests` to `false` on an uncommented line; a missing file, a missing or commented-out key, or `unitTests: true` means enabled.
 - If unit tests are **disabled**: skip unit tests entirely — only BDD scenarios drive the TDD loop.
-- If unit tests are **enabled**: integrate unit tests as a first-class part of the red-green loop for each scenario.
+- If unit tests are **enabled**: write the unit tests the plan names, and no others.
 
-**When unit tests are enabled — red-green per scenario:**
+Unit tests come from the plan, not from the scenarios. A scenario gets its step definitions and no unit test of its own. Scenarios prove only the behaviour the issue shows at a Real Boundary of the target; the plan's unit tests prove the behaviour provable inside the test process and the variants and edge cases of every behaviour, and they are its only proof.
 
-| phase    | activity                                          |
-| -------- | ------------------------------------------------- |
-| RED      | Write step definition + unit test                 |
-| GREEN    | Implement code to pass both scenario and unit test |
-
-**When unit tests are disabled:**
-
-| phase    | activity                              |
-| -------- | ------------------------------------- |
-| RED      | Write step definition                 |
-| GREEN    | Implement code to pass scenario       |
-
-**RED phase (when enabled):** Write the step definition AND a unit test alongside it, before implementation code (test-first). The unit test targets the specific function/module introduced for this scenario's vertical slice. Do NOT write all unit tests first then all implementation — unit tests are written as part of the vertical slice for each scenario, following the same principle as step definitions. Follow [tests.md](tests.md) for guidance on writing good unit tests. Follow [mocking.md](mocking.md) for guidance on mocking in unit tests.
-
-**GREEN phase (when enabled):** The GREEN phase verifies that both the BDD scenario and unit tests pass. Implementation is considered GREEN only when both pass.
-
-**BDD scenarios are the independent proof layer** — they were written by a separate agent and verify behavior independently. Unit tests provide finer-grained coverage but are written by the same agent as the implementation, so they carry accommodation risk. They supplement, not replace, BDD scenarios.
+**When unit tests are enabled:** write each unit test the plan names test-first, in the vertical slice of the plan step it covers: RED, the test fails; GREEN, the minimal code the step needs makes it pass. This holds whether or not the issue has scenarios. Follow [tests.md](tests.md) for guidance on writing good unit tests. Follow [mocking.md](mocking.md) for guidance on mocking in unit tests.
 
 ### 6. Verification
 

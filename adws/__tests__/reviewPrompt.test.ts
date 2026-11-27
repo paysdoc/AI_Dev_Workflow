@@ -158,17 +158,40 @@ describe('review.md judges the scenarios by the kind of issue', () => {
     expect(prompt).toContain(`\`${kind}\``);
   });
 
-  it.each([ReviewIssueKind.Feature, ReviewIssueKind.Bug])('makes missing per-issue scenarios a blocker for a %s', (kind) => {
-    expect(lineFor(kind)).toContain('`blocker`');
+  it.each([ReviewIssueKind.Feature, ReviewIssueKind.Bug])('makes missing per-issue scenarios a blocker for a %s only when the change alters behaviour at a Real Boundary', (kind) => {
+    for (const phrase of ['`blocker`', 'Real Boundary', 'no finding']) expect(lineFor(kind)).toContain(phrase);
   });
 
   it.each([ReviewIssueKind.Chore, ReviewIssueKind.Promotion, ReviewIssueKind.PrReview])('makes missing per-issue scenarios no finding for a %s', (kind) => {
     expect(lineFor(kind)).toContain('no finding');
   });
 
-  it('decides by the issue kind alone when the proof says there are no per-issue scenarios', () => {
+  it('judges the zero-scenario claim when the proof says there are no per-issue scenarios', () => {
     expect(section(SCENARIOS)).toContain(`\`${NO_PER_ISSUE_SCENARIOS}\``);
-    expect(section(SCENARIOS)).toMatch(/decide by `issueKind` alone/);
+    expect(section(SCENARIOS)).toMatch(/Judge the zero-scenario claim/);
+    expect(section(SCENARIOS)).not.toMatch(/decide by `issueKind` alone/);
+  });
+});
+
+describe('review.md blocks a missing scenario only for behaviour at a Real Boundary', () => {
+  const BOUNDARIES = ['its real runtime', 'a real browser', 'the built artifact', 'a real command-line invocation', 'subprocess pattern'];
+
+  it('says so in step 4, naming the Real Boundaries and leaving the variants, edge cases and error cases to unit tests', () => {
+    const step = section(SCENARIOS);
+
+    expect(step).toMatch(/missing scenario is a `blocker` only when the issue changes behaviour at a Real Boundary/);
+    for (const phrase of [...BOUNDARIES, 'variants, edge cases and error cases']) expect(step).toContain(phrase);
+  });
+
+  it('asks for a scenario of every acceptance criterion observable at a Real Boundary, and no longer of every behaviour', () => {
+    const step = section(SCENARIOS);
+
+    expect(step).toMatch(/Every acceptance criterion of the issue that is observable at a Real Boundary/);
+    expect(step).not.toContain('Every behaviour the issue asks for is exercised by a scenario');
+  });
+
+  it('no longer asks in the CLI guidance for a scenario of every change the issue asks for', () => {
+    expect(section('### CLI applications')).not.toContain('a change it does ask for needs a scenario that observes it');
   });
 });
 
@@ -177,7 +200,7 @@ describe('review.md quotes the lines of the scenario proof that it judges', () =
     expect(prompt).toContain(`\`${line}\``);
   });
 
-  it('applies the no-page rule only to an issue that has per-issue scenarios, so that the issue kind decides alone otherwise', () => {
+  it('applies the no-page rule only to an issue that has per-issue scenarios, so that step 4 decides otherwise', () => {
     const evidence = section(EVIDENCE);
 
     expect(evidence).toContain(`\`${NO_SCENARIO_OPENED_A_PAGE}\``);

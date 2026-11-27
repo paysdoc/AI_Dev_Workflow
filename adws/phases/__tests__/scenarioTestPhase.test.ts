@@ -20,7 +20,7 @@ vi.mock('../../core', () => ({
 import { executeScenarioTestPhase, type ScenarioTestPhaseDeps } from '../scenarioTestPhase';
 import { runScenarioProof } from '../scenarioProof';
 import { createPhaseCostRecords } from '../../cost';
-import { failingProof, fakeLifecycle, makeConfig, passingProof } from './scenarioTestPhase.helpers';
+import { failingProof, fakeLifecycle, makeConfig, noPerIssueScenariosProof, passingProof } from './scenarioTestPhase.helpers';
 
 const mockRunScenarioProof = vi.mocked(runScenarioProof);
 const mockCreatePhaseCostRecords = vi.mocked(createPhaseCostRecords);
@@ -152,6 +152,17 @@ describe('executeScenarioTestPhase — structured result', () => {
     const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
 
     expect(result.scenarioProof?.hasBlockerFailures).toBe(true);
+  });
+
+  it('passes and hands the proof to the review when the issue has no per-issue scenarios', async () => {
+    mockRunScenarioProof.mockResolvedValueOnce(noPerIssueScenariosProof);
+    const config = makeConfig();
+
+    const result = await executeScenarioTestPhase(config, NO_DECLARED_SERVER);
+
+    expect(result.scenarioProof?.hasBlockerFailures).toBe(false);
+    expect(config.ctx.scenarioProof).toBe(noPerIssueScenariosProof);
+    expect(mockCreatePhaseCostRecords).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
   });
 
   it('returns costUsd of 0 (subprocess-only, no agent cost)', async () => {

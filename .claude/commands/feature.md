@@ -50,6 +50,16 @@ If the old implementation cannot be run, or what the code does is meant to chang
 
 An issue that restructures no existing code, such as one that adds new behaviour or fixes a bug in place, gets no behavioural equivalence step and needs no note about one.
 
+## Scenarios and Unit Tests
+
+A separate agent writes the issue's BDD scenarios while you plan, and it follows the layer rule:
+
+- A scenario proves only behaviour observable through a Real Boundary of the target: its real runtime, a real browser, the built artifact or a real command-line invocation. In ADW's own repository the Real Boundary is the subprocess pattern: a real ADW process started through the hermetic subprocess harness.
+- It writes one scenario per acceptance criterion observable at a Real Boundary, and none when the issue has no such behaviour.
+- Behaviour provable inside the test process belongs to unit tests alone, and so do the variants, edge cases and error cases of every behaviour, at a Real Boundary or not.
+
+So the plan's unit-test section, `### Unit Tests` under `## Testing Strategy`, takes the variants, edge cases and error cases of the issue and the behaviour that no Real Boundary shows. Name each unit test there: the build agent writes the unit tests the plan names and no others, and no longer writes a unit test for each scenario. When unit tests are disabled, the plan has no `### Unit Tests` section, as the `Plan Format` says, and this section adds none.
+
 ## Relevant Files
 
 Read `.adw/project.md` from the current working directory to determine the relevant files for this project. Use the `## Relevant Files` section from that file.
@@ -115,10 +125,10 @@ IMPORTANT: Read `.github/adw.yml` from the current working directory. Unit tests
 ## Testing Strategy
 ### Unit Tests
 Read `.github/adw.yml` from the current working directory. If it sets `unitTests` to `false` on an uncommented line, OMIT this entire `### Unit Tests` subsection from the plan. Do not plan any unit test tasks or unit test file creation.
-Otherwise unit tests are enabled (a missing file or key means enabled): describe the unit tests needed for the feature here.
+Otherwise unit tests are enabled (a missing file or key means enabled): describe the unit tests needed here. Name each one, and include the variants, edge cases and error cases that no scenario holds (see `## Scenarios and Unit Tests`).
 
 ### Edge Cases
-<list edge cases that need to be tested>
+<list edge cases that need to be tested; when unit tests are enabled, each is a unit test of `### Unit Tests`, not a scenario>
 
 ## Acceptance Criteria
 <list specific, measurable criteria that must be met for the feature to be considered complete>
