@@ -189,6 +189,10 @@
     - adws/core/__tests__/fixRoundGuard*.test.ts
     - adws/core/__tests__/staticCheckFixLoop*.test.ts
     - adws/core/__tests__/unifiedDiff*.test.ts
+    - adws/core/boundaryList.ts
+    - adws/core/__tests__/boundaryList.test.ts
+    - adws/phases/boundaryTagGate.ts
+    - adws/phases/__tests__/boundaryTagGate.test.ts
   - Conditions:
     - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
     - When working on the static-check gate (`adws/core/checkRunner.ts`: `runStaticChecks`, `runShellCommand`, `CheckVerdict`) that runs type check, additional type checks, lint and build by exit code before the unit-test run
@@ -203,6 +207,8 @@
     - When a `.worktrees/base-issue-<N>-<adwId>` checkout is left behind or removed
     - When the scenario phase does not start its dev server, reports `devServer: failed`, or starts a server the repository did not declare (`readDeclaredDevServer`, `declaredDevServer.ts`, `ScenarioTestPhaseResult.devServer`), or the fix loop hands a failed start back instead of calling the scenario fix agent
     - When working on the scenario-authoring skip gate (`scenarioPhase.ts`) or its downstream review-proof-tag consequence
+    - When working on the declared boundary list (`## Real Boundaries` in `.adw/scenarios.md`, `parseBoundaryList`, `checkBoundaryTags`, `withoutBoundaryTags` in `adws/core/boundaryList.ts`) or the `@boundary-<name>` scenario tag
+    - When the scenario test phase fails an `@adw-{issue}` scenario for a missing or undeclared boundary tag before any scenario runs (`runBoundaryTagGate`, `boundaryTagGate.ts`), skips the check because the target has no list, or the fix loop cannot correct a boundary tag
   - Decisions:
     - 0014
     - 0018
@@ -213,6 +219,7 @@
     - 0059
     - 0060
     - 0062
+    - 0067
 
 - app_docs/feature-9gjajh-bdd-regression-suite.md
   - Owns:
