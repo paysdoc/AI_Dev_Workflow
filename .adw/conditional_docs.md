@@ -571,6 +571,8 @@
     - adws/__tests__/scenarioWriterPrompt.test.ts
     - adws/__tests__/implementTddPrompt.test.ts
     - adws/__tests__/reviewPrompt.test.ts
+    - adws/__tests__/reviewPrompt.scenarios.test.ts
+    - adws/__tests__/reviewPrompt.helpers.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
     - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
@@ -579,7 +581,7 @@
     - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
     - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
     - When working on the layer rule (ADR-0067) in the prompts: Real Boundary wording, one scenario per acceptance criterion, the zero-scenario outcome of `/scenario_writer`, the `## Scenarios and Unit Tests` section of `/feature` and `/bug`, plan-sourced unit tests in `implement-tdd`, or `/review` Step 4's boundary-only blocker and zero-scenario judgement
-    - When `scenarioWriterPrompt.test.ts`, `implementTddPrompt.test.ts` or `reviewPrompt.test.ts` fails
+    - When `scenarioWriterPrompt.test.ts`, `implementTddPrompt.test.ts`, `reviewPrompt.test.ts` or `reviewPrompt.scenarios.test.ts` fails
   - Decisions:
     - 0005
     - 0014
