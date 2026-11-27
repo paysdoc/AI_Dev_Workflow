@@ -124,7 +124,7 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, runJanitorTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runDocsIndexSweepTick, runGuardedTick, runPauseQueueScanTick, runJanitorTick, evaluateCandidateForTick, checkAndTrigger } from '../trigger_cron';
 import { runJanitorPass } from '../devServerJanitor';
 import { runDeviceJanitorPass } from '../deviceJanitor';
 import { evaluateCandidate, type CandidateDecision } from '../takeoverHandler';
@@ -140,7 +140,7 @@ import { clearClaudeCodePathCache } from '../../core/environment';
 import { createRecordingClaudeCli, overrideEnv, type RecordingClaudeCli } from '../../core/__tests__/fixtures/recordingClaudeCli';
 import type { LaunchBoundary } from '../../core';
 import { AgentStateManager } from '../../core/agentState';
-import { log, JANITOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
+import { log, JANITOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES } from '../../core';
 import { probeRateLimit } from '../rateLimitProbe';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
 
@@ -267,35 +267,6 @@ describe('runPerIssueScenarioSweepTick', () => {
   it('swallows a throwing sweep and the tick still resolves', async () => {
     const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
     await expect(runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
-    expect(sweep).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('runPromotionSweepTick — null-thunk skip (#769)', () => {
-  beforeEach(() => {
-    vi.mocked(log).mockClear();
-  });
-
-  it('dispatches the injected sweep exactly once on a cadence-eligible cycle', async () => {
-    const sweep = vi.fn(() => Promise.resolve());
-    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep);
-    expect(sweep).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not dispatch on an off-cadence cycle', async () => {
-    const sweep = vi.fn(() => Promise.resolve());
-    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES + 1, sweep);
-    expect(sweep).not.toHaveBeenCalled();
-  });
-
-  it('skips without dispatching and logs a warning when the thunk is null (no launch context)', async () => {
-    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, null);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('no launch GitContext available'), 'warn');
-  });
-
-  it('swallows a throwing sweep and the tick still resolves', async () => {
-    const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
-    await expect(runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
     expect(sweep).toHaveBeenCalledTimes(1);
   });
 });

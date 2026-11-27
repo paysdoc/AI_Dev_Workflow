@@ -1,7 +1,7 @@
 // All steps are side-effect-free with respect to source files in adws/.
 
 import { Given } from '@cucumber/cucumber';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
@@ -167,95 +167,6 @@ Given(
     // The mock server records all POST /repos/.../issues/:n/labels by default.
     const serverUrl = this.mockContext.serverUrl;
     this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
-  },
-);
-
-function insertTagAtHeader(lines: string[], headerIdx: number, newTag: string): string {
-  let nearestTagIdx = -1;
-  for (let i = headerIdx - 1; i >= 0; i--) {
-    const trimmed = (lines[i] ?? '').trimStart();
-    if (trimmed.startsWith('@')) {
-      if (nearestTagIdx === -1) nearestTagIdx = i;
-    } else if (trimmed.length > 0) {
-      break;
-    }
-  }
-  if (nearestTagIdx !== -1) {
-    lines[nearestTagIdx] = `${lines[nearestTagIdx]} ${newTag}`;
-  } else {
-    const indent = (lines[headerIdx] ?? '').match(/^(\s*)/)?.[1] ?? '';
-    lines.splice(headerIdx, 0, `${indent}${newTag}`);
-  }
-  return lines.join('\n');
-}
-
-function insertTagForScenario(content: string, scenarioName: string | null, newTag: string): string {
-  const lines = content.split('\n');
-  const headerIdx = scenarioName === null
-    ? lines.findIndex((l) => /^\s*Scenario:/.test(l))
-    : lines.findIndex((l) => {
-        const t = l.trimStart();
-        return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
-      });
-  if (headerIdx === -1) {
-    throw new Error(scenarioName === null
-      ? 'No Scenario: header found in feature file'
-      : `Scenario "${scenarioName}" not found in feature file`);
-  }
-  return insertTagAtHeader(lines, headerIdx, newTag);
-}
-
-Given(
-  'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
-  function (this: RegressionWorld, filePath: string, adwId: string) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const fullPath = join(worktreePath, filePath);
-    const today = new Date().toISOString().slice(0, 10);
-    const tag = `@promotion-suggested-${today}`;
-    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), null, tag);
-    writeFileSync(fullPath, updated, 'utf-8');
-  },
-);
-
-Given(
-  'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
-  function (this: RegressionWorld, filePath: string, adwId: string, daysAgo: number) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const fullPath = join(worktreePath, filePath);
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    const tag = `@promotion-suggested-${d.toISOString().slice(0, 10)}`;
-    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), null, tag);
-    writeFileSync(fullPath, updated, 'utf-8');
-  },
-);
-
-Given(
-  'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
-  function (this: RegressionWorld, scenarioName: string, filePath: string, adwId: string) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const fullPath = join(worktreePath, filePath);
-    const today = new Date().toISOString().slice(0, 10);
-    const tag = `@promotion-suggested-${today}`;
-    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), scenarioName, tag);
-    writeFileSync(fullPath, updated, 'utf-8');
-  },
-);
-
-Given(
-  'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
-  function (this: RegressionWorld, scenarioName: string, filePath: string, adwId: string, daysAgo: number) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const fullPath = join(worktreePath, filePath);
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    const tag = `@promotion-suggested-${d.toISOString().slice(0, 10)}`;
-    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), scenarioName, tag);
-    writeFileSync(fullPath, updated, 'utf-8');
   },
 );
 

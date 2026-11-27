@@ -27,7 +27,7 @@ export interface HarnessOrchestrator {
   readonly actsOnWorkspace?: boolean;
 }
 
-/** An orchestrator that initialises a workflow, which every one but the promotion sweep does. */
+/** An orchestrator that initialises a workflow, which one that acts on the workspace itself does not. */
 export interface WorkflowOrchestrator extends HarnessOrchestrator {
   readonly issueType: IssueClassSlashCommand;
   readonly orchestratorId: OrchestratorIdType;
@@ -48,10 +48,9 @@ export const HARNESS_ORCHESTRATORS: Readonly<Record<string, HarnessOrchestrator>
   merge: { script: 'adws/adwMerge.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Merge },
   document: { script: 'adws/adwDocument.tsx', issueType: '/feature', orchestratorId: OrchestratorId.Document },
   'pr-review': { script: 'adws/adwPrReview.tsx', issueType: '/pr_review', orchestratorId: OrchestratorId.PrReview },
-  'promotion-sweep': { script: 'adws/triggers/promotionSweep.ts', actsOnWorkspace: true },
 };
 
-const ORCHESTRATOR_SCRIPT = /adws\/(adw[A-Z]\w*\.tsx|triggers\/promotionSweep\.ts)$/;
+const ORCHESTRATOR_SCRIPT = /adws\/adw[A-Z]\w*\.tsx$/;
 
 /** The name a script stem such as `adwPlanBuild` is registered under. */
 export function harnessNameForStem(stem: string): string {

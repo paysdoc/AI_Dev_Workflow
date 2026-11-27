@@ -7,7 +7,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
 import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
@@ -42,7 +42,6 @@ import type { ScanningCronIdentity } from './pauseQueueDecider';
 import { runJanitorPass } from './devServerJanitor';
 import { runDeviceJanitorPass } from './deviceJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
-import { runPromotionSweep } from './promotionSweep';
 import { runDocsIndexSweep } from './docsIndexSweep';
 import { runUpgradeRedriveScan, buildDefaultUpgradeRedriveDeps } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
@@ -130,12 +129,6 @@ function boundPerIssueSweep(): (() => Promise<unknown>) | null {
   return boundary ? () => runPerIssueScenarioSweep({ boundary }) : null;
 }
 
-/** Same shape as boundPerIssueSweep, for the promotion sweep. */
-function boundPromotionSweep(): (() => Promise<unknown>) | null {
-  const boundary = cronBoundary;
-  return boundary ? () => runPromotionSweep({ boundary }) : null;
-}
-
 /** Same shape as boundPerIssueSweep, for the docs-index health sweep. */
 function boundDocsIndexSweep(): (() => Promise<unknown>) | null {
   const boundary = cronBoundary;
@@ -166,35 +159,6 @@ export async function runPerIssueScenarioSweepTick(
     await sweep();
   } catch (error) {
     log(`perIssueScenarioSweep: pass failed (non-fatal): ${error}`, 'error');
-  }
-}
-
-/**
- * Promotion sweep dispatch: on a cadence-eligible cron cycle (cycleCount a
- * multiple of PROMOTION_SWEEP_INTERVAL_CYCLES) invokes the sweep, which
- * reconciles tagged per-issue scenarios and files/withdraws promotion issues
- * against the repo of the cron's launch GitContext. Off-cadence cycles are a
- * no-op (the generous-cadence guarantee). When no launch context is
- * available the pass is skipped (logged), never falling back to a
- * cwd-derived identity. Non-fatal — a transient git/gh failure during setup
- * (the reconciliation query, vocab/stats loads) or any escaped throw is
- * logged and swallowed so it can never abort the cron tick. Exported (with
- * an injectable sweep) so tests can drive the cadence gate, the skip, and
- * the swallow directly.
- */
-export async function runPromotionSweepTick(
-  cycleCount: number,
-  sweep: (() => Promise<unknown>) | null = boundPromotionSweep(),
-): Promise<void> {
-  if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES !== 0) return;
-  if (sweep === null) {
-    log('promotionSweep: no launch GitContext available — skipping pass', 'warn');
-    return;
-  }
-  try {
-    await sweep();
-  } catch (error) {
-    log(`promotionSweep: pass failed (non-fatal): ${error}`, 'error');
   }
 }
 
@@ -418,9 +382,6 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   // The cadence gate, the no-launch-context skip, and the non-fatal swallow all live inside
   // runPerIssueScenarioSweepTick.
   await runPerIssueScenarioSweepTick(cycleCount);
-
-  // The gate and the non-fatal swallow both live inside runPromotionSweepTick.
-  await runPromotionSweepTick(cycleCount);
 
   // The gate and the non-fatal swallow both live inside runDocsIndexSweepTick.
   await runDocsIndexSweepTick(cycleCount);

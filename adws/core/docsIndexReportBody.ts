@@ -1,8 +1,7 @@
 /**
  * The sweep reconciles against an already-open tracker through a back-link
- * marker in the issue body plus a violation-set fingerprint — the shape
- * `promotionReconcileLink.ts` established for the promotion sweep. No I/O:
- * the sweep shell files/refreshes/closes the issue the caller resolves.
+ * marker in the issue body plus a violation-set fingerprint. No I/O: the
+ * sweep shell files/refreshes/closes the issue the caller resolves.
  */
 
 import { createHash } from 'node:crypto';
@@ -118,7 +117,7 @@ function issueIsOpen(ref: DocsIndexReportIssueRef): boolean {
   return ref.state === undefined || ref.state.toUpperCase() === 'OPEN';
 }
 
-/** The lowest-numbered OPEN issue carrying the back-link marker, or null when none is open — mirrors `reconcilePromotionLink`. */
+/** The lowest-numbered OPEN issue carrying the back-link marker, or null when none is open. */
 export function findOpenDocsIndexReport(issues: readonly DocsIndexReportIssueRef[]): DocsIndexReportIssueRef | null {
   const candidates = issues.filter((i) => issueIsOpen(i) && parseDocsIndexReportMarker(i.body) !== null);
   if (candidates.length === 0) return null;
