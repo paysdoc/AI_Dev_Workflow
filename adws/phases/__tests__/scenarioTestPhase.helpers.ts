@@ -30,6 +30,18 @@ export const failingProof = {
   artifactsDir: '/agents/test-id/scenario-test/artifacts',
 };
 
+/** The proof of an issue whose scenario agent wrote no scenario: its tag was not run, which is no failure. */
+export const noPerIssueScenariosProof = {
+  tagResults: [
+    { tag: '@regression', resolvedTag: '@regression', severity: 'blocker' as const, optional: false, passed: true, output: 'ok', exitCode: 0, skipped: false },
+    { tag: '@adw-{issueNumber}', resolvedTag: '@adw-42', severity: 'blocker' as const, optional: true, passed: true, output: '', exitCode: null, skipped: true },
+  ],
+  hasBlockerFailures: false,
+  perIssueImages: [],
+  resultsFilePath: passingProof.resultsFilePath,
+  artifactsDir: passingProof.artifactsDir,
+};
+
 export function makeConfig(overrides: {
   scenariosMd?: string;
   runScenariosByTag?: string;

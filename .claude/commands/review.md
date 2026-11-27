@@ -45,11 +45,13 @@ perIssueImages: $6 — a JSON array of the absolute paths of the per-issue scena
 
 Skip this step when `scenarioProofPath` is empty.
 
-- When the `@adw-{issueNumber}` section of the proof says `no per-issue scenarios`, decide by `issueKind` alone:
-  - `feature` or `bug`: a `blocker`, because no scenario tests the behaviour the issue asks for. `issueResolution`: add scenarios tagged `@adw-{issueNumber}` that test it.
+A scenario proves only behaviour observable through a Real Boundary of the repository: its real runtime, a real browser, the built artifact or a real command-line invocation. In ADW's own repository that boundary is the subprocess pattern: a real ADW process started through the subprocess harness. Behaviour provable inside the test process, and the variants, edge cases and error cases of any behaviour, belong to unit tests. So a missing scenario is a `blocker` only when the issue changes behaviour at a Real Boundary.
+
+- When the `@adw-{issueNumber}` section of the proof says `no per-issue scenarios`, that is a zero-scenario claim: that the issue changes no behaviour at a Real Boundary. Judge the zero-scenario claim by `issueKind`:
+  - `feature` or `bug`: judge from the issue and the diff whether the change alters behaviour observable through a Real Boundary. If it does, the claim is wrong: a `blocker` that names the behaviour and the boundary that shows it. `issueResolution`: add one scenario tagged `@adw-{issueNumber}` for each acceptance criterion observable at that boundary. If it does not, the claim holds and is no finding.
   - `chore`, `promotion` or `pr_review`: no finding. Such an issue needs no scenarios of its own.
 - Otherwise read every `.feature` file that holds a scenario tagged `@adw-{issueNumber}` and judge the scenarios against the issue:
-  - Every behaviour the issue asks for is exercised by a scenario, through what a user or a calling process sees, and asserted by a step that fails when the behaviour is missing.
+  - Every acceptance criterion of the issue that is observable at a Real Boundary is exercised by a scenario, through what a user or a calling process sees, and asserted by a step that fails when the behaviour is missing. A behaviour that no Real Boundary shows needs no scenario.
   - The scenarios describe behaviour in the issue's terms. A scenario written around the implementation (its internal names, private state or code structure) instead of what the system does is not independent of it.
   - A scenario that would still pass with the change reverted tests nothing.
 - Each such problem is a `blocker` that names the scenario and the requirement it fails to test.
@@ -93,7 +95,7 @@ Apply the section under `## Guidance by application type` whose title is `guidan
 ### CLI applications
 
 - There is no page and no image. The evidence is the diff, the issue and the scenarios: never ask for a screenshot, a running application or a browser.
-- What a user of a CLI or automation tool sees is its commands and flags, what it prints, its exit codes, and the files, state and calls it writes. A change to any of these that the issue does not ask for is out of scope (Step 2); a change it does ask for needs a scenario that observes it (Step 4).
+- What a user of a CLI or automation tool sees is its commands and flags, what it prints, its exit codes, and the files, state and calls it writes. A change to any of these that the issue does not ask for is out of scope (Step 2). A real command-line invocation of the tool shows them, so each acceptance criterion about them needs a scenario that observes it, and their variants and edge cases need none (Step 4).
 - A scenario drives the tool the way its user or a calling process does (a command, an exported entry point, a file the tool reads) and asserts what that user can observe.
 
 ### Web applications

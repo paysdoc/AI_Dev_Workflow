@@ -434,12 +434,20 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── domain-modeling/
 │   │   ├── ADR-FORMAT.md
 │   │   ├── GLOSSARY-FORMAT.md
+│   │   ├── agents/
+│   │   │   └── openai.yaml
 │   │   └── SKILL.md
 │   ├── grill-me/
+│   │   ├── agents/
+│   │   │   └── openai.yaml
 │   │   └── SKILL.md
 │   ├── grill-with-docs/
+│   │   ├── agents/
+│   │   │   └── openai.yaml
 │   │   └── SKILL.md
 │   ├── grilling/
+│   │   ├── agents/
+│   │   │   └── openai.yaml
 │   │   └── SKILL.md
 │   ├── improve-codebase-architecture/
 │   │   ├── REFERENCE.md
