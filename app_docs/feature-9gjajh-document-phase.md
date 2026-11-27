@@ -74,7 +74,7 @@ This is the whole living-docs pipeline: the orchestrator phase that invokes `/do
 - `DOC_BLOAT_THRESHOLD_LINES` (`adws/core/docsGuards.ts`): 400 lines, shared by the per-write wiring and its BDD fixtures
 - `DocsSelfCheckDeps` (`adws/phases/docsSelfCheck.ts`): injectable `readFile`/`createIssue`/`findExistingRefactorIssue`/`log`; `buildDefaultDocsSelfCheckDeps()` wires the real fs/GitHub APIs
 - `DEFAULT_COUNT_BAND` (`adws/core/docsIndexHealth.ts`): `{min: 25, max: 60}`, the single source of truth for both the gate and the sweep
-- `DOCS_INDEX_SWEEP_INTERVAL_CYCLES` (`adws/core/config.ts`, default `4320`): cron cadence for the docs-index sweep, alongside its siblings `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES`/`PROMOTION_SWEEP_INTERVAL_CYCLES`
+- `DOCS_INDEX_SWEEP_INTERVAL_CYCLES` (`adws/core/config.ts`, default `4320`): cron cadence for the docs-index sweep, alongside its sibling `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES`
 - `DOCS_INDEX_SWEEP_SPEC` (`adws/triggers/docsIndexSweepDefaults.ts`): the sweep's dedicated branch (`chore/docs-index-sweep`) and PR title/body
 - `package.json`'s `lint:docs-index` script (`bunx tsx adws/checkLivingDocsIndex.ts`) and `.github/workflows/git-cli-guard.yml`'s `docs-index` job wire the gate into CI
 - Manual invocation: `bunx tsx adws/checkLivingDocsIndex.ts [rootDir]` for the gate; `bunx tsx adws/triggers/docsIndexSweep.ts [--target-repo owner/repo]` for an immediate sweep (the first cadence-eligible cron tick otherwise fires ~24h after cron start)
