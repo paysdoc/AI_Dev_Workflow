@@ -17,11 +17,9 @@
  * its own.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { log, type LogLevel } from '../core';
 import { bodyLinksIssue } from '../forge/issueLinkMarker';
-import { parsePromotionTagState, isPromotionExempt } from '../core/promotionTagState';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
 import { verifyRemoval, worktreeGateDeps } from './sweepRemovalGate';
 import type { LaunchBoundary } from '../core';
@@ -69,7 +67,6 @@ export interface PerIssueSweepDeps {
   /** Resolves the paths that actually landed; void means the whole batch did. */
   persistRemoval?: (paths: readonly string[]) => void | readonly string[] | Promise<void | readonly string[]>;
   log?: (msg: string, level?: string) => void;
-  readFeatureContent?: (filePath: string) => string | null;
 }
 
 /**
@@ -144,51 +141,13 @@ async function defaultGateRemoval(paths: readonly string[], base: SweepBase, log
   }
 }
 
-/** Fail-safe: null on any error. */
-function defaultReadFeatureContent(base: SweepBase, filePath: string): string | null {
-  try {
-    return fs.readFileSync(path.join(base.worktreePath, filePath), 'utf-8');
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Reads and parses a stale candidate's promotion tag state to decide whether
- * it should be exempted from this sweep. Fails safe toward preservation: an
- * unreadable file is treated as exempt (skip deletion, self-heals next sweep)
- * rather than swept while its promotion state is unknown.
- */
-function shouldSkipForPromotionState(
-  filePath: string,
-  readFeatureContent: (filePath: string) => string | null,
-  logger: (msg: string, level?: LogLevel) => void,
-): boolean {
-  const content = readFeatureContent(filePath);
-  if (content === null) {
-    logger(
-      `perIssueScenarioSweep: could not read ${filePath} to check promotion state — skipping deletion (conservative)`,
-      'warn',
-    );
-    return true;
-  }
-
-  const state = parsePromotionTagState(content);
-  if (isPromotionExempt(state)) {
-    logger(`perIssueScenarioSweep: ${filePath} is promotion-exempt (@promotion-suggested) — not sweeping`, 'info');
-    return true;
-  }
-
-  return false;
-}
-
 /**
  * Lists per-issue feature files, checks their linked PR merge date, and removes
  * every stale file plus its step-def sibling(s), and every step-def file whose
  * feature is already gone, as one gated, persisted batch. Returns the paths that
  * landed (empty when nothing is stale, or the gate cleared nothing — no commit).
  *
- * The base-dependent defaults (listing, content reads, and persistence) share a
+ * The base-dependent defaults (listing and persistence) share a
  * single lazily-memoized SweepBase — a dedicated worktree synced to fresh
  * origin/<default> — created at most once per call, and only when a
  * base-dependent default actually runs (never for a fully-injected caller). The
@@ -212,10 +171,6 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
   const listStepDefSiblings = deps.listStepDefSiblings ?? ((issueNum: number) => {
     const base = getBase();
     return base ? defaultListStepDefSiblings(base, issueNum) : [];
-  });
-  const readFeatureContent = deps.readFeatureContent ?? ((filePath: string) => {
-    const base = getBase();
-    return base ? defaultReadFeatureContent(base, filePath) : null;
   });
   const listOrphanStepDefs = deps.listOrphanStepDefs ?? ((featureFiles: readonly string[]) => {
     const base = getBase();
@@ -256,7 +211,6 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
       }
 
       if (!isScenarioStale(filePath, mergedAt, RETENTION_DAYS, now)) continue;
-      if (shouldSkipForPromotionState(filePath, readFeatureContent, logger)) continue;
 
       const siblings = listStepDefSiblings(issueNum);
       logger(

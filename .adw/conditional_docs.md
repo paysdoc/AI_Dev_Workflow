@@ -231,7 +231,7 @@
     - When working on the promoted rate-limit detection scenario (`features/regression/rate-limit/feature-907.feature`, `feature-907.steps.ts`, `@rate-limit-detection`, vocabulary phrases W-RD1/T-RD1–11) covering the limit type and reset time carried through the stream parser, `RateLimitError` and the pause-queue probe, authentication failures reported as confirmed failures, and the order-independent `CLAUDE_CODE_PATH` restore
     - When working on the promoted in-process rate-limit wait scenario (`features/regression/rate-limit/feature-912.feature`, `feature-912.steps.ts`, `@rate-limit-in-process-wait`, vocabulary phrases G-RW/W-RW/T-RW) covering the wait policy, announced waits, heartbeat and spawn lock liveness while waiting, and the pause-path fallback, or the hung-detector probe's timing (`TEST_HUNG_THRESHOLD_MS`, `WAIT_SUSPEND_REAL_MS`, the `setImmediate` yield before the probe, flaky `not reported hung` failures in the Docker leg)
     - When working on the promoted webhook cron-on-every-event scenario (`features/regression/webhook/cron_on_every_event.feature`, `webhookCronSteps.ts`, `@webhook`) or the shared launch recorder (`features/regression/support/launchRecorder.ts`, the `bunx` shadow on `PATH`)
-    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`, `promotion_threshold_auto_ramp.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`promotionSweepSteps.ts`, `test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`, G-SP3–G-SP5), or the `<name>-smoke-<N>` adwId shape
+    - When working on the real-process smoke scenarios (`features/regression/smoke/cron_trigger_spawn.feature`, `cancel_directive.feature`): the cancel directive's webhook target (`support/webhookTarget.ts`, `cancelDirectiveSteps.ts`, `deliverPayload`'s `EventBoundaryMinter`, `mockForgeProviders`' `fetchComments`/`getIssueTitle`/`deleteComment`), the promotion fixtures (`test/fixtures/scenarios/promotion/**`, `commitOnDefaultBranch`), or the `<name>-smoke-<N>` adwId shape
     - When working on the promoted plan-worktree scenarios (`features/regression/plan-commit/feature-930.feature`, `feature-1077.feature`, `@plan-worktree-only`, `@specs-ignored-in-worktree`), worktree setup's `specs/` ignore (`ignoreSpecsInWorktree`) under `@regression`, the `adwSdlc` scenario's T-SP7/T-SP8 in `feature-1077.steps.ts`, or their step-definition closure (`feature-930.steps.ts`, `feature-930-worktree-setup.steps.ts`, `feature-930-plan-fixture.ts`, `feature-930-fixtures.ts`), including the Claude CLI stand-in's order-independent `CLAUDE_CODE_PATH` restore when the `@regression` teardown runs before a step file's own `After` hook
     - When working on the promoted cost-records scenario (`features/regression/cost/feature-936.feature`, `@cost-records`): its `feature-936-*` step definitions, the `drivers/feature-936-*-driver.ts` child processes, reported vs computed cost, the cost API's `reported_cost_usd`/`computed_cost_usd`, or Worker deploy change detection
     - When working on the promoted dead-orchestrator takeover scenario (`features/regression/takeover/feature-959.feature`, `@dead-orchestrator-takeover`), its `feature-959*` step definitions, the shared `feature-796.steps.ts`/`feature-820.steps.ts`/`feature-932-world.ts` now in `features/regression/step_definitions/`, or vocabulary phrases G-DT/W-DT/T-DT
@@ -450,25 +450,14 @@
 
 - app_docs/feature-9gjajh-promotion-system.md
   - Owns:
-    - adws/core/promotionTagState.ts
-    - adws/triggers/promotionSweep.ts
-    - adws/triggers/promotionSweepDefaults.ts
-    - adws/core/promotionSweepDecider.ts
-    - adws/core/promotionReconcileLink.ts
-    - adws/core/promotionIssueBody.ts
     - adws/promotion/**
-    - adws/phases/promotionRotAdvisory.ts
-    - adws/phases/rotAdvisoryFormat.ts
-    - adws/agents/rotAnalysisAgent.ts
     - .claude/commands/promote_regression_vocabulary.md
   - Conditions:
-    - When working on scenario promotion scoring, threshold ramping, vocabulary/scenario parsing, or promotion stats loading in `adws/promotion/`
-    - When working on promotion tag-state tracking (`adws/core/promotionTagState.ts`)
-    - When working on the promotion cron sweep — originate/decline/redrive/withdraw, tracking-issue reconcile, the plan → land → settle flow, marker delivery through the `chore/promotion-sweep` pull request, or the #734-shaped promotion issue body (`adws/triggers/promotionSweep.ts`, `promotionSweepDefaults.ts`, `adws/core/promotionSweepDecider.ts`, `promotionReconcileLink.ts`, `promotionIssueBody.ts`)
-    - When troubleshooting a promotion threshold stuck at 3 (merged-promotion-PR numerator, `features/per-issue` pathspec denominator) or a promotion issue filed without its `@promotion-suggested` marker on the default branch
-    - When working on the rot/reuse advisory PR comment (`adws/phases/promotionRotAdvisory.ts`, `rotAdvisoryFormat.ts`, `adws/agents/rotAnalysisAgent.ts`, `.claude/commands/promote_regression_vocabulary.md`)
+    - When working on the vocabulary registry parser or the scenario parser in `adws/promotion/` (`parseVocabulary`, `parseScenarios`)
+    - When an issue carries the `regression-promotion` label, which skips the scenario-writing phase (`shouldSkipScenarioAuthoring`) and makes the review treat it as `ReviewIssueKind.Promotion`
+    - When working on the `/promote_regression_vocabulary` command or the `promote-regression-vocabulary` analysis skill
   - Decisions:
-    - 0049
+    - 0068
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -923,7 +912,7 @@
     - adws/adwBuildHelpers.ts
     - adws/index.ts
   - Conditions:
-    - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwPromotionSweep`, `adwUpgrade`, `adwClearComments`
+    - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwUpgrade`, `adwClearComments`
     - When working on top-level `adws/index.ts` exports or `adwBuildHelpers.ts`
     - When working on `adwChore`'s diff-judge escalation, its failed-review stop (`review_failed`, no document/PR/approval), or its injectable entry point (`executeChore`, `ChorePhases`), or a failed dev-server start that escalates a `safe` chore into the review loop
   - Decisions:

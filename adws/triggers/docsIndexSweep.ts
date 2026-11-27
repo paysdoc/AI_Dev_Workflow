@@ -17,7 +17,7 @@
  *    violation-set fingerprint, refreshed only when the fingerprint changes,
  *    closed when the index goes clean. Violations are NEVER auto-repaired.
  *
- * Mirrors `perIssueScenarioSweep.ts` / `promotionSweep.ts`: injectable deps
+ * Mirrors `perIssueScenarioSweep.ts`: injectable deps
  * with production defaults closing over the caller's launch-boundary
  * GitContext (`docsIndexSweepDefaults.ts`'s `makeDocsIndexSweepDefaults`),
  * and non-fatal — every I/O step is wrapped so the sweep always returns its

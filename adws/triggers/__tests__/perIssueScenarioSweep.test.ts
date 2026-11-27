@@ -4,10 +4,6 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
 
-vi.mock('fs', () => ({
-  readFileSync: vi.fn(),
-}));
-
 vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
@@ -17,13 +13,10 @@ vi.mock('../../forge/issueLinkMarker', () => ({
 }));
 
 import { isScenarioStale, runPerIssueScenarioSweep, stepDefIssueNumber, RETENTION_DAYS } from '../perIssueScenarioSweep';
-import { readFileSync } from 'fs';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
 import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
 import { Platform } from '@paysdoc/devplatform';
-
-const UNTAGGED_CONTENT = 'Feature: plain\n';
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -117,7 +110,6 @@ describe('runPerIssueScenarioSweep — leftovers and the gate', () => {
       listOrphanStepDefs,
       persistRemoval,
       log: vi.fn(),
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(listOrphanStepDefs).toHaveBeenCalledWith(['features/per-issue/feature-989.feature']);
@@ -138,7 +130,6 @@ describe('runPerIssueScenarioSweep — leftovers and the gate', () => {
       listOrphanStepDefs: () => [],
       persistRemoval: async () => [stale],
       log: vi.fn(),
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([stale]);
@@ -175,7 +166,6 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings,
       persistRemoval,
       log: logger,
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleFile, sibling]);
@@ -200,7 +190,6 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: (issueNum) => (issueNum === 102 ? [siblingB] : []),
       persistRemoval,
       log: vi.fn(),
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleA, staleB, siblingB]);
@@ -250,7 +239,6 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: () => [],
       persistRemoval,
       log: logger,
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleFile]);
@@ -271,7 +259,6 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: () => [],
       persistRemoval,
       log: vi.fn(),
-      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(codeHost.listMergedPullRequests).toHaveBeenCalledWith(200);
@@ -316,33 +303,8 @@ describe('runPerIssueScenarioSweep — integration', () => {
   });
 });
 
-describe('runPerIssueScenarioSweep — promotion-awareness', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('a stale file tagged @promotion-suggested-<date> is kept and logs an info promotion-exempt message', async () => {
-    const staleFile = 'features/per-issue/feature-665.feature';
-    const persistRemoval = vi.fn();
-    const logger = vi.fn();
-
-    const removed = await runPerIssueScenarioSweep({
-      boundary: fakeBoundary,
-      now: NOW,
-      listFeatures: () => [staleFile],
-      getMergedAt: async () => daysAgo(20),
-      listStepDefSiblings: () => [],
-      readFeatureContent: () => '@promotion-suggested-2026-06-20\nFeature: issue 665\n',
-      persistRemoval,
-      log: logger,
-    });
-
-    expect(removed).toEqual([]);
-    expect(persistRemoval).not.toHaveBeenCalled();
-    expect(logger).toHaveBeenCalledWith(expect.stringContaining('promotion-exempt'), 'info');
-  });
-
-  it('a stale file tagged @promotion-declined is swept on the normal TTL', async () => {
+describe('runPerIssueScenarioSweep — leftover promotion tags', () => {
+  it('sweeps a stale file carrying a leftover @promotion-suggested-<date> tag on the normal retention rule', async () => {
     const staleFile = 'features/per-issue/feature-665.feature';
     const persistRemoval = vi.fn();
 
@@ -352,73 +314,12 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
       listFeatures: () => [staleFile],
       getMergedAt: async () => daysAgo(20),
       listStepDefSiblings: () => [],
-      readFeatureContent: () => '@promotion-declined\nFeature: issue 665\n',
       persistRemoval,
       log: vi.fn(),
     });
 
     expect(removed).toEqual([staleFile]);
     expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
-  });
-
-  it('a stale untagged file is swept exactly as today (no behaviour change)', async () => {
-    const staleFile = 'features/per-issue/feature-665.feature';
-    const persistRemoval = vi.fn();
-
-    const removed = await runPerIssueScenarioSweep({
-      boundary: fakeBoundary,
-      now: NOW,
-      listFeatures: () => [staleFile],
-      getMergedAt: async () => daysAgo(20),
-      listStepDefSiblings: () => [],
-      readFeatureContent: () => 'Feature: issue 665\n',
-      persistRemoval,
-      log: vi.fn(),
-    });
-
-    expect(removed).toEqual([staleFile]);
-    expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
-  });
-
-  it('a stale file whose content cannot be read is skipped (conservative) and logs a warn message', async () => {
-    const staleFile = 'features/per-issue/feature-665.feature';
-    const persistRemoval = vi.fn();
-    const logger = vi.fn();
-
-    const removed = await runPerIssueScenarioSweep({
-      boundary: fakeBoundary,
-      now: NOW,
-      listFeatures: () => [staleFile],
-      getMergedAt: async () => daysAgo(20),
-      listStepDefSiblings: () => [],
-      readFeatureContent: () => null,
-      persistRemoval,
-      log: logger,
-    });
-
-    expect(removed).toEqual([]);
-    expect(persistRemoval).not.toHaveBeenCalled();
-    expect(logger).toHaveBeenCalledWith(expect.stringContaining('could not read'), 'warn');
-  });
-
-  it('a fresh (non-stale) file never has its content read (no new I/O on the common path)', async () => {
-    const freshFile = 'features/per-issue/feature-200.feature';
-    const readFeatureContent = vi.fn(() => '@promotion-suggested-2026-06-20\nFeature: issue 200\n');
-    const persistRemoval = vi.fn();
-
-    const removed = await runPerIssueScenarioSweep({
-      boundary: fakeBoundary,
-      now: NOW,
-      listFeatures: () => [freshFile],
-      getMergedAt: async () => daysAgo(5),
-      listStepDefSiblings: () => [],
-      readFeatureContent,
-      persistRemoval,
-      log: vi.fn(),
-    });
-
-    expect(removed).toEqual([]);
-    expect(readFeatureContent).not.toHaveBeenCalled();
   });
 });
 
@@ -429,7 +330,6 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(readFileSync).mockReturnValue(UNTAGGED_CONTENT);
   });
 
   function makeMockCtx(overrides: Record<string, unknown> = {}) {

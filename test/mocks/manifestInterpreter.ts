@@ -131,7 +131,7 @@ function writeEdits(edits: readonly ManifestEdit[], worktreePath: string): strin
   });
 }
 
-/** Optional — produces git history for loadPromotionStats. */
+/** Optional — gives the worktree git history: one empty commit per manifest commit, at its date. */
 function createAllowEmptyCommits(commits: readonly ManifestCommit[] | undefined, worktreePath: string): number {
   for (const commit of commits ?? []) {
     const dateFlag = commit.date ? `--date="${commit.date}"` : '';

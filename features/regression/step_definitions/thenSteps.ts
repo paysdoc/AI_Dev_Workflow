@@ -8,7 +8,6 @@ import type { RegressionWorld } from './world.ts';
 import type { GitMockInvocation, RecordedRequest } from '../../../test/mocks/types.ts';
 import { readGitMockLog } from '../../../test/mocks/gitMockLog.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
-import { extractTagBlock, scenarioTags } from '../support/gherkinTags.ts';
 import { SURFACE_REPO } from '../support/mockForgeProviders.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -237,59 +236,6 @@ Then(
       commentPosts.length,
       0,
       `Expected zero comment posts on issue ${issueNumber} but recorded ${commentPosts.length}`,
-    );
-  },
-);
-
-const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
-
-/** The scenario's own tags and its Feature's: the sweep writes its marker into the Feature's block. */
-function scenarioTagsInArtefact(world: RegressionWorld, filePath: string, adwId: string, scenarioName: string): string[] {
-  const worktreePath = world.worktreePaths.get(adwId);
-  assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-  const tags = scenarioTags(readFileSync(join(worktreePath, filePath), 'utf-8'), scenarioName);
-  assert.ok(tags, `Scenario named "${scenarioName}" not found in artefact file`);
-  return tags;
-}
-
-Then(
-  'the artefact file at {string} in the worktree for adwId {string} carries exactly one "@promotion-suggested-" tag on the seeded scenario',
-  function (this: RegressionWorld, filePath: string, adwId: string) {
-    const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
-    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
-    const lines = content.split('\n');
-    const headerIdx = lines.findIndex((l) => /^\s*Scenario:/.test(l));
-    assert.ok(headerIdx >= 0, 'No Scenario: header found in artefact file');
-    const tags = extractTagBlock(lines, headerIdx);
-    const count = tags.filter((t) => SUGGESTION_RE.test(t)).length;
-    assert.strictEqual(
-      count,
-      1,
-      `Expected exactly one @promotion-suggested-* tag but found ${count}. Tags: ${tags.join(' ')}`,
-    );
-  },
-);
-
-Then(
-  'the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}',
-  function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
-    const tags = scenarioTagsInArtefact(this, filePath, adwId, scenarioName);
-    const expectedTag = `@promotion-suggested-${new Date().toISOString().slice(0, 10)}`;
-    assert.ok(
-      tags.includes(expectedTag),
-      `Expected tag "${expectedTag}" on scenario "${scenarioName}" but not found. Tags: ${tags.join(' ')}`,
-    );
-  },
-);
-
-Then(
-  'the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}',
-  function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
-    const tags = scenarioTagsInArtefact(this, filePath, adwId, scenarioName);
-    assert.ok(
-      !tags.some((t) => SUGGESTION_RE.test(t)),
-      `Expected no @promotion-suggested-* tag on scenario "${scenarioName}" but found one. Tags: ${tags.join(' ')}`,
     );
   },
 );

@@ -25,19 +25,3 @@ export interface Scenario {
   endLine: number;
   headerLine: number;
 }
-
-export interface PromotionStats {
-  promotedCount90d: number;
-  totalPerIssueCount90d: number;
-}
-
-export interface ScoreBreakdown {
-  surfaceMatch: number;
-  executionPattern: number;
-  phaseCount: number;
-}
-
-export interface ScoreResult {
-  total: number;
-  breakdown: ScoreBreakdown;
-}
