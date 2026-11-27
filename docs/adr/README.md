@@ -23,30 +23,30 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0011](0011-provider-ports-and-immutable-repo-context.md) | 2026-03-09 | Platform access goes through provider ports bound to an immutable RepoContext | accepted |
 | [0012](0012-webhook-gatekeeper-cron-sweeper.md) | 2026-03-09 | Webhook as real-time gatekeeper, cron as backlog sweeper | accepted |
 | [0013](0013-kpi-tracking-phase.md) | 2026-03-12 | KPI tracking as a phase of the SDLC workflow | superseded by [ADR-0045](0045-kpi-module-removed.md) |
-| [0014](0014-bdd-as-validation-contract-unit-tests-removed.md) | 2026-03-13 | BDD scenarios as the validation contract, ADW unit tests removed | accepted, in part superseded by [ADR-0018](0018-unit-tests-restored-alongside-bdd.md) |
+| [0014](0014-bdd-as-validation-contract-unit-tests-removed.md) | 2026-03-13 | BDD scenarios as the validation contract, ADW unit tests removed | accepted, in part superseded by [ADR-0018](0018-unit-tests-restored-alongside-bdd.md) and [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) |
 | [0015](0015-slash-commands-as-single-spawn-path.md) | 2026-03-16 | Agents are spawned through one function, and their prompt is a slash command | accepted |
 | [0016](0016-github-app-identity.md) | 2026-03-17 | ADW acts on GitHub as a GitHub App, not as the owner | accepted |
 | [0017](0017-auto-merge-by-webhook-then-orchestrator.md) | 2026-03-18 | Merge approved PRs from the webhook, then also from the orchestrator | superseded by [ADR-0028](0028-orchestrators-stop-at-awaiting-merge.md) |
-| [0018](0018-unit-tests-restored-alongside-bdd.md) | 2026-03-19 | Unit tests restored alongside BDD scenarios | accepted |
+| [0018](0018-unit-tests-restored-alongside-bdd.md) | 2026-03-19 | Unit tests restored alongside BDD scenarios | accepted, in part superseded by [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) |
 | [0019](0019-dev-and-main-branches-with-runner-clone.md) | 2026-03-19 | Pipeline work lands on `dev`; the runner executes a separate clone of `main` | accepted |
 | [0020](0020-shared-phase-runner-and-core-decomposition.md) | 2026-03-22 | Phases run through a shared phase runner, and the core is split into single-purpose modules | accepted |
 | [0021](0021-behavioural-test-harness-with-mocked-boundaries.md) | 2026-03-23 | Behavioural test harness with mocked external boundaries | accepted |
 | [0022](0022-review-proof-in-r2-behind-router-worker.md) | 2026-03-24 | Proof images stored in R2 and served by a router Worker | accepted, in part superseded by [ADR-0063](0063-per-issue-scenario-images-are-the-visual-evidence.md) |
 | [0023](0023-context-exhaustion-is-a-reset.md) | 2026-03-25 | Context exhaustion restarts the agent with fresh context; git state carries the work over | accepted |
-| [0024](0024-tdd-in-build-phase-single-pass-alignment.md) | 2026-03-25 | TDD in the build phase and single-pass plan-scenario alignment | accepted, in part superseded by [ADR-0031](0031-active-test-phase-passive-review-judge.md) and [ADR-0066](0066-build-agents-implement-the-plan-and-nothing-else.md) |
+| [0024](0024-tdd-in-build-phase-single-pass-alignment.md) | 2026-03-25 | TDD in the build phase and single-pass plan-scenario alignment | accepted, in part superseded by [ADR-0031](0031-active-test-phase-passive-review-judge.md), [ADR-0066](0066-build-agents-implement-the-plan-and-nothing-else.md) and [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) |
 | [0025](0025-rate-limit-pause-and-resume-queue.md) | 2026-03-26 | A rate-limited workflow pauses into a queue and is resumed by the cron trigger | accepted, in part superseded by [ADR-0055](0055-rate-limit-structured-signals-two-tier-wait.md) |
 | [0026](0026-cost-computed-locally-persisted-in-d1.md) | 2026-03-27 | Cost computed locally and persisted in a D1 database | accepted |
 | [0027](0027-llm-diff-gate-for-chores.md) | 2026-03-27 | LLM diff gate for chores | accepted |
 | [0028](0028-orchestrators-stop-at-awaiting-merge.md) | 2026-04-03 | Orchestrators stop at `awaiting_merge`; the cron spawns a merge orchestrator | accepted |
 | [0029](0029-top-level-state-file-as-source-of-truth.md) | 2026-04-03 | One top-level state file per adwId is the source of truth for workflow state | accepted |
 | [0030](0030-cloudflare-dns-managed-by-hand.md) | 2026-04-08 | Cloudflare DNS records managed by hand | accepted |
-| [0031](0031-active-test-phase-passive-review-judge.md) | 2026-04-08 | Active test phase, passive review judge | accepted, in part superseded by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md), [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md) and [ADR-0062](0062-dev-server-start-failure-is-a-failed-review.md) |
+| [0031](0031-active-test-phase-passive-review-judge.md) | 2026-04-08 | Active test phase, passive review judge | accepted, in part superseded by [ADR-0058](0058-static-checks-in-the-test-phase-reviewer-runs-nothing.md), [ADR-0061](0061-application-type-decides-evidence-web-repos-run-playwright-bdd.md), [ADR-0062](0062-dev-server-start-failure-is-a-failed-review.md) and [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) |
 | [0032](0032-explicit-cancel-and-retry-directives.md) | 2026-04-09 | A human steers a workflow with `## Cancel` and `## Retry` comments | accepted |
 | [0033](0033-depaudit-as-dependency-gate.md) | 2026-04-17 | depaudit as the dependency gate for ADW-managed repositories | deferred |
 | [0034](0034-coordination-kernel.md) | 2026-04-20 | A coordination kernel: lifetime lock, OS liveness, heartbeat, and takeover reconciled against the remote | accepted |
 | [0035](0035-single-host-per-repo.md) | 2026-04-20 | One host runs the triggers for a repo; this is a convention and the code does not enforce it | accepted |
 | [0036](0036-stage-taxonomy-and-exhaustive-classifier.md) | 2026-04-20 | Every workflow stage has one recovery class, and the compiler checks that none is missed | accepted |
-| [0037](0037-tiered-regression-suite-with-fixed-vocabulary.md) | 2026-04-25 | Tiered regression suite with a fixed vocabulary | accepted |
+| [0037](0037-tiered-regression-suite-with-fixed-vocabulary.md) | 2026-04-25 | Tiered regression suite with a fixed vocabulary | accepted, in part superseded by [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) and [ADR-0068](0068-promotion-by-nomination-and-human-decided-proposal.md) |
 | [0038](0038-stateless-merge-gate.md) | 2026-04-26 | The merge gate is one stateless rule: no `hitl` label, or an approved PR | accepted |
 | [0039](0039-host-wide-auth-gate.md) | 2026-05-13 | An expired Claude login closes a host-wide gate until a human logs in again | accepted |
 | [0040](0040-scenario-promotion-by-tag-edit.md) | 2026-05-21 | Scenario promotion by tag edit on the per-issue PR | superseded by [ADR-0049](0049-promotion-sweep-files-human-gated-issue.md) |
@@ -58,7 +58,7 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0046](0046-gitcontext-as-sole-git-authority.md) | 2026-06-19 | GitContext is the only way to run git or gh | accepted |
 | [0047](0047-resume-in-place.md) | 2026-06-21 | A recovered workflow continues in its existing worktree when git can still work there | accepted |
 | [0048](0048-one-adwid-per-issue-and-review-failed-gate.md) | 2026-06-29 | One adwId per issue, and a failed review blocks the workflow | accepted |
-| [0049](0049-promotion-sweep-files-human-gated-issue.md) | 2026-07-08 | Promotion sweep files a human-gated issue for the normal pipeline | accepted |
+| [0049](0049-promotion-sweep-files-human-gated-issue.md) | 2026-07-08 | Promotion sweep files a human-gated issue for the normal pipeline | superseded by [ADR-0068](0068-promotion-by-nomination-and-human-decided-proposal.md) |
 | [0050](0050-target-repo-guardrails.md) | 2026-07-17 | ADW injects its own guardrails into agent runs on target repositories | accepted |
 | [0051](0051-forge-agnostic-core-and-devplatform-dependency.md) | 2026-08-14 | ADW depends on `@paysdoc/devplatform` and contains no forge-specific code | accepted |
 | [0052](0052-stateless-pipeline-agents.md) | 2026-08-28 | Pipeline agents never load Claude auto-memory | accepted |
@@ -76,3 +76,5 @@ Decisions about the internals of `@paysdoc/devplatform` and the depaudit CLI are
 | [0064](0064-mobile-kotlincm-type-descriptor-runner-adw-booted-devices.md) | 2026-10-18 | A `mobile:kotlincm` application type: the repository's cucumber-jvm runner on devices ADW boots per workflow, images judged per platform | accepted |
 | [0065](0065-specs-is-worktree-only-records-live-in-docs.md) | 2026-10-20 | `specs/` is a worktree-only working directory; decision records and PRDs live in `docs/` | accepted |
 | [0066](0066-build-agents-implement-the-plan-and-nothing-else.md) | 2026-10-27 | Build agents implement the plan and nothing else: no refactor phase, bounded verification, declared gaps only | accepted |
+| [0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) | 2026-11-27 | Scenarios prove only behaviour at a declared real boundary, one per acceptance criterion; unit tests are not paired with them | accepted |
+| [0068](0068-promotion-by-nomination-and-human-decided-proposal.md) | 2026-11-27 | Promotion by nomination and a human-decided proposal; the scorer and the promotion sweep are removed | accepted |

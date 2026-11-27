@@ -24,7 +24,7 @@ provenance:
   - kind: recalled
     source: "Martin Koster, 2026-09-30"
 supersedes: ["0024"]
-superseded-by: ["0058", "0061", "0062"]
+superseded-by: ["0058", "0061", "0062", "0067"]
 ---
 
 # Active test phase, passive review judge
@@ -89,6 +89,7 @@ Checked against the code on 2026-09-29:
 
 ## More Information
 
+* **Part that no longer holds:** the step-definition phase as an agent. [ADR-0067](0067-scenarios-prove-only-behaviour-at-a-declared-real-boundary.md) makes it a deterministic check for undefined steps.
 * Supersedes, in part, ADR-0024: only the removal of the step-definition phase.
 * The PRD is the output of one grill session on 2026-04-08. Its rollout rule, small PRs merged while the cron runs from a separate clone, is recorded in [ADR-0019](0019-dev-and-main-branches-with-runner-clone.md). The phase runner is recorded in [ADR-0020](0020-shared-phase-runner-and-core-decomposition.md).
 * The PRD's phase order ends "review → document → KPI → PR". The KPI phase was removed later ([ADR-0045](0045-kpi-module-removed.md)).
