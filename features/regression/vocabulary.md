@@ -1225,12 +1225,11 @@ source file, satisfying the Rot-Detection Rubric.
 The definitions live in `feature-931.steps.ts` (the upgrade harness: G-WP1, G-WP3, G-WP5, W-WP1,
 T-WP1), `feature-991-upgrade.steps.ts` (G-WP6 and G-WP7), and `feature-992-upgrade.steps.ts`,
 `feature-992-phase.steps.ts` and `feature-992-fresh.steps.ts` (the rest), with their helpers in the
-other `feature-992-*` files, `feature-929-workflow.ts`, `feature-929-compacting-cli.ts`,
+other `feature-992-*` files, `feature-929-workflow.ts`,
 `feature-988-world.ts`, `feature-988-commands.ts` and `feature-991-project-md.ts`. The hooks are keyed
 on `@web-playwright-project`, so a scenario that uses these phrases must carry that tag. `Before`
-resets the upgrade world, the shared workflow world and this feature's state; `After` restores
-`CLAUDE_CODE_PATH` unless the `@regression` teardown already has, disposes of the stand-ins, and removes
-the throwaway directories and `agents/<adwId>`.
+resets the upgrade world, the shared workflow world and this feature's state; `After` disposes of
+the stand-ins and removes the throwaway directories and `agents/<adwId>`.
 
 | # | Phrase | Semantics | Pattern | Assertion target |
 |---|--------|-----------|---------|-----------------|

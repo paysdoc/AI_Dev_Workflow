@@ -14,7 +14,6 @@ import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import type { FixRoundPort } from '../../../adws/core/staticCheckFixLoop.ts';
 
 import { world796, resetWorld } from '../../regression/step_definitions/feature-796.steps.ts';
-import { emptyBehaviour, type CliBehaviour, type InstalledCli } from './feature-929-compacting-cli.ts';
 import type { Workflow929 } from './feature-929-workflow.ts';
 import { COMMANDS_FILE, configuredChecksFrom, renderCommandsMd, type ConfiguredCheck } from './feature-988-commands.ts';
 
@@ -34,10 +33,6 @@ export interface State988 {
   ranCommands: string[];
   verdicts: readonly CheckVerdict[];
   workflow: Workflow929 | null;
-  behaviour: CliBehaviour;
-  cli: InstalledCli | null;
-  /** How many agent runs the throwaway CLI had recorded when each static check finished. */
-  agentRunsAtCheckEnd: number[];
   phase: PhaseOutcome | null;
   /** The fix rounds the phase runs. Unset, the phase builds its own; a feature-989 step sets it to script the fix agent. */
   fixRounds: FixRoundPort | null;
@@ -55,9 +50,6 @@ function freshState(): State988 {
     ranCommands: [],
     verdicts: [],
     workflow: null,
-    behaviour: emptyBehaviour(),
-    cli: null,
-    agentRunsAtCheckEnd: [],
     phase: null,
     fixRounds: null,
     beforePhase: null,
@@ -103,7 +95,7 @@ function restoreUnitReportPath(): void {
 
 function removeWorkflowState(): void {
   const world = world796();
-  [...world.tempDirs, ...s.directories, ...(s.cli ? [s.cli.dir] : [])].forEach(removeDirectory);
+  [...world.tempDirs, ...s.directories].forEach(removeDirectory);
   for (const adwId of world.usedAdwIds) {
     removeDirectory(path.join(AGENTS_STATE_DIR, adwId));
     removeDirectory(path.join(LOGS_DIR, adwId));
@@ -117,13 +109,8 @@ export function beginScenario(): void {
   s.savedUnitReportPath = { value: process.env['ADW_UNIT_TEST_REPORT_PATH'] };
 }
 
-export async function endScenario(): Promise<void> {
-  s.cli?.restore();
+export function endScenario(): void {
   restoreUnitReportPath();
-
-  // An agent's output stream flushes after its process closes; let it settle before its directory goes.
-  if (s.cli) await new Promise(resolve => setTimeout(resolve, 250));
-
   removeWorkflowState();
   resetWorld();
   resetState();
