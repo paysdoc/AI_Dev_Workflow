@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { Platform, type IssueListQuery, type RepoIdentifier } from '@paysdoc/devplatform';
 import type { LaunchBoundary } from '../../../core';
-import type { StepDefinitionUsage } from '../../../core/unusedStepReport';
+import type { StepDefinitionUsage, UnusedStepDefinition } from '../../../core/unusedStepReport';
 import type { PerIssueSweepDeps } from '../../perIssueScenarioSweep';
 import type { StepUsageOutcome } from '../../perIssueSweepStepUsage';
 
@@ -115,6 +115,10 @@ export function usage(file: string, line: number, pattern: string, usedBy: reado
 
 export function usageReport(...usages: StepDefinitionUsage[]): () => Promise<StepUsageOutcome> {
   return async () => ({ kind: 'usage', framework: 'cucumber-js', usages });
+}
+
+export function unusedStepsReport(framework: string, ...unused: UnusedStepDefinition[]): () => Promise<StepUsageOutcome> {
+  return async () => ({ kind: 'unused', framework, unused });
 }
 
 /** Clears every candidate: these tests pin what the sweep offers the gate, which has its own tests. */

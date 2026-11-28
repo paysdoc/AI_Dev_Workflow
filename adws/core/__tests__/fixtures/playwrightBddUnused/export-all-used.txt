@@ -1,0 +1,5 @@
+Using config: playwright.config.ts
+Unused steps (0):
+┌────────────────┬──────────┐
+│ Pattern / Text │ Location │
+└────────────────┴──────────┘

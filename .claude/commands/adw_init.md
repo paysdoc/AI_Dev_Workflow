@@ -195,7 +195,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
        - `ADW_PROOF_DIR`: the absolute path of the directory the run writes its screenshots to.
        - `ADW_ANDROID_AVD`, `ADW_ANDROID_SERIAL` and `ADW_IOS_UDID`: the Android emulator and the iOS simulator ADW created and booted for this workflow, by the AVD's name, the emulator's `adb` serial and the simulator's UDID. The run drives these two devices and never creates, boots, shuts down or deletes one.
 
-       The `:scenarios` Gradle module runs the `.feature` files under `features/` with cucumber-jvm and the Kotlin step definitions under `scenarios/src/test/kotlin`. Its `test` task hands the `cucumber.filter.tags` system property to cucumber-jvm, so that a run executes the scenarios of its tag and no others. It builds the application, installs it on both devices and starts the Appium server its step definitions talk to.
+       The `:scenarios` Gradle module runs the `.feature` files under `features/` with cucumber-jvm and the Kotlin step definitions under `scenarios/src/test/kotlin`. Its `test` task hands every `cucumber.*` system property it is given to cucumber-jvm: `cucumber.filter.tags`, so that a run executes the scenarios of its tag and no others, and `cucumber.execution.dry-run` and `cucumber.plugin`, with which ADW's Per-Issue Sweep lists the step definitions no feature file uses. A dry run runs no step definition and no hook, and touches no device. It builds the application, installs it on both devices and starts the Appium server its step definitions talk to.
 
        The report at `ADW_JUNIT_REPORT_PATH`:
 

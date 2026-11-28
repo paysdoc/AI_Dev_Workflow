@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
   REPORT_PATH_PLACEHOLDER,
+  remainingUnusedStepDefinitions,
   resolveStepUsageReader,
   stepFilesStillUsed,
   unusedStepDefinitions,
@@ -41,15 +42,17 @@ function rawEntries(): RawEntry[] {
   return JSON.parse(REAL_REPORT) as RawEntry[];
 }
 
-function cucumberJs(): StepUsageReader {
-  const lookup = resolveStepUsageReader('cucumber-js');
-  if (lookup.kind !== 'supported') throw new Error('expected the cucumber-js reader');
+function readerFor(framework: string): StepUsageReader {
+  const lookup = resolveStepUsageReader(framework);
+  if (lookup.kind !== 'supported') throw new Error(`expected the ${framework} reader`);
   return lookup.reader;
 }
 
+const cucumberJs = (): StepUsageReader => readerFor('cucumber-js');
+
 function usagesOf(report: string): readonly StepDefinitionUsage[] {
   const read = cucumberJs().read(report);
-  if (read.kind !== 'read') throw new Error(read.detail);
+  if (read.kind !== 'read') throw new Error(read.kind === 'unreadable' ? read.detail : 'expected a usage report');
   return read.usages;
 }
 
@@ -160,6 +163,11 @@ describe('reading a cucumber-js usage report', () => {
     expect(stepFilesStillUsed(usages, [LEGACY_STEPS, INVOICES_STEPS], [INVOICES_FEATURE, ORDERS_FEATURE])).toEqual([LEGACY_STEPS, INVOICES_STEPS]);
   });
 
+  it('the cucumber-js reader asks for no sources and reads its report as before', () => {
+    expect(cucumberJs().sourceExtensions).toEqual([]);
+    expect(cucumberJs().read(REAL_REPORT)).toEqual({ kind: 'read', usages: realUsages() });
+  });
+
   it("normalises Windows separators and a leading ./ in a definition's file and in the feature files that use it", () => {
     const windows = (uri: string): string => `.\\${uri.replace(/\//g, '\\')}`;
     const usages = variantOf((entries) =>
@@ -194,6 +202,27 @@ describe('reading a cucumber-js usage report', () => {
   });
 });
 
+describe('remainingUnusedStepDefinitions', () => {
+  const ORDERS = 'scenarios/src/test/kotlin/steps/OrderSteps.kt';
+  const INVOICES = 'scenarios/src/test/kotlin/steps/InvoiceSteps.kt';
+
+  it('remainingUnusedStepDefinitions lists the reported definitions less those in removed files and those sharing a pattern, sorted by file and then line', () => {
+    const reported = [
+      { file: ORDERS, line: 21, pattern: '^the shop closes at (\\d+)$' },
+      { file: './scenarios/src/test/kotlin/steps/LegacySteps.kt', line: 4, pattern: 'an order is cancelled' },
+      { file: INVOICES, line: 9, pattern: 'a returning customer' },
+      { file: ORDERS, line: 18, pattern: 'the order is rejected' },
+      { file: 'unknown', line: 0, pattern: 'an order is cancelled' },
+    ];
+
+    expect(remainingUnusedStepDefinitions(reported, [`./${INVOICES}`])).toEqual([
+      { file: ORDERS, line: 18, pattern: 'the order is rejected' },
+      { file: ORDERS, line: 21, pattern: '^the shop closes at (\\d+)$' },
+    ]);
+    expect(remainingUnusedStepDefinitions([])).toEqual([]);
+  });
+});
+
 describe('resolveStepUsageReader', () => {
   it('resolveStepUsageReader finds the cucumber-js reader for "cucumber-js" in any case and with surrounding space', () => {
     for (const framework of ['cucumber-js', 'Cucumber-JS', '  cucumber-js \n']) {
@@ -203,10 +232,31 @@ describe('resolveStepUsageReader', () => {
     }
   });
 
-  it('resolveStepUsageReader yields not supported for cucumber-jvm, playwright-bdd, behave, an empty framework and an unknown name, naming the framework', () => {
-    for (const framework of ['cucumber-jvm', 'playwright-bdd', 'behave', '', 'constructor', 'gherkin-wizard']) {
+  it('resolveStepUsageReader finds the cucumber-jvm and the playwright-bdd reader in any case and with surrounding space', () => {
+    const spellings = [
+      ['cucumber-jvm', 'cucumber-jvm'],
+      ['Cucumber-JVM', 'cucumber-jvm'],
+      [' cucumber-jvm\n', 'cucumber-jvm'],
+      ['playwright-bdd', 'playwright-bdd'],
+      ['Playwright-BDD', 'playwright-bdd'],
+      ['\tplaywright-bdd ', 'playwright-bdd'],
+    ];
+    for (const [framework, reader] of spellings) {
+      const lookup = resolveStepUsageReader(framework);
+      expect(lookup.kind === 'supported' && lookup.reader.framework, framework).toBe(reader);
+    }
+  });
+
+  it('resolveStepUsageReader yields not supported for behave, an empty framework and an unknown name, naming the framework', () => {
+    for (const framework of ['behave', '', 'constructor', 'gherkin-wizard']) {
       expect(resolveStepUsageReader(framework)).toEqual({ kind: 'not_supported', framework });
     }
+  });
+
+  it('only the cucumber-jvm reader asks for step-definition sources, with the .kt and .java extensions', () => {
+    expect(readerFor('cucumber-jvm').sourceExtensions).toEqual(['.kt', '.java']);
+    expect(readerFor('playwright-bdd').sourceExtensions).toEqual([]);
+    expect(readerFor('cucumber-js').sourceExtensions).toEqual([]);
   });
 });
 

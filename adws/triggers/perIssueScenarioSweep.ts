@@ -2,14 +2,16 @@
  * Per-issue scenario sweep: removes the Per-Issue Scenarios (feature-{N}.feature in the per-issue directory the target's
  * `.adw/scenarios.md` names) 14 days after the issue's PR is merged, with the step-def files named for the issue
  * (feature-{N}.* and feature-{N}-*) in its configured step-definition directories, plus any such file whose feature is
- * already gone. The runner's dry run (perIssueSweepStepUsage.ts) keeps a step file a remaining feature file still uses
- * and, once the batch has landed, lists the definitions no remaining feature file uses in one removal chore; without it,
- * only step files inside the per-issue directory are removed. Every batch passes the post-removal gate
- * (sweepRemovalGate.ts) before it is committed: files a survivor still imports are kept, and a batch that leaves the
- * repo's static checks red is repaired or discarded — never landed. Listing, staleness decisions, the dry run and the
- * removal all run against a dedicated worktree synced to fresh origin/<default> (see perIssueSweepPersist.ts) — never
- * the cron host's own, possibly stale, base checkout — and the removal lands via an immediately-merged pull request from
- * a dedicated sweep branch, never a direct commit/push onto the shared default branch.
+ * already gone. The runner's dry run (perIssueSweepStepUsage.ts) writes a report. A usage report (cucumber-js) keeps a
+ * step file that a remaining feature file uses, and after the batch lands it lists the definitions no remaining feature
+ * file uses in one removal chore. An unused-steps report (cucumber-jvm, playwright-bdd) lists only the definitions no
+ * feature file on the default branch uses: it keeps no step file by name, and the next sweep lists the definitions that
+ * this batch leaves unused. Without a report, only step files inside the per-issue directory are removed. Every batch
+ * passes the post-removal gate (sweepRemovalGate.ts) before it is committed: files a survivor still imports are kept, and
+ * a batch that leaves the repo's static checks red is repaired or discarded — never landed. Listing, staleness decisions,
+ * the dry run and the removal all run against a dedicated worktree synced to fresh origin/<default> (see
+ * perIssueSweepPersist.ts) — never the cron host's own, possibly stale, base checkout — and the removal lands via an
+ * immediately-merged pull request from a dedicated sweep branch, never a direct commit/push onto the shared default branch.
  *
  * Identity comes entirely from the caller's injected launch boundary (`deps.boundary`) — this module performs no
  * repo-identity resolution of its own.
@@ -228,12 +230,14 @@ async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePa
 }
 
 /**
- * Lists per-issue feature files, checks their linked PR merge date, and removes
- * every stale file plus its step-def sibling(s), and every step-def file whose
- * feature is already gone, as one gated, persisted batch — less any step file a
- * remaining feature file still uses. Then files the removal chore for the step
- * definitions no remaining feature file uses. Returns the paths that landed
- * (empty when nothing is stale, or the gate cleared nothing — no commit).
+ * Lists per-issue feature files, checks their linked PR merge date, and removes every stale file plus its step-def
+ * sibling(s), and every step-def file whose feature is already gone, as one gated, persisted batch. A usage report
+ * (cucumber-js) keeps a step file that a remaining feature file uses, and after the batch lands it lists the definitions
+ * no remaining feature file uses. An unused-steps report (cucumber-jvm, playwright-bdd) lists only the definitions no
+ * feature file on the default branch uses: it keeps no step file by name, and the next sweep lists the definitions that
+ * this batch leaves unused. Without a report, only step files inside the per-issue directory are removed. The listed
+ * definitions go into the removal chore. Returns the paths that landed (empty when nothing is stale, or the gate
+ * cleared nothing — no commit).
  *
  * The base-dependent defaults (directories, listing, the dry run and
  * persistence) share a single lazily-memoized SweepBase — a dedicated worktree
@@ -280,7 +284,7 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
 
     const persisted = toRemove.length === 0 ? [] : await persistRemoval(toRemove);
     const landed = persisted ? [...persisted] : [...toRemove];
-    if (usage.kind !== 'usage') return landed;
+    if (usage.kind !== 'usage' && usage.kind !== 'unused') return landed;
 
     reconcileUnusedStepDefinitions(usage, landed, directories, {
       listOpenRemovalIssues: deps.listOpenRemovalIssues ?? defaultListOpenRemovalIssues(issueTracker),
