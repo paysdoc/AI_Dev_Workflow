@@ -19,6 +19,8 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Operator directives** — `## Retry`, `## Continue` (waive a base-branch park) and `## Cancel` (scorched-earth reset) comments steer parked, failed or stuck workflows.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; a CI gate and a daily sweep keep the `.adw/conditional_docs.md` index healthy.
 - **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js, cucumber-jvm and playwright-bdd the sweep files one `adw:chore` issue listing the step definitions that no feature file uses; for cucumber-jvm and playwright-bdd, the definitions a sweep's own removal leaves unused are listed by the next sweep.
+- **Scenario proof on the PR** — scenario results and their screenshots go into a `scenario_proof.md` for the reviewer, and a JUnit summary with inline images is posted as a PR comment.
+- **Scenario promotion by nomination** — the scenario agent may tag one new scenario per issue `@nominated`, and the Nominations of merged issues are collected for the owner to decide on; promotion into `features/regression/` stays a human decision.
 - **Multi-provider support** — `IssueTracker`/`CodeHost` ports from `@paysdoc/devplatform` back GitHub, GitLab and Jira issue trackers and GitHub/GitLab code hosts, plus GitHub Projects V2 board automation.
 - **Resilience primitives** — worktree isolation, per-issue spawn locks, PID liveness and heartbeats, takeover with worktree reuse probing, hung-orchestrator detection, dev-server and device janitors, and remote stage reconciliation.
 - **Rate-limit and auth recovery** — in-process waits for known reset times, a per-repo pause queue with automatic resume, and a `paused_auth` queue with Slack alerts.
@@ -502,6 +504,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
 │   ├── adwInitPrompt.boundaries.test.ts
 │   ├── adwInitPrompt.mobile.test.ts
+│   ├── adwInitPrompt.mobileSweep.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.failedMerge.test.ts
 │   ├── adwMerge.gates.test.ts
@@ -612,6 +615,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── deviceLifecycle.retries.test.ts
 │   │   ├── deviceLifecycle.test.ts
 │   │   ├── deviceSourceConfig.test.ts
+│   │   ├── cucumberJvmUnusedReport.test.ts
 │   │   ├── docsDecisions.test.ts
 │   │   ├── docsDecisionViolations.test.ts
 │   │   ├── docsGuards.test.ts
@@ -642,6 +646,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── modelRouting.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── postMergeVerdict.test.ts
+│   │   ├── playwrightBddUnusedReport.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── projectConfigCommands.test.ts
@@ -670,6 +675,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── staticCheckFixLoop.progress.test.ts
 │   │   ├── staticCheckFixLoopHelpers.ts  # Shared helpers for the fix-loop tests
 │   │   ├── stepDefDetection.test.ts
+│   │   ├── stepDefinitionSources.test.ts
 │   │   ├── targetRepoManager.test.ts
 │   │   ├── testReportParser.attachments.test.ts
 │   │   ├── testReportParser.incomplete.test.ts
@@ -711,6 +717,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceInventory.ts  # Finds the emulators and simulators named adw-<adwId> on the host and removes one, through the injected executor, for the device janitor sweep
 │   ├── deviceLifecycle.ts  # withDevices: creates, boots and hands over one AVD and one simulator named adw-<adwId>, trying each boot three times, and returns ready, boot failed or tool missing, after removing everything it created
 │   ├── deviceSourceConfig.ts  # Pure: the four device-source sections of .adw/project.md (parseDeviceSourceSections) and the device source a profile with platforms needs (resolveDeviceSource, DeviceSourceConfigError)
+│   ├── cucumberJvmUnusedReport.ts  # Pure: parses cucumber-jvm's `unused` plugin report and locates each `<class>.<method>(…)` row in the step-definition sources by package, class and method
 │   ├── docsDecisions.ts  # Module doc ↔ ADR checks: an entry's Decisions: block vs. its doc's ## Decisions section, and records missing from docs/adr/
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
@@ -741,6 +748,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume; entries carry the reported reset time (ISO 8601) and limit type when known
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition; runPhase/runPhasesParallel loop over attempts, riding a five_hour RateLimitError out in-process (rateLimitWaitPolicy.ts) before falling back to the pause path for everything else
+│   ├── playwrightBddUnusedReport.ts  # Pure: parses the `bddgen export --unused-steps` table (pattern and `<file>:<line>` location per definition no feature file uses)
 │   ├── portAllocator.ts
 │   ├── postMergeVerdict.ts  # Pure: the verdict of a scenario re-run on a branch merged with the base branch (green, or red with one failure per failed scenario, failed tag or dev server that did not start), and what a merge-in leaves for the park comment (MergedInBase, PostMergeRed, combineMergedIn)
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
@@ -768,13 +776,14 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── stateHelpers.ts
 │   ├── staticCheckFixLoop.ts  # Static-check fix loop with no cap: check runner, fix round through an injected FixRoundPort, guard, check runner; stops when a round makes no progress, i.e. identical combined output or a round the guard rejects (runStaticCheckFixLoop)
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
+│   ├── stepDefinitionSources.ts  # The step-definition source files of a worktree: every file under the given directories with one of the given extensions, read as text; missing directories and unreadable entries are skipped
 │   ├── targetRepoManager.ts  # Target repo workspace shim — SSH clone-URL rewrite + ensureRepoWorkspace delegation + ~/.claude.json trust write via ensureWorkspaceTrusted (#846)
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── unaddressedComments.ts  # readUnaddressedComments — the pr-review bot/self/ADW-signed comment filter over injected reads, decomposed off the legacy prCommentDetector composite (#820)
 │   ├── unifiedDiff.ts  # Pure unified-diff parser (parseUnifiedDiff, touchedPaths) feeding the fix-round guard
 │   ├── unusedStepIssueBody.ts  # Pure: the `adw:chore` issue the per-issue sweep files listing unused step definitions (capped at 100), and the `Reconciles: unused-step-definitions` marker that keeps it to one open issue per repository
-│   ├── unusedStepReport.ts  # Pure unused step report: one usage-report reader per `## BDD Framework` (cucumber-js only; others are not_supported), the dry-run command that writes it, and the step definitions/files no feature file uses
+│   ├── unusedStepReport.ts  # Pure unused step report: one report reader per `## BDD Framework` (cucumber-js usage report; cucumber-jvm and playwright-bdd unused-steps reports; others are not_supported), the dry-run command that writes it, and the step definitions/files no feature file uses
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── upgradeFailureCap.ts  # Pure helpers for counting bot-authored upgrade-failure comments — used by adwUpgrade to cap regeneration failures before escalating to human
 │   ├── utils.ts
@@ -1070,6 +1079,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── perIssueSweepPersistBase.test.ts
 │   │   ├── perIssueSweepStepUsage.test.ts
+│   │   ├── perIssueSweepStepUsage.unusedSteps.test.ts
 │   │   ├── sweepImportGraph.test.ts
 │   │   ├── sweepRemovalGate.test.ts
 │   │   ├── rateLimitProbe.test.ts
