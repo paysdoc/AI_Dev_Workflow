@@ -11,6 +11,8 @@ export const SCENARIO_RUN_CONTRACT_SECTION = '## Scenario Run Contract';
 
 const CODE_FENCE = '```';
 
+const indentOf = (line: string): number => line.length - line.trimStart().length;
+
 export function readLines(filePath: string): string[] {
   return fs.readFileSync(filePath, 'utf-8').split('\n');
 }
@@ -29,6 +31,14 @@ export function stepLines(lines: readonly string[], n: number): string[] {
   const start = lines.findIndex((line) => line.startsWith(`${n}. **`));
   const end = lines.findIndex((line) => line.startsWith(`${n + 1}. **`));
   expect(start).toBeGreaterThanOrEqual(0);
+  return lines.slice(start, end === -1 ? undefined : end);
+}
+
+/** The bullet whose first line starts with `startsWith` after its indentation, and the lines nested under it. */
+export function bulletLines(lines: readonly string[], startsWith: string): string[] {
+  const start = lines.findIndex((line) => line.trimStart().startsWith(startsWith));
+  expect(start, `a bullet starts with "${startsWith}"`).toBeGreaterThanOrEqual(0);
+  const end = lines.findIndex((line, index) => index > start && line.trim() !== '' && indentOf(line) <= indentOf(lines[start]));
   return lines.slice(start, end === -1 ? undefined : end);
 }
 

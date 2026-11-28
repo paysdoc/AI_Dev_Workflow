@@ -1,5 +1,9 @@
 # Regression Vocabulary Registry
 
+## Scope
+
+This registry binds the Regression Suite only: the scenarios tagged `@regression`. A Per-Issue Scenario is phrased in its issue's own terms and is never checked against it. When a scenario is promoted into the Regression Suite, its steps are reworded to these phrases, and a new phrase is registered only when none of these fits.
+
 ## Rot-Detection Rubric
 
 A vocabulary phrase is valid for `@regression` use **only when it asserts an observable system
@@ -41,6 +45,8 @@ Scenarios in this repo can assert against the following observable surfaces:
 3. **Mock query** — Call `context.mockServer.getRecordedRequests()` or inspect git-mock
    interactions recorded in `RegressionWorld`. Assert against the recorded sequence without
    running any subprocess.
+
+Only the subprocess pattern drives ADW's Real Boundary, the `subprocess` entry under `## Real Boundaries` in `.adw/scenarios.md`. The phase-import and mock-query patterns run inside the test process: the phrases registered with them, and the scenarios that use those phrases, stay as they are and are not migrated, but no new phrase is registered for either.
 
 ---
 
