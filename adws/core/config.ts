@@ -101,6 +101,9 @@ export const DOCS_INDEX_SWEEP_INTERVAL_CYCLES = parseInt(process.env.DOCS_INDEX_
 /** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS: how often the cron checks whether a repository's Promotion Proposal is due. */
 export const PROMOTION_PROPOSAL_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_PROPOSAL_INTERVAL_CYCLES || '4320', 10);
 
+/** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS, the Per-Issue Sweep's cadence: how often the cron acts on decided or expired Promotion Proposals. */
+export const PROMOTION_DECISION_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_DECISION_INTERVAL_CYCLES || '4320', 10);
+
 /**
  * The least number of days between two Promotion Proposals of a repository (default 7: one a week). Measured from the
  * newest proposal on the forge, so a cron restart does not reset it.

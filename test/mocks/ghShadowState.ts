@@ -40,6 +40,8 @@ export interface GhIssue {
   title: string;
   body: string;
   state: 'OPEN' | 'CLOSED';
+  /** Why a closed issue was closed, as gh names it; empty while the issue is open. */
+  stateReason: 'COMPLETED' | 'NOT_PLANNED' | '';
   author: GhPerson;
   assignees: GhPerson[];
   labels: GhLabel[];
@@ -152,16 +154,25 @@ export function pullRequestUrl(repository: ForgeRepository, number: number): str
   return `https://github.com/${repository.owner}/${repository.repo}/pull/${number}`;
 }
 
+/** gh's `stateReason` or REST's `state_reason`, in any case and spelt with a space or an underscore; GitHub closes as completed by default. */
+function stateReasonOf(record: Loose, state: GhIssue['state']): GhIssue['stateReason'] {
+  if (state === 'OPEN') return '';
+  const reason = firstText(record['stateReason'], record['state_reason']).toLowerCase().replace(/[\s_]+/g, '_');
+  return reason === 'not_planned' ? 'NOT_PLANNED' : 'COMPLETED';
+}
+
 function issueFrom(key: string, raw: unknown, repository: ForgeRepository, comments: unknown): GhIssue {
   const record = asRecord(raw);
   const number = Number(record['number'] ?? key);
   const createdAt = firstText(record['createdAt'], record['created_at']) || EPOCH;
   const closedAt = firstText(record['closedAt'], record['closed_at']);
+  const state = text(record['state']).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
   return {
     number,
     title: text(record['title']),
     body: text(record['body']),
-    state: text(record['state']).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN',
+    state,
+    stateReason: stateReasonOf(record, state),
     author: personFrom(record['author'] ?? record['user']),
     assignees: (Array.isArray(record['assignees']) ? record['assignees'] : []).map(personFrom),
     labels: labelsFrom(record['labels']),

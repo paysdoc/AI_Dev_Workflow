@@ -2,9 +2,10 @@
  * Per-issue scenario sweep: removes the Per-Issue Scenarios (feature-{N}.feature in the per-issue directory the target's
  * `.adw/scenarios.md` names) 14 days after the issue's PR is merged, with the step-def files named for the issue
  * (feature-{N}.* and feature-{N}-*) in its configured step-definition directories, plus any such file whose feature is
- * already gone. A stale scenario that an open Promotion Proposal lists is kept, by issue, until no open proposal lists it:
- * it stays listed, so its step files are no orphans and the report counts its definitions as used. A sweep that cannot
- * read the open proposals removes nothing. The runner's dry run (perIssueSweepStepUsage.ts) writes a report. A usage
+ * already gone. A stale scenario that is a candidate of a Promotion Proposal ADW has not yet acted on, open or closed, or
+ * that an open promotion implementation issue promotes, is kept, by issue, until neither holds: it stays listed, so its step
+ * files are no orphans and the report counts its definitions as used. A sweep that cannot read the proposals or the
+ * implementation issues removes nothing. The runner's dry run (perIssueSweepStepUsage.ts) writes a report. A usage
  * report (cucumber-js) keeps a step file that a remaining feature file uses, and after the batch lands it lists the
  * definitions no remaining feature file uses in one removal chore. An unused-steps report (cucumber-jvm, playwright-bdd)
  * lists only the definitions no feature file on the default branch uses: it keeps no step file by name, and the next sweep
@@ -25,7 +26,7 @@ import type { UnusedStepIssueRef, UnusedStepIssueSpec } from '../core/unusedStep
 import { bodyLinksIssue } from '../forge/issueLinkMarker';
 import type { NominationKey } from '../promotion/nominationCollector';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
-import { keptForOpenProposal, readOpenProposalCandidates, readSweepExemptIssues } from './promotionProposalIssues';
+import { keptForPromotion, readSweepExemptCandidates, readSweepExemptIssues } from './promotionProposalIssues';
 import { defaultFileRemovalIssue, defaultListOpenRemovalIssues, defaultReadStepUsage, readStepUsageOutcome, reconcileUnusedStepDefinitions, withoutUsedStepFiles, type StepUsageOutcome } from './perIssueSweepStepUsage';
 import { verifyRemoval, worktreeGateDeps } from './sweepRemovalGate';
 import type { LaunchBoundary } from '../core';
@@ -79,8 +80,8 @@ export interface PerIssueSweepDeps {
   readStepUsage?: () => Promise<StepUsageOutcome>;
   listOpenRemovalIssues?: () => readonly UnusedStepIssueRef[];
   fileRemovalIssue?: (spec: UnusedStepIssueSpec) => number;
-  /** The candidates of every open Promotion Proposal; throws when the forge cannot be read. */
-  readOpenProposalCandidates?: () => readonly NominationKey[];
+  /** Candidates of every undecided Promotion Proposal and open promotion implementation issue; throws when the forge cannot be read. */
+  readExemptCandidates?: () => readonly NominationKey[];
   log?: (msg: string, level?: string) => void;
 }
 
@@ -215,7 +216,7 @@ async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePa
 
   for (const filePath of files) {
     const stale = await staleScenario(filePath);
-    if (!stale || keptForOpenProposal(filePath, stale.issueNum, exempt, logger)) continue;
+    if (!stale || keptForPromotion(filePath, stale.issueNum, exempt, logger)) continue;
     const siblings = listers.listStepDefSiblings(stale.issueNum);
     logger(
       `perIssueScenarioSweep: sweeping stale scenario ${filePath} (issue #${stale.issueNum} merged ${stale.mergedAt.toISOString()}) + ${siblings.length} step-def sibling(s)`,
@@ -234,10 +235,10 @@ async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePa
 }
 
 /**
- * Removes every stale Per-Issue Scenario that no open Promotion Proposal lists, with its step-def sibling(s), and every
- * step-def file whose feature is already gone, as one gated, persisted batch, then files the removal chore the report calls
- * for (see the module doc). Returns the paths that landed: none when nothing is stale, the gate cleared nothing, or the open
- * proposals could not be read. The base-dependent defaults (directories, listing, the dry run and persistence) share one
+ * Removes every stale Per-Issue Scenario that no promotion keeps, with its step-def sibling(s), and every step-def file
+ * whose feature is already gone, as one gated, persisted batch, then files the removal chore the report calls for (see the
+ * module doc). Returns the paths that landed: none when nothing is stale, the gate cleared nothing, or the exemption could
+ * not be read. The base-dependent defaults (directories, listing, the dry run and persistence) share one
  * lazily-memoized SweepBase, created at most once per call and only when such a default runs (never for a fully-injected
  * caller), and torn down before returning, on every exit path.
  */
@@ -246,7 +247,7 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
   const getMergedAt = deps.getMergedAt ?? ((issueNum: number) => defaultGetMergedAt(deps.boundary.providers.codeHost, issueNum));
   const logger = deps.log ?? log;
   const { issueTracker } = deps.boundary.providers;
-  const exempt = readSweepExemptIssues(deps.readOpenProposalCandidates ?? (() => readOpenProposalCandidates(issueTracker)), logger);
+  const exempt = readSweepExemptIssues(deps.readExemptCandidates ?? (() => readSweepExemptCandidates(issueTracker)), logger);
   if (exempt === null) return [];
 
   let cachedBase: SweepBase | null | undefined;

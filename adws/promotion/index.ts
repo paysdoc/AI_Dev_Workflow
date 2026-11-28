@@ -8,6 +8,7 @@ export {
   readProposalCandidates,
   tickedCandidates,
   buildPromotionProposal,
+  candidateMarker,
   PROPOSAL_CANDIDATE_MARKER,
   PROMOTION_PROPOSAL_EXPIRY_DAYS,
   MAX_ANALYSIS_TEXT_LENGTH,
@@ -27,11 +28,36 @@ export {
   proposalPassBlocker,
   selectProposalCandidates,
   proposedCandidates,
-  openProposalCandidates,
   isOpenProposal,
   MAX_PROPOSAL_CANDIDATES,
 } from './proposalPassDecision.ts';
 export type { ProposalIssueRef, ProposalPassBlocker } from './proposalPassDecision.ts';
+export {
+  ProposalState,
+  DeclineReason,
+  proposalStateOf,
+  decidePromotion,
+  proposalActions,
+  sweepExemptCandidates,
+} from './promotionDecider.ts';
+export type {
+  ProposalCloseReason,
+  PromotionDecision,
+  PromotionDecisionInput,
+  DecisionProposalRef,
+  ProposalAction,
+} from './promotionDecider.ts';
+export { PROPOSAL_DECISION_MARKER, buildDecisionComment, readDecisionRecord, hasDecisionRecord } from './proposalDecisionRecord.ts';
+export type { DecisionOutcome, DecisionCommentInput } from './proposalDecisionRecord.ts';
+export {
+  IMPLEMENTATION_ISSUE_MARKER_PREFIX,
+  buildPromotionImplementationIssue,
+  implementationIssueFor,
+  implementationIssueCandidates,
+} from './promotionImplementationIssue.ts';
+export type { ImplementationIssueRef, ApprovedScenario, PromotionImplementationInput } from './promotionImplementationIssue.ts';
+export { declineNominations, featureOfCandidate } from './nominationDecline.ts';
+export type { NominationDecline } from './nominationDecline.ts';
 export type {
   ExecutionPattern,
   VocabularyEntry,

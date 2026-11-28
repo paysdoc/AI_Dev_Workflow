@@ -1,0 +1,100 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion chore stub: the prompt opened with no command this manifest answers.\\n\"}]\n"
+    }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The project context was read.\\n\"}]\n"
+        }
+      ]
+    },
+    "/chore": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The chore plan for issue 114610 was written.\\n\"}]\n"
+        },
+        {
+          "path": "specs/issue-114610-adw-promotion-chore-114610-sdlc_planner-promote-scenario.md",
+          "contents": "# Chore Plan: promote one scenario into the Regression Suite\n\n## Steps\n1. Move the scenario \"A subscription is renewed\" of issue 114609 on its own into features/regression/subscriptions.feature, tagged @regression\n2. Leave features/per-issue/feature-114609.feature without it\n"
+        }
+      ]
+    },
+    "/implement": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"The chore was implemented: the scenario \\\"A subscription is renewed\\\" moved into features/regression/subscriptions.feature.\\n\"}]\n"
+        },
+        {
+          "path": "features/regression/subscriptions.feature",
+          "contents": "Feature: Subscriptions\n\n  @regression\n  Scenario: A subscription is renewed\n    Given an order\n    When it is placed\n    Then it is judged\n"
+        },
+        {
+          "path": "features/per-issue/feature-114609.feature",
+          "contents": "@adw-114609\nFeature: feature-114609\n"
+        }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n"
+        }
+      ]
+    },
+    "/diff_evaluator": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"verdict\\\":\\\"regression_possible\\\",\\\"reason\\\":\\\"The diff moves a scenario into the Regression Suite.\\\"}\"}]\n"
+        }
+      ]
+    },
+    "/review": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"The promotion review found no blockers.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n"
+        }
+      ]
+    },
+    "/document": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"Documentation written.\\napp_docs/feature-promotion-chore-114610-promote-scenario.md\\n\"}]\n"
+        },
+        {
+          "path": "app_docs/feature-promotion-chore-114610-promote-scenario.md",
+          "contents": "# Chore: promote one scenario into the Regression Suite\n\nThe escalated chore's document phase wrote this page.\n"
+        }
+      ]
+    },
+    "/pull_request": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        {
+          "path": ".adw-stub-payload.json",
+          "contents": "[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"chore: #114610 - Promote one scenario into the Regression Suite\\\",\\\"body\\\":\\\"Closes #114610\\\\nImplements #114610\\\\n\\\\nADW tracking ID: promotion-chore-114610\\\"}\"}]\n"
+        }
+      ]
+    }
+  }
+}

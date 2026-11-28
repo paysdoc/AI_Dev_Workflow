@@ -2,9 +2,9 @@
 
 ## Overview
 
-Promotion moves a Per-Issue Scenario from `features/per-issue/` into the Regression Suite under `features/regression/`. Under ADR-0068 it is a deliberate human decision. The scenario agent may nominate a scenario (`@nominated`). Once a week, ADW gathers each repository's open Nominations into one Promotion Proposal issue, with an agent-written analysis per candidate, and the owner decides by ticking checkboxes. Nothing in ADW scores scenarios. Acting on the owner's decision (approval, decline, 30-day expiry) is not built yet.
+Promotion moves a Per-Issue Scenario from `features/per-issue/` into the Regression Suite under `features/regression/`. Under ADR-0068 it is a deliberate human decision. The scenario agent may nominate a scenario (`@nominated`). Once a week, ADW gathers each repository's open Nominations into one Promotion Proposal issue, with an agent-written analysis per candidate, and the owner decides by ticking checkboxes and closing it. A daily decision pass then acts on that decision: it files one unattended `adw:chore` implementation issue for the approved candidates and declines the rest, which the Per-Issue Sweep later removes. Nothing in ADW scores scenarios.
 
-The module covers the Nomination tags and their collector, the Per-Issue Scenario file reader, the pure proposal body and pass-decision modules, the weekly cron pass that files the proposal, the analysis agent with its `/promote_regression_vocabulary` command and `promote-regression-vocabulary` skill, the Per-Issue Sweep's exemption for open-proposal candidates, the `promotion-proposal` and `regression-promotion` labels, and two generic parsers.
+The module covers the Nomination tags and their collector, the Per-Issue Scenario file reader, the pure proposal body and pass-decision modules, the weekly cron pass that files the proposal, the pure promotion decider, the decision record, the implementation issue and the Nomination decline, the daily decision pass, the analysis agent with its `/promote_regression_vocabulary` command and `promote-regression-vocabulary` skill, the Per-Issue Sweep's exemption for candidates of undecided proposals and open implementation issues, the `promotion-proposal` and `regression-promotion` labels, and two generic parsers.
 
 ## Responsibilities
 
@@ -34,7 +34,8 @@ The module covers the Nomination tags and their collector, the Per-Issue Scenari
 **Pass decisions (`adws/promotion/proposalPassDecision.ts`, pure)**
 
 - `proposalPassBlocker(proposals, now, intervalDays)` returns `proposal_open` (the lowest open issue number) while any proposal is open. It returns `proposed_recently` while the newest dated proposal is younger than `intervalDays`. Otherwise it returns `null`.
-- `proposedCandidates(proposals)` returns every candidate that any listed proposal, open or closed, named, de-duplicated. `openProposalCandidates(proposals)` returns the same for open proposals only. `isOpenProposal` treats an absent state as open.
+- `proposedCandidates(proposals)` returns every candidate that any listed proposal, open or closed, named, de-duplicated. `isOpenProposal` treats an absent state as open.
+- `candidateMarker(key)` (in `proposalBody.ts`) writes the hidden `adw-candidate` marker, which the implementation issue reuses for its scenario lines.
 - `selectProposalCandidates(nominations, alreadyProposed)` keeps the `AwaitingProposal` Nominations that no proposal named, in the collector's order. It caps them at `MAX_PROPOSAL_CANDIDATES` (12) and reports the rest as `deferred`.
 
 **Weekly pass (`adws/triggers/promotionProposalPass.ts`, `promotionProposalDefaults.ts`, `promotionProposalIssues.ts`)**
@@ -50,6 +51,61 @@ The module covers the Nomination tags and their collector, the Per-Issue Scenari
 - `fileProposal` creates the issue and applies its labels in order. If a label cannot be applied, it closes the issue with a comment and throws, so an unlabelled proposal never stays open for the pipeline to pick up.
 - `runPromotionProposalTick(cycleCount, pass?)` in `trigger_cron.ts` gates the pass on `cycleCount % PROMOTION_PROPOSAL_INTERVAL_CYCLES === 0`. It skips the pass, with a log line, when no launch boundary exists, and logs and swallows any throw. Each tick runs it before the Per-Issue Sweep.
 
+**Promotion decider (`adws/promotion/promotionDecider.ts`, pure)**
+
+- `decidePromotion({ state, candidates, createdAt, now })` returns `wait`, `approve(approved, declined)` or `decline(reason, declined)`:
+
+  | `ProposalState` | Ticks | Age | Decision |
+  |---|---|---|---|
+  | `ClosedAsNotPlanned` | any | any | decline all (`DeclineReason.NotPlanned`) |
+  | `ClosedAsCompleted` | none | any | decline all (`NothingTicked`) |
+  | `ClosedAsCompleted` | some | any | approve the ticked, decline the rest |
+  | `Open` or `ClosedForUnreadReason` | any | ≥ 30 days | decline all (`Expired`) |
+  | `Open` or `ClosedForUnreadReason` | any | < 30 days, or no readable `createdAt` | wait |
+
+- `proposalStateOf(state, closeReason)` maps the forge state plus a `ProposalCloseReason` (`completed`, `not_planned`, `unread`) to a `ProposalState`.
+- `proposalActions(proposals, now)` returns the actions of one pass in ascending proposal number: `decide` for each undecided proposal whose decision is not `wait`, and `close_again` for a proposal whose record says `expired` but which is still open. A proposal with any other decision record yields nothing.
+- `sweepExemptCandidates(proposals, implementationIssues)` returns, de-duplicated, every candidate of a proposal without a decision record (open or closed) plus every scenario an open implementation issue names.
+
+**Decision record (`adws/promotion/proposalDecisionRecord.ts`, pure)**
+
+- `buildDecisionComment({ outcome, reason?, approved, declined, missing, implementationIssue })` writes the comment ADW leaves on an acted-on proposal: a summary line, the approved, missing (approved but no longer on the default branch) and declined lists, a note that declined scenarios now carry `@nomination-declined`, and the hidden marker `<!-- adw-proposal-decision:<approved|declined|expired> -->` (`PROPOSAL_DECISION_MARKER`).
+- `readDecisionRecord(comments)` returns the outcome of the first comment holding a marker, or `null`. An unknown outcome reads as `declined`. `hasDecisionRecord` is its boolean.
+- `<!--` and `-->` in scenario names are escaped, so a name can never forge a marker.
+
+**Implementation issue (`adws/promotion/promotionImplementationIssue.ts`, pure)**
+
+- `buildPromotionImplementationIssue({ proposalNumber, approved })` returns a `ProposalIssueSpec`:
+  - Title: `chore: promote <n> scenario(s) into the Regression Suite from Promotion Proposal #<P>`.
+  - Body: the marker line `Promotes: Promotion Proposal #<P>` (`IMPLEMENTATION_ISSUE_MARKER_PREFIX`), a sentence that the PR merges without a further human gate, `## Scenarios to promote` with one task-list line per scenario carrying its `adw-candidate` marker and feature path, `## What to do` (move each scenario on its own, never a whole feature file; reword to the Vocabulary Registry and register a new phrase only when none fits; tag `@regression` and drop per-issue tags; move the needed step definitions out of the `feature-<issue>*` files; write no new scenario), and `## Touched Files`.
+  - Labels: `PROMOTION_IMPLEMENTATION_LABELS` = `[adw:chore, regression-promotion]`, in that order. Never `hitl`.
+- `implementationIssueFor(proposalNumber, issues)` returns the lowest-numbered issue, open or closed, whose body holds exactly that proposal's marker line.
+- `implementationIssueCandidates(issue)` reads the promoted scenarios back through `readProposalCandidates`. Ticks carry no meaning there.
+
+**Nomination decline (`adws/promotion/nominationDecline.ts`, pure)**
+
+- `declineNominations(content, scenarioNames)` rewrites `@nominated` to `@nomination-declined` on the named scenarios' own tag lines only (whole tags, CRLF-safe), leaving every other byte unchanged. Content the Gherkin parser rejects comes back unchanged.
+- `featureOfCandidate(features, key)` returns the `feature-<issue>.feature` file that still holds a scenario of exactly that name, or `null`.
+
+**Decision pass (`adws/triggers/promotionDecisionPass.ts`, `promotionDecisionDefaults.ts`)**
+
+- `runPromotionDecisionPass({ boundary, now?, log?, ...deps })` lists every proposal with `listDecisionProposals`, computes `proposalActions`, and acts on each action one at a time (all share the decline branch):
+  - **decide**: prepares a checkout of the default branch on `chore/nomination-decline` (`NOMINATION_DECLINE_BRANCH`, via `prepareSweepBase`), reads its Per-Issue Scenario files, acts, and always cleans the checkout up.
+    - **Approve**: the approved candidates still present on the default branch are promoted, the rest reported as `missing`. If `implementationIssueFor` finds an issue already filed it is reused; otherwise one is filed (none when nothing is present). Then the declined candidates are declined, and the record is posted.
+    - **Decline**: the declined candidates are declined and the record is posted. For `Expired` on an open proposal, the record must be read back before `closeIssue` is called; otherwise the outcome is `failed` and the proposal stays open.
+  - **close_again**: closes an open proposal already recorded as expired.
+- The decline lands as one commit through `persistCommitViaPr` (an immediately merged sweep PR, `nominationDeclineSpec`). `persistDeclines` returns `landed`, `nothing_to_change` (no edits, e.g. already declined or swept) or `failed`. Only `failed` fails the proposal.
+- `fileImplementationIssue` creates the issue and applies its labels in order. On a label failure it closes the issue with a comment and throws, so the next pass files a new one.
+- `recordDecision` posts the comment and returns true only once `fetchComments` shows a decision marker, because `commentOnIssue` swallows its own errors.
+- Outcomes: `skipped` (`listing_failed`, `nothing_to_decide`) or `acted` with one `approved`, `declined`, `closed_again` or `failed` per proposal. A failed proposal gets no record, so the next pass acts on it again.
+- `runPromotionDecisionTick(cycleCount, pass?)` in `trigger_cron.ts` gates on `cycleCount % PROMOTION_DECISION_INTERVAL_CYCLES === 0`, skips with a log line when no launch boundary exists, and logs and swallows any throw. It runs **after** the Per-Issue Sweep in each tick.
+
+**Forge listings (`adws/triggers/promotionProposalIssues.ts`)**
+
+- `listDecisionProposals(issueTracker)` lists every proposal with its comments, plus two closed listings by `PROPOSAL_NOT_PLANNED_SEARCH` (`reason:"not planned"`) and `PROPOSAL_COMPLETED_SEARCH` (`reason:completed`). `closeReasonOf` prefers `not_planned` when a proposal appears in both, and reads `unread` when it appears in neither.
+- `listImplementationIssues(issueTracker, state)` lists issues by `label:"regression-promotion"`, filtered to those really carrying it.
+- `readSweepExemptCandidates(issueTracker)` returns `sweepExemptCandidates` over all proposals and the open implementation issues.
+
 **Analysis agent, command and skill**
 
 - `runProposalAnalysisAgent(candidates, options)` (`adws/agents/proposalAnalysisAgent.ts`) runs `/promote_regression_vocabulary`. It passes one JSON array argument of `{ issueNumber, scenarioName, featurePath }` and logs to `promotion-proposal-analysis-agent.jsonl`.
@@ -60,32 +116,38 @@ The module covers the Nomination tags and their collector, the Per-Issue Scenari
 
 **Per-Issue Sweep exemption (`adws/triggers/perIssueScenarioSweep.ts`)**
 
-- Before it collects a batch, the sweep reads the candidates of every open proposal (`readOpenProposalCandidates`, injectable as `PerIssueSweepDeps.readOpenProposalCandidates`). It keeps, by issue number, every stale `feature-<N>.feature` whose issue is a candidate, together with its step-definition siblings, and logs each one it keeps (`keptForOpenProposal`).
+- Before it collects a batch, the sweep reads the exempt candidates (`readSweepExemptCandidates`, injectable as `PerIssueSweepDeps.readExemptCandidates`): every candidate of a proposal without a decision record, open or closed, and every scenario an open implementation issue promotes. It keeps, by issue number, every stale `feature-<N>.feature` whose issue is exempt, together with its step-definition siblings, and logs each one it keeps (`keptForPromotion`).
+- Declined candidates of a decided proposal lose the exemption. Approved ones keep it through their implementation issue until that issue closes.
 - Because the feature file stays, the step-usage report counts its step definitions as used, and the unused step definition removal chore does not list them.
-- `readSweepExemptIssues` returns `null` when the open proposals cannot be read. The sweep then removes nothing that cycle.
+- `readSweepExemptIssues` returns `null` when the proposals or implementation issues cannot be read. The sweep then removes nothing that cycle.
 
 **Labels (`adws/core/adwLabels.ts`)**
 
 - `ADW_PROMOTION_PROPOSAL_LABEL` (`promotion-proposal`, `PROMOTION_PROPOSAL_LABEL_DEFINITION`, colour `d4c5f9`) identifies a Promotion Proposal. The issue also carries `adw:none`, so the existing opt-out gates keep the webhook and the cron from starting a workflow for it.
-- `ADW_REGRESSION_PROMOTION_LABEL` (`regression-promotion`) marks a promotion implementation issue. `shouldSkipScenarioAuthoring` skips the scenario phase for it, and `hasRegressionPromotionLabel` makes `reviewIssueKind` return `ReviewIssueKind.Promotion`.
+- `ADW_REGRESSION_PROMOTION_LABEL` (`regression-promotion`, "Moves the approved scenarios of a Promotion Proposal into the Regression Suite") marks a promotion implementation issue. `PROMOTION_IMPLEMENTATION_LABELS` is `[adw:chore, regression-promotion]`; `adw:chore` routes the issue to the chore pipeline, which has no scenario-writing phase, runs its test and diff-gated review phases, and pre-approves the PR because there is no `hitl`. `shouldSkipScenarioAuthoring` skips the scenario phase for it, and `hasRegressionPromotionLabel` makes `reviewIssueKind` return `ReviewIssueKind.Promotion`.
 - Both definitions resolve through `resolveAdwLabelDefinition`, so the forge creates each label the first time it is applied.
 
 **Parsers (`adws/promotion/`)**
 
 - `parseScenarios(content)` (`scenarioParser.ts`) parses Gherkin into `Scenario` objects (name, own tags, steps, start/end/header lines), including scenarios nested in `Rule:` blocks and excluding `Background`. `adws/phases/baseScenarioRerun.ts` imports it.
 - `parseVocabulary(content)` (`vocabularyParser.ts`) parses a vocabulary registry into a `VocabularyRegistry`. Nothing in `adws/` calls it at present.
-- `adws/promotion/index.ts` re-exports the parsers, the collector, the proposal body and the pass-decision functions with their constants and types.
+- `adws/promotion/index.ts` re-exports the parsers, the collector, the proposal body, the pass-decision functions, the decider, the decision record, the implementation issue and the decline, with their constants and types.
 
 ## Contracts & Invariants
 
-- `proposalBody.ts`, `proposalPassDecision.ts` and the parsers are pure. `collectNominations` is pure apart from the injected `getMergedAt`. `perIssueScenarioFiles.ts` is the only file read in `adws/promotion/`.
+- `proposalBody.ts`, `proposalPassDecision.ts`, `promotionDecider.ts`, `proposalDecisionRecord.ts`, `promotionImplementationIssue.ts`, `nominationDecline.ts` and the parsers are pure. `collectNominations` is pure apart from the injected `getMergedAt`. `perIssueScenarioFiles.ts` is the only file read in `adws/promotion/`.
 - A candidate's key lives only in its marker. Edits to the visible text, the analysis or anywhere else in the body do not change what `readProposalCandidates` reads. A candidate that appears on several lines is read once, and it counts as ticked when any of those lines is ticked.
 - Agent text cannot forge a candidate or add a checkbox. Before it is placed, line endings are normalised and the text is trimmed. `<!--` and `-->` are escaped, and a leading `[` that would render a task-list box, or a leading `#`, is backslash-escaped. Qualification and fit are cut to `MAX_ANALYSIS_TEXT_LENGTH` (1200) characters. Overlaps are collapsed to single lines, at most `MAX_LISTED_OVERLAPS` (5) are shown, each cut to `MAX_OVERLAP_TEXT_LENGTH` (200), followed by `- … and <k> more.` when there are more.
 - The proposal body has no `## Touched Files` and no `## Blocked by` section, so region-overlap and dependency handling never act on it.
 - The pass never throws, never commits or pushes from its checkout, and removes the checkout on every exit path after it is created. The analysis agent runs without a subprocess credential environment.
 - A candidate is offered at most once: every candidate any proposal ever named, open or closed, is excluded from later proposals.
 - The week is measured from the newest proposal's `createdAt` on the forge, not from `cycleCount`, which restarts with every cron process. A proposal without a readable `createdAt` does not count toward the week.
-- The sweep exemption is by issue number. A whole `feature-<N>.feature` is kept while any of its scenarios is a candidate of an open proposal.
+- The sweep exemption is by issue number. A whole `feature-<N>.feature` is kept while any of its scenarios is a candidate of an undecided proposal or of an open implementation issue.
+- Only a close as completed approves, and only the candidates ticked at that moment. A closed proposal whose reason the forge's search has not yet indexed (`ClosedForUnreadReason`) waits, so a lagging index can never turn "not planned" into an approval; still unread after 30 days, it is declined.
+- Each proposal is acted on once, also across cron restarts: the decision record comment is the durable record. A failed action leaves no record, and the filing (lookup by marker line) and the decline (`nothing_to_change`) are idempotent for the retry.
+- ADW's own close of an expired proposal happens only after its `expired` record is confirmed, so the port's close-as-completed can never be read later as the owner's approval.
+- Neither the implementation issue body nor the decision comment puts `Closes`/`Implements` before an issue reference, so `bodyLinksIssue` never reads the implementation PR's merge as a candidate issue's merge.
+- The decision pass never edits a file other than the declined scenarios' tag lines, and lands them only through the decline branch's pull request.
 - The Nomination tags count only on a scenario's own tag lines and are compared whole.
 - Neither label is in `ADW_CLASSIFICATION_LABELS`, so neither routes an issue to a workflow. Neither is in `ADW_LABEL_DEFINITIONS`, so start-up label provisioning does not create them.
 
@@ -93,16 +155,21 @@ The module covers the Nomination tags and their collector, the Per-Issue Scenari
 
 - `PROMOTION_PROPOSAL_INTERVAL_CYCLES` (default `4320`, about daily at a 20 s poll): how often the cron checks whether a proposal is due.
 - `PROMOTION_PROPOSAL_INTERVAL_DAYS` (default `7`, minimum 1): the least number of days between two proposals of a repository.
-- `MAX_PROPOSAL_CANDIDATES` (12), `PROMOTION_PROPOSAL_EXPIRY_DAYS` (30, stated in the body's instructions) and the text limits are constants in code.
+- `PROMOTION_DECISION_INTERVAL_CYCLES` (default `4320`, about daily, the Per-Issue Sweep's cadence): how often the cron runs the decision pass.
+- `MAX_PROPOSAL_CANDIDATES` (12), `PROMOTION_PROPOSAL_EXPIRY_DAYS` (30, stated in the body's instructions and enforced by the decider) and the text limits are constants in code.
 - `/promote_regression_vocabulary` model and effort routing lives in `adws/core/modelRouting.ts`.
 
 ## Gotchas
 
 - Only the cron's own launch repository is served per tick, as with the other sweep ticks.
-- A Nomination that has been in any proposal is never offered again, even after the owner closes that proposal without deciding. Nothing yet acts on ticks, closes, or the 30-day expiry that the body describes.
+- A Nomination that has been in any proposal is never offered again, whatever the decision.
+- Ticks made after the close do not count, and reopening a decided proposal does nothing: its record stops any further action. Reopening one ADW expired makes the next pass close it again.
+- The decision pass runs after the Per-Issue Sweep in the same tick, so that tick's sweep still keeps the candidates of a proposal decided in it, and by the next sweep the forge's search lists the new implementation issue that keeps the approved scenarios.
+- An approved scenario no longer on the default branch is reported as missing in the record and not promoted; when none is present, no implementation issue is filed.
+- The forge port exposes no close reason, so it is read through the issue search's `reason:` qualifiers. The `gh` test shadow (`test/mocks/ghShadow*.ts`) models `stateReason` and that qualifier.
 - If the analysis fails, returns an invalid answer after retries, or omits a candidate, no proposal is filed that cycle, and the pass retries on the next cadence cycle.
-- A forge failure while listing proposals skips the pass, and it also makes the Per-Issue Sweep remove nothing that cycle.
-- `PROMOTION_PROPOSAL_SEARCH` has no `sort:` or other qualifier, because the forge's test shadow treats every non-label word as text the title or body must contain.
+- A forge failure while listing proposals skips the weekly and decision passes, and it also makes the Per-Issue Sweep remove nothing that cycle.
+- `PROMOTION_PROPOSAL_SEARCH` has no `sort:` qualifier, because the forge's test shadow reads only `label:` and `reason:` qualifiers and treats every other word as text the title or body must contain.
 - Old `@promotion-suggested-<date>` and `@promotion-declined` tags in target repositories are not Nominations. The Per-Issue Sweep removes those files on the normal 14-day rule.
 - `parseVocabulary` reads only table rows with at least five columns, so the three-column vocabulary template of target repositories parses to an empty registry.
 

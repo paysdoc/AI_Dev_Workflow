@@ -7,7 +7,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, PROMOTION_PROPOSAL_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, PROMOTION_PROPOSAL_INTERVAL_CYCLES, PROMOTION_DECISION_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict, buildClaudeLaunchEnv } from '../core';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../core';
 import type { BoundProviders, RepoIdentifier } from '@paysdoc/devplatform';
@@ -44,6 +44,7 @@ import { runDeviceJanitorPass } from './deviceJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runDocsIndexSweep } from './docsIndexSweep';
 import { runPromotionProposalPass } from './promotionProposalPass';
+import { runPromotionDecisionPass } from './promotionDecisionPass';
 import { runUpgradeRedriveScan, buildDefaultUpgradeRedriveDeps } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { listCronOpenIssues } from './cronIssueListing';
@@ -142,6 +143,12 @@ function boundPromotionProposalPass(): (() => Promise<unknown>) | null {
   return boundary ? () => runPromotionProposalPass({ boundary }) : null;
 }
 
+/** Same shape as boundPerIssueSweep, for the Promotion Proposal decision pass. */
+function boundPromotionDecisionPass(): (() => Promise<unknown>) | null {
+  const boundary = cronBoundary;
+  return boundary ? () => runPromotionDecisionPass({ boundary }) : null;
+}
+
 /**
  * Promotion Proposal dispatch: on a cadence-eligible cron cycle (cycleCount a multiple of
  * PROMOTION_PROPOSAL_INTERVAL_CYCLES, about daily) invokes the pass, which files one Promotion Proposal
@@ -165,6 +172,30 @@ export async function runPromotionProposalTick(
     await pass();
   } catch (error) {
     log(`promotionProposalPass: pass failed (non-fatal): ${error}`, 'error');
+  }
+}
+
+/**
+ * Promotion decision dispatch: on a cadence-eligible cron cycle (cycleCount a multiple of
+ * PROMOTION_DECISION_INTERVAL_CYCLES, about daily) invokes the pass, which acts once on each Promotion Proposal of the repo of
+ * the cron's launch GitContext that the owner closed or left open for 30 days. Off-cadence cycles are a no-op. When no launch
+ * context is available the pass is skipped (logged), never falling back to a cwd-derived identity. Non-fatal — any escaped
+ * throw is logged and swallowed so it can never abort the cron tick. Exported (with an injectable pass) so tests can drive the
+ * cadence gate, the skip, and the swallow directly.
+ */
+export async function runPromotionDecisionTick(
+  cycleCount: number,
+  pass: (() => Promise<unknown>) | null = boundPromotionDecisionPass(),
+): Promise<void> {
+  if (cycleCount % PROMOTION_DECISION_INTERVAL_CYCLES !== 0) return;
+  if (pass === null) {
+    log('promotionDecisionPass: no launch GitContext available — skipping pass', 'warn');
+    return;
+  }
+  try {
+    await pass();
+  } catch (error) {
+    log(`promotionDecisionPass: pass failed (non-fatal): ${error}`, 'error');
   }
 }
 
@@ -419,6 +450,10 @@ export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoun
   // The cadence gate, the no-launch-context skip, and the non-fatal swallow all live inside
   // runPerIssueScenarioSweepTick.
   await runPerIssueScenarioSweepTick(cycleCount);
+
+  // After the sweep: that sweep still keeps the candidates of a proposal decided in this tick, and the next one lists the
+  // implementation issue that keeps the approved ones.
+  await runPromotionDecisionTick(cycleCount);
 
   // The gate and the non-fatal swallow both live inside runDocsIndexSweepTick.
   await runDocsIndexSweepTick(cycleCount);

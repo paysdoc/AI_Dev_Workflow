@@ -713,7 +713,7 @@ orchestrators), saves `agents/paused_queue.json`, which a paused run appends to,
 cron registry entry and log of `acme/widgets`. Teardown is on
 `World.cleanup`: it kills every process group the harness started, removes the `agents/<adwId>/` and
 `logs/<adwId>/` of every claimed adwId (only one made up for a scenario, `surface-…`,
-`throwaway<N>-…` or a smoke file's `<name>-smoke-<N>`, is accepted), releases the `acme/widgets` spawn lock of every claimed issue,
+`throwaway<N>-…`, a smoke file's `<name>-smoke-<N>` or a scenario's `<name>-chore-<N>`, is accepted), releases the `acme/widgets` spawn lock of every claimed issue,
 restores the auth gate, the pause queue and the cron files byte for byte, disposes the launch recorder and removes the
 temporary root.
 

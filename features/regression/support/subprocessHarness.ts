@@ -46,10 +46,10 @@ export interface SubprocessHarness {
 
 /**
  * `agents/<adwId>/` also holds the state of real workflows, so the harness clears only the directories of
- * adwIds made up for a scenario: `surface-…`, `throwaway<N>-…`, or the `<name>-smoke-<N>` a smoke file names.
- * A real adwId starts with a random six-character id, then the issue's slug.
+ * adwIds made up for a scenario: `surface-…`, `throwaway<N>-…`, or the `<name>-smoke-<N>` or `<name>-chore-<N>` a scenario
+ * names. A real adwId starts with a random six-character id, then the issue's slug.
  */
-const MADE_UP_ADW_ID = /^((surface|throwaway\d+)-[a-z0-9-]+|[a-z]+(-[a-z]+)*-smoke-\d+)$/;
+const MADE_UP_ADW_ID = /^((surface|throwaway\d+)-[a-z0-9-]+|[a-z]+(-[a-z]+)*-(smoke|chore)-\d+)$/;
 
 const REPO_KEY = `${SURFACE_REPO.owner}_${SURFACE_REPO.repo}`;
 const AUTH_GATE_FILE = resolve(REPO_ROOT, AUTH_GATE_PATH);
@@ -124,7 +124,7 @@ export function createSubprocessHarness(world: Pick<RegressionWorld, 'cleanup'>)
 
 /** Whatever removes `agents/<adwId>/` must name only an adwId made up for a scenario. */
 export function assertMadeUpAdwId(adwId: string): void {
-  assert.match(adwId, MADE_UP_ADW_ID, `Only an adwId made up for a scenario (surface-…, throwaway<N>-… or <name>-smoke-<N>) may be acted on, since its agents/ and logs/ directories are removed; got "${adwId}"`);
+  assert.match(adwId, MADE_UP_ADW_ID, `Only an adwId made up for a scenario (surface-…, throwaway<N>-…, <name>-smoke-<N> or <name>-chore-<N>) may be acted on, since its agents/ and logs/ directories are removed; got "${adwId}"`);
 }
 
 /** The first claim in a scenario clears the adwId's state and logs, so a crashed earlier run cannot decide the outcome; later claims leave what a Given seeded. */

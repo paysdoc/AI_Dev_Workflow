@@ -3,7 +3,6 @@ import { NominationState, type Nomination, type NominationKey } from '../nominat
 import { buildPromotionProposal, type PromotionCandidate } from '../proposalBody';
 import {
   MAX_PROPOSAL_CANDIDATES,
-  openProposalCandidates,
   proposalPassBlocker,
   proposedCandidates,
   selectProposalCandidates,
@@ -79,14 +78,6 @@ describe('selectProposalCandidates', () => {
 
     expect(selection.selected).toEqual(nominations.slice(0, MAX_PROPOSAL_CANDIDATES));
     expect(selection.deferred).toBe(3);
-  });
-});
-
-describe('openProposalCandidates', () => {
-  it('reads the candidates of open proposals only, across several', () => {
-    const proposals = [proposal(60, 'OPEN', daysAgo(1), [REFUND]), proposal(61, 'CLOSED', daysAgo(9), [INVOICE]), proposal(62, undefined, undefined, [PARCEL])];
-
-    expect(openProposalCandidates(proposals)).toEqual([REFUND, PARCEL]);
   });
 });
 

@@ -1,7 +1,6 @@
 /**
- * Pure. What the weekly Promotion Proposal pass decides from the proposals the forge lists: whether it may file one, which
- * Nominations it offers, and which candidates the Per-Issue Sweep keeps while their proposal is open. The week is measured
- * from the newest proposal on the forge, so a cron restart cannot reset it.
+ * Pure. What the weekly Promotion Proposal pass decides from the proposals the forge lists: whether it may file one, and which
+ * Nominations it offers. The week is measured from the newest proposal on the forge, so a cron restart cannot reset it.
  */
 
 import { NominationState, type Nomination, type NominationKey } from './nominationCollector.ts';
@@ -36,7 +35,7 @@ interface DatedProposal {
   readonly createdAt: Date;
 }
 
-export function isOpenProposal(ref: ProposalIssueRef): boolean {
+export function isOpenProposal(ref: Pick<ProposalIssueRef, 'state'>): boolean {
   return ref.state === undefined || ref.state.toUpperCase() === 'OPEN';
 }
 
@@ -76,10 +75,6 @@ function candidatesOf(proposal: ProposalIssueRef): readonly NominationKey[] {
 /** Every candidate any listed proposal named, open or closed, once each. */
 export function proposedCandidates(proposals: readonly ProposalIssueRef[]): readonly NominationKey[] {
   return proposals.flatMap(candidatesOf).reduce(withoutDuplicates, []);
-}
-
-export function openProposalCandidates(proposals: readonly ProposalIssueRef[]): readonly NominationKey[] {
-  return proposedCandidates(proposals.filter(isOpenProposal));
 }
 
 /** The Nominations awaiting a proposal that no listed proposal named, in the collector's order, capped. */

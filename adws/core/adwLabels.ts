@@ -7,13 +7,17 @@ export const ADW_UNVERIFIED_LABEL = 'adw:unverified';
 export const ADW_BLOCKED_LABEL = 'adw:blocked';
 
 /**
- * Marks a promotion implementation issue: it skips scenario writing and is reviewed as a promotion.
+ * Marks the implementation issue that moves the approved scenarios of a Promotion Proposal into the Regression Suite: it
+ * skips scenario writing and is reviewed as a promotion.
  * Deliberately kept OUT of `ADW_CLASSIFICATION_LABELS` (must stay invisible to
  * `readAdwLabelNames` / `LABEL_TO_COMMAND` routing) and out of
  * `ADW_LABEL_DEFINITIONS` (keeps `ensureAdwLabelsExist` scoped to the six adw:*
  * labels its log message names).
  */
 export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
+
+/** `regression-promotion` comes last: ADW treats an implementation issue as filed only once that label is on it. */
+export const PROMOTION_IMPLEMENTATION_LABELS = ['adw:chore', ADW_REGRESSION_PROMOTION_LABEL] as const;
 
 /**
  * Detection keys off the *issue* label, not a PR-label fetch — a promotion implementation issue
@@ -57,7 +61,7 @@ export const ADW_LABEL_DEFINITIONS: readonly AdwLabelDefinition[] = [
 export const REGRESSION_PROMOTION_LABEL_DEFINITION: AdwLabelDefinition = {
   name: ADW_REGRESSION_PROMOTION_LABEL,
   color: 'c5def5',
-  description: 'Scenario promotion candidate (reconciliation key + authoring skip-flag)',
+  description: 'Moves the approved scenarios of a Promotion Proposal into the Regression Suite',
 };
 
 export const PROMOTION_PROPOSAL_LABEL_DEFINITION: AdwLabelDefinition = {

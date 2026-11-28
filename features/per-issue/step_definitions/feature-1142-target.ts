@@ -41,6 +41,8 @@ export interface TargetRepository {
   readonly features: Map<string, string[]>;
   /** Per-Issue Scenario file → the name of its one scenario, which the scenario agent nominated. */
   readonly nominatedScenarios: Map<string, string>;
+  /** Per-Issue Scenario file → the Nomination tag on its scenario's own tag line: `@nominated`, or the declined tag. */
+  readonly nominationTags: Map<string, string>;
   /** Step definition file → line → the pattern registered on that line. */
   readonly stepFiles: Map<string, Map<number, string>>;
 }
@@ -103,16 +105,16 @@ function cucumberConfig(target: TargetRepository): string {
 }
 
 /** A nominated scenario carries `@nominated` on its own tag line, as the scenario agent writes it, never on the `Feature:` line. */
-function scenarioHeader(name: string, issue: number | null, nominatedScenario: string | undefined): string[] {
+function scenarioHeader(name: string, issue: number | null, nominatedScenario: string | undefined, nominationTag: string): string[] {
   if (nominatedScenario === undefined) return [`  Scenario: ${name} runs`];
-  return [`  @adw-${issue} ${NOMINATION_TAG}`, `  Scenario: ${nominatedScenario}`];
+  return [`  @adw-${issue} ${nominationTag}`, `  Scenario: ${nominatedScenario}`];
 }
 
-function featureText(featurePath: string, steps: readonly string[], nominatedScenario?: string): string {
+function featureText(featurePath: string, steps: readonly string[], nominatedScenario?: string, nominationTag: string = NOMINATION_TAG): string {
   const issue = issueOfFeature(featurePath);
   const name = basename(featurePath, '.feature');
   const stepLines = steps.map((text, index) => `    ${index === 0 ? 'Given' : 'And'} ${text}`);
-  return [issue === null ? '@regression' : `@adw-${issue}`, `Feature: ${name}`, '', ...scenarioHeader(name, issue, nominatedScenario), ...stepLines, ''].join('\n');
+  return [issue === null ? '@regression' : `@adw-${issue}`, `Feature: ${name}`, '', ...scenarioHeader(name, issue, nominatedScenario, nominationTag), ...stepLines, ''].join('\n');
 }
 
 function javaScriptLine(line: number, definitions: ReadonlyMap<number, string>): string {
@@ -138,13 +140,21 @@ export function requireTarget(world: RegressionWorld): TargetRepository {
 
 function commitFeature(world: RegressionWorld, featurePath: string): void {
   const target = requireTarget(world);
-  const text = featureText(featurePath, target.features.get(featurePath) ?? [], target.nominatedScenarios.get(featurePath));
+  const text = featureText(featurePath, target.features.get(featurePath) ?? [], target.nominatedScenarios.get(featurePath), target.nominationTags.get(featurePath));
   commitOnDefaultBranch(ensureTargetWorkspace(world), featurePath, text, `Write ${featurePath}`);
 }
 
 export function configureTarget(world: RegressionWorld, framework: string, perIssueDirectory: string, stepDefinitionDirectory: string): void {
   const workspace = ensureTargetWorkspace(world);
-  const target: TargetRepository = { framework, perIssueDirectory, stepDefinitionDirectory, features: new Map(), nominatedScenarios: new Map(), stepFiles: new Map() };
+  const target: TargetRepository = {
+    framework,
+    perIssueDirectory,
+    stepDefinitionDirectory,
+    features: new Map(),
+    nominatedScenarios: new Map(),
+    nominationTags: new Map(),
+    stepFiles: new Map(),
+  };
   targets.set(world, target);
 
   const runByTag = runByTagCommand(framework);
@@ -154,14 +164,17 @@ export function configureTarget(world: RegressionWorld, framework: string, perIs
   if (framework === CUCUMBER_JS) commitOnDefaultBranch(workspace, 'cucumber.json', cucumberConfig(target), 'Configure cucumber-js');
 }
 
-/** `nominatedScenario`, when given, names the file's one scenario and nominates it. */
-export function addPerIssueScenario(world: RegressionWorld, featurePath: string, issue: number, nominatedScenario?: string): void {
+/** `nominatedScenario`, when given, names the file's one scenario and gives it `nominationTag`, which nominates it by default. */
+export function addPerIssueScenario(world: RegressionWorld, featurePath: string, issue: number, nominatedScenario?: string, nominationTag: string = NOMINATION_TAG): void {
   const target = requireTarget(world);
   const directory = withoutTrailingSlash(target.perIssueDirectory);
   assert.ok(featurePath.startsWith(`${directory}/`), `Expected ${featurePath} to lie in the per-issue scenario directory ${directory}`);
   assert.strictEqual(issueOfFeature(featurePath), issue, `Expected ${featurePath} to be the Per-Issue Scenario of issue ${issue}`);
   target.features.set(featurePath, []);
-  if (nominatedScenario !== undefined) target.nominatedScenarios.set(featurePath, nominatedScenario);
+  if (nominatedScenario !== undefined) {
+    target.nominatedScenarios.set(featurePath, nominatedScenario);
+    target.nominationTags.set(featurePath, nominationTag);
+  }
   commitFeature(world, featurePath);
 }
 
