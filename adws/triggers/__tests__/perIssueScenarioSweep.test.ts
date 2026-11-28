@@ -15,6 +15,8 @@ vi.mock('../../forge/issueLinkMarker', () => ({
 import { isScenarioStale, runPerIssueScenarioSweep, stepDefIssueNumber, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { getDefaultScenariosConfig } from '../../core/projectConfig';
 import { resolveScenarioDirectories } from '../../core/scenarioDirectories';
+import { collectNominations, NOMINATION_TAG, NominationState } from '../../promotion/nominationCollector';
+import type { FeatureFileSource } from '../../proof/featureScenarioIndex';
 import type { GitContext } from '@paysdoc/devplatform/git';
 import type { LaunchBoundary } from '../../core';
 import type { CodeHost, RepoIdentifier } from '@paysdoc/devplatform';
@@ -322,6 +324,65 @@ describe('runPerIssueScenarioSweep — leftover promotion tags', () => {
 
     expect(removed).toEqual([staleFile]);
     expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
+  });
+});
+
+describe('runPerIssueScenarioSweep — nominated scenarios are swept like any other', () => {
+  const nominatedFile: FeatureFileSource = {
+    path: 'features/per-issue/feature-1201.feature',
+    content: [
+      'Feature: A per-issue scenario nominated for the Regression Suite',
+      '',
+      `  @adw-1201 @boundary-cli ${NOMINATION_TAG}`,
+      '  Scenario: the nominated scenario',
+      '    Given a precondition',
+      '',
+    ].join('\n'),
+  };
+  const sibling = 'features/per-issue/step_definitions/feature-1201.steps.ts';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sweeps a per-issue file the collector reads as nominated, with its step-def siblings, once its issue merged 14 days ago', async () => {
+    const getMergedAt = async (): Promise<Date | null> => daysAgo(RETENTION_DAYS);
+    const persistRemoval = vi.fn();
+
+    const nominations = await collectNominations({ features: [nominatedFile], getMergedAt });
+    expect(nominations).toEqual([expect.objectContaining({ issueNumber: 1201, featurePath: nominatedFile.path, state: NominationState.AwaitingProposal })]);
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: fakeBoundary,
+      now: NOW,
+      listFeatures: () => [nominatedFile.path],
+      getMergedAt,
+      listStepDefSiblings: (issueNum) => (issueNum === 1201 ? [sibling] : []),
+      listOrphanStepDefs: () => [],
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([nominatedFile.path, sibling]);
+    expect(persistRemoval).toHaveBeenCalledWith([nominatedFile.path, sibling]);
+  });
+
+  it('keeps a per-issue file holding a nominated scenario while its issue merged less than 14 days ago', async () => {
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      boundary: fakeBoundary,
+      now: NOW,
+      listFeatures: () => [nominatedFile.path],
+      getMergedAt: async () => daysAgo(13),
+      listStepDefSiblings: () => [sibling],
+      listOrphanStepDefs: () => [],
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([]);
+    expect(persistRemoval).not.toHaveBeenCalled();
   });
 });
 

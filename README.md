@@ -9,7 +9,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Cron and webhook triggers** — `trigger_cron.ts` polls every 20 s and `trigger_webhook.ts` takes HMAC-signed GitHub webhooks (optional Cloudflare tunnel), each event isolated so one failure cannot crash the trigger.
 - **Dependency-aware scheduling** — an LLM extracts `blocked by` dependencies, deferred issues are unblocked when their blocker closes, and a per-repo concurrency cap and region-overlap check limit parallel work.
 - **Plan-then-build pipeline** — plans live only in the issue's worktree; the build agent works through them with a novelty progress gate that stops builds that loop or make no progress.
-- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written alongside the plan, aligned with it, driven red-to-green by the build agent (which writes the step definitions), then frozen during the scenario fix loop and re-checked against the issue for fidelity.
+- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written alongside the plan, aligned with it, driven red-to-green by the build agent (which writes the step definitions), then frozen during the scenario fix loop and re-checked against the issue for fidelity; a boundary-tag gate fails any scenario whose `@boundary-<name>` tag is missing or names no Real Boundary declared in `.adw/scenarios.md`.
 - **Machine gates before review** — type checks, lint, build, unit tests and `@regression`/per-issue scenarios must pass first; fix loops reject suppression comments and weakened check configuration.
 - **Baseline gate** — the base branch is checked and its dev server started first; a red base or a pre-existing regression parks the workflow instead of handing it to the fix agent.
 - **Application-type-driven evidence** — `cli`, `web` (ADW-owned Playwright project) or `mobile:kotlincm` (per-workflow Android emulator and iOS simulator) decides how scenarios run and what proof is collected.
@@ -236,6 +236,8 @@ During init, `adw_init` runs `depaudit setup` in the target repo worktree (requi
 
 `adw_init` detects the application type (`cli` or `web`) and writes `## Application Type` to `.adw/project.md`. `mobile:kotlincm` is set by hand only: `adw_init` never detects it, and preserves it. When it cannot decide, it leaves the section out, and ADW parks the repository's issues until the section is added by hand or `adw_init` is re-run. A value set by hand survives regeneration.
 
+`adw_init` also writes the repository's Real Boundaries under `## Real Boundaries` in `.adw/scenarios.md`, from the application type: a `cli` repository gets `cli`, `http` or `package` for each of a command-line tool, an HTTP service and a library that it is; a `web` repository gets `browser`, and `http` too when it serves an HTTP API besides its pages; a `mobile:kotlincm` repository gets `app`. A list the repository already has is kept as it is, so that an upgrade never resets it, and when the type is undecided the section is left out for the scenario agent to create. `adw_init` copies `templates/vocabulary.md.template` to `features/regression/vocabulary.md` only when the repository has no registry yet; the template describes execution at a Real Boundary, lists no in-process execution pattern and states that the vocabulary binds the Regression Suite only.
+
 When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
 
 For a `web` repository, `adw_init` also installs ADW's Playwright project in `features/`, even when the application is not a Node application: `features/playwright.config.ts` from `templates/playwright/`, `features/package.json` (created only when absent), `features/.gitignore` (which keeps `node_modules/` and the generated tests out of git), `npm install` and the browser install. The configuration is byte-identical in every `web` repository and reads the repository's values only from `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; every upgrade overwrites it, and the upgrade installs the project itself after the `/adw_init` agent, so the regen commit carries `features/package-lock.json`. An existing e2e setup elsewhere in the repository (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left as it is, and ADW does not use it. ADW no longer reads `.adw/review_proof.md`, so a repository that still has one can delete it.
@@ -325,7 +327,7 @@ Three optional sections activate the regression-suite contract. When absent, the
 
 ### Scenario Promotion
 
-Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. Nomination by the scenario agent and a Promotion Proposal that the owner decides come in later slices. An issue labelled `regression-promotion` still skips the scenario-writing phase.
+Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. The scenario agent may nominate at most one scenario it creates per issue with the `@nominated` tag (`@nomination-declined` marks one the owner declined, never nominated again), and `adws/promotion/nominationCollector.ts` collects the Nominations of merged issues from the default branch. The Promotion Proposal that the owner decides comes in a later slice; until then a nominated scenario is swept like any other. An issue labelled `regression-promotion` still skips the scenario-writing phase.
 
 ### Running BDD scenarios on the host
 
@@ -524,7 +526,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueDependencies.test.ts
 │   ├── planningCommandsPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
+│   ├── pullRequestPrompt.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── resolveFailedScenarioPrompt.test.ts
 │   ├── reviewPrompt.helpers.ts  # Shared helpers for the reviewPrompt tests
 │   ├── reviewPrompt.scenarios.test.ts
 │   ├── reviewPrompt.test.ts
@@ -588,6 +592,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── authGate.test.ts
 │   │   ├── baselineGate.record.test.ts
 │   │   ├── baselineGate.test.ts
+│   │   ├── boundaryList.test.ts
 │   │   ├── checkRunner.combinedOutput.test.ts
 │   │   ├── checkRunner.integration.test.ts
 │   │   ├── checkRunner.test.ts
@@ -687,6 +692,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── applicationType.ts  # Pure application-type mapping: type → runner mode, evidence kinds, review guidance section (resolveApplicationType, APPLICATION_TYPE_PROFILES)
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── baselineGate.ts  # Baseline verdict for a base checkout: installs dependencies, runs the static checks, then the declared dev server → green / checks_red / server_down (runBaselineChecks, declaredDevServerCommand); BaselineRecord (passed / waived, isBaselineWaived)
+│   ├── boundaryList.ts  # Pure boundary list: parses the `## Real Boundaries` section of `.adw/scenarios.md` (absent vs declared, malformed entries) and checks that each scenario carries one `@boundary-<name>` tag naming a declared boundary (parseBoundaryList, checkBoundaryTags)
 │   ├── checkRunner.ts  # Static-check runner: runs type check, additional type checks, lint and build from .adw/commands.md in fixed order; exit code is the verdict, N/A skipped (runStaticChecks, runShellCommand)
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
@@ -875,6 +881,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── baseScenarioRerun.server.test.ts
 │   │   ├── baseScenarioRerun.test.ts
 │   │   ├── baseWorktree.test.ts
+│   │   ├── boundaryTagGate.test.ts
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -916,6 +923,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.boundaryTags.test.ts
 │   │   ├── scenarioTestPhase.deviceBoot.test.ts
 │   │   ├── scenarioTestPhase.deviceSource.test.ts
 │   │   ├── scenarioTestPhase.devices.test.ts
@@ -950,6 +958,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── baselinePhase.ts  # Baseline phase (executeBaselinePhase): installs, runs the static checks and starts the declared dev server on the base branch before any work; parks the workflow when the base is red, records a green base in the top-level state, does nothing under a waiver
 │   ├── baseScenarioRerun.ts  # Single-scenario re-run on the base checkout (buildBaseScenarioRerun): tags the failing scenario, runs it alone under the base branch's dev server where one is declared, reports passed / failed / not run; the devices the gate hands it go into the run command's environment
 │   ├── baseWorktree.ts  # Base-branch worktree port: a detached checkout at .worktrees/base-issue-<N>-<adwId>, shared by the baseline and the re-runs and removed when the process exits (buildBaseWorktreePort, sharedBaseWorktree)
+│   ├── boundaryTagGate.ts  # Boundary-tag gate run before the scenarios: reads the worktree's `## Real Boundaries` list and per-issue feature files at call time; a missing or undeclared `@boundary-<name>` tag comes back as a failing scenario proof for the fix loop
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── declaredDevServer.ts  # The dev server a repository declares in its raw .adw/commands.md (readDeclaredDevServer), shared by the baseline and the scenario phase
@@ -1117,12 +1126,16 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Vocabulary registry and scenario parsers
+├── promotion/          # Vocabulary registry and scenario parsers, nomination collector
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── nominationCollector.test.ts
+│   │   ├── perIssueScenarioFiles.test.ts
 │   │   ├── scenarioParser.test.ts
 │   │   └── vocabularyParser.test.ts
-│   ├── index.ts        # Barrel re-exporting the parser surface
-│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
+│   ├── index.ts        # Barrel re-exporting the parsers, the nomination collector and the per-issue file reader
+│   ├── nominationCollector.ts  # Pure collector of `@nominated` / `@nomination-declined` Per-Issue Scenarios of merged issues, with their NominationState (collectNominations)
+│   ├── perIssueScenarioFiles.ts  # Reads the Per-Issue Scenario files of a default-branch checkout (readPerIssueScenarioFiles)
+│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects, including scenarios nested in Rule blocks
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
 │   └── types.ts        # Shared types (VocabularyEntry, Scenario, Step, etc.)
 ├── proof/              # PR proof publishing module
@@ -1294,9 +1307,6 @@ test/                   # Integration test infrastructure
 ├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
-docs/                   # Design records
-├── adr/                # Architecture decision records, one per design decision (index in README.md)
-└── prd/                # Product requirement documents
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
