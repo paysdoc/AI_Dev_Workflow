@@ -474,10 +474,15 @@
     - .claude/commands/promote_regression_vocabulary.md
     - adws/agents/proposalAnalysisAgent.ts
     - adws/triggers/promotionProposal*.ts
+    - adws/triggers/promotionDecision*.ts
   - Conditions:
     - When working on the weekly Promotion Proposal: the cron pass (`runPromotionProposalPass`, `runPromotionProposalTick`, `PROMOTION_PROPOSAL_INTERVAL_CYCLES` / `PROMOTION_PROPOSAL_INTERVAL_DAYS`), its checkout, candidate selection, or filing with `adw:none` and the `promotion-proposal` label
-    - When building or reading a proposal body (`buildProposalBody`, `readProposalCandidates`, `tickedCandidates`, `buildPromotionProposal`, the `adw-candidate` marker), including the Regression Suite audit or acting on a ticked or closed proposal
-    - When working on the Per-Issue Sweep's exemption for candidates of an open Promotion Proposal (`readOpenProposalCandidates`, `readSweepExemptIssues`), or a nominated scenario or its step definitions being kept or swept
+    - When building or reading a proposal body (`buildProposalBody`, `readProposalCandidates`, `tickedCandidates`, `buildPromotionProposal`, the `adw-candidate` marker / `candidateMarker`), including the Regression Suite audit
+    - When acting on the owner's decision on a Promotion Proposal: the promotion decider (`decidePromotion`, `ProposalState`, `DeclineReason`, `proposalActions`), approval by closing as completed with ticks, decline by closing as not planned or with nothing ticked, or the 30-day expiry and ADW's close of an expired proposal
+    - When working on the daily decision pass (`runPromotionDecisionPass`, `runPromotionDecisionTick`, `PROMOTION_DECISION_INTERVAL_CYCLES`), the `adw-proposal-decision` record comment, or a proposal being acted on twice or never across cron restarts
+    - When working on the promotion implementation issue (`buildPromotionImplementationIssue`, `implementationIssueFor`, the `Promotes: Promotion Proposal #N` marker line, `PROMOTION_IMPLEMENTATION_LABELS` `adw:chore` + `regression-promotion`), or its unattended chore run and merge without `hitl`
+    - When working on declining Nominations (`declineNominations`, `featureOfCandidate`, the `chore/nomination-decline` pull request) or reading a proposal's close reason through the forge search's `reason:` qualifiers (`listDecisionProposals`, `closeReasonOf`)
+    - When working on the Per-Issue Sweep's exemption for candidates of an undecided Promotion Proposal or an open implementation issue (`readSweepExemptCandidates`, `sweepExemptCandidates`, `readExemptCandidates`, `keptForPromotion`, `readSweepExemptIssues`), or a nominated scenario or its step definitions being kept or swept
     - When working on Nominations: the `@nominated` / `@nomination-declined` tags, `collectNominations`, `NominationState`, or `readPerIssueScenarioFiles` reading Per-Issue Scenario files from a default-branch checkout
     - When working on the proposal analysis: `runProposalAnalysisAgent`, `extractProposalAnalyses`, the `/promote_regression_vocabulary` command or the `promote-regression-vocabulary` skill
     - When an issue carries the `regression-promotion` label, which skips the scenario-writing phase (`shouldSkipScenarioAuthoring`) and makes the review treat it as `ReviewIssueKind.Promotion`
