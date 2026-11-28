@@ -2,19 +2,19 @@
  * Per-issue scenario sweep: removes the Per-Issue Scenarios (feature-{N}.feature in the per-issue directory the target's
  * `.adw/scenarios.md` names) 14 days after the issue's PR is merged, with the step-def files named for the issue
  * (feature-{N}.* and feature-{N}-*) in its configured step-definition directories, plus any such file whose feature is
- * already gone. The runner's dry run (perIssueSweepStepUsage.ts) writes a report. A usage report (cucumber-js) keeps a
- * step file that a remaining feature file uses, and after the batch lands it lists the definitions no remaining feature
- * file uses in one removal chore. An unused-steps report (cucumber-jvm, playwright-bdd) lists only the definitions no
- * feature file on the default branch uses: it keeps no step file by name, and the next sweep lists the definitions that
- * this batch leaves unused. Without a report, only step files inside the per-issue directory are removed. Every batch
- * passes the post-removal gate (sweepRemovalGate.ts) before it is committed: files a survivor still imports are kept, and
- * a batch that leaves the repo's static checks red is repaired or discarded — never landed. Listing, staleness decisions,
- * the dry run and the removal all run against a dedicated worktree synced to fresh origin/<default> (see
- * perIssueSweepPersist.ts) — never the cron host's own, possibly stale, base checkout — and the removal lands via an
- * immediately-merged pull request from a dedicated sweep branch, never a direct commit/push onto the shared default branch.
- *
- * Identity comes entirely from the caller's injected launch boundary (`deps.boundary`) — this module performs no
- * repo-identity resolution of its own.
+ * already gone. A stale scenario that an open Promotion Proposal lists is kept, by issue, until no open proposal lists it:
+ * it stays listed, so its step files are no orphans and the report counts its definitions as used. A sweep that cannot
+ * read the open proposals removes nothing. The runner's dry run (perIssueSweepStepUsage.ts) writes a report. A usage
+ * report (cucumber-js) keeps a step file that a remaining feature file uses, and after the batch lands it lists the
+ * definitions no remaining feature file uses in one removal chore. An unused-steps report (cucumber-jvm, playwright-bdd)
+ * lists only the definitions no feature file on the default branch uses: it keeps no step file by name, and the next sweep
+ * lists the definitions that this batch leaves unused. Without a report, only step files inside the per-issue directory
+ * are removed. Every batch passes the post-removal gate (sweepRemovalGate.ts) before it is committed: files a survivor
+ * still imports are kept, and a batch that leaves the repo's static checks red is repaired or discarded — never landed.
+ * Listing, staleness decisions, the dry run and the removal all run against a dedicated worktree synced to fresh
+ * origin/<default> (see perIssueSweepPersist.ts) — never the cron host's own, possibly stale, base checkout — and the
+ * removal lands via an immediately-merged pull request from a dedicated sweep branch, never a direct commit/push onto the
+ * shared default branch. Identity comes entirely from the caller's injected launch boundary (`deps.boundary`).
  */
 
 import * as path from 'path';
@@ -23,7 +23,9 @@ import { getDefaultScenariosConfig, loadProjectConfig } from '../core/projectCon
 import { isWithinDirectory, resolveScenarioDirectories, type ScenarioDirectories } from '../core/scenarioDirectories';
 import type { UnusedStepIssueRef, UnusedStepIssueSpec } from '../core/unusedStepIssueBody';
 import { bodyLinksIssue } from '../forge/issueLinkMarker';
+import type { NominationKey } from '../promotion/nominationCollector';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
+import { keptForOpenProposal, readOpenProposalCandidates, readSweepExemptIssues } from './promotionProposalIssues';
 import { defaultFileRemovalIssue, defaultListOpenRemovalIssues, defaultReadStepUsage, readStepUsageOutcome, reconcileUnusedStepDefinitions, withoutUsedStepFiles, type StepUsageOutcome } from './perIssueSweepStepUsage';
 import { verifyRemoval, worktreeGateDeps } from './sweepRemovalGate';
 import type { LaunchBoundary } from '../core';
@@ -77,6 +79,8 @@ export interface PerIssueSweepDeps {
   readStepUsage?: () => Promise<StepUsageOutcome>;
   listOpenRemovalIssues?: () => readonly UnusedStepIssueRef[];
   fileRemovalIssue?: (spec: UnusedStepIssueSpec) => number;
+  /** The candidates of every open Promotion Proposal; throws when the forge cannot be read. */
+  readOpenProposalCandidates?: () => readonly NominationKey[];
   log?: (msg: string, level?: string) => void;
 }
 
@@ -204,14 +208,14 @@ async function staleScenarioOf(filePath: string, getMergedAt: (issueNum: number)
   }
 }
 
-async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePath: string) => Promise<StaleScenario | null>, logger: Logger): Promise<RemovalBatch> {
+async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePath: string) => Promise<StaleScenario | null>, exempt: ReadonlySet<number>, logger: Logger): Promise<RemovalBatch> {
   const files = listers.listFeatures();
   const staleFeatures: string[] = [];
   const toRemove: string[] = [];
 
   for (const filePath of files) {
     const stale = await staleScenario(filePath);
-    if (!stale) continue;
+    if (!stale || keptForOpenProposal(filePath, stale.issueNum, exempt, logger)) continue;
     const siblings = listers.listStepDefSiblings(stale.issueNum);
     logger(
       `perIssueScenarioSweep: sweeping stale scenario ${filePath} (issue #${stale.issueNum} merged ${stale.mergedAt.toISOString()}) + ${siblings.length} step-def sibling(s)`,
@@ -230,26 +234,20 @@ async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePa
 }
 
 /**
- * Lists per-issue feature files, checks their linked PR merge date, and removes every stale file plus its step-def
- * sibling(s), and every step-def file whose feature is already gone, as one gated, persisted batch. A usage report
- * (cucumber-js) keeps a step file that a remaining feature file uses, and after the batch lands it lists the definitions
- * no remaining feature file uses. An unused-steps report (cucumber-jvm, playwright-bdd) lists only the definitions no
- * feature file on the default branch uses: it keeps no step file by name, and the next sweep lists the definitions that
- * this batch leaves unused. Without a report, only step files inside the per-issue directory are removed. The listed
- * definitions go into the removal chore. Returns the paths that landed (empty when nothing is stale, or the gate
- * cleared nothing — no commit).
- *
- * The base-dependent defaults (directories, listing, the dry run and
- * persistence) share a single lazily-memoized SweepBase — a dedicated worktree
- * synced to fresh origin/<default> — created at most once per call, and only
- * when a base-dependent default actually runs (never for a fully-injected
- * caller). The worktree is always torn down before returning, on every exit path.
+ * Removes every stale Per-Issue Scenario that no open Promotion Proposal lists, with its step-def sibling(s), and every
+ * step-def file whose feature is already gone, as one gated, persisted batch, then files the removal chore the report calls
+ * for (see the module doc). Returns the paths that landed: none when nothing is stale, the gate cleared nothing, or the open
+ * proposals could not be read. The base-dependent defaults (directories, listing, the dry run and persistence) share one
+ * lazily-memoized SweepBase, created at most once per call and only when such a default runs (never for a fully-injected
+ * caller), and torn down before returning, on every exit path.
  */
 export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise<string[]> {
   const now = deps.now ?? new Date();
   const getMergedAt = deps.getMergedAt ?? ((issueNum: number) => defaultGetMergedAt(deps.boundary.providers.codeHost, issueNum));
   const logger = deps.log ?? log;
   const { issueTracker } = deps.boundary.providers;
+  const exempt = readSweepExemptIssues(deps.readOpenProposalCandidates ?? (() => readOpenProposalCandidates(issueTracker)), logger);
+  if (exempt === null) return [];
 
   let cachedBase: SweepBase | null | undefined;
   const getBase = (): SweepBase | null => {
@@ -275,7 +273,7 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
   try {
     const directories = readDirectories();
     const staleScenario = (filePath: string) => staleScenarioOf(filePath, getMergedAt, now, logger);
-    const batch = await collectRemovalBatch(resolveListers(deps, getBase, directories), staleScenario, logger);
+    const batch = await collectRemovalBatch(resolveListers(deps, getBase, directories), staleScenario, exempt, logger);
 
     // Read before anything is removed, while the worktree still equals the default branch; the paths that land then tell
     // which uses are gone, so the one report answers both what to keep and what is left unused.

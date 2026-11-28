@@ -20,7 +20,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; a CI gate and a daily sweep keep the `.adw/conditional_docs.md` index healthy.
 - **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js, cucumber-jvm and playwright-bdd the sweep files one `adw:chore` issue listing the step definitions that no feature file uses; for cucumber-jvm and playwright-bdd, the definitions a sweep's own removal leaves unused are listed by the next sweep.
 - **Scenario proof on the PR** — scenario results and their screenshots go into a `scenario_proof.md` for the reviewer, and a JUnit summary with inline images is posted as a PR comment.
-- **Scenario promotion by nomination** — the scenario agent may tag one new scenario per issue `@nominated`, and the Nominations of merged issues are collected for the owner to decide on; promotion into `features/regression/` stays a human decision.
+- **Scenario promotion by nomination** — the scenario agent may tag one new scenario per issue `@nominated`, and once a week the cron gathers a repository's Nominations of merged issues into one Promotion Proposal, with an analysis and a checkbox per candidate, for the owner to decide; promotion into `features/regression/` stays a human decision.
 - **Multi-provider support** — `IssueTracker`/`CodeHost` ports from `@paysdoc/devplatform` back GitHub, GitLab and Jira issue trackers and GitHub/GitLab code hosts, plus GitHub Projects V2 board automation.
 - **Resilience primitives** — worktree isolation, per-issue spawn locks, PID liveness and heartbeats, takeover with worktree reuse probing, hung-orchestrator detection, dev-server and device janitors, and remote stage reconciliation.
 - **Rate-limit and auth recovery** — in-process waits for known reset times, a per-repo pause queue with automatic resume, and a `paused_auth` queue with Slack alerts.
@@ -329,7 +329,7 @@ Three optional sections activate the regression-suite contract. When absent, the
 
 ### Scenario Promotion
 
-Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. The scenario agent may nominate at most one scenario it creates per issue with the `@nominated` tag (`@nomination-declined` marks one the owner declined, never nominated again), and `adws/promotion/nominationCollector.ts` collects the Nominations of merged issues from the default branch. The Promotion Proposal that the owner decides comes in a later slice; until then a nominated scenario is swept like any other. An issue labelled `regression-promotion` still skips the scenario-writing phase.
+Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. The scenario agent may nominate at most one scenario it creates per issue with the `@nominated` tag (`@nomination-declined` marks one the owner declined, never nominated again), and `adws/promotion/nominationCollector.ts` collects the Nominations of merged issues from the default branch. The cron checks once a day (`PROMOTION_PROPOSAL_INTERVAL_CYCLES`) whether a repository's Promotion Proposal is due (`adws/triggers/promotionProposalPass.ts`). At most once every `PROMOTION_PROPOSAL_INTERVAL_DAYS` (default 7), counted from the newest proposal on the forge, and only while no proposal is open, it files one Promotion Proposal for the Nominations of merged issues that no earlier proposal listed. Each candidate gets a checkbox and the analysis `/promote_regression_vocabulary` writes for it: why it qualifies, how it fits the Regression Suite, and its overlap with the scenarios already there. The proposal is labelled `adw:none`, so the pipeline never works it, and `promotion-proposal`. While a proposal is open, the Per-Issue Sweep keeps its candidates' per-issue files, so their step definitions count as used and the unused step definition chore does not list them. Acting on the owner's decision is not built yet: closing a proposal only ends that exemption. An issue labelled `regression-promotion` still skips the scenario-writing phase.
 
 ### Running BDD scenarios on the host
 
@@ -529,6 +529,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── implementTddPrompt.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── planningCommandsPrompt.test.ts
+│   ├── promoteRegressionVocabularyPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── pullRequestPrompt.test.ts
 │   ├── regressionWorkflow.test.ts
@@ -549,6 +550,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── commitIdentity.integration.test.ts
 │   │   ├── documentAgent.test.ts
 │   │   ├── gitAgent.test.ts
+│   │   ├── proposalAnalysisAgent.test.ts
 │   │   ├── refactorAgent.test.ts
 │   │   ├── reviewPromptArgs.test.ts
 │   │   ├── scenarioFidelityAgent.test.ts
@@ -571,6 +573,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── planAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
 │   ├── prAgent.ts
+│   ├── proposalAnalysisAgent.ts  # Promotion Proposal analysis over /promote_regression_vocabulary: why each candidate qualifies, how it fits the Regression Suite and its overlaps, validated as one analysis per candidate
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── reviewPromptArgs.ts  # ReviewIssueKind and ReviewPromptContext — the typed arguments the review prompt receives (guidance section, issue kind, scenario image paths)
@@ -1075,11 +1078,15 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueScenarioSweep.directories.test.ts
 │   │   ├── perIssueScenarioSweep.equivalence.test.ts
+│   │   ├── perIssueScenarioSweep.proposalExemption.test.ts
 │   │   ├── perIssueScenarioSweep.unusedSteps.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── perIssueSweepPersistBase.test.ts
 │   │   ├── perIssueSweepStepUsage.test.ts
 │   │   ├── perIssueSweepStepUsage.unusedSteps.test.ts
+│   │   ├── promotionProposalDefaults.test.ts
+│   │   ├── promotionProposalIssues.test.ts
+│   │   ├── promotionProposalPass.test.ts
 │   │   ├── sweepImportGraph.test.ts
 │   │   ├── sweepRemovalGate.test.ts
 │   │   ├── rateLimitProbe.test.ts
@@ -1114,9 +1121,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running and no live holder of the issue's spawn lock, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
 │   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
-│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes per-issue feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, from the directories `.adw/scenarios.md` names, keeping step-def files a remaining scenario still uses; every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
+│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes per-issue feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, from the directories `.adw/scenarios.md` names, keeping step-def files a remaining scenario still uses and the stale scenarios an open Promotion Proposal lists; every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
 │   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR, resolved from the passed launch boundary — worktree ops on its GitContext, PR ops on its CodeHost (#797)
 │   ├── perIssueSweepStepUsage.ts  # The sweep's dry run that writes the scenario runner's usage report, the step files it keeps out of a removal batch, and the reconcile that files at most one unused-step `adw:chore` issue per repository; never throws
+│   ├── promotionProposalDefaults.ts  # The weekly pass's defaults on the launch boundary: proposal listing, read-only default-branch checkout, merge lookup, analysis agent run in the checkout, filing labelled `adw:none` first
+│   ├── promotionProposalIssues.ts  # The repository's Promotion Proposals as the forge lists them (label search), the open proposals' candidates, and the sweep's exemptions
+│   ├── promotionProposalPass.ts  # Weekly Promotion Proposal pass: files one proposal of the eligible Nominations when none is open or recent; never throws
 │   ├── sweepImportGraph.ts  # Pure relative-import graph: keeps removal candidates a surviving file still imports; maps tsc TS2307 output back to removed files
 │   ├── sweepRemovalGate.ts  # Post-removal gate in the sweep worktree: base checks, apply removals, re-run static checks, restore files reported missing, hard-fail (discard batch) otherwise
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
@@ -1151,15 +1161,19 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Vocabulary registry and scenario parsers, nomination collector
+├── promotion/          # Vocabulary registry and scenario parsers, nomination collector, Promotion Proposal format and pass decisions
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── nominationCollector.test.ts
 │   │   ├── perIssueScenarioFiles.test.ts
+│   │   ├── proposalBody.test.ts
+│   │   ├── proposalPassDecision.test.ts
 │   │   ├── scenarioParser.test.ts
 │   │   └── vocabularyParser.test.ts
-│   ├── index.ts        # Barrel re-exporting the parsers, the nomination collector and the per-issue file reader
+│   ├── index.ts        # Barrel re-exporting the parsers, the nomination collector, the per-issue file reader, the proposal format and the pass decisions
 │   ├── nominationCollector.ts  # Pure collector of `@nominated` / `@nomination-declined` Per-Issue Scenarios of merged issues, with their NominationState (collectNominations)
 │   ├── perIssueScenarioFiles.ts  # Reads the Per-Issue Scenario files of a default-branch checkout (readPerIssueScenarioFiles)
+│   ├── proposalBody.ts  # Pure proposal format: builds a body with one checkbox per candidate, keyed by issue and scenario name, and reads the ticks back from a hand-edited body; tick = promote (Promotion Proposal) or keep (audit)
+│   ├── proposalPassDecision.ts  # Pure decisions of the weekly pass: whether a proposal may be filed, which Nominations it offers (capped), which candidates the open proposals exempt from the sweep
 │   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects, including scenarios nested in Rule blocks
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
 │   └── types.ts        # Shared types (VocabularyEntry, Scenario, Step, etc.)

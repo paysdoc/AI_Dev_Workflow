@@ -1,8 +1,8 @@
 /**
- * Runs the real cron the way the cron probe does, for one tick, but with its Per-Issue Sweep due on that tick, and reads what
- * it did: the forge writes the `gh` shadow recorded, and the merged pull requests the shadow landed on the target repository's
- * default branch. The shadow lands a merge only when `ADW_GH_LAND_PATH` names the workspace, as GitHub's merge reaches the
- * remote; without it, nothing the sweep removed would ever leave `origin/main`.
+ * Runs the real cron the way the cron probe does, for one tick, but with the passes a step names due on that tick, and reads
+ * what it did: the forge writes the `gh` shadow recorded, and the merged pull requests the shadow landed on the target
+ * repository's default branch. The shadow lands a merge only when `ADW_GH_LAND_PATH` names the workspace, as GitHub's merge
+ * reaches the remote; without it, nothing the sweep removed would ever leave `origin/main`.
  */
 
 import assert from 'assert';
@@ -34,10 +34,21 @@ const TICK_FAILED = 'checkAndTrigger: tick failed';
 const SWEEP_BRANCH = 'chore/scenario-sweep';
 const FILED_ISSUE = /filed removal issue #(\d+)/g;
 const REPO_PATH = `/repos/${SURFACE_REPO.owner}/${SURFACE_REPO.repo}`;
-/** A host `.env` that lowers these would let the tick run the hung detector, the janitor or the docs-index sweep against the checkout. */
-const OTHER_CADENCES: Readonly<Record<string, string>> = Object.fromEntries(
-  ['PROBE_INTERVAL_CYCLES', 'JANITOR_INTERVAL_CYCLES', 'HUNG_DETECTOR_INTERVAL_CYCLES', 'DOCS_INDEX_SWEEP_INTERVAL_CYCLES'].map((variable) => [variable, '1000000']),
-);
+/** A host `.env` that lowers one of these would let the tick run its pass against the checkout, so each is out of reach unless a run makes it due. */
+const CADENCES = [
+  'PROBE_INTERVAL_CYCLES',
+  'JANITOR_INTERVAL_CYCLES',
+  'HUNG_DETECTOR_INTERVAL_CYCLES',
+  'DOCS_INDEX_SWEEP_INTERVAL_CYCLES',
+  'PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES',
+  'PROMOTION_PROPOSAL_INTERVAL_CYCLES',
+] as const;
+const DUE_ON_FIRST_TICK = '1';
+const OUT_OF_REACH = '1000000';
+
+export type CronCadence = (typeof CADENCES)[number];
+
+const cronOutputs = new WeakMap<RegressionWorld, string[]>();
 
 export interface FiledIssue {
   readonly title: string;
@@ -63,8 +74,23 @@ async function settleAfterPoll(recorder: LaunchRecorder, output: string): Promis
   await settleLaunches(recorder);
 }
 
-/** The sweep runs inside the cron's first tick, before its poll, so the run is stopped at the poll as the cron probe's is. */
-export async function runCronWithSweepDue(world: RegressionWorld): Promise<string> {
+function cadenceEnv(due: readonly CronCadence[]): Record<string, string> {
+  return Object.fromEntries(CADENCES.map((cadence) => [cadence, due.includes(cadence) ? DUE_ON_FIRST_TICK : OUT_OF_REACH]));
+}
+
+/** The output of every cron run of the scenario, in the order they ran. */
+export function cronOutputsOf(world: RegressionWorld): string[] {
+  const outputs = cronOutputs.get(world) ?? [];
+  cronOutputs.set(world, outputs);
+  return outputs;
+}
+
+export function runCronWithSweepDue(world: RegressionWorld): Promise<string> {
+  return runCronWithDue(world, ['PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES']);
+}
+
+/** The passes run inside the cron's first tick, before its poll, so the run is stopped at the poll as the cron probe's is. */
+export async function runCronWithDue(world: RegressionWorld, due: readonly CronCadence[]): Promise<string> {
   const { recorder } = requireHarness(world);
   assert.ok(world.mockContext, 'mockContext must be initialised in a Before hook');
   assertNoPausedAuthWorkflows();
@@ -78,13 +104,14 @@ export async function runCronWithSweepDue(world: RegressionWorld): Promise<strin
       args: ['tsx', realScriptPath('adws/triggers/trigger_cron.ts'), '--target-repo', `${SURFACE_REPO.owner}/${SURFACE_REPO.repo}`, '--clone-url', targetCloneUrl(SURFACE_REPO.owner, SURFACE_REPO.repo)],
       timeoutMs: CRON_TIMEOUT_MS,
       label: 'The cron',
-      env: { ...OTHER_CADENCES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES: '1', ADW_GH_LAND_PATH: workspace, GH_HOST: server.replace(/^https?:\/\//, ''), GITHUB_API_URL: server },
+      env: { ...cadenceEnv(due), ADW_GH_LAND_PATH: workspace, GH_HOST: server.replace(/^https?:\/\//, ''), GITHUB_API_URL: server },
       stopWhen: (text) => POLL_LINE.test(text) || text.includes(TICK_FAILED),
       beforeStop: (text) => settleAfterPoll(recorder, text),
     },
     { recordsExitCode: false },
   );
   assert.ok(POLL_LINE.test(output), `The cron's first tick failed before it polled. Last output:\n${outputTail(output)}`);
+  cronOutputsOf(world).push(output);
   return output;
 }
 

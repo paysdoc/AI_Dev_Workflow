@@ -7,8 +7,7 @@ export const ADW_UNVERIFIED_LABEL = 'adw:unverified';
 export const ADW_BLOCKED_LABEL = 'adw:blocked';
 
 /**
- * Scenario promotion candidate marker — reconciliation key for the promotion
- * sweep (`Promotes: feature-N` linkage) and the scenario-authoring skip-flag.
+ * Marks a promotion implementation issue: it skips scenario writing and is reviewed as a promotion.
  * Deliberately kept OUT of `ADW_CLASSIFICATION_LABELS` (must stay invisible to
  * `readAdwLabelNames` / `LABEL_TO_COMMAND` routing) and out of
  * `ADW_LABEL_DEFINITIONS` (keeps `ensureAdwLabelsExist` scoped to the six adw:*
@@ -17,14 +16,18 @@ export const ADW_BLOCKED_LABEL = 'adw:blocked';
 export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
 
 /**
- * Gates the promotion-only rot/reuse advisory step. Detection keys
- * off the *issue* label, not a PR-label fetch — promotion issues carry
- * `regression-promotion` (`buildPromotionIssue`), and that label is already on
- * `config.issue.labels` with no extra I/O.
+ * Detection keys off the *issue* label, not a PR-label fetch — a promotion implementation issue
+ * carries `regression-promotion`, and that label is already on `config.issue.labels` with no extra I/O.
  */
 export function hasRegressionPromotionLabel(labels: readonly string[]): boolean {
   return labels.includes(ADW_REGRESSION_PROMOTION_LABEL);
 }
+
+/**
+ * Identifies a Promotion Proposal, which also carries `adw:none`. Kept out of `ADW_CLASSIFICATION_LABELS` and
+ * `ADW_LABEL_DEFINITIONS` like `regression-promotion`: it never routes, and the forge creates it the first time it is applied.
+ */
+export const ADW_PROMOTION_PROPOSAL_LABEL = 'promotion-proposal';
 
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
@@ -55,6 +58,12 @@ export const REGRESSION_PROMOTION_LABEL_DEFINITION: AdwLabelDefinition = {
   name: ADW_REGRESSION_PROMOTION_LABEL,
   color: 'c5def5',
   description: 'Scenario promotion candidate (reconciliation key + authoring skip-flag)',
+};
+
+export const PROMOTION_PROPOSAL_LABEL_DEFINITION: AdwLabelDefinition = {
+  name: ADW_PROMOTION_PROPOSAL_LABEL,
+  color: 'd4c5f9',
+  description: 'Promotion Proposal: the owner decides it; ADW never works it',
 };
 
 export interface AdwLabelReading {
@@ -119,7 +128,7 @@ export function shouldSkipScenarioAuthoring(labels: readonly string[]): boolean 
 
 /** Catalogue lookup with the `ededed`/"ADW label" fallback for a name outside the catalogue. */
 export function resolveAdwLabelDefinition(label: string): AdwLabelDefinition {
-  return [...ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION].find(d => d.name === label)
+  return [...ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION, PROMOTION_PROPOSAL_LABEL_DEFINITION].find(d => d.name === label)
     ?? { name: label, color: 'ededed', description: 'ADW label' };
 }
 

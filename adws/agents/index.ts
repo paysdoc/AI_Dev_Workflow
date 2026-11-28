@@ -124,3 +124,10 @@ export {
   runDiffEvaluatorAgent,
   type DiffEvaluatorVerdict,
 } from './diffEvaluatorAgent';
+
+export {
+  runProposalAnalysisAgent,
+  extractProposalAnalyses,
+  proposalAnalysisSchema,
+  type ProposalAnalysisCandidate,
+} from './proposalAnalysisAgent';

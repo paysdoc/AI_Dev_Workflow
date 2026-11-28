@@ -98,5 +98,14 @@ export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER
  *  (repair commit-and-PR, issue file/refresh/close) do not run every 20s tick. */
 export const DOCS_INDEX_SWEEP_INTERVAL_CYCLES = parseInt(process.env.DOCS_INDEX_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
+/** Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS: how often the cron checks whether a repository's Promotion Proposal is due. */
+export const PROMOTION_PROPOSAL_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_PROPOSAL_INTERVAL_CYCLES || '4320', 10);
+
+/**
+ * The least number of days between two Promotion Proposals of a repository (default 7: one a week). Measured from the
+ * newest proposal on the forge, so a cron restart does not reset it.
+ */
+export const PROMOTION_PROPOSAL_INTERVAL_DAYS = Math.max(1, parseInt(process.env.PROMOTION_PROPOSAL_INTERVAL_DAYS || '7', 10)) || 7;
+
 export const AGENT_DEFAULT_TIMEOUT_MS =
   Math.max(1, parseInt(process.env.AGENT_DEFAULT_TIMEOUT_MS || '1800000', 10)) || 1_800_000;

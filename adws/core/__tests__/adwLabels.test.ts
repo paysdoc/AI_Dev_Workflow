@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  ADW_LABEL_DEFINITIONS,
+  ADW_NONE_LABEL,
+  ADW_PROMOTION_PROPOSAL_LABEL,
+  PROMOTION_PROPOSAL_LABEL_DEFINITION,
   readAdwLabels,
   readAdwLabelNames,
   issueTypeToAdwLabel,
+  resolveAdwLabelDefinition,
 } from '../adwLabels';
 
 function makeIssue(...labelNames: string[]): { labels: string[] } {
@@ -116,5 +121,17 @@ describe('issueTypeToAdwLabel', () => {
 
   it('/adw_init → null (no classification label)', () => {
     expect(issueTypeToAdwLabel('/adw_init')).toBeNull();
+  });
+});
+
+describe('the Promotion Proposal label', () => {
+  it('promotion-proposal together with adw:none reads as opted out, with no classification and no conflict', () => {
+    expect(readAdwLabelNames([ADW_NONE_LABEL, ADW_PROMOTION_PROPOSAL_LABEL])).toEqual({ optOut: true, classification: null, conflict: false });
+  });
+
+  it('promotion-proposal is not provisioned at cron start but resolves to its own definition', () => {
+    expect(ADW_LABEL_DEFINITIONS.map((definition) => definition.name)).not.toContain(ADW_PROMOTION_PROPOSAL_LABEL);
+    expect(resolveAdwLabelDefinition(ADW_PROMOTION_PROPOSAL_LABEL)).toEqual(PROMOTION_PROPOSAL_LABEL_DEFINITION);
+    expect(PROMOTION_PROPOSAL_LABEL_DEFINITION.name).toBe('promotion-proposal');
   });
 });
