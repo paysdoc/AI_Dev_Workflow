@@ -585,6 +585,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── fixtures/
+│   │   │   ├── cucumberJsUsage/      # cucumber-js project and `usage` JSON report for the unused-step reader tests
+│   │   │   ├── cucumberJvmUnused/    # Java/Kotlin step definitions, features and `unused` plugin reports for the cucumber-jvm reader tests
+│   │   │   ├── playwrightBddUnused/  # Features, step templates and `bddgen export --unused-steps` output for the playwright-bdd reader tests
 │   │   │   ├── decisionDocs.ts  # Shared module-doc/ADR fixtures for the docs-decisions tests
 │   │   │   ├── deviceOutcome.ts  # Reads the outcome of withDevices for a test that expects one kind of it: the result of a ready outcome, or the failure of any other
 │   │   │   ├── leftoverDevicesHost.ts  # Recording host that reports emulators and simulators left behind, for the device inventory and janitor tests
