@@ -1,0 +1,107 @@
+[
+  {
+    "matches": [
+      {
+        "line": 5,
+        "text": "the invoice is sent",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/invoices.feature"
+      }
+    ],
+    "code": "function(){}",
+    "line": 3,
+    "pattern": "the invoice is sent",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/invoices.steps.ts"
+  },
+  {
+    "matches": [],
+    "code": "function(){}",
+    "line": 4,
+    "pattern": "a returning customer",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/invoices.steps.ts"
+  },
+  {
+    "matches": [
+      {
+        "line": 4,
+        "text": "the shop is open",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/invoices.feature"
+      },
+      {
+        "line": 4,
+        "text": "the shop is open",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      },
+      {
+        "line": 4,
+        "text": "the shop is open",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      },
+      {
+        "line": 4,
+        "text": "the shop is open",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      }
+    ],
+    "code": "function(){}",
+    "line": 3,
+    "pattern": "the shop is open",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/orders.steps.ts"
+  },
+  {
+    "matches": [
+      {
+        "line": 11,
+        "text": "a customer orders 1 \"pears\"",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      },
+      {
+        "line": 7,
+        "text": "a customer orders 2 \"apples\"",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      },
+      {
+        "line": 11,
+        "text": "a customer orders 3 \"pears\"",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      }
+    ],
+    "code": "function(_count,_item){}",
+    "line": 4,
+    "pattern": "a customer orders {int} {string}",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/orders.steps.ts"
+  },
+  {
+    "matches": [
+      {
+        "line": 8,
+        "text": "the order is accepted",
+        "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/features/orders.feature"
+      }
+    ],
+    "code": "function(){}",
+    "line": 5,
+    "pattern": "the order is accepted",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/orders.steps.ts"
+  },
+  {
+    "matches": [],
+    "code": "function(){}",
+    "line": 6,
+    "pattern": "the order is rejected",
+    "patternType": "CucumberExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/orders.steps.ts"
+  },
+  {
+    "matches": [],
+    "code": "function(_hour){}",
+    "line": 7,
+    "pattern": "^the shop closes at (\\d+)$",
+    "patternType": "RegularExpression",
+    "uri": "adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/orders.steps.ts"
+  }
+]

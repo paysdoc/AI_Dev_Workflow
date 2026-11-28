@@ -13,6 +13,8 @@ vi.mock('../../forge/issueLinkMarker', () => ({
 }));
 
 import { isScenarioStale, runPerIssueScenarioSweep, stepDefIssueNumber, RETENTION_DAYS } from '../perIssueScenarioSweep';
+import { getDefaultScenariosConfig } from '../../core/projectConfig';
+import { resolveScenarioDirectories } from '../../core/scenarioDirectories';
 import { collectNominations, NOMINATION_TAG, NominationState } from '../../promotion/nominationCollector';
 import type { FeatureFileSource } from '../../proof/featureScenarioIndex';
 import type { GitContext } from '@paysdoc/devplatform/git';
@@ -497,6 +499,8 @@ describe('runPerIssueScenarioSweep — default wiring through the injected GitCo
       listStepDefSiblings: () => [],
       listOrphanStepDefs: () => [],
       persistRemoval: vi.fn(),
+      readDirectories: () => resolveScenarioDirectories(getDefaultScenariosConfig()),
+      readStepUsage: async () => ({ kind: 'not_supported', framework: '' }),
     });
 
     expect(mockCtx.createWorktreeForNewBranch).not.toHaveBeenCalled();

@@ -4,12 +4,12 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 
 ## What it does
 
-- **SDLC orchestrators** — `adwSdlc` runs plan → plan validation → build → step definitions → unit tests → scenarios → review → PR → document → merge for one issue; `adwPlanBuild*`, `adwChore`, `adwPatch` and the single-phase scripts (`adwPlan`, `adwBuild`, `adwTest`, `adwPrReview`, `adwDocument`) compose subsets.
+- **SDLC orchestrators** — `adwSdlc` runs baseline → install → plan ∥ scenarios → plan/scenario alignment → build → unit tests → scenario fix loop → review → document → PR → proof publish for one issue, handing merge to `adwMerge`; `adwPlanBuild*`, `adwChore`, `adwPatch` and the single-phase scripts (`adwPlan`, `adwBuild`, `adwTest`, `adwPrReview`, `adwDocument`) compose subsets.
 - **Issue classification and routing** — an LLM classifies each issue as `/chore`, `/bug`, `/feature` or `/pr_review` and routes it to the matching orchestrator; `adw:*` labels override the classifier.
 - **Cron and webhook triggers** — `trigger_cron.ts` polls every 20 s and `trigger_webhook.ts` takes HMAC-signed GitHub webhooks (optional Cloudflare tunnel), each event isolated so one failure cannot crash the trigger.
 - **Dependency-aware scheduling** — an LLM extracts `blocked by` dependencies, deferred issues are unblocked when their blocker closes, and a per-repo concurrency cap and region-overlap check limit parallel work.
 - **Plan-then-build pipeline** — plans live only in the issue's worktree; the build agent works through them with a novelty progress gate that stops builds that loop or make no progress.
-- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written, aligned with the plan and given step definitions, then frozen during the scenario fix loop and re-checked against the issue for fidelity; a boundary-tag gate fails any scenario whose `@boundary-<name>` tag is missing or names no Real Boundary declared in `.adw/scenarios.md`.
+- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written alongside the plan, aligned with it, driven red-to-green by the build agent (which writes the step definitions), then frozen during the scenario fix loop and re-checked against the issue for fidelity; a boundary-tag gate fails any scenario whose `@boundary-<name>` tag is missing or names no Real Boundary declared in `.adw/scenarios.md`.
 - **Machine gates before review** — type checks, lint, build, unit tests and `@regression`/per-issue scenarios must pass first; fix loops reject suppression comments and weakened check configuration.
 - **Baseline gate** — the base branch is checked and its dev server started first; a red base or a pre-existing regression parks the workflow instead of handing it to the fix agent.
 - **Application-type-driven evidence** — `cli`, `web` (ADW-owned Playwright project) or `mobile:kotlincm` (per-workflow Android emulator and iOS simulator) decides how scenarios run and what proof is collected.
@@ -18,7 +18,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **HITL-gated auto-merge** — `adwMerge` merges when `(no hitl label) OR (PR approved)`, after merging the base branch in (resolving conflicts) and re-running the scenarios on the result.
 - **Operator directives** — `## Retry`, `## Continue` (waive a base-branch park) and `## Cancel` (scorched-earth reset) comments steer parked, failed or stuck workflows.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; a CI gate and a daily sweep keep the `.adw/conditional_docs.md` index healthy.
-- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate.
+- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js the sweep files one `adw:chore` issue listing the step definitions that no feature file uses.
 - **Multi-provider support** — `IssueTracker`/`CodeHost` ports from `@paysdoc/devplatform` back GitHub, GitLab and Jira issue trackers and GitHub/GitLab code hosts, plus GitHub Projects V2 board automation.
 - **Resilience primitives** — worktree isolation, per-issue spawn locks, PID liveness and heartbeats, takeover with worktree reuse probing, hung-orchestrator detection, dev-server and device janitors, and remote stage reconciliation.
 - **Rate-limit and auth recovery** — in-process waits for known reset times, a per-repo pause queue with automatic resume, and a `paused_auth` queue with Slack alerts.
@@ -311,7 +311,7 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 | Directory | Purpose |
 |---|---|
 | `features/regression/` | Promoted regression suite — run by the `@regression` tag. |
-| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe. File naming: `feature-{issueNumber}.feature`. |
+| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe, which reads the per-issue and step-definition directories `.adw/scenarios.md` names, keeps a step-definition file a remaining scenario still uses, and for cucumber-js files one `adw:chore` issue listing the step definitions that no feature file uses. File naming: `feature-{issueNumber}.feature`. |
 
 Top-level `features/*.feature` files were removed in the BDD cutover (issue #493). All promoted scenarios now live exclusively under `features/regression/`.
 
@@ -1329,6 +1329,7 @@ features/               # BDD feature files (Gherkin .feature)
 │   ├── playwright/     # Regression scenarios covering web repositories running their Gherkin on ADW's Playwright project: the framework upgrade installing it in features/ byte-identical to its template (beside the repository's own e2e setup, never for cli), the scenario test phase running npx bddgen then npx playwright test with the dev server's address and ADW's report and proof paths, and a fresh web repository's real run (#992)
 │   ├── proof/          # Regression scenarios covering the scenario proof and the BDD Proof comment of a tag whose scenario runner writes no JUnit report to ADW_JUNIT_REPORT_PATH: the tag still passes or fails on its exit code, the comment shows "no report" and says the counts are unavailable instead of "0 passed, 0 failed", the comment and the tag's proof section warn that it passed on the exit code only, a report with no test case still fails as a blocker, and a run with a report is shown as before (#1102)
 │   ├── rate-limit/     # Regression scenarios covering rate-limit detection — the limit type and reset time carried from the stream parser through the rate-limit error to the pause-queue probe, which classifies documented signals only (#907) — and the in-process wait for a five-hour rate limit: the wait policy, the announced waits, liveness while waiting, and the pause-path fallback (#912)
+│   ├── resume/         # Regression scenario covering a workflow resumed after its worktree was removed: it parks as `worktree_lost` instead of re-running the planner (#1078)
 │   ├── retry-directive/  # Regression scenarios covering the ## Retry directive: reviving a workflow stranded in the paused stage, while paused_auth, running, finished and human-gated stages behave as before (#908)
 │   ├── review/         # Regression scenarios covering the review comment on the issue: it shows the screenshots of the proof run the review judged, each embedded from the URL its upload returned, on a passing and a failing review, and a screenshot never decides or blocks the review (#937)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
