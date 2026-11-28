@@ -50,7 +50,7 @@ const INSTRUCTIONS: readonly string[] = [
 ];
 
 /** Delimited by one backtick more than the longest run inside the text, so a pattern holding backticks stays one span. */
-function codeSpan(text: string): string {
+export function codeSpan(text: string): string {
   const longestRun = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
   const fence = '`'.repeat(longestRun + 1);
   const padding = longestRun > 0 ? ' ' : '';

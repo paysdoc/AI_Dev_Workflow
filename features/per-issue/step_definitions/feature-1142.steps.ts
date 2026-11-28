@@ -12,6 +12,7 @@ import assert from 'assert';
 
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import {
+  cronOutputsOf,
   emptyIssueQueue,
   filedIssueNumber,
   filedIssues,
@@ -42,17 +43,8 @@ const CHORE_LABEL = 'adw:chore';
 const ISSUE_STEP_LINE = 3;
 const USAGE_REPORT_READ: readonly RegExp[] = [/no unused step definitions/, /filed removal issue #\d+/, /is still open — not filing another/];
 
-const cronOutputs = new WeakMap<RegressionWorld, string[]>();
-
-function outputsOf(world: RegressionWorld): string[] {
-  const outputs = cronOutputs.get(world) ?? [];
-  cronOutputs.set(world, outputs);
-  return outputs;
-}
-
 async function runCron(world: RegressionWorld): Promise<void> {
   const output = await runCronWithSweepDue(world);
-  outputsOf(world).push(output);
   if (requireTarget(world).framework !== CUCUMBER_JS) return;
   assert.ok(
     USAGE_REPORT_READ.some((line) => line.test(output)),
@@ -123,7 +115,7 @@ When(
   { timeout: CRON_STEP_TIMEOUT_MS },
   async function (this: RegressionWorld) {
     const filed = theOneFiledIssue(this);
-    const issueNumber = filedIssueNumber(outputsOf(this));
+    const issueNumber = filedIssueNumber(cronOutputsOf(this));
     await keepIssueOpen(this, issueNumber, filed);
     await runCron(this);
 
@@ -142,7 +134,7 @@ Then("the sweep's merged pull request removed {string} from the target repositor
 
 Then('the cron filed exactly one chore issue in the target repository', function (this: RegressionWorld) {
   theOneFiledIssue(this);
-  const issueNumber = filedIssueNumber(outputsOf(this));
+  const issueNumber = filedIssueNumber(cronOutputsOf(this));
   assert.ok(labelsOf(this, issueNumber).includes(CHORE_LABEL), `Expected issue #${issueNumber} to be labelled ${CHORE_LABEL}, but its labels are: ${labelsOf(this, issueNumber).join(', ') || 'none'}`);
 });
 
@@ -159,5 +151,5 @@ Then('the cron filed no issue in the target repository', function (this: Regress
 
 Then('the cron logged that finding unused Step Definitions is not supported for the BDD framework {string}', function (this: RegressionWorld, framework: string) {
   const line = `finding unused step definitions is not supported for BDD framework "${framework}"`;
-  assert.ok(outputsOf(this).some((output) => output.includes(line)), `Expected the cron to log "${line}". Last output:\n${outputTail(this.lastOutput)}`);
+  assert.ok(cronOutputsOf(this).some((output) => output.includes(line)), `Expected the cron to log "${line}". Last output:\n${outputTail(this.lastOutput)}`);
 });

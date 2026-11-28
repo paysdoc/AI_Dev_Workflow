@@ -53,7 +53,7 @@ function makeFakeCodeHost(overrides: Record<string, unknown> = {}): CodeHost {
 
 function makeFakeBoundary(gitContext: GitContext, codeHost: CodeHost = makeFakeCodeHost()): LaunchBoundary {
   const repoId: RepoIdentifier = { owner: gitContext.owner, repo: gitContext.repo, platform: Platform.GitHub };
-  return { gitContext, repoId, providers: { issueTracker: {} as never, codeHost } } as LaunchBoundary;
+  return { gitContext, repoId, providers: { issueTracker: { listIssues: vi.fn(() => []) } as never, codeHost } } as LaunchBoundary;
 }
 
 /** Clears every candidate: these tests pin the persist wiring, the gate has its own tests. */

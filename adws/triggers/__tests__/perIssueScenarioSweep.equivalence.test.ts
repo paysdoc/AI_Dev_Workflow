@@ -160,7 +160,7 @@ function recordingBoundary(sweepCase: SweepCase, worktreePath: string, calls: un
     createPullRequest: (spec: unknown) => (record('createPullRequest', spec), { number: 77, url: 'https://github.com/acme/widgets/pull/77' }),
     mergePullRequest: (prNumber: number) => (record('mergePullRequest', prNumber), sweepCase.mergeSucceeds ? { success: true } : { success: false, error: 'not mergeable' }),
   };
-  return { gitContext, repoId: { owner: 'acme', repo: 'widgets' }, providers: { issueTracker: {}, codeHost } } as unknown as LaunchBoundary;
+  return { gitContext, repoId: { owner: 'acme', repo: 'widgets' }, providers: { issueTracker: { listIssues: () => [] }, codeHost } } as unknown as LaunchBoundary;
 }
 
 function depsFor(sweepCase: SweepCase, boundary: LaunchBoundary, gateCalls: string[][]): PerIssueSweepDeps {

@@ -1,72 +1,61 @@
 ---
 name: promote-regression-vocabulary
-description: Scan per-issue BDD features for regression-promotion candidates and analyse each Given/When/Then phrase against the regression vocabulary's rot-detection rubric and existing phrase registry. Advisory only — produces per-phrase reuse and rot verdicts to inform a collaborative promotion decision; writes nothing. Use when the user wants to promote a scenario to the regression suite, vet phrases for @features/regression/vocabulary.md, check for phrase reuse/collision, or asks about "promotion candidates", "vocabulary rot", or "regression phrase audit".
+description: The analysis of a Promotion Proposal. For each nominated candidate it writes why it qualifies for the Regression Suite and how it fits the existing Regression Suite, including overlap with the scenarios already there, phrase reuse against the Vocabulary Registry and rot in its step definitions. Advisory only; writes nothing. Use when analysing a "promotion proposal" or a "nominated scenario", or asked about "regression fit", "overlap with the regression suite", "vocabulary rot" or "phrase reuse".
 ---
 
-# Promote Regression Vocabulary (advisory)
+# Promotion Proposal analysis (advisory)
 
-Analyse BDD phrases for promotion into `features/regression/vocabulary.md` and the regression
-suite. **You produce verdicts, not edits.** Do not write files, move features, or touch the
-registry — the human owns the promotion decision. Surface the analysis and stop.
+A Promotion Proposal offers the owner a repository's Nominations side by side. For each candidate it says why it qualifies for the Regression Suite and how it fits the Regression Suite as it stands, including its overlap with the scenarios already there. This skill writes that analysis. **You produce analysis, not edits**: write nothing, and leave the decision to the owner.
 
-## Two verdicts per phrase
+## Candidates
 
-1. **Reuse / collision** — is this phrase already registered? Reusing an existing phrase is
-   strongly preferred over minting a near-duplicate.
-2. **Rot** — would this phrase, as backed by its step definition, assert an *observable system
-   behaviour* (valid) or a *source-code property* (rot, rejected)?
+- By default, the candidates are the scenarios tagged `@nominated` on their own tag line in the Per-Issue Scenario files of issues whose pull request has merged.
+- When the caller names candidates, analyse those and no others: the cron passes a list, and a person may name scenarios in a session.
+- A scenario tagged `@nomination-declined` is never a candidate: the owner declined it.
 
-`features/regression/vocabulary.md` is the source of truth for the rubric; the summary below is a
-working copy.
+## Configuration
 
-### Rot rubric (from vocabulary.md)
-A phrase is **ROT** if its step definition asserts any of:
-- File shape — exists? line count? extension?
-- File content by substring — `readFileSync(...).includes(...)`
-- Structural source read — `JSON.parse(readFileSync(config.ts))`
+Read `.adw/scenarios.md`; never assume a path.
 
-A phrase is **VALID** when it asserts an *artefact* the system-under-test produced: state files
-written by an orchestrator, recorded mock-server requests, git artefacts (branches/commits/pushes),
-subprocess exit codes, or captured stdout/stderr. The Gherkin text alone can't tell you which —
-**you must read the backing step definition** to judge rot.
+- `## Per-Issue Scenario Directory`: where the candidates live.
+- `## Regression Scenario Directory`: the Regression Suite. A scenario tagged `@regression` belongs to it too, wherever it lives.
+- `## Vocabulary Registry`: the Regression Suite's phrase registry.
+- `## Step Def Directory`: where the step definitions behind the steps live.
+- `## Real Boundaries`: the boundaries a scenario may drive, each named by a `@boundary-<name>` tag.
 
-## Workflow
+In ADW's own repository, `bun .claude/skills/promote-regression-vocabulary/scripts/list-registered-phrases.ts`, run from the repository root, prints the registry normalised, one `SOURCE⇥NORMALISED_PHRASE` per line (SOURCE is `vocab` or a step definition file's basename). Elsewhere, read the Vocabulary Registry file directly.
 
-1. **Scope the candidates.** Default: scenarios in `features/per-issue/*.feature` tagged
-   `@promotion-suggested-<date>` (the promotion pipeline pre-tags aged, high-scoring scenarios).
-   If the user names a file or pastes phrases, use those. List the candidates and confirm scope
-   before analysing — this is a collaborative review, not a batch job.
+## Why it qualifies
 
-2. **Load the registry.** Run once from the repo root:
-   ```
-   bun .claude/skills/promote-regression-vocabulary/scripts/list-registered-phrases.ts
-   ```
-   Output is `SOURCE⇥NORMALISED_PHRASE` (SOURCE = `vocab` or a step-def basename). Normalisation
-   maps `"..."`→`{string}` and integers→`{int}`, matching cucumber-expression shape.
+A scenario belongs in the Regression Suite only when it guards a behaviour whose breakage would be expensive and that no scenario of the Regression Suite already guards. That it exists and passes is no argument. State:
 
-3. **Per candidate scenario, per Given/When/Then step:**
-   - **Reuse check** — normalise the step the same way (quotes→`{string}`, ints→`{int}`) and match
-     against the registry. Exact match ⇒ *reuse verbatim*. Close semantic match ⇒ *reuse existing,
-     don't mint a variant* (name the existing phrase). No match ⇒ *new phrase*.
-   - **Rot check** — locate the backing step definition (grep the phrase across
-     `features/**/step_definitions/*.ts`) and read its assertion body. Judge it against the rubric.
-     If the phrase is new (no step def yet), judge from intent and flag that its implementation
-     **must** assert an observable artefact, not a source-file read.
+- the behaviour it guards, and why a break of it would be expensive;
+- the Real Boundary its `@boundary-<name>` tag names, whether `## Real Boundaries` declares it, and whether its step definitions, traced, really drive that boundary: a scenario may only prove behaviour observable through a Real Boundary;
+- that no regression scenario guards it yet, or which one does.
 
-4. **Report.** One table per candidate scenario:
+Say plainly when a candidate does not qualify: an in-process scenario, a duplicate of a regression scenario, or a scenario whose step definitions rot. The owner decides.
 
-   | Step (G/W/T) | Reuse | Rot | Note |
-   |---|---|---|---|
-   | `the state file for adwId {string} records ...` | reuse T1 (vocab) | VALID | verbatim |
-   | `feature-729.steps.ts asserts file exists` | new | **ROT** | asserts file shape — rework to assert a produced artefact |
+## How it fits the Regression Suite
 
-   Close with a recommendation: which phrases are promotion-ready, which need rewording to reuse an
-   existing entry, and which are rot and must be reworked or dropped. **Then stop — no edits.**
+- **Place**: the regression feature file it would join, or that it needs a new one.
+- **Reuse check**, per Given/When/Then step: normalise the step (`"..."`→`{string}`, integers→`{int}`) and match it against the registry. An exact match reuses the phrase verbatim. A close match should reuse the existing phrase instead of minting a variant: name that phrase. No match is a new phrase.
+- **Rot check**, per step definition: read the step definition behind each step and judge it against the rubric below. A new phrase with no step definition yet is judged by intent, and its implementation must assert an observable artefact.
+
+### Rot rubric
+
+A step definition is **ROT** if it asserts any of:
+- File shape: exists? line count? extension?
+- File content by substring: `readFileSync(...).includes(...)`
+- Structural source read: `JSON.parse(readFileSync(config.ts))`
+
+It is **VALID** when it asserts an artefact the system under test produced: state files an orchestrator wrote, recorded mock-server requests, git artefacts (branches, commits, pushes), subprocess exit codes, or captured stdout and stderr. The Gherkin text alone cannot tell you which: **read the step definition** before you rule.
+
+## Overlap with the Regression Suite
+
+Name each regression scenario, by its file and its scenario name, that guards the same or an overlapping behaviour, and say how far it overlaps. Two candidates that guard the same behaviour overlap each other: say so too. Report none when there is none.
 
 ## Guardrails
-- Never edit `vocabulary.md`, never `git mv` a feature or its step defs, never add `@regression`.
-- A phrase's rot verdict lives in its **step definition**, not its Gherkin text — always read the
-  implementation before ruling.
-- Prefer reuse. A near-duplicate phrase is a finding, not a convenience.
-- The automated promotion *mover* (`adws/promotion/`) is effectively dead; real regression tests are
-  hand-placed. This skill informs that human step — it does not perform it.
+
+- Never edit the Vocabulary Registry, never move or edit a feature file or a step definition, and never add `@regression`.
+- Never add or remove `@nominated` or `@nomination-declined`.
+- Write nothing: the analysis is your whole output.
