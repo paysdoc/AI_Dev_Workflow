@@ -1,5 +1,9 @@
 # Regression Vocabulary Registry
 
+## Scope
+
+This registry binds the Regression Suite only: the scenarios tagged `@regression`. A Per-Issue Scenario is phrased in its issue's own terms and is never checked against it. When a scenario is promoted into the Regression Suite, its steps are reworded to these phrases, and a new phrase is registered only when none of these fits.
+
 ## Rot-Detection Rubric
 
 A vocabulary phrase is valid for `@regression` use **only when it asserts an observable system
@@ -17,13 +21,11 @@ orchestrator, recorded calls on a mock server, git artifacts produced by a phase
 
 <!-- TODO (slice #3, issue ??): Populate this section with repo-specific examples of observability surfaces — state files, mock servers, git artifacts, log streams, exit codes — that scenarios in this repo can validly assert against. The slice #3 LLM-drafting step will fill this block based on the detected project stack and dependencies. -->
 
-## Three Permitted Execution Patterns
+## Execution at a Real Boundary
 
-1. **Subprocess** — spawn a CLI entry-point, assert against state files, recorded mock calls, or git artefacts written by the process.
-2. **Function/module import** — import a phase function directly, call it with a mocked config, assert against state mutations or mock server recordings.
-3. **Mock query** — call the mock server or git-mock recording API directly; assert against the sequence of recorded requests without running a subprocess.
+Every regression scenario drives one of the Real Boundaries this repository declares under `## Real Boundaries` in `.adw/scenarios.md`: its real runtime, a real browser, the built artifact or a real command-line invocation. Its phrases set up, drive or observe that boundary from outside the application's own process. Behaviour provable inside the test process, by calling a function, a module or a phase with stand-ins around it, belongs to unit tests alone, and no phrase is registered for it.
 
-## Given — Subprocess / Mock Setup
+## Given — Setup
 
 | # | Phrase | Semantics |
 |---|--------|-----------|
@@ -36,9 +38,9 @@ orchestrator, recorded calls on a mock server, git artifacts produced by a phase
 |---|--------|-----------|
 | W1 | `the {string} subprocess is invoked with args {string}` | Spawns the named CLI entry-point with the given argument string and captures its exit code |
 
-## Then — State / Mock / Exit Assertions
+## Then — Observed Outcomes
 
 | # | Phrase | Semantics |
 |---|--------|-----------|
 | T1 | `the subprocess exits {int}` | Asserts the captured exit code equals the expected value |
-| T2 | `the mock server recorded a {string} request to {string}` | Queries mock-server recordings and asserts at least one request with the given method and path was captured |
+| T2 | `the mock server recorded a {string} request to {string}` | Asserts that the process under test sent the mock server at least one request with the given method and path |

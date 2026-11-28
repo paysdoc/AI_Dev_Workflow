@@ -223,20 +223,43 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Step Def Directory` → `features/step_definitions` (default)
    - **Always include** a `## Per-Issue Scenario Directory` section with value `features/per-issue/` (independent of the detected scenario tool).
    - **Always include** a `## Regression Scenario Directory` section with value `features/regression/` (independent of the detected scenario tool).
-   - **Copy the framework vocabulary template**: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
+   - **Write the `## Real Boundaries` section**: the surfaces through which the repository's behaviour is observed from outside its own process. The scenario agent tags each scenario it writes with the `@boundary-<name>` of the boundary it drives, and the scenario test phase fails a scenario whose tag is missing or names no entry of the list.
+     - If the existing `.adw/scenarios.md` has a `## Real Boundaries` section, preserve it verbatim, its comment and every entry, even when it lists none. The list follows the code: the pull request that adds or removes a boundary changes it, and an upgrade must not reset it.
+     - Otherwise, when step 3 left `## Application Type` out because step 1 could not decide, leave this section out too. The list then reads as absent, the scenario test phase skips its boundary-tag check, and the scenario agent creates the list on its first run, from the type the owner sets.
+     - Otherwise write the heading, then this comment, exactly as written:
+       ```md
+       <!-- Consumed by scenario_writer, the reviewer and the scenario test phase. One top-level entry per Real Boundary:
+            - `<name>` — <what the boundary is and how a scenario drives it>
+            with <name> in lowercase letters, digits and hyphens. Every scenario tagged @adw-{issue} carries the tag
+            @boundary-<name> of the boundary it drives; a missing tag, or one whose name is not listed here, fails the
+            scenario test phase. Absent section → the check is skipped. -->
+       ```
+       then the entries of the application type step 3 writes (the type it preserves, or the one step 1 detects), each alone on its line, exactly as the boundary entries below spell it, and in their order:
+       - `cli` → `cli` for a command-line tool, scripts or automation, `http` for a service with an HTTP API, `package` for a library: one entry for each of these the repository is, and `cli` when step 1 found none of them
+       - `web` → `browser`, and `http` as well when the application serves an HTTP API besides its pages
+       - `mobile:kotlincm` → `app`
+     - The boundary entries:
+       ```md
+       - `cli` — the built command-line tool, run as a real process with the arguments a user passes
+       - `http` — the HTTP API of the running application, called over HTTP at the address it listens on
+       - `package` — the built package, installed into a scratch project and used there from a script run as a real process
+       - `browser` — the application served by the dev server ADW starts, driven in a real browser through ADW's Playwright project in `features/`
+       - `app` — the application installed on the Android emulator and the iOS simulator ADW boots for each run, driven through Appium by the `:scenarios` Gradle module
+       ```
+   - **Copy the framework vocabulary template** into a repository that has no registry yet: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
      ```bash
      mkdir -p features/regression
-     cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md
+     if [ -f features/regression/vocabulary.md ]; then echo "vocabulary kept"; else cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md && echo "vocabulary copied"; fi
      ```
-     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 11 report.
-   - **Draft the observability-surfaces examples block**: after the template copy above, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`.
+     An existing `features/regression/vocabulary.md` is left exactly as it is: it is the Regression Suite's registry, which a Promotion extends and an audit prunes, and an upgrade must neither reset it nor migrate its phrases. If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 11 report.
+   - **Draft the observability-surfaces examples block**: only when the command above printed `vocabulary copied`, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`. When it printed `vocabulary kept`, skip this drafting and report it as skipped in step 11.
 
      **Classification rules** (use the analysis already performed in step 1 — do not re-read manifests):
      - **browser-test-equipped** — the application type is `web`, because ADW's Playwright project gives it Playwright; or at least one of `@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch` appears in `devDependencies` of `package.json` (Node), or the equivalent browser-test runner in `requirements.txt`/`pyproject.toml` (Python: `playwright`, `pytest-playwright`, `selenium`), `Gemfile` (Ruby: `capybara`, `selenium-webdriver`), `pom.xml`/`build.gradle` (Java: `selenium-java`, `playwright-java`), or `.csproj`/`packages.config` (.NET: `Microsoft.Playwright`, `Selenium.WebDriver`).
      - **CLI-only** — no browser test runner detected and at least one manifest was parseable.
      - **fallback** — no manifest could be parsed (empty repo, unrecognised stack).
 
-     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 11.
+     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Execution at a Real Boundary`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present in the copied template, skip and log a warning in step 11.
 
      **Browser-test-equipped block** (`new_string`):
      ```
@@ -323,11 +346,12 @@ EOF
    - Note the `## Application Type` written to `.adw/project.md`: the value, and whether it was detected or preserved; or `left out — detection could not decide (the next ADW run parks the issue with missing_application_type)`.
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (`web`, `mobile:kotlincm` and Cucumber/Gherkin branches only).
+   - Note the `## Real Boundaries` section of `scenarios.md`: `written` with the names of its entries, `preserved` (the section already existed), or `left out — the application type is undecided (the scenario agent creates the list on its first run)`.
    - For `mobile:kotlincm`: the `## Scenario Run Contract` written to `scenarios.md`; each of `## Android System Image`, `## Android Device Profile`, `## iOS Device Type` and `## iOS Runtime` in `project.md` as `default` or `preserved`; and whether the Gradle `## Run Tests` was written, replaced an `N/A`, or a custom command was preserved.
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
    - Note the `## Test Directory` and `## Test Framework` values written to `commands.md`.
    - Note whether the starter guardrails `.claude/settings.json` (step 7) was copied or skipped (already present), and that a `## Agent Guardrails` section was written to `.adw/project.md` reflecting that outcome. This edit's presence in `adw_init.md` is what bumps `.adw-version` and fans the starter-settings copy out to every registered target repo on the next upgrade regen (issue #763).
-   - If the vocabulary template copy was skipped (empty `$3`), note the warning here
+   - `features/regression/vocabulary.md`: `copied` from the template, `kept` (the repository already had its registry, left as it was), or `skipped` for an empty `$3`, with its warning.
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.
    - `.github/adw.yml` status: `created` or `already present — left untouched`.
    - Comments entry: the guidelines file used, and `added`, `replaced` or `already present`.
