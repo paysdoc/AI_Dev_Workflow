@@ -54,6 +54,17 @@ Feature: The owner's decision on a Promotion Proposal takes effect through one i
     And the sweep's merged pull request removed "features/per-issue/feature-114607.feature" from the target repository's default branch
 
   @adw-1146 @subprocess @boundary-subprocess
+  Scenario: The cron's Per-Issue Sweep keeps the stale Per-Issue Scenario whose nominated scenario is a candidate of the Promotion Proposal the owner closed as not planned until the cron's decision pass has declined that candidate, and its next sweep removes that Per-Issue Scenario
+    Given the target repository's scenario configuration names the BDD framework "cucumber-js", the per-issue scenario directory "features/per-issue/" and the step definition directory "features/step_definitions"
+    And the target repository holds the Per-Issue Scenario "features/per-issue/feature-114613.feature" of issue 114613, whose pull request merged 15 days ago, with the nominated scenario "A parcel is lost"
+    And the owner closed as not planned the Promotion Proposal offering that scenario
+    When the cron runs with its Per-Issue Sweep due, before its decision pass has acted on that Promotion Proposal
+    Then the target repository's default branch still holds "features/per-issue/feature-114613.feature"
+    When the cron runs with its Promotion Proposal decision pass due
+    And the cron runs again with its Per-Issue Sweep due, after its decision pass has acted on that Promotion Proposal
+    Then the sweep's merged pull request removed "features/per-issue/feature-114613.feature" from the target repository's default branch
+
+  @adw-1146 @subprocess @boundary-subprocess
   Scenario: adwChore, working the implementation issue the cron's decision pass files, starts no scenario agent, runs the Regression Suite and the review, and approves its pull request, leaving it to merge with no human gate
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-chore-regression-promotion.json"
     And the implementation issue 114610 that the cron's decision pass files for the approved scenario "A subscription is renewed" of issue 114609, labelled "adw:chore" and "regression-promotion", exists in the mock issue tracker
@@ -79,3 +90,4 @@ Feature: The owner's decision on a Promotion Proposal takes effect through one i
     And that implementation issue names the scenario "A voucher is redeemed" of issue 114611
     And the cron opened exactly one sweep pull request in the target repository
     And the cron's merged sweep pull request replaced "@nominated" with "@nomination-declined" on the scenario "A voucher expires" of issue 114612
+    And the cron commented on that Promotion Proposal exactly once

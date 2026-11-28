@@ -80,10 +80,7 @@ export interface PerIssueSweepDeps {
   readStepUsage?: () => Promise<StepUsageOutcome>;
   listOpenRemovalIssues?: () => readonly UnusedStepIssueRef[];
   fileRemovalIssue?: (spec: UnusedStepIssueSpec) => number;
-  /**
-   * The candidates the sweep keeps: those of every undecided Promotion Proposal and the scenarios of every open promotion
-   * implementation issue. Throws when the forge cannot be read.
-   */
+  /** Candidates of every undecided Promotion Proposal and open promotion implementation issue; throws when the forge cannot be read. */
   readExemptCandidates?: () => readonly NominationKey[];
   log?: (msg: string, level?: string) => void;
 }

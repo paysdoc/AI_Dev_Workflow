@@ -161,19 +161,27 @@ export function subjectOfLastCommitTo(world: RegressionWorld, issue: number): st
   return realGit(ensureTargetWorkspace(world), 'log', '-1', '--format=%s', DEFAULT_BRANCH, '--', perIssueFeatureOf(world, issue));
 }
 
-function holdsDecisionRecord(request: RecordedRequest): boolean {
-  const { body } = JSON.parse(request.body) as { body?: string };
-  return (body ?? '').includes(`<!-- ${PROPOSAL_DECISION_MARKER}:`);
+function commentBodyOf(request: RecordedRequest): string {
+  return (JSON.parse(request.body) as { body?: string }).body ?? '';
+}
+
+export function holdsDecisionRecord(comment: string): boolean {
+  return comment.includes(`<!-- ${PROPOSAL_DECISION_MARKER}:`);
 }
 
 function closes(request: RecordedRequest): boolean {
   return (JSON.parse(request.body) as { state?: string }).state === 'closed';
 }
 
+/** The body of every comment posted on the issue, in the order posted, across all of the scenario's cron runs. */
+export function commentsPostedOn(world: RegressionWorld, issueNumber: number): string[] {
+  return requestsTo(world, 'POST', `${REPO_PATH}/issues/${issueNumber}/comments`).map(commentBodyOf);
+}
+
 /** Where, among the forge writes in the order they were made, the decision comment on the proposal and its close were recorded; -1 when not. */
 export function decisionCommentAndClose(world: RegressionWorld, proposal: number): { readonly comment: number; readonly close: number } {
   const requests = world.getRecordedRequests();
-  const comment = requests.findIndex((request) => request.method === 'POST' && request.url === `${REPO_PATH}/issues/${proposal}/comments` && holdsDecisionRecord(request));
+  const comment = requests.findIndex((request) => request.method === 'POST' && request.url === `${REPO_PATH}/issues/${proposal}/comments` && holdsDecisionRecord(commentBodyOf(request)));
   const close = requests.findIndex((request) => request.method === 'PATCH' && request.url === `${REPO_PATH}/issues/${proposal}` && closes(request));
   return { comment, close };
 }

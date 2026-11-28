@@ -14,7 +14,9 @@ import { addPerIssueScenario } from './feature-1142-target.ts';
 import { PAST_THE_GRACE_PERIOD_MS, keepProposalOpen, theFiledProposal } from './feature-1145-proposal.ts';
 import {
   OwnerClose,
+  commentsPostedOn,
   decisionCommentAndClose,
+  holdsDecisionRecord,
   isDeclineBranch,
   keepImplementationIssueOpen,
   mergedDeclinePullRequests,
@@ -42,6 +44,22 @@ function offeredCount(word: string): number {
   return count;
 }
 
+/**
+ * Leaves the mock forge's issues as they are, so the sweep reads the Promotion Proposal the scenario put there. The sweep
+ * reads its dry run's usage report only after it has read its exemption, so the guard also proves the exemption was read.
+ */
+async function runSweepBesideTheProposal(world: RegressionWorld): Promise<void> {
+  const output = await runCronWithSweepDue(world);
+  assert.ok(
+    USAGE_REPORT_READ.some((line) => line.test(output)),
+    `Expected the sweep to have read the usage report of its cucumber-js dry run and decided about the removal issue. Last output:\n${outputTail(output)}`,
+  );
+}
+
+function decisionRecorded(world: RegressionWorld): boolean {
+  return decisionCommentAndClose(world, seededProposalNumber(world)).comment !== -1;
+}
+
 Given(
   'the owner closed as completed the Promotion Proposal offering those {word} scenarios, with {string} and {string} ticked',
   async function (this: RegressionWorld, offered: string, first: string, second: string) {
@@ -62,6 +80,10 @@ Given(
     await seedClosedProposal(this, OwnerClose.NotPlanned, offeredCount(offered), [ticked]);
   },
 );
+
+Given('the owner closed as not planned the Promotion Proposal offering that scenario', async function (this: RegressionWorld) {
+  await seedClosedProposal(this, OwnerClose.NotPlanned, 1, []);
+});
 
 Given(
   'the target repository holds the Per-Issue Scenario {string} of issue {int}, whose pull request merged {int} days ago, with the declined scenario {string}',
@@ -156,16 +178,44 @@ Then('the cron commented on that Promotion Proposal and closed it', function (th
   assert.ok(close > comment, `Expected the cron to have closed Promotion Proposal #${proposal} after commenting on it. Last output:\n${outputTail(this.lastOutput)}`);
 });
 
+Then('the cron commented on that Promotion Proposal exactly once', function (this: RegressionWorld) {
+  const proposal = seededProposalNumber(this);
+  const comments = commentsPostedOn(this, proposal);
+  assert.strictEqual(
+    comments.length,
+    1,
+    `Expected the cron, across all its runs, to have commented on Promotion Proposal #${proposal} exactly once, but it commented ${comments.length} time(s):\n${comments.join('\n---\n') || 'none'}\nLast output:\n${outputTail(this.lastOutput)}`,
+  );
+  assert.ok(holdsDecisionRecord(comments[0]), `Expected the one comment on Promotion Proposal #${proposal} to hold the decision record, but it reads:\n${comments[0]}`);
+});
+
 When(
   'the cron runs again with its Per-Issue Sweep due, while the proposal its first run filed is still open',
   { timeout: CRON_STEP_TIMEOUT_MS },
   async function (this: RegressionWorld) {
     await keepProposalOpen(this, theFiledProposal(this), PAST_THE_GRACE_PERIOD_MS);
-    const output = await runCronWithSweepDue(this);
+    await runSweepBesideTheProposal(this);
+  },
+);
+
+When(
+  'the cron runs with its Per-Issue Sweep due, before its decision pass has acted on that Promotion Proposal',
+  { timeout: CRON_STEP_TIMEOUT_MS },
+  async function (this: RegressionWorld) {
+    assert.ok(!decisionRecorded(this), `Expected no decision record on Promotion Proposal #${seededProposalNumber(this)} yet`);
+    await runSweepBesideTheProposal(this);
+  },
+);
+
+When(
+  'the cron runs again with its Per-Issue Sweep due, after its decision pass has acted on that Promotion Proposal',
+  { timeout: CRON_STEP_TIMEOUT_MS },
+  async function (this: RegressionWorld) {
     assert.ok(
-      USAGE_REPORT_READ.some((line) => line.test(output)),
-      `Expected the sweep to have read the usage report of its cucumber-js dry run and decided about the removal issue. Last output:\n${outputTail(output)}`,
+      decisionRecorded(this),
+      `Expected the cron's decision pass to have left its decision record on Promotion Proposal #${seededProposalNumber(this)} first. Last output:\n${outputTail(this.lastOutput)}`,
     );
+    await runSweepBesideTheProposal(this);
   },
 );
 
