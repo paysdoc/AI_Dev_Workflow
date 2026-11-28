@@ -905,7 +905,7 @@ The scenario phase takes its runner from the application type's profile (`adws/c
 - gives each tag its own `ADW_PROOF_DIR` inside the proof's artifacts directory, because Playwright empties its output directory at the start of every run;
 - reads step definitions from `features/steps/` (`.ts`).
 
-The unit-test phase installs the project the same way before the static checks, since the repository's own type check or lint may cover `features/**`. `generate_step_definitions` receives the runner mode (`adw_playwright`) and writes `createBdd()` steps from `playwright-bdd` that take the `page` fixture; the configuration takes an end-state screenshot of every scenario that uses `page`.
+The unit-test phase installs the project the same way before the static checks, since the repository's own type check or lint may cover `features/**`. The build agent writes `createBdd()` steps from `playwright-bdd` that take the `page` fixture (see `.claude/skills/implement-tdd/step-definitions.md`); the configuration takes an end-state screenshot of every scenario that uses `page`.
 
 `cli` repositories are unchanged: the scenario phase runs `.adw/commands.md`'s command, with the step-definition directory and extensions `.adw/scenarios.md` names, and `ADW_PROOF_DIR` as before. The one difference is the extra `ADW_APPLICATION_URL` variable.
 

@@ -28,7 +28,7 @@ export const PASSED_BASELINE: BaselineRecord = { status: BaselineStatus.Passed, 
 export const WAIVED_BASELINE: BaselineRecord = { status: BaselineStatus.Waived, waivedPark: 'baseline_red', recordedAt: '2026-10-04T10:00:00.000Z' };
 
 export function testCase(name: string, status: TestCaseResult['status'], classname: string | null = FEATURE): TestCaseResult {
-  return { name, status, attachments: [], ...(classname === null ? {} : { classname }) };
+  return { name, status, incomplete: false, attachments: [], ...(classname === null ? {} : { classname }) };
 }
 
 export function tagResult(resolvedTag: string, overrides: Partial<TagProofResult> = {}): TagProofResult {

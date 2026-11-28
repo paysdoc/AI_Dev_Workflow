@@ -132,18 +132,6 @@ Feature: A "web" repository runs its Gherkin on a Playwright project that ADW ow
     And "npx playwright test --grep" was not run
     And the scenario proof records no blocker failures
 
-  Scenario: In a "web" repository the step-definition phase starts the generator in the mode for ADW's Playwright project
-    Given a workflow for issue 9926 whose worktree's ".adw/project.md" declares the application type "web"
-    When the workflow's step-definition phase runs
-    Then the step-definition generator was started once, for issue 9926
-    And the step-definition generator was started in the mode for ADW's Playwright project
-
-  Scenario: In a "cli" repository the step-definition phase starts the generator in the mode for the scenario runner that ".adw/scenarios.md" describes
-    Given a workflow for issue 9927 whose worktree's ".adw/project.md" declares the application type "cli"
-    When the workflow's step-definition phase runs
-    Then the step-definition generator was started once, for issue 9927
-    And the step-definition generator was started in the mode for the scenario runner that ".adw/scenarios.md" describes
-
   @host-only
   Scenario: In a fresh "web" repository the framework upgrade initialised, a per-issue scenario run writes its JUnit report to ADW's path and an end-state image for the scenario that opens a page, and none for the one that does not
     Given a web application repository never initialised by ADW, whose dev server serves a page titled "Widgets" at "/" and answers "/health" with status 200

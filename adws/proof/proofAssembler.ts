@@ -90,17 +90,35 @@ function cleanReportWarning(run: TagRun, report: TestReport): string | undefined
   return (
     `Process exited ${run.exitCode} but JUnit report is clean: ` +
     `${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped of ${report.total}. ` +
-    `Treating as PASS — pending/undefined scenarios and post-suite noise (e.g. D1 writes, ` +
-    `shutdown-hook rejections) are preserved verbatim in the Output section below.`
+    `Treating as PASS — post-suite noise (e.g. D1 writes, ` +
+    `shutdown-hook rejections) is preserved verbatim in the Output section below.`
   );
 }
 
+function undefinedStepWarning(run: TagRun, report: TestReport): string {
+  return (
+    `${report.incomplete} scenario(s) have an undefined or pending step and the run exited ${run.exitCode}: ` +
+    'write the missing step definitions'
+  );
+}
+
+// Cucumber exits non-zero for an undefined step always, and for a pending one under `strict`: this mirrors the runner's
+// own verdict, so a pending scenario of a run that is not strict still passes.
+function leftStepsUndefined(run: TagRun, report: TestReport): boolean {
+  return report.incomplete > 0 && run.exitCode !== 0;
+}
+
+function reportedWarning(run: TagRun, report: TestReport): string | undefined {
+  if (leftStepsUndefined(run, report)) return undefinedStepWarning(run, report);
+  if (report.failed > 0) return undefined;
+  return cleanReportWarning(run, report);
+}
+
 function reportedOutcome(run: TagRun, report: TestReport): TagOutcome {
-  const passed = report.failed === 0;
   return {
-    passed,
+    passed: report.failed === 0 && !leftStepsUndefined(run, report),
     skipped: false,
-    warning: passed ? cleanReportWarning(run, report) : undefined,
+    warning: reportedWarning(run, report),
     counts: { total: report.total, passed: report.passed, failed: report.failed },
     cases: report.cases,
   };

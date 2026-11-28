@@ -15,7 +15,6 @@ export {
   executePRPhase,
   executeDocumentPhase,
   executeScenarioPhase,
-  executeStepDefPhase,
   executeInstallPhase,
   executeReviewPhase,
   executeReviewPatchCycle,

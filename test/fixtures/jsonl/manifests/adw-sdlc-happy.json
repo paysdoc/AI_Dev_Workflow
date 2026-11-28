@@ -40,12 +40,6 @@
         { "path": "src/sdlcSmoke.ts", "contents": "export function sdlcSmoke(): string {\n  return 'smoke';\n}\n" }
       ]
     },
-    "/generate_step_definitions": {
-      "jsonlPath": ".adw-stub-payload.json",
-      "edits": [
-        { "path": ".adw-stub-payload.json", "contents": "[{\"type\":\"text\",\"text\":\"{\\\"removedScenarios\\\":[]}\"}]\n" }
-      ]
-    },
     "/test": {
       "jsonlPath": ".adw-stub-payload.json",
       "edits": [

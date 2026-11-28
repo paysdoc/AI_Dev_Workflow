@@ -8,12 +8,16 @@
     - adws/core/__tests__/testReportParser.test.ts
     - adws/core/__tests__/testVerdict.test.ts
     - adws/core/__tests__/resolveVerdict.test.ts
+    - adws/core/__tests__/testReportParser*.test.ts
   - Conditions:
     - When working on JUnit XML parsing, test verdict derivation, or scenario proof pass/fail resolution
     - When working on `testReportParser.ts`, `testVerdict.ts`, or `resolveVerdict.ts`
     - When debugging why a test phase verdict is wrong, how JUnit reports are aggregated, or the missing-vs-unparseable report ambiguity
+    - When working on cucumber's bare `<failure/>` (undefined/pending scenarios), the `incomplete` flag on `TestCaseResult`/`TestReport`, or why a scenario with an undefined step fails the scenario proof and enters the fix loop now that no step-definition phase exists
+    - When building `TestCaseResult` or `TestReport` literals in tests (both need the `incomplete` field)
   - Decisions:
     - 0043
+    - 0067
 
 - app_docs/feature-9gjajh-hash-and-versioning.md
   - Owns:
@@ -156,7 +160,6 @@
     - adws/phases/scenarioTestFixLoop.ts
     - adws/phases/scenarioFixPhase.ts
     - adws/phases/unitTestPhase.ts
-    - adws/phases/stepDefPhase.ts
     - adws/core/checkRunner.ts
     - adws/core/__tests__/checkRunner*.test.ts
     - adws/phases/__tests__/unitTestPhase*.test.ts
@@ -194,7 +197,7 @@
     - adws/phases/boundaryTagGate.ts
     - adws/phases/__tests__/boundaryTagGate.test.ts
   - Conditions:
-    - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
+    - When working on scenario writing, scenario test execution, scenario fix loop, or unit test phases in `adws/phases/`
     - When working on the static-check gate (`adws/core/checkRunner.ts`: `runStaticChecks`, `runShellCommand`, `CheckVerdict`) that runs type check, additional type checks, lint and build by exit code before the unit-test run
     - When a red static check should be fixed by the static-check fix loop (`runStaticCheckFixLoop`, `staticCheckGate.ts`, `staticCheckFixRound.ts`) rather than end the run, `unitTests: false` should still run the checks, or `.claude/commands/test.md` is expected to run only the unit-test command
     - When working on the fix-round guard (`evaluateFixRound`, `buildFixRoundGuardConfig`, `FRAMEWORK_SUPPRESSION_PATTERNS`, `PROTECTED_PATH_RULES`, `parseUnifiedDiff`), the `## Suppression Patterns` section of `.adw/commands.md`, or a fix round rejected for adding a suppression comment or editing protected configuration
@@ -553,7 +556,6 @@
     - .claude/commands/feature.md
     - .claude/commands/find_issue_dependencies.md
     - .claude/commands/generate_branch_name.md
-    - .claude/commands/generate_step_definitions.md
     - .claude/commands/implement.md
     - .claude/commands/install.md
     - .claude/commands/patch.md
@@ -574,7 +576,6 @@
     - adws/__tests__/adwInitPrompt.test.ts
     - adws/__tests__/adwInitPrompt.mobile.test.ts
     - adws/__tests__/adwInitPrompt.helpers.ts
-    - adws/__tests__/generateStepDefinitionsPrompt.test.ts
     - adws/__tests__/scenarioWriterPrompt.test.ts
     - adws/__tests__/implementTddPrompt.test.ts
     - adws/__tests__/reviewPrompt.test.ts
@@ -582,10 +583,10 @@
     - adws/__tests__/reviewPrompt.helpers.ts
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
-    - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `generate_step_definitions`/`scenario_writer` prompts, or the `unitTests` switch read by `/feature` and `implement-tdd`
+    - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `scenario_writer` prompt and `implement-tdd`'s `step-definitions.md`, or the `unitTests` switch read by `/feature` and `implement-tdd`
     - When `adws/__tests__/adwInitPrompt.test.ts` fails on heredoc or Comments-entry drift
-    - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the descriptor-mode device note in `generate_step_definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
-    - When `adwInitPrompt.mobile.test.ts` or `generateStepDefinitionsPrompt.test.ts` fails
+    - When working on the descriptors `adw_init` writes for a hand-set `mobile:kotlincm` repository (Gradle `## Run Tests`/`## Run Build`, `:scenarios` run-by-tag commands, device-source sections in `project.md`, `## Scenario Run Contract` in `scenarios.md`) or the device rules in `implement-tdd`'s `step-definitions.md` (`ADW_ANDROID_SERIAL`, `ADW_IOS_UDID`, `ADW_PROOF_DIR`, `android/`/`ios/` directories)
+    - When `adwInitPrompt.mobile.test.ts` fails
     - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
     - When working on the layer rule (ADR-0067) in the prompts: Real Boundary wording, one scenario per acceptance criterion, the zero-scenario outcome of `/scenario_writer`, the `## Scenarios and Unit Tests` section of `/feature` and `/bug`, plan-sourced unit tests in `implement-tdd`, or `/review` Step 4's boundary-only blocker and zero-scenario judgement
     - When `scenarioWriterPrompt.test.ts`, `implementTddPrompt.test.ts`, `reviewPrompt.test.ts` or `reviewPrompt.scenarios.test.ts` fails
@@ -1048,11 +1049,10 @@
     - adws/agents/bddScenarioRunner.ts
     - adws/agents/scenarioAgent.ts
     - adws/agents/scenarioFidelityAgent.ts
-    - adws/agents/stepDefAgent.ts
     - adws/agents/testAgent.ts
     - adws/agents/testRetry.ts
   - Conditions:
-    - When working on BDD scenario runner, scenario writer agent, scenario fidelity agent, step def generation agent, test agent, or test retry in `adws/agents/`
+    - When working on BDD scenario runner, scenario writer agent, scenario fidelity agent, test agent, or test retry in `adws/agents/`
   - Decisions:
     - 0014
     - 0043

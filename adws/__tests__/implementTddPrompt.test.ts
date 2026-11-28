@@ -6,12 +6,14 @@ import * as path from 'path';
 /**
  * `implement-tdd/SKILL.md` is a prompt, so only its text tells the build agent which unit tests to write. These tests pin that
  * they come from the plan, that none is paired with a scenario and that the unit-test switch reads as before, so that a drift
- * fails here instead of showing as every behaviour proven twice. The `Scope` and `Verification` blocks the skill shares with
+ * fails here instead of showing as every behaviour proven twice. They also pin that the builder alone writes the step
+ * definitions, with the runner rules of `step-definitions.md`. The `Scope` and `Verification` blocks the skill shares with
  * `implement.md` are compared in `buildPromptsScope.test.ts`.
  */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SKILL_PATH = path.join(REPO_ROOT, '.claude/skills/implement-tdd/SKILL.md');
+const STEP_DEFINITIONS_PATH = path.join(REPO_ROOT, '.claude/skills/implement-tdd/step-definitions.md');
 
 const skill = fs.readFileSync(SKILL_PATH, 'utf-8');
 const lines = skill.split('\n');
@@ -39,6 +41,13 @@ const FROM_THE_PLAN = [
   'whether or not the issue has scenarios',
   'Real Boundary',
 ];
+
+const RUNNER_RULES = ['createBdd()', 'features/steps/', 'ADW_ANDROID_SERIAL', 'ADW_IOS_UDID', 'ADW_PROOF_DIR', 'test -d node_modules || npm ci'];
+
+function stepDefinitionsGuide(): string {
+  expect(fs.existsSync(STEP_DEFINITIONS_PATH), 'the skill ships step-definitions.md').toBe(true);
+  return fs.readFileSync(STEP_DEFINITIONS_PATH, 'utf-8');
+}
 
 const PAIRED_WITH_A_SCENARIO = [
   'Write the step definition AND a unit test alongside it',
@@ -68,5 +77,19 @@ describe('implement-tdd reads the unit-test switch as before', () => {
     ['the line for disabled unit tests', DISABLED_LINE],
   ])('has %s in step 5, verbatim', (_name, line) => {
     expect(section(UNIT_TESTS).split('\n')).toContain(line);
+  });
+});
+
+describe('implement-tdd writes every step definition the scenarios need', () => {
+  it('says so in step 3', () => {
+    expect(section(RED_TESTS)).toContain("You write every step definition the issue's scenarios need");
+  });
+
+  it('links step-definitions.md', () => {
+    expect(skill).toContain('[step-definitions.md](step-definitions.md)');
+  });
+
+  it.each(RUNNER_RULES)('ships step-definitions.md, which names %s', (rule) => {
+    expect(stepDefinitionsGuide()).toContain(rule);
   });
 });

@@ -78,7 +78,7 @@ describe('rerunScenariosOnMergedBranch — the verdict', () => {
         resolvedTag: '@adw-1101',
         passed: false,
         exitCode: 1,
-        cases: [{ name: 'Orders over the limit are refused', classname: 'Orders', status: 'failed', failureMessage: 'expected status 422, got 201', attachments: [] }],
+        cases: [{ name: 'Orders over the limit are refused', classname: 'Orders', status: 'failed', incomplete: false, failureMessage: 'expected status 422, got 201', attachments: [] }],
       }),
     );
     const h = harness(projectWith(), proof);
@@ -105,7 +105,7 @@ describe('rerunScenariosOnMergedBranch — the verdict', () => {
   it('writes the title and the whole detail of each failure to the log, which the park comment points to', async () => {
     const logged: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => { logged.push(args.join(' ')); });
-    const proof = proofOf(tagResult({ passed: false, exitCode: 1, cases: [{ name: 'Orders are accepted', classname: 'Orders', status: 'failed', failureMessage: 'x'.repeat(5000), attachments: [] }] }));
+    const proof = proofOf(tagResult({ passed: false, exitCode: 1, cases: [{ name: 'Orders are accepted', classname: 'Orders', status: 'failed', incomplete: false, failureMessage: 'x'.repeat(5000), attachments: [] }] }));
     const h = harness(projectWith(), proof);
 
     await rerunScenariosOnMergedBranch(RUN, h.deps);

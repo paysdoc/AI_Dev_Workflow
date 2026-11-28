@@ -20,7 +20,6 @@ import {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   executeScenarioTestPhase,
   runScenarioTestFixLoop,
@@ -48,7 +47,6 @@ export interface ChorePhases {
   readonly executeInstallPhase: typeof executeInstallPhase;
   readonly executePlanPhase: typeof executePlanPhase;
   readonly executeBuildPhase: typeof executeBuildPhase;
-  readonly executeStepDefPhase: typeof executeStepDefPhase;
   readonly executeUnitTestPhase: typeof executeUnitTestPhase;
   readonly runScenarioTestFixLoop: typeof runScenarioTestFixLoop;
   readonly executeDiffEvaluationPhase: typeof executeDiffEvaluationPhase;
@@ -64,7 +62,6 @@ const CHORE_PHASES: ChorePhases = {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeStepDefPhase,
   executeUnitTestPhase,
   runScenarioTestFixLoop,
   executeDiffEvaluationPhase,
@@ -164,7 +161,6 @@ async function runChorePhases(
   await runPhase(config, tracker, phases.executeInstallPhase);
   await runPhase(config, tracker, phases.executePlanPhase);
   await runPhase(config, tracker, phases.executeBuildPhase);
-  await runPhase(config, tracker, phases.executeStepDefPhase, 'stepDef');
   const testResult = await runPhase(config, tracker, phases.executeUnitTestPhase);
 
   const scenarios = await phases.runScenarioTestFixLoop(config, tracker);

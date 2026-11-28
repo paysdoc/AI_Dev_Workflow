@@ -92,7 +92,6 @@ function byCommand(issue: number, adwId: string, answer: Answer): Record<string,
     '/scenario_writer': answer('/scenario_writer', 'The scenarios were written.\n', fileOf(`features/per-issue/feature-${issue}.feature`, issueScenarios(issue, s.scenarios))),
     '/align_plan_scenarios': answer('/align_plan_scenarios', JSON.stringify({ aligned: true, warnings: [], changes: [], summary: 'The plan and the scenarios already agree.' })),
     '/implement-tdd': answer('/implement-tdd', 'The plan was implemented.\n', BUILD_EDIT(), ...serverEdits(s.serverEffects.build)),
-    '/generate_step_definitions': answer('/generate_step_definitions', JSON.stringify({ removedScenarios: [] })),
     '/test': answer('/test', testAnswer()),
     '/resolve_failed_test': answer('/resolve_failed_test', 'The failing checks were fixed.\n', fileOf(CHECKS_FIXED_MARKER, 'fixed\n')),
     '/resolve_failed_scenario': answer(

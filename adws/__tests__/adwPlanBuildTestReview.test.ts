@@ -84,7 +84,6 @@ function makePhases(verdicts: ReviewVerdict[], starts: DevServerStart[] = [NOT_S
     executeScenarioPhase: vi.fn(async () => ZERO_COST),
     executeAlignmentPhase: vi.fn(async () => ZERO_COST),
     executeBuildPhase: vi.fn(async () => ZERO_COST),
-    executeStepDefPhase: vi.fn(async () => ZERO_COST),
     executeUnitTestPhase: vi.fn(async () => ({ ...ZERO_COST, unitTestsPassed: true, totalRetries: 0 })),
     runScenarioTestFixLoop: vi.fn(async () => ({ scenarioProofPath: '/proof.md', scenarioRetries: SCENARIO_RETRIES, devServer: nextStart() })),
     executeScenarioTestPhase: vi.fn(async () => ({ ...ZERO_COST, scenarioProof: undefined, devServer: nextStart() })),
