@@ -325,7 +325,7 @@ Three optional sections activate the regression-suite contract. When absent, the
 
 ### Scenario Promotion
 
-Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. Nomination by the scenario agent and a Promotion Proposal that the owner decides come in later slices. An issue labelled `regression-promotion` still skips the scenario-writing phase.
+Promoting a per-issue scenario into `features/regression/` is a deliberate human decision. The scoring promotion sweep, with its threshold ramp, its `@promotion-suggested-<date>` tag and its rot/reuse advisory comment on promotion PRs, was removed under [ADR-0068](docs/adr/0068-promotion-by-nomination-and-human-decided-proposal.md). A per-issue scenario that still carries an old suggestion tag is swept on the normal 14-day rule. The scenario agent may nominate at most one scenario it creates per issue with the `@nominated` tag (`@nomination-declined` marks one the owner declined, never nominated again), and `adws/promotion/nominationCollector.ts` collects the Nominations of merged issues from the default branch. The Promotion Proposal that the owner decides comes in a later slice; until then a nominated scenario is swept like any other. An issue labelled `regression-promotion` still skips the scenario-writing phase.
 
 ### Running BDD scenarios on the host
 
@@ -1124,12 +1124,16 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Vocabulary registry and scenario parsers
+├── promotion/          # Vocabulary registry and scenario parsers, nomination collector
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── nominationCollector.test.ts
+│   │   ├── perIssueScenarioFiles.test.ts
 │   │   ├── scenarioParser.test.ts
 │   │   └── vocabularyParser.test.ts
-│   ├── index.ts        # Barrel re-exporting the parser surface
-│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
+│   ├── index.ts        # Barrel re-exporting the parsers, the nomination collector and the per-issue file reader
+│   ├── nominationCollector.ts  # Pure collector of `@nominated` / `@nomination-declined` Per-Issue Scenarios of merged issues, with their NominationState (collectNominations)
+│   ├── perIssueScenarioFiles.ts  # Reads the Per-Issue Scenario files of a default-branch checkout (readPerIssueScenarioFiles)
+│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects, including scenarios nested in Rule blocks
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
 │   └── types.ts        # Shared types (VocabularyEntry, Scenario, Step, etc.)
 ├── proof/              # PR proof publishing module
