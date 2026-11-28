@@ -525,6 +525,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── planningCommandsPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── reviewPrompt.helpers.ts  # Shared helpers for the reviewPrompt tests
+│   ├── reviewPrompt.scenarios.test.ts
 │   ├── reviewPrompt.test.ts
 │   ├── scenarioWriterPrompt.test.ts
 │   ├── triggerWebhook.test.ts

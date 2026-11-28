@@ -14,6 +14,7 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import type { Platform } from '../core/applicationType';
+import { describeBoundaryViolation } from '../core/boundaryList';
 import {
   DevServerStartStatus,
   NO_DEV_SERVER_START,
@@ -32,6 +33,7 @@ import { DeviceSourceConfigError, resolveDeviceSource, type DeviceSource } from 
 import { resolveScenarioRunner } from '../core/scenarioRunner';
 import { ParkReason } from '../forge/parkComment';
 import { requireApplicationProfile } from './applicationTypeGate';
+import { describeBoundaryTagGate, runBoundaryTagGate, type BoundaryTagGate } from './boundaryTagGate';
 import { readDeclaredDevServer } from './declaredDevServer';
 import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
@@ -52,6 +54,7 @@ export interface ScenarioTestPhaseDeps {
   readonly withHealthyDevServer: typeof withHealthyDevServer;
   readonly withDevices: typeof withDevices;
   readonly park: typeof parkWorkflow;
+  readonly runBoundaryTagGate: typeof runBoundaryTagGate;
 }
 
 export interface ScenarioTestPhaseResult {
@@ -62,7 +65,7 @@ export interface ScenarioTestPhaseResult {
   phaseCostRecords: PhaseCostRecord[];
 }
 
-const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices, park: parkWorkflow };
+const DEFAULT_DEPS: ScenarioTestPhaseDeps = { readDeclaredDevServer, withHealthyDevServer, withDevices, park: parkWorkflow, runBoundaryTagGate };
 
 interface PhaseRun {
   readonly config: ScenarioTestPhaseConfig;
@@ -115,6 +118,15 @@ function settleProof(run: PhaseRun, scenarioProof: ScenarioProofResult, devServe
   config.ctx.scenarioProof = scenarioProof;
 
   return resultOf(run, scenarioProof, devServer, hasBlockerFailures ? PhaseCostStatus.Failed : PhaseCostStatus.Success);
+}
+
+/** Null when the scenarios may run: the target declares no list, or every boundary tag names a declared boundary. */
+function failOnBoundaryTags(run: PhaseRun, gate: BoundaryTagGate): ScenarioTestPhaseResult | null {
+  const { orchestratorStatePath, issueNumber } = run.config;
+  recordLine(orchestratorStatePath, describeBoundaryTagGate(gate, issueNumber), gate.kind === 'failed' ? 'error' : 'info');
+  if (gate.kind !== 'failed') return null;
+  gate.violations.forEach(violation => recordLine(orchestratorStatePath, describeBoundaryViolation(violation), 'error'));
+  return settleProof(run, gate.proof, NO_DEV_SERVER_START);
 }
 
 function failedStart(run: PhaseRun, server: HealthyDevServerConfig, output: string): ScenarioTestPhaseResult {
@@ -204,6 +216,10 @@ function deviceRequest({ config }: PhaseRun, deviceSource: DeviceSource): Device
  * - `projectConfig.scenariosMd` is empty (no scenarios configured), or
  * - the scenario runner's command is 'N/A', which only a descriptor runner can say
  *
+ * Then, when the worktree's `.adw/scenarios.md` declares a `## Real Boundaries` list, every `@adw-{issueNumber}` scenario must
+ * carry a `@boundary-<name>` tag the list declares; a violation returns a failing proof before any device, dev server or scenario
+ * starts. Without a list the check is skipped.
+ *
  * Starts only the dev server the repository declares, the one the baseline starts. When that server does not
  * start, no scenario runs and the result says so in `devServer`: what a failed start means is for the caller.
  *
@@ -232,6 +248,10 @@ export async function executeScenarioTestPhase(
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting scenario test phase');
 
   const proofDir = path.join('agents', adwId, 'scenario-test');
+
+  const gate = lifecycle.runBoundaryTagGate({ worktreePath, featureDirectory: runner.featureDirectory, issueNumber, proofDir });
+  const boundaryTagFailure = failOnBoundaryTags(run, gate);
+  if (boundaryTagFailure) return boundaryTagFailure;
 
   const runProof = (devices?: DeviceEnvironment): Promise<ScenarioProofResult> =>
     runScenarioProof({

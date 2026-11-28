@@ -25,13 +25,30 @@ A scenario proves only behaviour observable through a Real Boundary of the targe
 - When the issue has no behaviour observable at a Real Boundary, write no scenario: create no file, tag nothing, and state why under `### No scenarios` in the output. Zero scenarios is a valid outcome; never write a scenario that runs inside the test process to have something to show.
 - Existing scenarios are not migrated. Leave the scenarios of other issues as they are, even those that run inside the test process.
 
+## Real Boundaries List and Boundary Tag
+
+The target's Real Boundaries are listed under `## Real Boundaries` in `.adw/scenarios.md`, one top-level entry per boundary, in the format `` - `<name>` — <what the boundary is and how a scenario drives it> ``, with `<name>` in lowercase letters, digits and hyphens. An entry looks exactly like this:
+
+```markdown
+- `cli` — the built command-line tool, run as a real process with the arguments a user passes
+```
+
+- When `.adw/scenarios.md` has no `## Real Boundaries` section, create it. Derive the entries from the application type in `.adw/project.md` and from the code: the real runtime, a real browser, the built artifact, a real command-line invocation. The list is configuration, not a scenario, so create it even when you write no scenario. In ADW's own repository the list holds `subprocess`.
+- When the issue itself creates a boundary, add its entry. When the issue removes a boundary, remove its entry. Leave the other entries as they are.
+- Tag every scenario you create, modify or flag with the `@boundary-<name>` tag of the one declared boundary its steps drive, on the scenario's tag line next to `@adw-$0`. In ADW's own repository that tag is `@boundary-subprocess`.
+- The scenario test phase fails a scenario tagged `@adw-$0` that carries no boundary tag, or one whose name is not on the list.
+
 ## Polymorphism on `.adw/scenarios.md`
 
-This prompt branches on one optional section in `.adw/scenarios.md`.
+This prompt branches on two optional sections in `.adw/scenarios.md`.
 
 **Per-issue output directory** (Step 4):
 - If `## Per-Issue Scenario Directory` is set → write the per-issue scenario to `<value>/feature-$0.feature`.
 - Otherwise fall back to `## Scenario Directory` (default: `features/`).
+
+**Real Boundaries list** (Steps 1 and 4):
+- If `## Real Boundaries` is present → read it, and tag each scenario with the boundary it drives.
+- Otherwise create it (see Real Boundaries List and Boundary Tag).
 
 ## Rot Prevention
 
@@ -54,6 +71,7 @@ Read `.adw/scenarios.md` to determine the scenario directory path. Parse the fol
 - `## Regression Scenario Directory` — the Regression Suite's directory. Never write into it (see Step 4).
 - `## Scenario Directory` — fallback scenario directory (default: `features/`).
 - `## BDD Framework` and `## Step Def Directory` — the runner that executes the scenarios and where its step definitions live. Write only Gherkin that this runner supports. Never install, configure or bootstrap a runner (see the Gherkin mandate).
+- `## Real Boundaries` — the target's declared Real Boundaries, absent until created (see Real Boundaries List and Boundary Tag).
 
 Resolve the **per-issue directory** as:
 1. `## Per-Issue Scenario Directory` value (if set)
@@ -80,7 +98,8 @@ For each acceptance criterion observable at a Real Boundary (none, when the issu
 When `## Per-Issue Scenario Directory` is set, write the per-issue scenario file to `<perIssueDir>/feature-$0.feature` (one file per issue, named by issue number). When the section is absent, write to the resolved scenario directory using the existing free-form naming convention.
 
 Rules:
-- Tag every created, modified, or flagged scenario with `@adw-$0`
+- Create the `## Real Boundaries` list when `.adw/scenarios.md` has none, and add or remove the entry of a boundary the issue itself creates or removes (see Real Boundaries List and Boundary Tag)
+- Tag every created, modified, or flagged scenario with `@adw-$0` and with the `@boundary-<name>` tag of the declared Real Boundary its steps drive
 - Do **not** add `@adw-$0` to scenarios from other issues that you are not touching
 - Never add or remove `@regression` on any scenario, and never write a scenario into the regression scenario directory: the Regression Suite changes only by a Promotion that a human decides.
 - Phrase the steps in the issue's terms. A Per-Issue Scenario needs no phrase from a vocabulary registry.
@@ -103,9 +122,13 @@ Return ONLY the following summary (no additional prose):
 
 ### Tags applied
 - @adw-$0 applied to: <list of scenario names, or "none">
+- `@boundary-<name>` applied to: <scenario names, or "none">
+
+### Real Boundaries list
+- <created with its entries | added <name> | removed <name> | unchanged>
 
 ### Acceptance criteria at a Real Boundary
-- <for each scenario: the acceptance criterion it proves and the Real Boundary it drives, or "none">
+- <for each scenario: the acceptance criterion it proves, the Real Boundary it drives and its `@boundary-<name>` tag, or "none">
 
 ### No scenarios
 - <only when no scenario was written: why no acceptance criterion of the issue is observable at a Real Boundary; omit this section otherwise>

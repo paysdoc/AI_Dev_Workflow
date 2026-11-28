@@ -59,6 +59,8 @@ import { findScenarioFiles } from '../../agents/validationAgent';
 import { AgentStateManager } from '../../core';
 import { CostTracker } from '../../core/phaseRunner';
 import type { PreExistingRegressionGate } from '../preExistingRegressionGate';
+import { boundaryTagFailureResult } from '../boundaryTagGate';
+import { BoundaryViolationKind } from '../../core/boundaryList';
 
 function makeConfig(overrides?: Record<string, unknown>) {
   return {
@@ -153,6 +155,19 @@ describe('runScenarioTestFixLoop', () => {
     expect(result.scenarioRetries).toBe(1);
     expect(executeScenarioFixPhase).toHaveBeenCalledTimes(1);
     expect(runScenarioFidelityAgent).not.toHaveBeenCalled();
+  });
+
+  it('a boundary-tag failure from the scenario test phase goes to the scenario fix phase, and a green attempt after it ends the loop', async () => {
+    const violation = { kind: BoundaryViolationKind.MissingTag, featurePath: 'feature-42.feature', scenario: 'Orders › Orders are listed' } as const;
+    const tagResults = [boundaryTagFailureResult({ kind: 'declared', boundaries: [], malformedEntries: [] }, [violation], 42)];
+    const boundaryTagFailure = { ...makeFailingProof(), scenarioProof: { ...makeFailingProof().scenarioProof, tagResults } };
+    (executeScenarioTestPhase as Mock).mockResolvedValueOnce(boundaryTagFailure).mockResolvedValueOnce(makePassingProof());
+    (executeScenarioFixPhase as Mock).mockResolvedValueOnce(makeFixResult());
+
+    const result = await runScenarioTestFixLoop(makeConfig(), new CostTracker(), { maxAttempts: 3 });
+
+    expect(executeScenarioFixPhase).toHaveBeenCalledExactlyOnceWith(expect.anything(), boundaryTagFailure.scenarioProof);
+    expect(result.scenarioRetries).toBe(1);
   });
 
   it('fidelity returns aligned:false → throws GoalFidelityError', async () => {

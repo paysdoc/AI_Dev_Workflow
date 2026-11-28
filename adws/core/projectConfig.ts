@@ -222,6 +222,11 @@ function readAdwFile(adwDir: string, fileName: string): string {
   }
 }
 
+/** `.adw/scenarios.md` as the worktree holds it now, not as it was when `WorkflowConfig.projectConfig` was loaded; '' when absent. */
+export function readScenariosMd(targetRepoPath: string): string {
+  return readAdwFile(path.join(targetRepoPath, '.adw'), 'scenarios.md');
+}
+
 export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
   const adwDir = path.join(targetRepoPath, '.adw');
 
@@ -231,7 +236,7 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
 
   const projectMd = readAdwFile(adwDir, 'project.md');
   const conditionalDocsMd = readAdwFile(adwDir, 'conditional_docs.md');
-  const scenariosMd = readAdwFile(adwDir, 'scenarios.md');
+  const scenariosMd = readScenariosMd(targetRepoPath);
 
   return {
     commands: parseCommandsMd(readAdwFile(adwDir, 'commands.md')),

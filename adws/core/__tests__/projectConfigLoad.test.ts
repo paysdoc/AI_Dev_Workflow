@@ -4,6 +4,7 @@ import {
   getDefaultProvidersConfig,
   getDefaultScenariosConfig,
   loadProjectConfig,
+  readScenariosMd,
 } from '../projectConfig';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
@@ -168,5 +169,37 @@ describe('loadProjectConfig — conditionalDocs field', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('readScenariosMd', () => {
+  const dirs: string[] = [];
+
+  function tempRepo(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-scenarios-md-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  afterEach(() => {
+    dirs.splice(0).forEach(dir => rmSync(dir, { recursive: true, force: true }));
+  });
+
+  it('readScenariosMd returns the text of .adw/scenarios.md', () => {
+    const dir = tempRepo();
+    mkdirSync(join(dir, '.adw'));
+    const scenariosMd = '## Scenario Directory\nfeatures/\n\n## Real Boundaries\n- `cli` — a real command-line invocation\n';
+    writeFileSync(join(dir, '.adw', 'scenarios.md'), scenariosMd, 'utf-8');
+
+    expect(readScenariosMd(dir)).toBe(scenariosMd);
+  });
+
+  it('readScenariosMd returns an empty string when .adw/scenarios.md or the .adw directory is absent', () => {
+    const withoutAdwDir = tempRepo();
+    const withoutFile = tempRepo();
+    mkdirSync(join(withoutFile, '.adw'));
+
+    expect(readScenariosMd(withoutAdwDir)).toBe('');
+    expect(readScenariosMd(withoutFile)).toBe('');
   });
 });

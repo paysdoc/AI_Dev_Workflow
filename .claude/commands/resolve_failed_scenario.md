@@ -34,6 +34,8 @@ Fix a specific failing BDD scenario using the provided failure details.
 
    **Frozen contract** — do NOT edit, add, or delete any `.feature` file. The Gherkin scenario is the immutable contract; fix the code and step definitions to satisfy it, never the reverse. Any `.feature` change you make will be automatically detected and reverted before the next test run and before the commit.
 
+   One exception: when the failure is the boundary-tag check (its `error` says a scenario carries no boundary tag, or carries a tag that names no boundary under `## Real Boundaries`), the only `.feature` edit that survives is a `@boundary-<name>` tag on a scenario's tag line. It is the tag of the declared Real Boundary that the scenario's step code drives, added where it is missing or put in place of the tag that names no declared boundary. Add an entry under `## Real Boundaries` in `.adw/scenarios.md` only when the issue itself creates that boundary. Every other `.feature` change is still reverted.
+
    **Budget** — resolve attempts are capped by the workflow's max-retry budget. If hermeticity/green is not reached within the budget the workflow hard-fails. Do not stub the assertion itself or weaken test expectations to force a pass — the hard-fail will surface this as a failed workflow instead.
 
 ## Scope

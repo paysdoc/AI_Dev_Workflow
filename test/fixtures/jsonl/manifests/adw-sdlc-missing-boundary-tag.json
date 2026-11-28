@@ -1,0 +1,60 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"Boundary smoke stub: the prompt opened with no command this manifest answers.\\n\"}]\n" }
+  ],
+  "onCommitCommand": "stage-all-and-commit",
+  "byCommand": {
+    "/install": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The project context was read.\\n\"}]\n" }
+      ]
+    },
+    "/feature": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The implementation plan for issue 113901 was written.\\n\"}]\n" },
+        { "path": "specs/issue-113901-adw-boundary-smoke-113901-sdlc_planner-orders.md", "contents": "# Implementation Plan: orders\n\n## Steps\n1. Add src/orders.ts\n2. List the orders\n" }
+      ]
+    },
+    "/scenario_writer": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": "features/feature-113901.feature", "contents": "@adw-113901\nFeature: Orders\n\n  @adw-113901\n  Scenario: Orders are listed\n    Given an order\n    When the orders are listed\n    Then the order is in the list\n" }
+      ]
+    },
+    "/align_plan_scenarios": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"aligned\\\":true,\\\"warnings\\\":[],\\\"changes\\\":[],\\\"summary\\\":\\\"The plan and the scenarios already agree.\\\"}\"}]\n" }
+      ]
+    },
+    "/implement-tdd": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The plan was implemented.\\n\"}]\n" },
+        { "path": "src/orders.ts", "contents": "export function listOrders(orders: readonly string[]): readonly string[] {\n  return orders;\n}\n" }
+      ]
+    },
+    "/generate_step_definitions": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"{\\\"removedScenarios\\\":[]}\"}]\n" }
+      ]
+    },
+    "/test": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"[{\\\"test_name\\\":\\\"app_tests\\\",\\\"passed\\\":true,\\\"execution_command\\\":\\\"N/A\\\",\\\"test_purpose\\\":\\\"Runs the fixture's unit tests\\\",\\\"testcase_count\\\":1}]\"}]\n" }
+      ]
+    },
+    "/resolve_failed_scenario": {
+      "jsonlPath": ".adw-stub-payload.json",
+      "edits": [
+        { "path": ".adw-stub-payload.json", "contents": "[{\"type\": \"text\", \"text\": \"The scenario was left as it is.\\n\"}]\n" },
+        { "path": "notes/scenario-fix-attempts.txt", "contents": "A scenario fix attempt ran.\n", "append": true }
+      ]
+    }
+  }
+}
