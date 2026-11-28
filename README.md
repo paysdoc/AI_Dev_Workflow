@@ -9,7 +9,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Cron and webhook triggers** — `trigger_cron.ts` polls every 20 s and `trigger_webhook.ts` takes HMAC-signed GitHub webhooks (optional Cloudflare tunnel), each event isolated so one failure cannot crash the trigger.
 - **Dependency-aware scheduling** — an LLM extracts `blocked by` dependencies, deferred issues are unblocked when their blocker closes, and a per-repo concurrency cap and region-overlap check limit parallel work.
 - **Plan-then-build pipeline** — plans live only in the issue's worktree; the build agent works through them with a novelty progress gate that stops builds that loop or make no progress.
-- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written, aligned with the plan and given step definitions, then frozen during the scenario fix loop and re-checked against the issue for fidelity.
+- **BDD scenario validation** — per-issue `@adw-{N}` scenarios are written, aligned with the plan and given step definitions, then frozen during the scenario fix loop and re-checked against the issue for fidelity; a boundary-tag gate fails any `@boundary-<name>` tag that names no Real Boundary declared in `.adw/scenarios.md`.
 - **Machine gates before review** — type checks, lint, build, unit tests and `@regression`/per-issue scenarios must pass first; fix loops reject suppression comments and weakened check configuration.
 - **Baseline gate** — the base branch is checked and its dev server started first; a red base or a pre-existing regression parks the workflow instead of handing it to the fix agent.
 - **Application-type-driven evidence** — `cli`, `web` (ADW-owned Playwright project) or `mobile:kotlincm` (per-workflow Android emulator and iOS simulator) decides how scenarios run and what proof is collected.
@@ -524,7 +524,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── issueDependencies.test.ts
 │   ├── planningCommandsPrompt.test.ts
 │   ├── prTemplateMarker.test.ts
+│   ├── pullRequestPrompt.test.ts
 │   ├── regressionWorkflow.test.ts
+│   ├── resolveFailedScenarioPrompt.test.ts
 │   ├── reviewPrompt.helpers.ts  # Shared helpers for the reviewPrompt tests
 │   ├── reviewPrompt.scenarios.test.ts
 │   ├── reviewPrompt.test.ts
@@ -588,6 +590,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── authGate.test.ts
 │   │   ├── baselineGate.record.test.ts
 │   │   ├── baselineGate.test.ts
+│   │   ├── boundaryList.test.ts
 │   │   ├── checkRunner.combinedOutput.test.ts
 │   │   ├── checkRunner.integration.test.ts
 │   │   ├── checkRunner.test.ts
@@ -687,6 +690,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── applicationType.ts  # Pure application-type mapping: type → runner mode, evidence kinds, review guidance section (resolveApplicationType, APPLICATION_TYPE_PROFILES)
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── baselineGate.ts  # Baseline verdict for a base checkout: installs dependencies, runs the static checks, then the declared dev server → green / checks_red / server_down (runBaselineChecks, declaredDevServerCommand); BaselineRecord (passed / waived, isBaselineWaived)
+│   ├── boundaryList.ts  # Pure boundary list: parses the Real Boundaries declared under `## Real Boundaries` in `.adw/scenarios.md` and checks each scenario's `@boundary-<name>` tags against it (parseBoundaryList, checkBoundaryTags)
 │   ├── checkRunner.ts  # Static-check runner: runs type check, additional type checks, lint and build from .adw/commands.md in fixed order; exit code is the verdict, N/A skipped (runStaticChecks, runShellCommand)
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
@@ -875,6 +879,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── baseScenarioRerun.server.test.ts
 │   │   ├── baseScenarioRerun.test.ts
 │   │   ├── baseWorktree.test.ts
+│   │   ├── boundaryTagGate.test.ts
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── buildPhase.test.ts
@@ -916,6 +921,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── scenarioTestFixLoop.regression.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.boundaryTags.test.ts
 │   │   ├── scenarioTestPhase.deviceBoot.test.ts
 │   │   ├── scenarioTestPhase.deviceSource.test.ts
 │   │   ├── scenarioTestPhase.devices.test.ts
@@ -949,6 +955,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes — the hitl gate's label read, approval read, hold-label write and comment all go through config.repoContext's providers (#796), not adws/github/* free functions
 │   ├── baselinePhase.ts  # Baseline phase (executeBaselinePhase): installs, runs the static checks and starts the declared dev server on the base branch before any work; parks the workflow when the base is red, records a green base in the top-level state, does nothing under a waiver
 │   ├── baseScenarioRerun.ts  # Single-scenario re-run on the base checkout (buildBaseScenarioRerun): tags the failing scenario, runs it alone under the base branch's dev server where one is declared, reports passed / failed / not run; the devices the gate hands it go into the run command's environment
+│   ├── boundaryTagGate.ts  # Boundary-tag gate: reads the worktree's `## Real Boundaries` list and feature files at each call and reports a scenario with an undeclared `@boundary-<name>` tag as a failing proof of the issue's tag, which the scenario fix loop hands to the fix agent
 │   ├── baseWorktree.ts  # Base-branch worktree port: a detached checkout at .worktrees/base-issue-<N>-<adwId>, shared by the baseline and the re-runs and removed when the process exits (buildBaseWorktreePort, sharedBaseWorktree)
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
@@ -1294,9 +1301,6 @@ test/                   # Integration test infrastructure
 ├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
-docs/                   # Design records
-├── adr/                # Architecture decision records, one per design decision (index in README.md)
-└── prd/                # Product requirement documents
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
