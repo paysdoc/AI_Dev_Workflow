@@ -1,0 +1,6 @@
+import { createBdd } from 'playwright-bdd';
+
+const { Given, Then } = createBdd();
+
+Then('the invoice is sent', async () => {});
+Given('a returning customer', async () => {});

@@ -1,7 +1,7 @@
 /**
- * The Per-Issue Sweep's use of the scenario runner's usage report: the dry run that writes it in the sweep worktree, the
- * step files it keeps out of a removal batch, and the reconcile that files at most one removal chore per repository. None
- * throws: a sweep that cannot read the report, or cannot file the issue, still removes what it may.
+ * The Per-Issue Sweep's use of the scenario runner's usage or unused-steps report: the dry run that writes it in the sweep
+ * worktree, the step files it keeps out of a removal batch, and the reconcile that files at most one removal chore per
+ * repository. None throws: a sweep that cannot read the report, or cannot file the issue, still removes what it may.
  *
  * `loadProjectConfig` and the check runner are imported from their own modules, not the `../core` barrel, so that a test
  * mocking the barrel down to `log` still gets the real ones.
@@ -22,12 +22,16 @@ import {
   type UnusedStepIssueRef,
   type UnusedStepIssueSpec,
 } from '../core/unusedStepIssueBody';
-import { isWithinDirectory, type ScenarioDirectories } from '../core/scenarioDirectories';
+import { isWithinDirectory, resolveScenarioDirectories, type ScenarioDirectories } from '../core/scenarioDirectories';
+import { readStepDefinitionSources } from '../core/stepDefinitionSources';
 import {
   REPORT_PATH_PLACEHOLDER,
+  UNKNOWN_STEP_LOCATION,
+  remainingUnusedStepDefinitions,
   resolveStepUsageReader,
   stepFilesStillUsed,
   unusedStepDefinitions,
+  type StepDefinitionSource,
   type StepDefinitionUsage,
   type StepUsageReader,
   type UnusedStepDefinition,
@@ -36,6 +40,7 @@ import type { SweepBase } from './perIssueSweepPersist';
 
 export type StepUsageOutcome =
   | { readonly kind: 'usage'; readonly framework: string; readonly usages: readonly StepDefinitionUsage[] }
+  | { readonly kind: 'unused'; readonly framework: string; readonly unused: readonly UnusedStepDefinition[] }
   | { readonly kind: 'not_supported'; readonly framework: string }
   | { readonly kind: 'unavailable'; readonly detail: string };
 
@@ -45,14 +50,15 @@ const LABEL = 'perIssueScenarioSweep';
 const REPORT_FILE = 'usage.json';
 const OUTPUT_TAIL_LINES = 20;
 const OPEN_ISSUE_LIMIT = 100;
-/** Where cucumber reports a step definition whose source location it could not determine. */
-const UNKNOWN_LOCATION = 'unknown';
 const MISSING_FILES_NAMED = 5;
 
 export interface StepUsageReportInput {
   readonly worktreePath: string;
   readonly commands: Pick<CommandsConfig, 'installDeps' | 'runScenariosByTag'>;
   readonly reader: StepUsageReader;
+  /** Where a reader that locates the report's definitions in their sources finds them; repository-relative. */
+  readonly stepDefinitionDirectories?: readonly string[];
+  readonly readSources?: (worktreePath: string, directories: readonly string[], extensions: readonly string[]) => readonly StepDefinitionSource[];
   readonly runProcess?: ProcessRunner;
   readonly fileExists?: (absolutePath: string) => boolean;
 }
@@ -86,9 +92,15 @@ function readReport(reportPath: string): string | null {
 }
 
 /** A run-by-tag command that changes directory first reports paths relative to that directory, which name no file here. */
-function filesNotInWorktree(usages: readonly StepDefinitionUsage[], worktreePath: string, fileExists: (absolutePath: string) => boolean): string[] {
-  const files = [...new Set(usages.map((usage) => usage.file))].filter((file) => file !== UNKNOWN_LOCATION);
+function filesNotInWorktree(definitions: readonly { readonly file: string }[], worktreePath: string, fileExists: (absolutePath: string) => boolean): string[] {
+  const files = [...new Set(definitions.map((definition) => definition.file))].filter((file) => file !== UNKNOWN_STEP_LOCATION);
   return files.filter((file) => !fileExists(path.join(worktreePath, file)));
+}
+
+function sourcesFor(input: StepUsageReportInput): readonly StepDefinitionSource[] {
+  const { sourceExtensions } = input.reader;
+  if (sourceExtensions.length === 0) return [];
+  return (input.readSources ?? readStepDefinitionSources)(input.worktreePath, input.stepDefinitionDirectories ?? [], sourceExtensions);
 }
 
 async function dryRun(input: StepUsageReportInput, command: string, reportDir: string): Promise<StepUsageOutcome> {
@@ -99,14 +111,17 @@ async function dryRun(input: StepUsageReportInput, command: string, reportDir: s
   const report = readReport(reportPath);
   if (report === null) return unavailable(`the dry run \`${command}\` wrote no usage report (exit ${exitCode ?? 'none'}):\n${outputTail(output)}`);
 
-  const read = input.reader.read(report);
-  if (read.kind === 'unreadable') return unavailable(read.detail);
+  const read = input.reader.read(report, sourcesFor(input));
+  if (read.kind === 'unreadable') {
+    return unavailable(exitCode === 0 ? read.detail : `${read.detail} (the dry run \`${command}\` exited ${exitCode ?? 'without an exit code'}):\n${outputTail(output)}`);
+  }
 
-  const missing = filesNotInWorktree(read.usages, input.worktreePath, input.fileExists ?? fs.existsSync);
+  const missing = filesNotInWorktree(read.kind === 'read' ? read.usages : read.unused, input.worktreePath, input.fileExists ?? fs.existsSync);
   if (missing.length > 0) {
     return unavailable(`the usage report's paths are not relative to the repository root: ${missing.slice(0, MISSING_FILES_NAMED).join(', ')} not found in the sweep worktree`);
   }
-  return { kind: 'usage', framework: input.reader.framework, usages: read.usages };
+  const { framework } = input.reader;
+  return read.kind === 'read' ? { kind: 'usage', framework, usages: read.usages } : { kind: 'unused', framework, unused: read.unused };
 }
 
 async function readStepUsageIn(input: StepUsageReportInput): Promise<StepUsageOutcome> {
@@ -228,20 +243,26 @@ export function withoutUsedStepFiles(
     : stepFiles.filter((file) => !isWithinDirectory(file, directories.perIssue));
   if (kept.length === 0) return paths;
 
-  const why = usage.kind === 'usage' ? 'that a remaining feature file still uses' : `outside ${directories.perIssue}, which no usage report could clear`;
-  log(`${LABEL}: keeping ${kept.length} step-definition file(s) ${why}: ${kept.join(', ')}`, 'info');
+  log(`${LABEL}: keeping ${kept.length} step-definition file(s) ${keptBecause(usage, directories.perIssue)}: ${kept.join(', ')}`, 'info');
   return paths.filter((file) => !kept.includes(file));
+}
+
+function keptBecause(usage: StepUsageOutcome, perIssueDirectory: string): string {
+  if (usage.kind === 'usage') return 'that a remaining feature file still uses';
+  if (usage.kind === 'unused') return `outside ${perIssueDirectory}, which an unused-steps report cannot clear`;
+  return `outside ${perIssueDirectory}, which no usage report could clear`;
 }
 
 /** Reconciles the removal chore for the definitions in the step-definition directories that no feature file uses once `landed` is gone. */
 export function reconcileUnusedStepDefinitions(
-  usage: Extract<StepUsageOutcome, { kind: 'usage' }>,
+  usage: Extract<StepUsageOutcome, { kind: 'usage' | 'unused' }>,
   landed: readonly string[],
   directories: ScenarioDirectories,
   deps: Omit<ReconcileUnusedStepIssueDeps, 'framework'>,
 ): void {
   const inStepDefinitionDirectories = (file: string): boolean => directories.stepDefinitions.some((directory) => isWithinDirectory(file, directory));
-  const unused = unusedStepDefinitions(usage.usages, landed).filter((definition) => inStepDefinitionDirectories(definition.file));
+  const candidates = usage.kind === 'usage' ? unusedStepDefinitions(usage.usages, landed) : remainingUnusedStepDefinitions(usage.unused, landed);
+  const unused = candidates.filter((definition) => inStepDefinitionDirectories(definition.file));
   reconcileUnusedStepIssue(unused, { ...deps, framework: usage.framework });
 }
 
@@ -256,7 +277,8 @@ export function defaultReadStepUsage(getBase: () => Pick<SweepBase, 'worktreePat
     if (lookup.kind === 'not_supported') return lookup;
 
     logger(`${LABEL}: reading step usage from a ${lookup.reader.framework} dry run in the sweep worktree`, 'info');
-    return runStepUsageReport({ worktreePath: base.worktreePath, commands, reader: lookup.reader });
+    const { stepDefinitions } = resolveScenarioDirectories(scenarios);
+    return runStepUsageReport({ worktreePath: base.worktreePath, commands, reader: lookup.reader, stepDefinitionDirectories: stepDefinitions });
   };
 }
 

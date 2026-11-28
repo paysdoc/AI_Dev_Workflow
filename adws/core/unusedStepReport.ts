@@ -1,10 +1,25 @@
 /**
- * Pure. The unused step report: a scenario runner's usage report, written by a dry run, read into the step definitions it
- * holds, each with the feature files that use it. One reader per BDD framework, looked up from `## BDD Framework`; only
- * cucumber-js has one, and any other framework is not supported rather than guessed at.
+ * Pure. The unused step report: a scenario runner's report, written by a dry run, read into step definitions. One reader per
+ * BDD framework, looked up from `## BDD Framework`. cucumber-js gives a usage report: every definition with the feature files
+ * that use it. cucumber-jvm and playwright-bdd give an unused-steps report: only the definitions no feature file uses. Any
+ * other framework is not supported rather than guessed at.
  */
 
+import * as path from 'path';
+import { ADW_PLAYWRIGHT_INSTALL_COMMAND, ADW_PLAYWRIGHT_PROJECT_DIR } from './adwPlaywrightProject';
+import { locateJvmStepDefinition, parseCucumberJvmUnusedReport } from './cucumberJvmUnusedReport';
+import { parsePlaywrightBddUnusedReport } from './playwrightBddUnusedReport';
+import { stepDefExtensionsFor } from './stepDefDetection';
+
 export const REPORT_PATH_PLACEHOLDER = '{report}';
+/** Where a definition goes, on line 0, when cucumber or a reader cannot determine its source: outside every step-definition directory. */
+export const UNKNOWN_STEP_LOCATION = 'unknown';
+
+/** `file` is repository-relative, with `/` separators. */
+export interface StepDefinitionSource {
+  readonly file: string;
+  readonly text: string;
+}
 
 /** `file` and `usedBy` are repository-relative, with `/` separators and no leading `./`; `usedBy` is sorted and holds each file once. */
 export interface StepDefinitionUsage {
@@ -23,13 +38,16 @@ export interface UnusedStepDefinition {
 
 export type StepUsageRead =
   | { readonly kind: 'read'; readonly usages: readonly StepDefinitionUsage[] }
+  | { readonly kind: 'read_unused'; readonly unused: readonly UnusedStepDefinition[] }
   | { readonly kind: 'unreadable'; readonly detail: string };
 
 export interface StepUsageReader {
   readonly framework: string;
-  /** The run-by-tag command turned into a dry run that writes the usage report to `{report}`; null when it cannot be. */
+  /** The extensions of the step-definition sources `read` locates the report's definitions in; empty when the report names files and lines itself. */
+  readonly sourceExtensions: readonly string[];
+  /** The run-by-tag command turned into a dry run that writes the report to `{report}`; null when it cannot be. */
   dryRunCommand(runByTagCommand: string): string | null;
-  read(report: string): StepUsageRead;
+  read(report: string, sources?: readonly StepDefinitionSource[]): StepUsageRead;
 }
 
 export type StepUsageReaderLookup =
@@ -49,11 +67,23 @@ type EntryCheck = { readonly kind: 'entry'; readonly entry: UsageJsonEntry } | {
 type JsonParse = { readonly kind: 'parsed'; readonly value: unknown } | { readonly kind: 'invalid'; readonly error: string };
 
 const CUCUMBER_JS = 'cucumber-js';
+const CUCUMBER_JVM = 'cucumber-jvm';
+const PLAYWRIGHT_BDD = 'playwright-bdd';
 const NOT_APPLICABLE = 'n/a';
 const REGULAR_EXPRESSION = 'RegularExpression';
 const USAGE_JSON_ARGUMENTS = `--dry-run --format usage-json:${REPORT_PATH_PLACEHOLDER}`;
 /** `--tags` or `-t`, then a space or `=`, then a value holding `{tag}`: double-quoted, single-quoted or bare. */
 const TAG_FILTER = /(?<=^|\s)(?:--tags|-t)(?:\s+|=)(?:"[^"]*\{tag\}[^"]*"|'[^']*\{tag\}[^']*'|[^\s'"]*\{tag\}[^\s'"]*)(?=\s|$)/;
+const JVM_DRY_RUN_PROPERTIES = `-Dcucumber.execution.dry-run=true -Dcucumber.plugin=unused:${REPORT_PATH_PLACEHOLDER}`;
+/** `-Dcucumber.filter.tags=`, then a value holding `{tag}`: double-quoted, single-quoted or bare. */
+const JVM_TAG_FILTER = /(?<=^|\s)-Dcucumber\.filter\.tags=(?:"[^"]*\{tag\}[^"]*"|'[^']*\{tag\}[^']*'|[^\s'"]*\{tag\}[^\s'"]*)(?=\s|$)/;
+/** A second value for a system property overrides the first, so a command that already sets one the dry run sets is left alone. */
+const JVM_DRY_RUN_PROPERTY_SET = /(?:^|[\s"'])-Dcucumber\.(?:plugin|execution\.dry-run)=/;
+const PLAYWRIGHT_INSTALL_PREFIX = `${ADW_PLAYWRIGHT_INSTALL_COMMAND} && `;
+const PLAYWRIGHT_TEST_RUN = /\bnpx playwright test\b/;
+const PLAYWRIGHT_UNUSED_STEPS = `${ADW_PLAYWRIGHT_INSTALL_COMMAND} && npx bddgen export --unused-steps > ${REPORT_PATH_PLACEHOLDER}`;
+const TAG_PLACEHOLDER = '{tag}';
+const UNLOCATED = { file: UNKNOWN_STEP_LOCATION, line: 0 } as const;
 
 function compareText(a: string, b: string): number {
   if (a === b) return 0;
@@ -132,11 +162,59 @@ function cucumberJsDryRunCommand(runByTagCommand: string): string | null {
 
 const CUCUMBER_JS_READER: StepUsageReader = {
   framework: CUCUMBER_JS,
+  sourceExtensions: [],
   dryRunCommand: cucumberJsDryRunCommand,
   read: readCucumberJsUsage,
 };
 
-const READERS: ReadonlyMap<string, StepUsageReader> = new Map([[CUCUMBER_JS, CUCUMBER_JS_READER]]);
+function cucumberJvmDryRunCommand(runByTagCommand: string): string | null {
+  const command = runByTagCommand.trim();
+  if (JVM_DRY_RUN_PROPERTY_SET.test(command) || !JVM_TAG_FILTER.test(command)) return null;
+  return command.replace(JVM_TAG_FILTER, () => JVM_DRY_RUN_PROPERTIES);
+}
+
+/** The report names a definition by its method; one that `sources` cannot place uniquely goes to `UNKNOWN_STEP_LOCATION`. */
+function readCucumberJvmUnused(report: string, sources: readonly StepDefinitionSource[] = []): StepUsageRead {
+  const parsed = parseCucumberJvmUnusedReport(report);
+  if (parsed.kind === 'unreadable') return unreadable(parsed.detail);
+  const unused = parsed.rows.map(({ location, pattern }) => ({ ...(locateJvmStepDefinition(location, sources) ?? UNLOCATED), pattern }));
+  return { kind: 'read_unused', unused: unused.sort(byFileAndLine) };
+}
+
+const CUCUMBER_JVM_READER: StepUsageReader = {
+  framework: CUCUMBER_JVM,
+  sourceExtensions: stepDefExtensionsFor(CUCUMBER_JVM),
+  dryRunCommand: cucumberJvmDryRunCommand,
+  read: readCucumberJvmUnused,
+};
+
+function playwrightBddDryRunCommand(runByTagCommand: string): string | null {
+  const command = runByTagCommand.trim();
+  if (!command.startsWith(PLAYWRIGHT_INSTALL_PREFIX)) return null;
+  const run = command.slice(PLAYWRIGHT_INSTALL_PREFIX.length);
+  return PLAYWRIGHT_TEST_RUN.test(run) && run.includes(TAG_PLACEHOLDER) ? PLAYWRIGHT_UNUSED_STEPS : null;
+}
+
+/** The export runs in ADW's Playwright project, where the install command's `cd` leaves it, and prints paths relative to it. */
+function readPlaywrightBddUnused(report: string): StepUsageRead {
+  const parsed = parsePlaywrightBddUnusedReport(report);
+  if (parsed.kind === 'unreadable') return unreadable(parsed.detail);
+  const unused = parsed.rows.map((row) => ({ ...row, file: path.posix.join(ADW_PLAYWRIGHT_PROJECT_DIR, normalizeReportPath(row.file)) }));
+  return { kind: 'read_unused', unused: unused.sort(byFileAndLine) };
+}
+
+const PLAYWRIGHT_BDD_READER: StepUsageReader = {
+  framework: PLAYWRIGHT_BDD,
+  sourceExtensions: [],
+  dryRunCommand: playwrightBddDryRunCommand,
+  read: readPlaywrightBddUnused,
+};
+
+const READERS: ReadonlyMap<string, StepUsageReader> = new Map([
+  [CUCUMBER_JS, CUCUMBER_JS_READER],
+  [CUCUMBER_JVM, CUCUMBER_JVM_READER],
+  [PLAYWRIGHT_BDD, PLAYWRIGHT_BDD_READER],
+]);
 
 export function resolveStepUsageReader(bddFramework: string): StepUsageReaderLookup {
   const framework = bddFramework.trim();
@@ -162,6 +240,11 @@ export function unusedStepDefinitions(usages: readonly StepDefinitionUsage[], re
     .filter((usage) => usage.usedBy.every((feature) => gone.has(feature)))
     .map(({ file, line, pattern }) => ({ file, line, pattern }))
     .sort(byFileAndLine);
+}
+
+/** The reported unused definitions less those in a `removed` file and those that share a pattern, sorted by file and then line. */
+export function remainingUnusedStepDefinitions(unused: readonly UnusedStepDefinition[], removed: readonly string[] = []): readonly UnusedStepDefinition[] {
+  return unusedStepDefinitions(unused.map((definition) => ({ ...definition, usedBy: [] })), removed);
 }
 
 /** The candidate step files that hold a definition a feature file outside `removedFeatures` uses, or one whose pattern is shared. */

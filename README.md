@@ -18,7 +18,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **HITL-gated auto-merge** — `adwMerge` merges when `(no hitl label) OR (PR approved)`, after merging the base branch in (resolving conflicts) and re-running the scenarios on the result.
 - **Operator directives** — `## Retry`, `## Continue` (waive a base-branch park) and `## Cancel` (scorched-earth reset) comments steer parked, failed or stuck workflows.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; a CI gate and a daily sweep keep the `.adw/conditional_docs.md` index healthy.
-- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js the sweep files one `adw:chore` issue listing the step definitions that no feature file uses.
+- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js, cucumber-jvm and playwright-bdd the sweep files one `adw:chore` issue listing the step definitions that no feature file uses; for cucumber-jvm and playwright-bdd, the definitions a sweep's own removal leaves unused are listed by the next sweep.
 - **Multi-provider support** — `IssueTracker`/`CodeHost` ports from `@paysdoc/devplatform` back GitHub, GitLab and Jira issue trackers and GitHub/GitLab code hosts, plus GitHub Projects V2 board automation.
 - **Resilience primitives** — worktree isolation, per-issue spawn locks, PID liveness and heartbeats, takeover with worktree reuse probing, hung-orchestrator detection, dev-server and device janitors, and remote stage reconciliation.
 - **Rate-limit and auth recovery** — in-process waits for known reset times, a per-repo pause queue with automatic resume, and a `paused_auth` queue with Slack alerts.
@@ -238,7 +238,7 @@ During init, `adw_init` runs `depaudit setup` in the target repo worktree (requi
 
 `adw_init` also writes the repository's Real Boundaries under `## Real Boundaries` in `.adw/scenarios.md`, from the application type: a `cli` repository gets `cli`, `http` or `package` for each of a command-line tool, an HTTP service and a library that it is; a `web` repository gets `browser`, and `http` too when it serves an HTTP API besides its pages; a `mobile:kotlincm` repository gets `app`. A list the repository already has is kept as it is, so that an upgrade never resets it, and when the type is undecided the section is left out for the scenario agent to create. `adw_init` copies `templates/vocabulary.md.template` to `features/regression/vocabulary.md` only when the repository has no registry yet; the template describes execution at a Real Boundary, lists no in-process execution pattern and states that the vocabulary binds the Regression Suite only.
 
-When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
+When the type is `mobile:kotlincm`, `adw_init` then writes the descriptors the repository's own `:scenarios` Gradle module needs, even before the repository has a manifest: a Gradle unit-test command (every module's `test` task except `:scenarios:test`, its JUnit reports gathered into `$ADW_UNIT_TEST_REPORT_PATH`) and a Gradle build command (`./gradlew build -x test`, which passes with a note while the repository has no Gradle build yet, so that the bootstrap issue's baseline is green), `N/A` for the dev server, `cucumber-jvm` with Kotlin step definitions under `scenarios/src/test/kotlin`, run-by-tag and regression commands for `:scenarios` with a cucumber tag filter, the four device-source sections of `.adw/project.md` (`## Android System Image`, `## Android Device Profile`, `## iOS Device Type`, `## iOS Runtime`: defaults when absent, kept when set) and a `## Scenario Run Contract` in `.adw/scenarios.md` (the device variables, the `cucumber.*` system properties the `:scenarios` test task passes on to cucumber-jvm, among them the dry-run properties of the Per-Issue Sweep, the JUnit attachment lines and the `android/` and `ios/` screenshot directories). For this type a `## Run Tests` that holds only `N/A` is replaced; any other existing command is kept.
 
 For a `web` repository, `adw_init` also installs ADW's Playwright project in `features/`, even when the application is not a Node application: `features/playwright.config.ts` from `templates/playwright/`, `features/package.json` (created only when absent), `features/.gitignore` (which keeps `node_modules/` and the generated tests out of git), `npm install` and the browser install. The configuration is byte-identical in every `web` repository and reads the repository's values only from `ADW_APPLICATION_URL`, `ADW_PROOF_DIR` and `ADW_JUNIT_REPORT_PATH`; every upgrade overwrites it, and the upgrade installs the project itself after the `/adw_init` agent, so the regen commit carries `features/package-lock.json`. An existing e2e setup elsewhere in the repository (its own Playwright, Cypress or Cucumber configuration, tests and dependencies) is left as it is, and ADW does not use it. ADW no longer reads `.adw/review_proof.md`, so a repository that still has one can delete it.
 
@@ -311,7 +311,7 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 | Directory | Purpose |
 |---|---|
 | `features/regression/` | Promoted regression suite — run by the `@regression` tag. |
-| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe, which reads the per-issue and step-definition directories `.adw/scenarios.md` names, keeps a step-definition file a remaining scenario still uses, and for cucumber-js files one `adw:chore` issue listing the step definitions that no feature file uses. File naming: `feature-{issueNumber}.feature`. |
+| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe, which reads the per-issue and step-definition directories `.adw/scenarios.md` names, keeps a step-definition file a remaining scenario still uses, and for cucumber-js, cucumber-jvm and playwright-bdd files one `adw:chore` issue listing the step definitions that no feature file uses; for cucumber-jvm and playwright-bdd, the definitions a sweep's own removal leaves unused are listed by the next sweep. File naming: `feature-{issueNumber}.feature`. |
 
 Top-level `features/*.feature` files were removed in the BDD cutover (issue #493). All promoted scenarios now live exclusively under `features/regression/`.
 
@@ -500,6 +500,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwChore.helpers.ts  # Shared helpers for the adwChore tests
 │   ├── adwChore.test.ts
 │   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
+│   ├── adwInitPrompt.boundaries.test.ts
 │   ├── adwInitPrompt.mobile.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.failedMerge.test.ts
@@ -534,6 +535,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── reviewPrompt.test.ts
 │   ├── scenarioWriterPrompt.test.ts
 │   ├── triggerWebhook.test.ts
+│   ├── vocabularyScope.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
@@ -657,6 +659,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── scenarioRunner.test.ts
+│   │   ├── scenarioDirectories.test.ts
 │   │   ├── selfHostLaunch.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── sshCloneUrl.test.ts
@@ -676,6 +679,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── unaddressedComments.test.ts
 │   │   ├── unifiedDiff.parse.test.ts
 │   │   ├── unifiedDiff.touchedPaths.test.ts
+│   │   ├── unusedStepIssueBody.test.ts
+│   │   ├── unusedStepReport.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
 │   │   ├── upgradeFailureCap.test.ts
@@ -753,6 +758,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
+│   ├── scenarioDirectories.ts  # Pure resolveScenarioDirectories: the per-issue, regression and step-definition directories `.adw/scenarios.md` names, normalised to repository-relative paths (defaults `features/per-issue`, `features/regression`)
 │   ├── scenarioRunner.ts  # Pure `resolveScenarioRunner(runnerMode, projectConfig)`: the run-by-tag command, step-definition directory and extensions, per-tag proof directory, install command and stack signals of each runner mode (`descriptor`: `.adw/` as written; `adw_playwright`: ADW's Playwright project)
 │   ├── selfHostLaunch.ts  # Memoised framework-identity check: a launch whose repo is the framework's own (even with `--target-repo` passed) counts as self-host for the guardrails gate
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
@@ -767,6 +773,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── unaddressedComments.ts  # readUnaddressedComments — the pr-review bot/self/ADW-signed comment filter over injected reads, decomposed off the legacy prCommentDetector composite (#820)
 │   ├── unifiedDiff.ts  # Pure unified-diff parser (parseUnifiedDiff, touchedPaths) feeding the fix-round guard
+│   ├── unusedStepIssueBody.ts  # Pure: the `adw:chore` issue the per-issue sweep files listing unused step definitions (capped at 100), and the `Reconciles: unused-step-definitions` marker that keeps it to one open issue per repository
+│   ├── unusedStepReport.ts  # Pure unused step report: one usage-report reader per `## BDD Framework` (cucumber-js only; others are not_supported), the dry-run command that writes it, and the step definitions/files no feature file uses
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── upgradeFailureCap.ts  # Pure helpers for counting bot-authored upgrade-failure comments — used by adwUpgrade to cap regeneration failures before escalating to human
 │   ├── utils.ts
@@ -1020,6 +1028,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   │   ├── devServerJanitorDeps.ts  # Shared dependency fakes for the dev-server janitor tests
 │   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
+│   │   │   ├── perIssueScenarioSweep.base.ts  # Frozen copy of the pre-refactor per-issue sweep, the reference for the equivalence tests
+│   │   │   ├── perIssueSweepDeps.ts  # Shared sweep dependency fakes: tracked-file listing, in-memory issue tracker, step-usage outcomes
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
 │   │   │   └── retryHandlerDeps.ts  # Shared dependency fakes for the retry handler tests
 │   │   ├── autoMergeHandler.postMerge.test.ts
@@ -1054,8 +1064,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── pauseQueueDecider.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── perIssueScenarioSweep.directories.test.ts
+│   │   ├── perIssueScenarioSweep.equivalence.test.ts
+│   │   ├── perIssueScenarioSweep.unusedSteps.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── perIssueSweepPersistBase.test.ts
+│   │   ├── perIssueSweepStepUsage.test.ts
 │   │   ├── sweepImportGraph.test.ts
 │   │   ├── sweepRemovalGate.test.ts
 │   │   ├── rateLimitProbe.test.ts
@@ -1090,8 +1104,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running and no live holder of the issue's spawn lock, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
 │   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
-│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
+│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes per-issue feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, from the directories `.adw/scenarios.md` names, keeping step-def files a remaining scenario still uses; every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
 │   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR, resolved from the passed launch boundary — worktree ops on its GitContext, PR ops on its CodeHost (#797)
+│   ├── perIssueSweepStepUsage.ts  # The sweep's dry run that writes the scenario runner's usage report, the step files it keeps out of a removal batch, and the reconcile that files at most one unused-step `adw:chore` issue per repository; never throws
 │   ├── sweepImportGraph.ts  # Pure relative-import graph: keeps removal candidates a surviving file still imports; maps tsc TS2307 output back to removed files
 │   ├── sweepRemovalGate.ts  # Post-removal gate in the sweep worktree: base checks, apply removals, re-run static checks, restore files reported missing, hard-fail (discard batch) otherwise
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention

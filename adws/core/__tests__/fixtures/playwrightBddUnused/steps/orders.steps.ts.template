@@ -1,0 +1,9 @@
+import { createBdd } from 'playwright-bdd';
+
+const { Given, When, Then } = createBdd();
+
+Given('the shop is open', async () => {});
+When('a customer orders {int} {string}', async ({}, _count: number, _item: string) => {});
+Then('the order is accepted', async () => {});
+Then('the order is rejected', async () => {});
+Given(/^the shop closes at (\d+)$/, async ({}, _hour: string) => {});

@@ -125,6 +125,9 @@
     - adws/core/scenarioDirectories.ts
     - adws/core/unusedStepReport.ts
     - adws/core/unusedStepIssueBody.ts
+    - adws/core/cucumberJvmUnusedReport.ts
+    - adws/core/playwrightBddUnusedReport.ts
+    - adws/core/stepDefinitionSources.ts
     - adws/triggers/scanAuthQueue.ts
     - adws/triggers/devServerJanitor.ts
     - adws/triggers/cloudflareTunnel.tsx
@@ -132,8 +135,8 @@
   - Conditions:
     - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
     - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`) or its persist orchestration (`perIssueSweepPersist.ts`) in `adws/triggers/`
-    - When working on the sweep's configured directories (`resolveScenarioDirectories`, `isWithinDirectory`), the unused step report (`resolveStepUsageReader`, cucumber-js `usage-json` dry run, `unusedStepDefinitions`, `stepFilesStillUsed`), or the unused step definition removal chore (`buildUnusedStepIssue`, `Reconciles: unused-step-definitions`, `reconcileUnusedStepIssue`, `perIssueSweepStepUsage.ts`)
-    - When troubleshooting why the sweep kept a step-definition file, skipped the usage report ("not supported for BDD framework", "step usage report unavailable"), or filed / did not file an `adw:chore` removal issue
+    - When working on the sweep's configured directories (`resolveScenarioDirectories`, `isWithinDirectory`), the unused step report (`resolveStepUsageReader`, cucumber-js `usage-json` dry run, cucumber-jvm `unused` plugin dry run and `locateJvmStepDefinition`, playwright-bdd `bddgen export --unused-steps`, `readStepDefinitionSources`, `unusedStepDefinitions`, `remainingUnusedStepDefinitions`, `stepFilesStillUsed`), or the unused step definition removal chore (`buildUnusedStepIssue`, `Reconciles: unused-step-definitions`, `reconcileUnusedStepIssue`, `perIssueSweepStepUsage.ts`)
+    - When troubleshooting why the sweep kept a step-definition file, skipped the usage report ("not supported for BDD framework", "step usage report unavailable"), dropped an unlocated cucumber-jvm definition, or filed / did not file an `adw:chore` removal issue
     - When a merge fails with a stale or misleading forge error ("not mergeable", "behind", "dirty"), or when working on the auto-merge loop's local merge check (`checkLocalMerge`), stale-mergeability retry (`STALE_MERGE_RETRY_DELAYS_MS`), `MergeOutcome`, the `## ADW Merge Blocked` comment (`mergeBlockedComment.ts`), or adwMerge's `merge.log`
     - When adwMerge re-runs `@regression` and `@adw-{issue}` on the branch merged with the base (`bringBaseIn`, `baseMovedPast`, `rerunScenariosOnMergedBranch`, `postMergeVerdict`), parks `human_gated` / `post_merge_bdd_red`, or when `## Retry` must resume such a park in place, or the janitors must not sweep a live merge run (`isIssueLockHeldByLiveProcess`)
     - When working on region-overlap serialization/detection (`regionOverlap.ts`, `regionOverlapSignals.ts`) or resume-spawn resolution (`adws/core/resolveResumeSpawn.ts`)

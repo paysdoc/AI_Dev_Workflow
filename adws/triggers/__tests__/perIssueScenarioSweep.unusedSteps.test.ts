@@ -7,7 +7,7 @@ vi.mock('../../core', () => ({
 import { runPerIssueScenarioSweep } from '../perIssueScenarioSweep';
 import type { StepUsageOutcome } from '../perIssueSweepStepUsage';
 import type { UnusedStepIssueSpec } from '../../core/unusedStepIssueBody';
-import { daysAgo, fakeTarget, loggedLines, sweepDeps, usage, usageReport, type FakeTarget, type FakeTargetOptions } from './fixtures/perIssueSweepDeps';
+import { daysAgo, fakeTarget, loggedLines, sweepDeps, unusedStepsReport, usage, usageReport, type FakeTarget, type FakeTargetOptions } from './fixtures/perIssueSweepDeps';
 
 const STALE = 'features/per-issue/feature-70.feature';
 const FRESH = 'features/per-issue/feature-71.feature';
@@ -168,6 +168,59 @@ describe('runPerIssueScenarioSweep — the unused step definition chore', () => 
     };
     expect(await runPerIssueScenarioSweep(sweepDeps(throwingFile, { readStepUsage: REPORT, fileRemovalIssue, log: fileLog }))).toEqual([STALE]);
     expect(fileLog).toHaveBeenCalledWith(expect.stringContaining('forge down'), 'error');
+  });
+
+  it('files one chore issue for an unused-steps report, listing its definitions in the step-definition directories with file and line, and naming the framework', async () => {
+    const repo = target();
+    const readStepUsage = unusedStepsReport(
+      'playwright-bdd',
+      { file: ORDERS, line: 9, pattern: 'an order is refunded' },
+      { file: ORDERS, line: 12, pattern: '^an order is lost$' },
+      { file: 'node_modules/@acme/steps/index.js', line: 4, pattern: 'a vendored step' },
+      { file: 'unknown', line: 0, pattern: 'a library step' },
+    );
+
+    const removed = await runPerIssueScenarioSweep(sweepDeps(repo, { readStepUsage }));
+
+    expect(removed).toEqual([STALE]);
+    expect(repo.tracker.issues).toHaveLength(1);
+    const [issue] = repo.tracker.issues;
+    expect(issue.labels).toEqual(['adw:chore']);
+    expect(issue.body).toContain(`\`${ORDERS}:9\` — \`an order is refunded\``);
+    expect(issue.body).toContain(`\`${ORDERS}:12\` — \`^an order is lost$\``);
+    expect(issue.body).toContain('playwright-bdd dry run on `main`');
+    for (const left of ['a vendored step', 'a library step']) expect(issue.body).not.toContain(left);
+  });
+
+  it('files no chore issue when the unused-steps report lists nothing, and still removes the stale feature files', async () => {
+    const repo = target();
+    const log = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep(sweepDeps(repo, { readStepUsage: unusedStepsReport('cucumber-jvm'), log }));
+
+    expect(removed).toEqual([STALE]);
+    expect(repo.tracker.issues).toEqual([]);
+    expect(log).toHaveBeenCalledWith('perIssueScenarioSweep: no unused step definitions', 'info');
+  });
+
+  it("keeps a stale issue's step file outside the per-issue directory and lists no definition from a step file the batch removed, with an unused-steps report", async () => {
+    const inside = 'features/per-issue/step_definitions/feature-70.steps.ts';
+    const outside = 'features/step_definitions/feature-70.steps.ts';
+    const repo = target({ tracked: [STALE, FRESH, ORDERS, inside, outside] });
+    const readStepUsage = unusedStepsReport(
+      'playwright-bdd',
+      { file: inside, line: 3, pattern: 'issue 70 has started' },
+      { file: outside, line: 5, pattern: 'issue 70 is reported' },
+      { file: ORDERS, line: 9, pattern: 'an order is refunded' },
+    );
+
+    const removed = await runPerIssueScenarioSweep(sweepDeps(repo, { readStepUsage }));
+
+    expect(removed).toEqual([STALE, inside]);
+    expect(bodiesOf(repo)).toHaveLength(1);
+    expect(bodiesOf(repo)[0]).not.toContain(`${inside}:`);
+    expect(bodiesOf(repo)[0]).toContain(`\`${outside}:5\` — \`issue 70 is reported\``);
+    expect(bodiesOf(repo)[0]).toContain(`\`${ORDERS}:9\` — \`an order is refunded\``);
   });
 
   it('runs the dry run and files the issue while the sweep worktree exists, and tears the worktree down after them', async () => {

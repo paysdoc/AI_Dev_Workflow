@@ -1,0 +1,11 @@
+Using config: playwright.config.ts
+Unused steps (3):
+┌──────────────────────────────────┬───────────────────────────┐
+│ Pattern / Text                   │ Location                  │
+├──────────────────────────────────┼───────────────────────────┤
+│ Given a returning customer       │ steps/invoices.steps.ts:6 │
+├──────────────────────────────────┼───────────────────────────┤
+│ Then the order is rejected       │ steps/orders.steps.ts:8   │
+├──────────────────────────────────┼───────────────────────────┤
+│ Given ^the shop closes at (\d+)$ │ steps/orders.steps.ts:9   │
+└──────────────────────────────────┴───────────────────────────┘

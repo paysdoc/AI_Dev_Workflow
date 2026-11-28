@@ -1,0 +1,7 @@
+
+3 unused step definition(s)
+
+Location                                                   Expression                  
+fixture.steps.OrderSteps.theOrderIsRejected()              # the order is rejected     
+fixture.steps.OrderSteps.theShopClosesAt(java.lang.String) # ^the shop closes at (\d+)$
+fixture.steps.InvoiceSteps.aReturningCustomer()            # a returning customer      
