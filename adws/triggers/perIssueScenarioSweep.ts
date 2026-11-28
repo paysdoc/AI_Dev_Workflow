@@ -1,37 +1,40 @@
 /**
- * Per-issue scenario sweep: removes features/per-issue/feature-{N}.feature files
- * (and their features/per-issue/step_definitions/feature-{N}.* and feature-{N}-*
- * step-def siblings) 14 days after the corresponding issue's PR is merged, plus
- * any step-def file whose feature-{N}.feature is already gone. Every batch passes
- * the post-removal gate (sweepRemovalGate.ts) before it is committed: files a
- * survivor still imports are kept, and a batch that leaves the repo's static
- * checks red is repaired or discarded — never landed. Listing, staleness
- * decisions, and the removal itself all run against a dedicated worktree synced
- * to fresh origin/<default> (see perIssueSweepPersist.ts) — never the cron
- * host's own, possibly stale, base checkout. The removal is pushed on a
- * dedicated sweep branch and landed via an immediately-merged pull request,
- * never a direct commit/push onto the shared default branch.
+ * Per-issue scenario sweep: removes the Per-Issue Scenarios (feature-{N}.feature in the per-issue directory the target's
+ * `.adw/scenarios.md` names) 14 days after the issue's PR is merged, with the step-def files named for the issue
+ * (feature-{N}.* and feature-{N}-*) in its configured step-definition directories, plus any such file whose feature is
+ * already gone. The runner's dry run (perIssueSweepStepUsage.ts) keeps a step file a remaining feature file still uses
+ * and, once the batch has landed, lists the definitions no remaining feature file uses in one removal chore; without it,
+ * only step files inside the per-issue directory are removed. Every batch passes the post-removal gate
+ * (sweepRemovalGate.ts) before it is committed: files a survivor still imports are kept, and a batch that leaves the
+ * repo's static checks red is repaired or discarded — never landed. Listing, staleness decisions, the dry run and the
+ * removal all run against a dedicated worktree synced to fresh origin/<default> (see perIssueSweepPersist.ts) — never
+ * the cron host's own, possibly stale, base checkout — and the removal lands via an immediately-merged pull request from
+ * a dedicated sweep branch, never a direct commit/push onto the shared default branch.
  *
- * Identity comes entirely from the caller's injected launch boundary
- * (`deps.boundary`) — this module performs no repo-identity resolution of
- * its own.
+ * Identity comes entirely from the caller's injected launch boundary (`deps.boundary`) — this module performs no
+ * repo-identity resolution of its own.
  */
 
 import * as path from 'path';
 import { log, type LogLevel } from '../core';
+import { getDefaultScenariosConfig, loadProjectConfig } from '../core/projectConfig';
+import { isWithinDirectory, resolveScenarioDirectories, type ScenarioDirectories } from '../core/scenarioDirectories';
+import type { UnusedStepIssueRef, UnusedStepIssueSpec } from '../core/unusedStepIssueBody';
 import { bodyLinksIssue } from '../forge/issueLinkMarker';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
+import { defaultFileRemovalIssue, defaultListOpenRemovalIssues, defaultReadStepUsage, readStepUsageOutcome, reconcileUnusedStepDefinitions, withoutUsedStepFiles, type StepUsageOutcome } from './perIssueSweepStepUsage';
 import { verifyRemoval, worktreeGateDeps } from './sweepRemovalGate';
 import type { LaunchBoundary } from '../core';
 import type { CodeHost } from '@paysdoc/devplatform';
 
 export const RETENTION_DAYS = 14;
 
-const PER_ISSUE_DIR = 'features/per-issue';
-const STEP_DEF_DIR = 'features/per-issue/step_definitions';
 const FEATURE_FILENAME_RE = /^feature-(\d+)\.feature$/;
 // A step-def file belongs to issue N when named feature-N.<ext> or split as feature-N-<part>.<ext>.
 const STEP_DEF_ISSUE_RE = /^feature-(\d+)[.-]/;
+const FEATURE_EXTENSION = '.feature';
+
+type Logger = (msg: string, level?: LogLevel) => void;
 
 export function stepDefIssueNumber(filePath: string): number | null {
   const match = STEP_DEF_ISSUE_RE.exec(path.basename(filePath));
@@ -66,7 +69,33 @@ export interface PerIssueSweepDeps {
   gateRemoval?: (paths: readonly string[], base: SweepBase) => Promise<readonly string[] | null>;
   /** Resolves the paths that actually landed; void means the whole batch did. */
   persistRemoval?: (paths: readonly string[]) => void | readonly string[] | Promise<void | readonly string[]>;
+  /** The per-issue, regression and step-definition directories of the target's `.adw/scenarios.md`. */
+  readDirectories?: () => ScenarioDirectories;
+  /** Which feature files use each step definition, read from the scenario runner's dry run. */
+  readStepUsage?: () => Promise<StepUsageOutcome>;
+  listOpenRemovalIssues?: () => readonly UnusedStepIssueRef[];
+  fileRemovalIssue?: (spec: UnusedStepIssueSpec) => number;
   log?: (msg: string, level?: string) => void;
+}
+
+type SweepListers = Required<Pick<PerIssueSweepDeps, 'listFeatures' | 'listStepDefSiblings' | 'listOrphanStepDefs'>>;
+
+interface StaleScenario {
+  readonly issueNum: number;
+  readonly mergedAt: Date;
+}
+
+interface RemovalBatch {
+  readonly staleFeatures: readonly string[];
+  readonly paths: readonly string[];
+}
+
+function lsFilesUnder(base: SweepBase, directory: string): string[] {
+  try {
+    return base.ctx.lsFiles(base.worktreePath, directory);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -77,12 +106,10 @@ export interface PerIssueSweepDeps {
  * in a prior cycle was never committed to the base, so the file is still
  * tracked on origin and is re-listed (and re-attempted) here.
  */
-function defaultListFeatures(base: SweepBase): string[] {
-  try {
-    return base.ctx.lsFiles(base.worktreePath, PER_ISSUE_DIR).filter(p => FEATURE_FILENAME_RE.test(path.basename(p)));
-  } catch {
-    return [];
-  }
+function defaultListFeatures(base: SweepBase, directories: ScenarioDirectories): string[] {
+  return lsFilesUnder(base, directories.perIssue)
+    .filter(p => FEATURE_FILENAME_RE.test(path.basename(p)))
+    .filter(p => !isWithinDirectory(p, directories.regression));
 }
 
 /**
@@ -104,25 +131,40 @@ export function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promis
   }
 }
 
-function listStepDefFiles(base: SweepBase): string[] {
-  try {
-    return base.ctx.lsFiles(base.worktreePath, STEP_DEF_DIR);
-  } catch {
-    return [];
-  }
+/** A step-definition directory may be as wide as the whole scenario tree, so feature files and the Regression Suite's own files are left out. */
+function listStepDefFiles(base: SweepBase, directories: ScenarioDirectories): string[] {
+  const listed = directories.stepDefinitions.flatMap(directory => lsFilesUnder(base, directory));
+  return [...new Set(listed)].filter(p => !p.endsWith(FEATURE_EXTENSION) && !isWithinDirectory(p, directories.regression));
 }
 
 /** Lists tracked step-def siblings for issue N from the synced sweep worktree (feature-N.steps.ts, feature-N-world.ts, …). */
-function defaultListStepDefSiblings(base: SweepBase, issueNum: number): string[] {
-  return listStepDefFiles(base).filter(p => stepDefIssueNumber(p) === issueNum);
+function defaultListStepDefSiblings(base: SweepBase, directories: ScenarioDirectories, issueNum: number): string[] {
+  return listStepDefFiles(base, directories).filter(p => stepDefIssueNumber(p) === issueNum);
 }
 
-function defaultListOrphanStepDefs(base: SweepBase, featureFiles: readonly string[]): string[] {
+function defaultListOrphanStepDefs(base: SweepBase, directories: ScenarioDirectories, featureFiles: readonly string[]): string[] {
   const featureIssues = new Set(featureFiles.map(f => FEATURE_FILENAME_RE.exec(path.basename(f))?.[1]).filter(Boolean).map(Number));
-  return listStepDefFiles(base).filter(p => {
+  return listStepDefFiles(base, directories).filter(p => {
     const issueNum = stepDefIssueNumber(p);
     return issueNum !== null && !featureIssues.has(issueNum);
   });
+}
+
+function defaultReadDirectories(base: SweepBase | null): ScenarioDirectories {
+  const scenarios = base ? loadProjectConfig(base.worktreePath).scenarios : getDefaultScenariosConfig();
+  return resolveScenarioDirectories(scenarios);
+}
+
+function resolveListers(deps: PerIssueSweepDeps, getBase: () => SweepBase | null, directories: ScenarioDirectories): SweepListers {
+  const onBase = (list: (base: SweepBase) => string[]): string[] => {
+    const base = getBase();
+    return base ? list(base) : [];
+  };
+  return {
+    listFeatures: deps.listFeatures ?? (() => onBase(base => defaultListFeatures(base, directories))),
+    listStepDefSiblings: deps.listStepDefSiblings ?? (issueNum => onBase(base => defaultListStepDefSiblings(base, directories, issueNum))),
+    listOrphanStepDefs: deps.listOrphanStepDefs ?? (featureFiles => onBase(base => defaultListOrphanStepDefs(base, directories, featureFiles))),
+  };
 }
 
 /** Runs the post-removal gate in the sweep worktree; returns the paths cleared to land, or null when none may. */
@@ -141,22 +183,69 @@ async function defaultGateRemoval(paths: readonly string[], base: SweepBase, log
   }
 }
 
+/** The issue and merge date of a stale Per-Issue Scenario; null for any file not swept this cycle. */
+async function staleScenarioOf(filePath: string, getMergedAt: (issueNum: number) => Promise<Date | null>, now: Date, logger: Logger): Promise<StaleScenario | null> {
+  const basename = path.basename(filePath);
+  const match = FEATURE_FILENAME_RE.exec(basename);
+  if (!match) {
+    logger(`perIssueScenarioSweep: skipping unrecognised filename ${basename}`, 'warn');
+    return null;
+  }
+
+  const issueNum = parseInt(match[1], 10);
+  try {
+    const mergedAt = await getMergedAt(issueNum);
+    return mergedAt !== null && isScenarioStale(filePath, mergedAt, RETENTION_DAYS, now) ? { issueNum, mergedAt } : null;
+  } catch (err) {
+    logger(`perIssueScenarioSweep: getMergedAt failed for issue #${issueNum}: ${err} — skipping`, 'warn');
+    return null;
+  }
+}
+
+async function collectRemovalBatch(listers: SweepListers, staleScenario: (filePath: string) => Promise<StaleScenario | null>, logger: Logger): Promise<RemovalBatch> {
+  const files = listers.listFeatures();
+  const staleFeatures: string[] = [];
+  const toRemove: string[] = [];
+
+  for (const filePath of files) {
+    const stale = await staleScenario(filePath);
+    if (!stale) continue;
+    const siblings = listers.listStepDefSiblings(stale.issueNum);
+    logger(
+      `perIssueScenarioSweep: sweeping stale scenario ${filePath} (issue #${stale.issueNum} merged ${stale.mergedAt.toISOString()}) + ${siblings.length} step-def sibling(s)`,
+      'info',
+    );
+    staleFeatures.push(filePath);
+    toRemove.push(filePath, ...siblings);
+  }
+
+  const orphans = listers.listOrphanStepDefs(files).filter(p => !toRemove.includes(p));
+  if (orphans.length > 0) {
+    logger(`perIssueScenarioSweep: ${orphans.length} step-def file(s) whose feature is already gone: ${orphans.join(', ')}`, 'info');
+    toRemove.push(...orphans);
+  }
+  return { staleFeatures, paths: toRemove };
+}
+
 /**
  * Lists per-issue feature files, checks their linked PR merge date, and removes
  * every stale file plus its step-def sibling(s), and every step-def file whose
- * feature is already gone, as one gated, persisted batch. Returns the paths that
- * landed (empty when nothing is stale, or the gate cleared nothing — no commit).
+ * feature is already gone, as one gated, persisted batch — less any step file a
+ * remaining feature file still uses. Then files the removal chore for the step
+ * definitions no remaining feature file uses. Returns the paths that landed
+ * (empty when nothing is stale, or the gate cleared nothing — no commit).
  *
- * The base-dependent defaults (listing and persistence) share a
- * single lazily-memoized SweepBase — a dedicated worktree synced to fresh
- * origin/<default> — created at most once per call, and only when a
- * base-dependent default actually runs (never for a fully-injected caller). The
- * worktree is always torn down before returning, on every exit path.
+ * The base-dependent defaults (directories, listing, the dry run and
+ * persistence) share a single lazily-memoized SweepBase — a dedicated worktree
+ * synced to fresh origin/<default> — created at most once per call, and only
+ * when a base-dependent default actually runs (never for a fully-injected
+ * caller). The worktree is always torn down before returning, on every exit path.
  */
 export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise<string[]> {
   const now = deps.now ?? new Date();
   const getMergedAt = deps.getMergedAt ?? ((issueNum: number) => defaultGetMergedAt(deps.boundary.providers.codeHost, issueNum));
   const logger = deps.log ?? log;
+  const { issueTracker } = deps.boundary.providers;
 
   let cachedBase: SweepBase | null | undefined;
   const getBase = (): SweepBase | null => {
@@ -164,18 +253,8 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
     return cachedBase;
   };
 
-  const listFeatures = deps.listFeatures ?? (() => {
-    const base = getBase();
-    return base ? defaultListFeatures(base) : [];
-  });
-  const listStepDefSiblings = deps.listStepDefSiblings ?? ((issueNum: number) => {
-    const base = getBase();
-    return base ? defaultListStepDefSiblings(base, issueNum) : [];
-  });
-  const listOrphanStepDefs = deps.listOrphanStepDefs ?? ((featureFiles: readonly string[]) => {
-    const base = getBase();
-    return base ? defaultListOrphanStepDefs(base, featureFiles) : [];
-  });
+  const readDirectories = deps.readDirectories ?? (() => defaultReadDirectories(getBase()));
+  const readStepUsage = deps.readStepUsage ?? defaultReadStepUsage(getBase, logger);
   const gateRemoval = deps.gateRemoval ?? ((paths: readonly string[], base: SweepBase) => defaultGateRemoval(paths, base, logger));
   const persistRemoval = deps.persistRemoval ?? (async (paths: readonly string[]): Promise<readonly string[]> => {
     const base = getBase();
@@ -190,46 +269,26 @@ export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise
   });
 
   try {
-    const files = listFeatures();
-    const toRemove: string[] = [];
+    const directories = readDirectories();
+    const staleScenario = (filePath: string) => staleScenarioOf(filePath, getMergedAt, now, logger);
+    const batch = await collectRemovalBatch(resolveListers(deps, getBase, directories), staleScenario, logger);
 
-    for (const filePath of files) {
-      const basename = path.basename(filePath);
-      const match = FEATURE_FILENAME_RE.exec(basename);
-      if (!match) {
-        logger(`perIssueScenarioSweep: skipping unrecognised filename ${basename}`, 'warn');
-        continue;
-      }
+    // Read before anything is removed, while the worktree still equals the default branch; the paths that land then tell
+    // which uses are gone, so the one report answers both what to keep and what is left unused.
+    const usage = await readStepUsageOutcome(readStepUsage, logger);
+    const toRemove = withoutUsedStepFiles(batch.paths, batch.staleFeatures, usage, directories, logger);
 
-      const issueNum = parseInt(match[1], 10);
-      let mergedAt: Date | null = null;
-      try {
-        mergedAt = await getMergedAt(issueNum);
-      } catch (err) {
-        logger(`perIssueScenarioSweep: getMergedAt failed for issue #${issueNum}: ${err} — skipping`, 'warn');
-        continue;
-      }
+    const persisted = toRemove.length === 0 ? [] : await persistRemoval(toRemove);
+    const landed = persisted ? [...persisted] : [...toRemove];
+    if (usage.kind !== 'usage') return landed;
 
-      if (!isScenarioStale(filePath, mergedAt, RETENTION_DAYS, now)) continue;
-
-      const siblings = listStepDefSiblings(issueNum);
-      logger(
-        `perIssueScenarioSweep: sweeping stale scenario ${filePath} (issue #${issueNum} merged ${mergedAt?.toISOString()}) + ${siblings.length} step-def sibling(s)`,
-        'info',
-      );
-      toRemove.push(filePath, ...siblings);
-    }
-
-    const orphans = listOrphanStepDefs(files).filter(p => !toRemove.includes(p));
-    if (orphans.length > 0) {
-      logger(`perIssueScenarioSweep: ${orphans.length} step-def file(s) whose feature is already gone: ${orphans.join(', ')}`, 'info');
-      toRemove.push(...orphans);
-    }
-
-    if (toRemove.length === 0) return [];
-
-    const landed = await persistRemoval(toRemove);
-    return landed ? [...landed] : toRemove;
+    reconcileUnusedStepDefinitions(usage, landed, directories, {
+      listOpenRemovalIssues: deps.listOpenRemovalIssues ?? defaultListOpenRemovalIssues(issueTracker),
+      fileRemovalIssue: deps.fileRemovalIssue ?? defaultFileRemovalIssue(issueTracker),
+      defaultBranch: cachedBase?.defaultBranch ?? null,
+      log: logger,
+    });
+    return landed;
   } finally {
     if (cachedBase) cleanupSweepBase(cachedBase);
   }

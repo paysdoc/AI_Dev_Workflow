@@ -1,0 +1,6 @@
+{
+  "default": {
+    "paths": ["adws/core/__tests__/fixtures/cucumberJsUsage/features/**/*.feature"],
+    "import": ["adws/core/__tests__/fixtures/cucumberJsUsage/step_definitions/**/*.ts"]
+  }
+}

@@ -139,7 +139,8 @@ function boundDocsIndexSweep(): (() => Promise<unknown>) | null {
  * Per-issue scenario sweep dispatch: on a cadence-eligible cron cycle
  * (cycleCount a multiple of PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES) invokes
  * the sweep, which TTL-removes stale per-issue scenarios from the repo of the
- * cron's launch GitContext. Off-cadence cycles are a no-op. When no launch
+ * cron's launch GitContext and files that repo's removal chore for the step
+ * definitions no feature file uses. Off-cadence cycles are a no-op. When no launch
  * context is available the pass is skipped (logged), never falling back to a
  * cwd-derived identity. Non-fatal — a transient git/gh failure, or any
  * escaped throw, is logged and swallowed so it can never abort the cron

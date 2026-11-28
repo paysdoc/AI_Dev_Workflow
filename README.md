@@ -18,7 +18,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **HITL-gated auto-merge** — `adwMerge` merges when `(no hitl label) OR (PR approved)`, after merging the base branch in (resolving conflicts) and re-running the scenarios on the result.
 - **Operator directives** — `## Retry`, `## Continue` (waive a base-branch park) and `## Cancel` (scorched-earth reset) comments steer parked, failed or stuck workflows.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; a CI gate and a daily sweep keep the `.adw/conditional_docs.md` index healthy.
-- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate.
+- **Scenario lifecycle sweep** — per-issue scenarios are removed 14 days after merge behind a static-check gate, from the per-issue and step-definition directories `.adw/scenarios.md` names; a step-definition file a remaining scenario still uses is kept, and for cucumber-js the sweep files one `adw:chore` issue listing the step definitions that no feature file uses.
 - **Multi-provider support** — `IssueTracker`/`CodeHost` ports from `@paysdoc/devplatform` back GitHub, GitLab and Jira issue trackers and GitHub/GitLab code hosts, plus GitHub Projects V2 board automation.
 - **Resilience primitives** — worktree isolation, per-issue spawn locks, PID liveness and heartbeats, takeover with worktree reuse probing, hung-orchestrator detection, dev-server and device janitors, and remote stage reconciliation.
 - **Rate-limit and auth recovery** — in-process waits for known reset times, a per-repo pause queue with automatic resume, and a `paused_auth` queue with Slack alerts.
@@ -309,7 +309,7 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 | Directory | Purpose |
 |---|---|
 | `features/regression/` | Promoted regression suite — run by the `@regression` tag. |
-| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe. File naming: `feature-{issueNumber}.feature`. |
+| `features/per-issue/` | Per-issue scenarios — run only by their own workflow's test phase (by `@adw-{N}` tag), never as part of the regression run; retained for 14 days after the issue's PR merges and then swept by the cron probe, which reads the per-issue and step-definition directories `.adw/scenarios.md` names, keeps a step-definition file a remaining scenario still uses, and for cucumber-js files one `adw:chore` issue listing the step definitions that no feature file uses. File naming: `feature-{issueNumber}.feature`. |
 
 Top-level `features/*.feature` files were removed in the BDD cutover (issue #493). All promoted scenarios now live exclusively under `features/regression/`.
 
