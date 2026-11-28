@@ -581,6 +581,10 @@
     - adws/__tests__/reviewPrompt.test.ts
     - adws/__tests__/reviewPrompt.scenarios.test.ts
     - adws/__tests__/reviewPrompt.helpers.ts
+    - adws/__tests__/adwInitPrompt.boundaries.test.ts
+    - adws/__tests__/vocabularyTemplate.test.ts
+    - adws/__tests__/vocabularyScope.test.ts
+    - templates/vocabulary.md.template
   - Conditions:
     - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
     - When working on `adw_init` output (descriptor fields, `.github/adw.yml` creation, Comments guideline entry), the descriptor-driven `scenario_writer` prompt and `implement-tdd`'s `step-definitions.md`, or the `unitTests` switch read by `/feature` and `implement-tdd`
@@ -590,6 +594,9 @@
     - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
     - When working on the layer rule (ADR-0067) in the prompts: Real Boundary wording, one scenario per acceptance criterion, the zero-scenario outcome of `/scenario_writer`, the `## Scenarios and Unit Tests` section of `/feature` and `/bug`, plan-sourced unit tests in `implement-tdd`, or `/review` Step 4's boundary-only blocker and zero-scenario judgement
     - When `scenarioWriterPrompt.test.ts`, `implementTddPrompt.test.ts`, `reviewPrompt.test.ts` or `reviewPrompt.scenarios.test.ts` fails
+    - When working on the `## Real Boundaries` section `adw_init` writes into `.adw/scenarios.md` from the application type (fixed `cli`/`http`/`package`/`browser`/`app` entries, preserved when present, left out when the type is undecided)
+    - When working on `templates/vocabulary.md.template` (its `## Scope` statement that the vocabulary binds the Regression Suite only, `## Execution at a Real Boundary`, no in-process execution pattern) or `adw_init`'s copy-only-when-absent vocabulary copy and examples-block drafting
+    - When `adwInitPrompt.boundaries.test.ts`, `vocabularyTemplate.test.ts` or `vocabularyScope.test.ts` fails
   - Decisions:
     - 0005
     - 0014
