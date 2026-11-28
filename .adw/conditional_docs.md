@@ -472,12 +472,16 @@
   - Owns:
     - adws/promotion/**
     - .claude/commands/promote_regression_vocabulary.md
+    - adws/agents/proposalAnalysisAgent.ts
+    - adws/triggers/promotionProposal*.ts
   - Conditions:
-    - When working on the vocabulary registry parser or the scenario parser in `adws/promotion/` (`parseVocabulary`, `parseScenarios`), including scenarios nested in `Rule:` blocks
+    - When working on the weekly Promotion Proposal: the cron pass (`runPromotionProposalPass`, `runPromotionProposalTick`, `PROMOTION_PROPOSAL_INTERVAL_CYCLES` / `PROMOTION_PROPOSAL_INTERVAL_DAYS`), its checkout, candidate selection, or filing with `adw:none` and the `promotion-proposal` label
+    - When building or reading a proposal body (`buildProposalBody`, `readProposalCandidates`, `tickedCandidates`, `buildPromotionProposal`, the `adw-candidate` marker), including the Regression Suite audit or acting on a ticked or closed proposal
+    - When working on the Per-Issue Sweep's exemption for candidates of an open Promotion Proposal (`readOpenProposalCandidates`, `readSweepExemptIssues`), or a nominated scenario or its step definitions being kept or swept
     - When working on Nominations: the `@nominated` / `@nomination-declined` tags, `collectNominations`, `NominationState`, or `readPerIssueScenarioFiles` reading Per-Issue Scenario files from a default-branch checkout
-    - When building the Promotion Proposal, which consumes the nomination collector, or the sweep exemption for nominated scenarios
+    - When working on the proposal analysis: `runProposalAnalysisAgent`, `extractProposalAnalyses`, the `/promote_regression_vocabulary` command or the `promote-regression-vocabulary` skill
     - When an issue carries the `regression-promotion` label, which skips the scenario-writing phase (`shouldSkipScenarioAuthoring`) and makes the review treat it as `ReviewIssueKind.Promotion`
-    - When working on the `/promote_regression_vocabulary` command or the `promote-regression-vocabulary` analysis skill
+    - When working on the vocabulary registry parser or the scenario parser in `adws/promotion/` (`parseVocabulary`, `parseScenarios`), including scenarios nested in `Rule:` blocks
   - Decisions:
     - 0068
 
