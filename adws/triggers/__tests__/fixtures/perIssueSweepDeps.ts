@@ -125,7 +125,7 @@ export function unusedStepsReport(framework: string, ...unused: UnusedStepDefini
 export const passThroughGate = async (paths: readonly string[]): Promise<readonly string[]> => paths;
 
 export function sweepDeps(target: FakeTarget, overrides: Partial<PerIssueSweepDeps> = {}): PerIssueSweepDeps {
-  return { boundary: target.boundary, now: NOW, gateRemoval: passThroughGate, readOpenProposalCandidates: () => [], log: vi.fn(), ...overrides };
+  return { boundary: target.boundary, now: NOW, gateRemoval: passThroughGate, readExemptCandidates: () => [], log: vi.fn(), ...overrides };
 }
 
 /** The paths the default persist path committed, in the order it was asked to. */

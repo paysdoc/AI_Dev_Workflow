@@ -20,7 +20,7 @@ const FORGE: ForgeState = {
   repository: REPOSITORY,
   issues: {
     [String(ISSUE_NUMBER)]: {
-      number: ISSUE_NUMBER, title: 'Issue', body: '', state: 'OPEN', author: { login: 'u', name: '', is_bot: false }, assignees: [], labels: [],
+      number: ISSUE_NUMBER, title: 'Issue', body: '', state: 'OPEN', stateReason: '', author: { login: 'u', name: '', is_bot: false }, assignees: [], labels: [],
       milestone: null, comments: [], createdAt: NOW, updatedAt: NOW, closedAt: null, url: `https://github.com/acme/widgets/issues/${ISSUE_NUMBER}`,
     },
   },

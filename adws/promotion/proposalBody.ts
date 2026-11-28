@@ -73,7 +73,7 @@ function shownName(scenarioName: string): string {
   return scenarioName === '' ? UNNAMED_SCENARIO : codeSpan(scenarioName);
 }
 
-function markerOf({ issueNumber, scenarioName }: NominationKey): string {
+export function candidateMarker({ issueNumber, scenarioName }: NominationKey): string {
   return `<!-- ${PROPOSAL_CANDIDATE_MARKER}:${issueNumber}:${encodeURIComponent(scenarioName)} -->`;
 }
 
@@ -94,7 +94,7 @@ function truncated(text: string, maxLength: number): string {
 
 function checklistLine(entry: ProposalEntry): string {
   const box = entry.ticked ? '[x]' : '[ ]';
-  return `- ${box} #${entry.issueNumber} · ${shownName(entry.scenarioName)} ${markerOf(entry)}`;
+  return `- ${box} #${entry.issueNumber} · ${shownName(entry.scenarioName)} ${candidateMarker(entry)}`;
 }
 
 function sectionLines({ heading, text }: ProposalSection): string[] {

@@ -62,6 +62,11 @@ export function recordNomination(world: RegressionWorld, nomination: NominatedSc
   nominations.set(world, [...(nominations.get(world) ?? []), nomination]);
 }
 
+/** The Nominations the scenario's Givens wrote into the target repository, in the order they were given. */
+export function recordedNominations(world: RegressionWorld): readonly NominatedScenario[] {
+  return nominations.get(world) ?? [];
+}
+
 export function cannedAnalysesOf(world: RegressionWorld): readonly CannedAnalysis[] {
   const canned = analyses.get(world);
   assert.ok(canned, 'Expected the promotion analysis agent to have been given its answer first');

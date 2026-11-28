@@ -112,17 +112,25 @@ function commentHandler(pullRequestsOnly: boolean): GhHandler {
 const issueComment = commentHandler(false);
 const prComment = commentHandler(true);
 
+/** gh closes as completed unless `--reason "not planned"` says otherwise. */
+function closeReasonOf(parsed: ParsedArgs): GhIssue['stateReason'] {
+  const reason = lastValue(parsed, '--reason') ?? lastValue(parsed, '-r') ?? '';
+  return reason.toLowerCase() === 'not planned' ? 'NOT_PLANNED' : 'COMPLETED';
+}
+
 const issueClose: GhHandler = (args, context) => {
-  const call = parseCall(args, {}, true);
+  const call = parseCall(args, { values: ['--reason', '-r'] }, true);
   if (!call || !isNumber(call.subject)) return undefined;
   const { state, now } = context;
-  const request: GhRequest = { method: 'PATCH', path: `/repos/${call.repository}/issues/${call.subject}`, body: { state: 'closed' } };
+  const stateReason = closeReasonOf(call.parsed);
+  const body = { state: 'closed', state_reason: stateReason.toLowerCase() };
+  const request: GhRequest = { method: 'PATCH', path: `/repos/${call.repository}/issues/${call.subject}`, body };
   if (!sameRepository(state, call.repository)) return wrote(context, request);
 
   const issue = state.issues[call.subject];
   if (!issue) return notAnIssue(call.subject);
   if (issue.state === 'CLOSED') return succeed();
-  return wrote(context, request, '', withIssue(state, { ...issue, state: 'CLOSED', closedAt: now(), updatedAt: now() }));
+  return wrote(context, request, '', withIssue(state, { ...issue, state: 'CLOSED', stateReason, closedAt: now(), updatedAt: now() }));
 };
 
 const issueCreate: GhHandler = (args, context) => {
@@ -135,7 +143,7 @@ const issueCreate: GhHandler = (args, context) => {
   const number = nextNumber(state);
   const url = `https://github.com/${call.repository}/issues/${number}`;
   const issue: GhIssue = {
-    number, title, body, state: 'OPEN', author: { login: ACTOR, name: '', is_bot: false }, assignees: [], labels: [], milestone: null,
+    number, title, body, state: 'OPEN', stateReason: '', author: { login: ACTOR, name: '', is_bot: false }, assignees: [], labels: [], milestone: null,
     comments: [], createdAt: now(), updatedAt: now(), closedAt: null, url,
   };
   const request: GhRequest = { method: 'POST', path: `/repos/${call.repository}/issues`, body: { title, body } };

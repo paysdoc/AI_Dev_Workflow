@@ -93,14 +93,24 @@ function limitOf(parsed: ParsedArgs): number | undefined {
   return isNumber(limit) ? Number(limit) : undefined;
 }
 
-/** `label:<name>` qualifiers must all hold, and every other word must appear in the title or the body, in any case. */
+const CLOSE_REASONS: Readonly<Record<string, GhIssue['stateReason']>> = { completed: 'COMPLETED', 'not planned': 'NOT_PLANNED' };
+
+function matchesToken(issue: GhIssue, token: string, haystack: string): boolean {
+  const [, qualifier, value] = /^(label|reason):(.+)$/.exec(token) ?? [];
+  const unquoted = (value ?? token).replace(/"/g, '');
+  if (qualifier === 'label') return issue.labels.some((candidate) => candidate.name === unquoted);
+  if (qualifier === 'reason') return issue.stateReason === CLOSE_REASONS[unquoted.toLowerCase()];
+  return haystack.includes(unquoted.toLowerCase());
+}
+
+/**
+ * `label:<name>` and `reason:completed` / `reason:"not planned"` qualifiers must all hold, and every other word must appear in
+ * the title or the body, in any case.
+ */
 function matchesSearch(issue: GhIssue, search: string | undefined): boolean {
   const tokens = (search ?? '').match(/(?:[^\s"]+|"[^"]*")+/g) ?? [];
   const haystack = `${issue.title} ${issue.body}`.toLowerCase();
-  return tokens.every((token) => {
-    const label = /^label:(.+)$/.exec(token)?.[1].replace(/"/g, '');
-    return label === undefined ? haystack.includes(token.replace(/"/g, '').toLowerCase()) : issue.labels.some((candidate) => candidate.name === label);
-  });
+  return tokens.every((token) => matchesToken(issue, token, haystack));
 }
 
 function newestFirst(a: GhIssue, b: GhIssue): number {
