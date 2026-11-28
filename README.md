@@ -500,6 +500,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── adwChore.helpers.ts  # Shared helpers for the adwChore tests
 │   ├── adwChore.test.ts
 │   ├── adwInitPrompt.helpers.ts  # Shared helpers for the adw_init prompt tests
+│   ├── adwInitPrompt.boundaries.test.ts
 │   ├── adwInitPrompt.mobile.test.ts
 │   ├── adwInitPrompt.test.ts
 │   ├── adwMerge.failedMerge.test.ts
@@ -534,6 +535,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── reviewPrompt.test.ts
 │   ├── scenarioWriterPrompt.test.ts
 │   ├── triggerWebhook.test.ts
+│   ├── vocabularyScope.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
@@ -657,6 +659,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── scenarioRunner.test.ts
+│   │   ├── scenarioDirectories.test.ts
 │   │   ├── selfHostLaunch.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── sshCloneUrl.test.ts
@@ -676,6 +679,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── unaddressedComments.test.ts
 │   │   ├── unifiedDiff.parse.test.ts
 │   │   ├── unifiedDiff.touchedPaths.test.ts
+│   │   ├── unusedStepIssueBody.test.ts
+│   │   ├── unusedStepReport.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
 │   │   ├── upgradeFailureCap.test.ts
@@ -753,6 +758,7 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
+│   ├── scenarioDirectories.ts  # Pure resolveScenarioDirectories: the per-issue, regression and step-definition directories `.adw/scenarios.md` names, normalised to repository-relative paths (defaults `features/per-issue`, `features/regression`)
 │   ├── scenarioRunner.ts  # Pure `resolveScenarioRunner(runnerMode, projectConfig)`: the run-by-tag command, step-definition directory and extensions, per-tag proof directory, install command and stack signals of each runner mode (`descriptor`: `.adw/` as written; `adw_playwright`: ADW's Playwright project)
 │   ├── selfHostLaunch.ts  # Memoised framework-identity check: a launch whose repo is the framework's own (even with `--target-repo` passed) counts as self-host for the guardrails gate
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
@@ -767,6 +773,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── unaddressedComments.ts  # readUnaddressedComments — the pr-review bot/self/ADW-signed comment filter over injected reads, decomposed off the legacy prCommentDetector composite (#820)
 │   ├── unifiedDiff.ts  # Pure unified-diff parser (parseUnifiedDiff, touchedPaths) feeding the fix-round guard
+│   ├── unusedStepIssueBody.ts  # Pure: the `adw:chore` issue the per-issue sweep files listing unused step definitions (capped at 100), and the `Reconciles: unused-step-definitions` marker that keeps it to one open issue per repository
+│   ├── unusedStepReport.ts  # Pure unused step report: one usage-report reader per `## BDD Framework` (cucumber-js only; others are not_supported), the dry-run command that writes it, and the step definitions/files no feature file uses
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── upgradeFailureCap.ts  # Pure helpers for counting bot-authored upgrade-failure comments — used by adwUpgrade to cap regeneration failures before escalating to human
 │   ├── utils.ts
@@ -1020,6 +1028,8 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   │   ├── devServerJanitorDeps.ts  # Shared dependency fakes for the dev-server janitor tests
 │   │   │   ├── deviceJanitorDeps.ts  # Shared dependency fakes for the device janitor tests
 │   │   │   ├── docsIndexSweepHarness.ts  # Shared fakes for the docs-index sweep tests
+│   │   │   ├── perIssueScenarioSweep.base.ts  # Frozen copy of the pre-refactor per-issue sweep, the reference for the equivalence tests
+│   │   │   ├── perIssueSweepDeps.ts  # Shared sweep dependency fakes: tracked-file listing, in-memory issue tracker, step-usage outcomes
 │   │   │   ├── perIssueSweepPersistHarness.ts  # Shared GitContext/CodeHost/SweepBase fakes for the sweep-persist tests
 │   │   │   └── retryHandlerDeps.ts  # Shared dependency fakes for the retry handler tests
 │   │   ├── autoMergeHandler.postMerge.test.ts
@@ -1054,8 +1064,12 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   │   ├── pauseQueueDecider.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── perIssueScenarioSweep.directories.test.ts
+│   │   ├── perIssueScenarioSweep.equivalence.test.ts
+│   │   ├── perIssueScenarioSweep.unusedSteps.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── perIssueSweepPersistBase.test.ts
+│   │   ├── perIssueSweepStepUsage.test.ts
 │   │   ├── sweepImportGraph.test.ts
 │   │   ├── sweepRemovalGate.test.ts
 │   │   ├── rateLimitProbe.test.ts
@@ -1090,8 +1104,9 @@ adws/                   # ADW workflow system (GitContext and the forge provider
 │   ├── deviceJanitor.ts  # Janitor probe that removes emulators and simulators left behind by dead workflows (orchestrator not running and no live holder of the issue's spawn lock, worktree outside the dev-server janitor grace period)
 │   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
 │   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
-│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
+│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes per-issue feature-{N}.feature (+ feature-{N}.* / feature-{N}-* step defs, + step defs whose feature is gone) 14 days after the issue's PR merges, from the directories `.adw/scenarios.md` names, keeping step-def files a remaining scenario still uses; every batch through sweepRemovalGate; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
 │   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR, resolved from the passed launch boundary — worktree ops on its GitContext, PR ops on its CodeHost (#797)
+│   ├── perIssueSweepStepUsage.ts  # The sweep's dry run that writes the scenario runner's usage report, the step files it keeps out of a removal batch, and the reconcile that files at most one unused-step `adw:chore` issue per repository; never throws
 │   ├── sweepImportGraph.ts  # Pure relative-import graph: keeps removal candidates a surviving file still imports; maps tsc TS2307 output back to removed files
 │   ├── sweepRemovalGate.ts  # Post-removal gate in the sweep worktree: base checks, apply removals, re-run static checks, restore files reported missing, hard-fail (discard batch) otherwise
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
