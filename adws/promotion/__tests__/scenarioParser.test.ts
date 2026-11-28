@@ -51,6 +51,25 @@ Feature: Multi tags
     Then result
 `;
 
+const RULE_FEATURE = `
+@feature-tag
+Feature: With a rule
+
+  @top-tag
+  Scenario: Top-level scenario
+    Given a precondition
+
+  @rule-tag
+  Rule: A business rule
+
+    Background:
+      Given the rule is set up
+
+    @nested-tag
+    Scenario: Scenario inside the rule
+      Given something inside the rule
+`;
+
 describe('scenarioParser.parse', () => {
   it('parses a multi-scenario feature and returns the correct count with tags', () => {
     const result = parse(MULTI_SCENARIO);
@@ -106,6 +125,13 @@ describe('scenarioParser.parse', () => {
     expect(result[0].headerLine).toBe(3);
     expect(result[1].headerLine).toBe(7);
     expect(result[1].startLine).toBe(6); // tag line
+  });
+
+  it('returns the scenarios nested in a Rule, in document order, each with its own tags only', () => {
+    const result = parse(RULE_FEATURE);
+    expect(result.map(scenario => scenario.name)).toEqual(['Top-level scenario', 'Scenario inside the rule']);
+    expect(result[0].tags).toEqual(['@top-tag']);
+    expect(result[1].tags).toEqual(['@nested-tag']);
   });
 
   it('propagates ParserException for malformed Gherkin', () => {

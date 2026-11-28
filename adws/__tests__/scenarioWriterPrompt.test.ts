@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseBoundaryList } from '../core/boundaryList';
+import { NOMINATION_DECLINED_TAG, NOMINATION_TAG } from '../promotion/nominationCollector';
 
 /**
  * `scenario_writer.md` is a prompt, so only its text tells the scenario agent which behaviour a scenario may prove, how many
@@ -29,6 +30,7 @@ function section(heading: string): string {
 const LAYER_RULE = '## Layer Rule';
 const POLYMORPHISM = '## Polymorphism on `.adw/scenarios.md`';
 const BOUNDARY_LIST = '## Real Boundaries List and Boundary Tag';
+const NOMINATION = '## Nomination';
 const READ_STEP = '### 1. Read configuration';
 const WRITE_STEP = '### 4. Write scenarios for this issue';
 const OUTPUT_STEP = '### 5. Output';
@@ -47,6 +49,18 @@ const LAYER_RULES: Readonly<Record<string, readonly string[]>> = {
   'leaves variants to unit tests': ['variants, edge cases and error tables'],
   'writes no scenario and says why when the issue has no behaviour at a Real Boundary': ['write no scenario', 'state why', '`### No scenarios`'],
   'migrates no existing scenario': ['not migrated'],
+};
+
+const NOMINATION_RULES: Readonly<Record<string, readonly string[]>> = {
+  'states nominating nothing as the default': ['Nominating nothing is the default', 'at most one does not mean one'],
+  'limits a Nomination to at most one scenario per issue': ['at most one scenario per issue'],
+  'nominates only a scenario whose breakage would be expensive and that the Regression Suite does not guard': [
+    'breakage would be expensive',
+    'no scenario of the Regression Suite already guards',
+  ],
+  "names the tag the nomination collector reads, on the scenario's own tag line": [`\`${NOMINATION_TAG}\``, "scenario's own tag line"],
+  'never nominates a declined scenario again': [`\`${NOMINATION_DECLINED_TAG}\``, 'never nominated again'],
+  'nominates only a scenario it creates in its own per-issue file': ['`<perIssueDir>/feature-$0.feature`'],
 };
 
 const VOCABULARY_PREFERENCE = ['Vocabulary preference', 'prefer phrases already registered', 'features/regression/vocabulary.md'];
@@ -158,5 +172,23 @@ describe('scenario_writer.md keeps the Real Boundaries list and tags each scenar
     expect(output).toContain('`@boundary-<name>` applied to:');
     expect(output).toContain('### Real Boundaries list');
     expect(output).toContain('created with its entries | added <name> | removed <name> | unchanged');
+  });
+});
+
+describe('scenario_writer.md lets the agent nominate at most one scenario, and none by default', () => {
+  it.each(Object.entries(NOMINATION_RULES))('%s', (_rule, phrases) => {
+    expect(missingFrom(section(NOMINATION), phrases), 'phrases the section lacks').toEqual([]);
+  });
+
+  it('points step 4 at the Nomination rules', () => {
+    expect(section(WRITE_STEP)).toContain('(see Nomination)');
+  });
+
+  it('nominates nothing when .adw/scenarios.md has no per-issue scenario directory', () => {
+    expect(section(POLYMORPHISM)).toContain('Otherwise nominate nothing');
+  });
+
+  it('reports the nominated scenario, or none, in its output', () => {
+    expect(outputStep()).toContain('### Nomination');
   });
 });

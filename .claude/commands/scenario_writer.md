@@ -38,6 +38,16 @@ The target's Real Boundaries are listed under `## Real Boundaries` in `.adw/scen
 - Tag every scenario you create, modify or flag with the `@boundary-<name>` tag of the one declared boundary its steps drive, on the scenario's tag line next to `@adw-$0`. In ADW's own repository that tag is `@boundary-subprocess`.
 - The scenario test phase fails a scenario tagged `@adw-$0` that carries no boundary tag, or one whose name is not on the list.
 
+## Nomination
+
+A Nomination is your claim that a scenario you write for this issue belongs in the Regression Suite. The owner decides it later, in a Promotion Proposal.
+
+- Nominating nothing is the default. Nominate at most one scenario per issue: at most one does not mean one, and most issues nominate none.
+- Nominate a scenario only when it guards a behaviour whose breakage would be expensive and that no scenario of the Regression Suite already guards. Read the Regression Suite's scenarios, those under `## Regression Scenario Directory` or tagged `@regression`, before you decide. That a scenario exists and passes is no reason to nominate it.
+- Nominate only a scenario you create in `<perIssueDir>/feature-$0.feature`. Never nominate a scenario you only modify or flag, or a scenario of another issue, and nominate nothing when `.adw/scenarios.md` has no `## Per-Issue Scenario Directory`.
+- Nominate it with the tag `@nominated` on the scenario's own tag line, next to `@adw-$0` and its boundary tag, never on the `Feature:` line.
+- A scenario that carries `@nomination-declined` was declined by the owner and is never nominated again. Never add or remove `@nomination-declined`, and leave the `@nominated` tags of other issues' scenarios as they are.
+
 ## Polymorphism on `.adw/scenarios.md`
 
 This prompt branches on two optional sections in `.adw/scenarios.md`.
@@ -49,6 +59,10 @@ This prompt branches on two optional sections in `.adw/scenarios.md`.
 **Real Boundaries list** (Steps 1 and 4):
 - If `## Real Boundaries` is present → read it, and tag each scenario with the boundary it drives.
 - Otherwise create it (see Real Boundaries List and Boundary Tag).
+
+**Nomination** (Step 4):
+- If `## Per-Issue Scenario Directory` is set → you may nominate one scenario you create in `<value>/feature-$0.feature` (see Nomination).
+- Otherwise nominate nothing.
 
 ## Rot Prevention
 
@@ -68,7 +82,7 @@ Scenarios **may** assert against the *outputs* of the system under test — stat
 
 Read `.adw/scenarios.md` to determine the scenario directory path. Parse the following optional sections:
 - `## Per-Issue Scenario Directory` — directory for per-issue agent-input scenarios.
-- `## Regression Scenario Directory` — the Regression Suite's directory. Never write into it (see Step 4).
+- `## Regression Scenario Directory` — the Regression Suite's directory. Never write into it (see Step 4); read its scenarios before you nominate one of yours (see Nomination).
 - `## Scenario Directory` — fallback scenario directory (default: `features/`).
 - `## BDD Framework` and `## Step Def Directory` — the runner that executes the scenarios and where its step definitions live. Write only Gherkin that this runner supports. Never install, configure or bootstrap a runner (see the Gherkin mandate).
 - `## Real Boundaries` — the target's declared Real Boundaries, absent until created (see Real Boundaries List and Boundary Tag).
@@ -102,6 +116,7 @@ Rules:
 - Tag every created, modified, or flagged scenario with `@adw-$0` and with the `@boundary-<name>` tag of the declared Real Boundary its steps drive
 - Do **not** add `@adw-$0` to scenarios from other issues that you are not touching
 - Never add or remove `@regression` on any scenario, and never write a scenario into the regression scenario directory: the Regression Suite changes only by a Promotion that a human decides.
+- Nominate at most one scenario you create, and none by default (see Nomination)
 - Phrase the steps in the issue's terms. A Per-Issue Scenario needs no phrase from a vocabulary registry.
 - Write scenarios as Gherkin `.feature` files (see Gherkin mandate above)
 - Each scenario must have a clear Given/When/Then structure
@@ -129,6 +144,9 @@ Return ONLY the following summary (no additional prose):
 
 ### Acceptance criteria at a Real Boundary
 - <for each scenario: the acceptance criterion it proves, the Real Boundary it drives and its `@boundary-<name>` tag, or "none">
+
+### Nomination
+- <the scenario tagged `@nominated`, why its breakage would be expensive and why no scenario of the Regression Suite guards it, or "none">
 
 ### No scenarios
 - <only when no scenario was written: why no acceptance criterion of the issue is observable at a Real Boundary; omit this section otherwise>

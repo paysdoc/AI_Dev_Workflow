@@ -1,5 +1,5 @@
 import { Parser, AstBuilder, GherkinClassicTokenMatcher } from '@cucumber/gherkin';
-import type { GherkinDocument, Scenario as GherkinScenario, Step as GherkinStep, Tag } from '@cucumber/messages';
+import type { FeatureChild, GherkinDocument, Scenario as GherkinScenario, Step as GherkinStep, Tag } from '@cucumber/messages';
 import { IdGenerator } from '@cucumber/messages';
 import type { Scenario, Step } from './types.ts';
 
@@ -37,13 +37,17 @@ function mapScenario(scenario: GherkinScenario): Scenario {
   return { name: scenario.name ?? '', tags, steps, startLine, endLine, headerLine };
 }
 
+function scenariosOfChild(child: FeatureChild): GherkinScenario[] {
+  if (child.scenario) return [child.scenario];
+  if (child.rule) return child.rule.children.flatMap(scenariosOfChild);
+  return [];
+}
+
 export function parse(content: string, _fileUri?: string): Scenario[] {
   const parser = buildParser();
   const document = parser.parse(content) as GherkinDocument;
   const feature = document.feature;
   if (!feature) return [];
 
-  return (feature.children ?? [])
-    .filter(child => child.scenario != null)
-    .map(child => mapScenario(child.scenario!));
+  return (feature.children ?? []).flatMap(scenariosOfChild).map(mapScenario);
 }

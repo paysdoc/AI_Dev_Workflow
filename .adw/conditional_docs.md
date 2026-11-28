@@ -463,7 +463,9 @@
     - adws/promotion/**
     - .claude/commands/promote_regression_vocabulary.md
   - Conditions:
-    - When working on the vocabulary registry parser or the scenario parser in `adws/promotion/` (`parseVocabulary`, `parseScenarios`)
+    - When working on the vocabulary registry parser or the scenario parser in `adws/promotion/` (`parseVocabulary`, `parseScenarios`), including scenarios nested in `Rule:` blocks
+    - When working on Nominations: the `@nominated` / `@nomination-declined` tags, `collectNominations`, `NominationState`, or `readPerIssueScenarioFiles` reading Per-Issue Scenario files from a default-branch checkout
+    - When building the Promotion Proposal, which consumes the nomination collector, or the sweep exemption for nominated scenarios
     - When an issue carries the `regression-promotion` label, which skips the scenario-writing phase (`shouldSkipScenarioAuthoring`) and makes the review treat it as `ReviewIssueKind.Promotion`
     - When working on the `/promote_regression_vocabulary` command or the `promote-regression-vocabulary` analysis skill
   - Decisions:
@@ -593,6 +595,7 @@
     - When `adwInitPrompt.mobile.test.ts` fails
     - When working on the Behavioural Equivalence section of `/feature`, `/bug` or `/chore` (planners adding an old-versus-new comparison step for ports and rewrites), or when `planningCommandsPrompt.test.ts` fails
     - When working on the layer rule (ADR-0067) in the prompts: Real Boundary wording, one scenario per acceptance criterion, the zero-scenario outcome of `/scenario_writer`, the `## Scenarios and Unit Tests` section of `/feature` and `/bug`, plan-sourced unit tests in `implement-tdd`, or `/review` Step 4's boundary-only blocker and zero-scenario judgement
+    - When working on the `## Nomination` section of `/scenario_writer` (at most one `@nominated` scenario per issue, none by default, `@nomination-declined` never re-nominated) or its pins in `scenarioWriterPrompt.test.ts`
     - When `scenarioWriterPrompt.test.ts`, `implementTddPrompt.test.ts`, `reviewPrompt.test.ts` or `reviewPrompt.scenarios.test.ts` fails
     - When working on the `## Real Boundaries` section `adw_init` writes into `.adw/scenarios.md` from the application type (fixed `cli`/`http`/`package`/`browser`/`app` entries, preserved when present, left out when the type is undecided)
     - When working on `templates/vocabulary.md.template` (its `## Scope` statement that the vocabulary binds the Regression Suite only, `## Execution at a Real Boundary`, no in-process execution pattern) or `adw_init`'s copy-only-when-absent vocabulary copy and examples-block drafting
